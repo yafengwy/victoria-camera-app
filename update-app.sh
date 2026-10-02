@@ -4,6 +4,9 @@ R=https://raw.githubusercontent.com/yafengwy/victoria-camera-app/main
 T=$(date +%s)
 D=$HOME/frigate
 curl -fsSL "$R/index.html?t=$T" -o /tmp/vh.html && [ -s /tmp/vh.html ] && cp /tmp/vh.html "$D/app/index.html"
+for f in icon-180.png icon-192.png icon-512.png manifest.webmanifest; do
+  curl -fsSL "$R/$f?t=$T" -o "/tmp/vh-$f" && [ -s "/tmp/vh-$f" ] && cp "/tmp/vh-$f" "$D/app/$f"
+done
 if curl -fsSL "$R/app-nginx.conf?t=$T" -o /tmp/vh.conf && [ -s /tmp/vh.conf ] && ! cmp -s /tmp/vh.conf "$D/app-nginx.conf"; then
   cp /tmp/vh.conf "$D/app-nginx.conf" && docker exec vh-app nginx -s reload
 fi

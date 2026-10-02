@@ -1,5 +1,11 @@
 <meta charset="utf-8">
 <title>Victoria's Home</title>
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="manifest" href="manifest.webmanifest" crossorigin="use-credentials">
+<meta name="apple-mobile-web-app-title" content="Victoria's Home">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -926,10 +932,36 @@ const Frigate = {
 };
 
 /* Real motion in Frigate mode: a camera counts as moving while Frigate is running detection on it (detection_fps > 0) */
+/* Real motion in Frigate mode. Main source: Frigate's websocket (/ws) — "camera_activity" on connect, then "<camera>/motion" ON/OFF,
+   the same motion Frigate's own UI shows (any pixel change counts, including leaves and shadows).
+   Fallback while the websocket is down: /api/stats (a camera running object detection is moving). */
+const Motion = {
+  sock: null, up: false,
+  set(id, on) { const m = Data.motion(id); if (on) { m.active = true; m.last = now(); } else { if (m.active) m.last = now(); m.active = false; } },
+  seed() { Data.events.forEach(e => { const m = Data.motion(e.cam); const t = e.end || e.t; if (m.last == null || t > m.last) m.last = t; }); },
+  connect() {
+    let u; try { u = new URL(Frigate.base() + '/ws', location.href); } catch (e) { return; }
+    u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
+    const s = new WebSocket(u.href); this.sock = s;
+    s.onopen = () => { this.up = true; s.send(JSON.stringify({ topic: 'onConnect', message: '', payload: '', retain: false })); };
+    s.onmessage = ev => {
+      let d; try { d = JSON.parse(ev.data); } catch (e) { return; }
+      if (!d || !d.topic) return;
+      if (d.topic === 'camera_activity') {
+        let a = d.payload; if (typeof a === 'string') { try { a = JSON.parse(a); } catch (e) { return; } }
+        for (const id in (a || {})) this.set(id, !!(a[id] && a[id].motion));
+        return;
+      }
+      const m = /^([^/]+)\/motion$/.exec(d.topic); if (m) this.set(m[1], d.payload === 'ON' || d.payload === true);
+    };
+    s.onclose = () => { this.up = false; setTimeout(() => this.connect(), 5000); };
+  }
+};
 Frigate.pollStats = async function () {
+  if (Motion.up) return;
   try {
     const d = await Frigate.get('/api/stats');
-    for (const id in (d.cameras || {})) { const m = Data.motion(id), act = (d.cameras[id].detection_fps || 0) > 0; m.active = act; if (act) m.last = now(); }
+    for (const id in (d.cameras || {})) Motion.set(id, (d.cameras[id].detection_fps || 0) > 0);
   } catch (e) {}
 };
 /* Live video in Frigate mode: go2rtc stream over WebSocket (MSE; HLS/MJPEG fallback) via Frigate's /live/mse/.
@@ -2218,7 +2250,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
 (async function start() {
   await Data.load(); lastCols = cols() * 10 + rvCols(); render();
   if (Data.source === 'frigate') {
-    Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
+    Motion.seed(); Motion.connect(); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
 })();
