@@ -742,6 +742,11 @@ img{max-width:100%}
 :is([data-app-theme="green"],[data-app-theme="google"]) :is(.top,.evtop){background:var(--bg);border-bottom:0}
 /* Google light: tonal buttons (light blue fill, dark blue icon); lines, outlines and the logo dot use a visible mid blue */
 :root[data-app-theme="google"]:not([data-dark]){--accent:#4F7FDB}
+.lvh{position:absolute;inset:0;pointer-events:none}
+.lvh[hidden]{display:none}
+.lvc,.lvc video{display:block;width:100%;height:100%;object-fit:cover;background:transparent}
+.fvw .lvc video{object-fit:contain}
+@media (orientation:landscape){.full:not(.ui) .fvw .lvc video{object-fit:cover}}
 </style>
 
 <div id="app" class="app"></div>
@@ -822,6 +827,7 @@ const Data = {
   /* Smart streaming: a camera streams video only while something moves; otherwise it shows a still frame */
   mot: {},
   motion(id) {
+    if (!this.mot[id] && this.source === 'frigate') this.mot[id] = { active: false, last: null };
     if (!this.mot[id]) {
       const c = this.cam(id), outside = c && c.group !== 'Inside';
       this.mot[id] = { active: id === 'front_door', until: now() + 8000, last: now() - (outside ? 5000 + Math.floor(Math.random() * 40000) : 120000 + Math.floor(Math.random() * 900000)) };
@@ -910,6 +916,34 @@ const Frigate = {
   }
 };
 
+/* Real motion in Frigate mode: a camera counts as moving while Frigate is running detection on it (detection_fps > 0) */
+Frigate.pollStats = async function () {
+  try {
+    const d = await Frigate.get('/api/stats');
+    for (const id in (d.cameras || {})) { const m = Data.motion(id), act = (d.cameras[id].detection_fps || 0) > 0; m.active = act; if (act) m.last = now(); }
+  } catch (e) {}
+};
+/* Live video in Frigate mode: go2rtc stream over WebSocket (MSE; HLS/MJPEG fallback) via Frigate's /live/mse/.
+   One player per stream is kept and moved back in after every render, so re-rendering does not restart the video.
+   Players pause on their own while scrolled off screen or the page is hidden. */
+const Live = {
+  els: {},
+  on() { return Data.source === 'frigate' && !!(window.customElements && customElements.get('live-cam')); },
+  holder(src, hide, id) { return Data.source === 'frigate' ? '<div class="lvh"' + (id ? ' id="' + id + '"' : '') + ' data-live="' + esc(src) + '"' + (hide ? ' hidden' : '') + '></div>' : ''; },
+  el(src) {
+    let e = this.els[src];
+    if (!e) {
+      e = document.createElement('live-cam');
+      e.className = 'lvc'; e.mode = 'mse,hls,mjpeg'; e.visibilityThreshold = 0.05;
+      e.src = new URL(Frigate.base() + '/live/mse/api/ws?src=' + encodeURIComponent(src), location.href).href;
+      this.els[src] = e;
+    }
+    return e;
+  },
+  mount() { if (!this.on()) return; document.querySelectorAll('[data-live]').forEach(h => { const e = this.el(h.dataset.live); if (e.parentNode !== h) h.appendChild(e); }); },
+  show(h, yes) { if (h) h.hidden = !yes; }
+};
+
 /* ===== State ===== */
 /* Served from the mini PC (home IP or victoriashome.app): talk to the real Frigate on the same address by default */
 const HOSTED = /^(192\.168\.|10\.|localhost$|frigate)|victoriashome\.app$/.test(location.hostname);
@@ -992,6 +1026,7 @@ function render() {
   if (S.modal === 'settings') h += modalSettings();
   if (S.modal === 'win') h += modalWin();
   app.innerHTML = h;
+  Live.mount();
   wire();
   if (S.view === 'review') {
     const top = document.getElementById('rvtop'); if (top) app.style.setProperty('--rvtop', top.getBoundingClientRect().bottom + 'px');
@@ -1046,7 +1081,7 @@ function camCard(c) {
     '<div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button>' +
     (S.layout === 'list' ? '<button class="ic" aria-label="Sound" data-act="toast" data-v="Sound turns on with live video on the mini PC">' + I.sound + '</button>' : '') +
     '</div>' +
-    '<div class="frame"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + (S.layout === 'grid' ? '<div class="cnm">' + esc(c.name) + '</div>' : '') +
+    '<div class="frame"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null) + (S.layout === 'grid' ? '<div class="cnm">' + esc(c.name) + '</div>' : '') +
     '<button class="hit" data-act="tap" data-id="' + c.id + '" aria-label="Show playback for ' + esc(c.name) + '"></button>' +
     badgeHtml(c.id, t, f) + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="tag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div></article>';
 }
@@ -1055,7 +1090,7 @@ function badgeHtml(id, t, f) {
   let inner;
   if (t != null) inner = hms(t);
   else if (S.forced[id] && S.forced[id] > now()) inner = '<span class="dot forced"></span>Live';
-  else { const m = Data.motion(id); inner = (m.active || now() - m.last < 5000) ? '<span class="dot busy"></span>Live' : '<span class="dot idle"></span>Still ' + agoShort(now() - m.last); }
+  else { const m = Data.motion(id); inner = (m.active || (m.last != null && now() - m.last < 5000)) ? '<span class="dot busy"></span>Live' : '<span class="dot idle"></span>Still' + (m.last != null ? ' ' + agoShort(now() - m.last) : ''); }
   return '<button class="badge' + (t == null ? '' : ' past') + '" id="badge-' + id + '" data-act="badge" data-id="' + id + '" aria-label="' + (t == null ? 'Live. Tap to put every camera on live' : 'Playing ' + hms(t) + '. Tap to move every camera to this time') + '">' + inner + '</button>';
 }
 function clipBand(id, start) {
@@ -1115,6 +1150,7 @@ function paintCam(id) {
   const img = document.getElementById('img-' + id);
   const fi = S.hov && S.hov.id === id ? Data.frame(c, S.hov.t) : f;     /* mouse hovering the timeline: preview that moment */
   if (img && img.getAttribute('src') !== fi.img) img.src = fi.img;
+  Live.show(document.querySelector('#cam-' + id + ' .lvh'), t == null && fi === f);
   const b = document.getElementById('badge-' + id);
   if (b) b.outerHTML = badgeHtml(id, t, f);
   const tag = document.getElementById('tag-' + id);
@@ -1178,7 +1214,7 @@ function evMedia(e) {
   const playing = S.evPlay === e.id;
   if (Data.source === 'frigate') {
     if (playing) return '<video src="' + e.clip + '" poster="' + e.img + '" autoplay controls playsinline></video>';
-    return '<video class="evprev" data-src="' + e.preview + '" poster="' + e.img + '" muted loop playsinline preload="none"></video>';
+    return '<video class="evprev" data-src="' + e.clip + '" poster="' + e.img + '" muted loop playsinline preload="none"></video>';
   }
   const dur = Math.max(4000, (e.end || e.t) - e.t);
   return '<img src="' + (playing ? Data.frame(Data.cam(e.cam), e.t + (S.evPos || 0) * dur).img : e.img) + '" alt="" loading="lazy">' +
@@ -1323,7 +1359,7 @@ function viewFocus() {
   const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk">' + esc(c.name) + '</div><div style="flex:1"></div>' +
     '<div class="pillk" id="fbadge">' + (t == null ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : hms(t)) + '</div></div>';
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
-    '<div class="fvid"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
+    '<div class="fvid"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fctl" id="fctl"><button class="fday" data-act="fdate">' + I.cal + (S.focus.dayEnd ? dayLabel(S.focus.dayEnd - 1) : 'Today') + '</button><div style="flex:1"></div>' +
     (S.flist ? '<button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button>' : '') +
     '<button class="dk' + (S.flist ? ' on' : '') + '" data-act="flist" aria-label="' + (S.flist ? 'Show Timeline' : 'Show Alert List') + '">' + (S.flist ? I.tline : I.bellO) + '</button></div>' +
@@ -1363,7 +1399,7 @@ function viewFull(c, t, f) {
       '<button class="dk sm wide" data-act="flive" aria-label="Go Live">Live</button></div>' +
       (S.fpanel ? '' : '<div class="fsb zdesk2"><button class="dk sm" data-act="fzoombtn" data-v="out" aria-label="Show Longer Time">−</button><button class="dk sm" data-act="fzoombtn" data-v="in" aria-label="Show Shorter Time">+</button></div>') + '</aside>';
   }
-  return '<div class="full' + (S.fui ? ' ui' : '') + '" id="fullv"><div class="fvw" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' +
+  return '<div class="full' + (S.fui ? ' ui' : '') + '" id="fullv"><div class="fvw" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'fulllive') +
     (S.fui ? '<div class="fuitop"><button class="dk" data-act="unfull" aria-label="Exit Full Screen">' + I.shrink + '</button><div style="flex:1"></div><div class="pillk" id="fullbadge">' + (t == null ? '<span class="dot"></span>Live' : hms(t)) + '</div></div>' : '') +
     '</div>' + side + '</div>';
 }
@@ -1432,6 +1468,8 @@ function paintFocus() {
   const fh = S.hov && S.hov.id === 'full' ? Data.frame(c, S.hov.t) : f;
   set('fimg', n => { if (n.getAttribute('src') !== f.img) n.src = f.img; });
   set('fullimg', n => { if (n.getAttribute('src') !== fh.img) n.src = fh.img; });
+  Live.show(document.getElementById('flive'), t == null);
+  Live.show(document.getElementById('fulllive'), t == null && fh === f);
   const label = t == null ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : hms(t);
   const hv = S.hov && S.hov.id === 'full' ? S.hov.t : undefined;
   set('fbadge', n => n.innerHTML = label); set('fullbadge', n => n.innerHTML = hv !== undefined ? hms(hv) : label); set('fbub', n => n.textContent = hv !== undefined ? hm(hv) : t == null ? 'Live' : hm(t));
@@ -1736,7 +1774,7 @@ const ACT = {
   focusat(d) { S.camTime[d.id] = +d.t - 5000; openFocus(d.id); },
   badge(d) {
     const t = camT(d.id);
-    const m = Data.motion(d.id), still = t == null && !(m.active || now() - m.last < 5000) && !(S.forced[d.id] > now());
+    const m = Data.motion(d.id), still = t == null && !(m.active || (m.last != null && now() - m.last < 5000)) && !(S.forced[d.id] > now());
     if (still) { S.forced[d.id] = now() + 5 * MIN; paintCam(d.id); toast('Live video for 5 minutes'); return; }
     if (t == null) { syncAll(null); toast('All cameras are live'); }
     else { syncAll(t); toast('All cameras moved to ' + hms(t)); }
@@ -2163,5 +2201,719 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
     else if (!isLand() && S.full && S.autoFull) { S.full = false; S.autoFull = false; S.fpanel = false; render(); }
   } const was = COVER; detectCover(); const n = cols() * 10 + rvCols() + (COVER ? 100 : 0) + (rvVert() ? 1000 : 0); if (S.view === 'review') { S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); } if (n !== lastCols || was !== COVER) { lastCols = n; render(); } }, 150); });
 
-(async function start() { await Data.load(); lastCols = cols() * 10 + rvCols(); render(); })();
+(async function start() {
+  await Data.load(); lastCols = cols() * 10 + rvCols(); render();
+  if (Data.source === 'frigate') {
+    Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
+    if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
+  }
+})();
 </script>
+<script type="module">
+/* go2rtc VideoRTC player (MIT, github.com/AlexxIT/go2rtc), used for live video from Frigate */
+/**
+ * VideoRTC v1.6.0 - Video player for go2rtc streaming application.
+ *
+ * All modern web technologies are supported in almost any browser except Apple Safari.
+ *
+ * Support:
+ * - ECMAScript 2017 (ES8) = ES6 + async
+ * - RTCPeerConnection for Safari iOS 11.0+
+ * - IntersectionObserver for Safari iOS 12.2+
+ * - ManagedMediaSource for Safari 17+
+ *
+ * Doesn't support:
+ * - MediaSource for Safari iOS
+ * - Customized built-in elements (extends HTMLVideoElement) because Safari
+ * - Autoplay for WebRTC in Safari
+ */
+class VideoRTC extends HTMLElement {
+    constructor() {
+        super();
+
+        this.DISCONNECT_TIMEOUT = 5000;
+        this.RECONNECT_TIMEOUT = 15000;
+
+        this.CODECS = [
+            'avc1.640029',      // H.264 high 4.1 (Chromecast 1st and 2nd Gen)
+            'avc1.64002A',      // H.264 high 4.2 (Chromecast 3rd Gen)
+            'avc1.640033',      // H.264 high 5.1 (Chromecast with Google TV)
+            'hvc1.1.6.L153.B0', // H.265 main 5.1 (Chromecast Ultra)
+            'mp4a.40.2',        // AAC LC
+            'mp4a.40.5',        // AAC HE
+            'flac',             // FLAC (PCM compatible)
+            'opus',             // OPUS Chrome, Firefox
+        ];
+
+        /**
+         * [config] Supported modes (webrtc, webrtc/tcp, mse, hls, mp4, mjpeg).
+         * @type {string}
+         */
+        this.mode = 'webrtc,mse,hls,mjpeg';
+
+        /**
+         * [Config] Requested medias (video, audio, microphone).
+         * @type {string}
+         */
+        this.media = 'video,audio';
+
+        /**
+         * [config] Run stream when not displayed on the screen. Default `false`.
+         * @type {boolean}
+         */
+        this.background = false;
+
+        /**
+         * [config] Run stream only when player in the viewport. Stop when user scroll out player.
+         * Value is percentage of visibility from `0` (not visible) to `1` (full visible).
+         * Default `0` - disable;
+         * @type {number}
+         */
+        this.visibilityThreshold = 0;
+
+        /**
+         * [config] Run stream only when browser page on the screen. Stop when user change browser
+         * tab or minimise browser windows.
+         * @type {boolean}
+         */
+        this.visibilityCheck = true;
+
+        /**
+         * [config] WebRTC configuration
+         * @type {RTCConfiguration}
+         */
+        this.pcConfig = {
+            bundlePolicy: 'max-bundle',
+            iceServers: [{urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302']}],
+            sdpSemantics: 'unified-plan',  // important for Chromecast 1
+        };
+
+        /**
+         * [info] WebSocket connection state. Values: CONNECTING, OPEN, CLOSED
+         * @type {number}
+         */
+        this.wsState = WebSocket.CLOSED;
+
+        /**
+         * [info] WebRTC connection state.
+         * @type {number}
+         */
+        this.pcState = WebSocket.CLOSED;
+
+        /**
+         * @type {HTMLVideoElement}
+         */
+        this.video = null;
+
+        /**
+         * @type {WebSocket}
+         */
+        this.ws = null;
+
+        /**
+         * @type {string|URL}
+         */
+        this.wsURL = '';
+
+        /**
+         * @type {RTCPeerConnection}
+         */
+        this.pc = null;
+
+        /**
+         * @type {number}
+         */
+        this.connectTS = 0;
+
+        /**
+         * @type {string}
+         */
+        this.mseCodecs = '';
+
+        /**
+         * [internal] Disconnect TimeoutID.
+         * @type {number}
+         */
+        this.disconnectTID = 0;
+
+        /**
+         * [internal] Reconnect TimeoutID.
+         * @type {number}
+         */
+        this.reconnectTID = 0;
+
+        /**
+         * [internal] Handler for receiving Binary from WebSocket.
+         * @type {Function}
+         */
+        this.ondata = null;
+
+        /**
+         * [internal] Handlers list for receiving JSON from WebSocket.
+         * @type {Object.<string,Function>}
+         */
+        this.onmessage = null;
+    }
+
+    /**
+     * Set video source (WebSocket URL). Support relative path.
+     * @param {string|URL} value
+     */
+    set src(value) {
+        if (typeof value !== 'string') value = value.toString();
+        if (value.startsWith('http')) {
+            value = 'ws' + value.substring(4);
+        } else if (value.startsWith('/')) {
+            value = 'ws' + location.origin.substring(4) + value;
+        }
+
+        this.wsURL = value;
+
+        this.onconnect();
+    }
+
+    /**
+     * Play video. Support automute when autoplay blocked.
+     * https://developer.chrome.com/blog/autoplay/
+     */
+    play() {
+        this.video.play().catch(() => {
+            if (!this.video.muted) {
+                this.video.muted = true;
+                this.video.play().catch(er => {
+                    console.warn(er);
+                });
+            }
+        });
+    }
+
+    /**
+     * Send message to server via WebSocket
+     * @param {Object} value
+     */
+    send(value) {
+        if (this.ws) this.ws.send(JSON.stringify(value));
+    }
+
+    /** @param {Function} isSupported */
+    codecs(isSupported) {
+        return this.CODECS
+            .filter(codec => this.media.includes(codec.includes('vc1') ? 'video' : 'audio'))
+            .filter(codec => isSupported(`video/mp4; codecs="${codec}"`)).join();
+    }
+
+    /**
+     * `CustomElement`. Invoked each time the custom element is appended into a
+     * document-connected element.
+     */
+    connectedCallback() {
+        if (this.disconnectTID) {
+            clearTimeout(this.disconnectTID);
+            this.disconnectTID = 0;
+        }
+
+        // because video autopause on disconnected from DOM
+        if (this.video) {
+            const seek = this.video.seekable;
+            if (seek.length > 0) {
+                this.video.currentTime = seek.end(seek.length - 1);
+            }
+            this.play();
+        } else {
+            this.oninit();
+        }
+
+        this.onconnect();
+    }
+
+    /**
+     * `CustomElement`. Invoked each time the custom element is disconnected from the
+     * document's DOM.
+     */
+    disconnectedCallback() {
+        if (this.background || this.disconnectTID) return;
+        if (this.wsState === WebSocket.CLOSED && this.pcState === WebSocket.CLOSED) return;
+
+        this.disconnectTID = setTimeout(() => {
+            if (this.reconnectTID) {
+                clearTimeout(this.reconnectTID);
+                this.reconnectTID = 0;
+            }
+
+            this.disconnectTID = 0;
+
+            this.ondisconnect();
+        }, this.DISCONNECT_TIMEOUT);
+    }
+
+    /**
+     * Creates child DOM elements. Called automatically once on `connectedCallback`.
+     */
+    oninit() {
+        this.video = document.createElement('video');
+        this.video.controls = true;
+        this.video.playsInline = true;
+        this.video.preload = 'auto';
+
+        this.video.style.display = 'block'; // fix bottom margin 4px
+        this.video.style.width = '100%';
+        this.video.style.height = '100%';
+
+        this.appendChild(this.video);
+
+        this.video.addEventListener('error', ev => {
+            const err = this.video.error;
+            // https://developer.mozilla.org/en-US/docs/Web/API/MediaError/code
+            const MEDIA_ERRORS = {
+                1: 'MEDIA_ERR_ABORTED',
+                2: 'MEDIA_ERR_NETWORK',
+                3: 'MEDIA_ERR_DECODE',
+                4: 'MEDIA_ERR_SRC_NOT_SUPPORTED'
+            };
+            console.error('[VideoRTC] Video error:', {
+                error: err ? MEDIA_ERRORS[err.code] : 'unknown',
+                message: err ? err.message : 'unknown',
+                codecs: this.mseCodecs || 'not set',
+                readyState: this.video.readyState,
+                networkState: this.video.networkState,
+                currentTime: this.video.currentTime
+            });
+            if (this.ws) this.ws.close(); // run reconnect for broken MSE stream
+        });
+
+        // all Safari lies about supported audio codecs
+        const m = window.navigator.userAgent.match(/Version\/(\d+).+Safari/);
+        if (m) {
+            // AAC from v13, FLAC from v14, OPUS - unsupported
+            const skip = m[1] < '13' ? 'mp4a.40.2' : m[1] < '14' ? 'flac' : 'opus';
+            this.CODECS.splice(this.CODECS.indexOf(skip));
+        }
+
+        if (this.background) return;
+
+        if ('hidden' in document && this.visibilityCheck) {
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden) {
+                    this.disconnectedCallback();
+                } else if (this.isConnected) {
+                    this.connectedCallback();
+                }
+            });
+        }
+
+        if ('IntersectionObserver' in window && this.visibilityThreshold) {
+            const observer = new IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    if (!entry.isIntersecting) {
+                        this.disconnectedCallback();
+                    } else if (this.isConnected) {
+                        this.connectedCallback();
+                    }
+                });
+            }, {threshold: this.visibilityThreshold});
+            observer.observe(this);
+        }
+    }
+
+    /**
+     * Connect to WebSocket. Called automatically on `connectedCallback`.
+     * @return {boolean} true if the connection has started.
+     */
+    onconnect() {
+        if (!this.isConnected || !this.wsURL || this.ws || this.pc) return false;
+
+        // CLOSED or CONNECTING => CONNECTING
+        this.wsState = WebSocket.CONNECTING;
+
+        this.connectTS = Date.now();
+
+        this.ws = new WebSocket(this.wsURL);
+        this.ws.binaryType = 'arraybuffer';
+        this.ws.addEventListener('open', () => this.onopen());
+        this.ws.addEventListener('close', () => this.onclose());
+
+        return true;
+    }
+
+    ondisconnect() {
+        this.wsState = WebSocket.CLOSED;
+        if (this.ws) {
+            this.ws.close();
+            this.ws = null;
+        }
+
+        this.pcState = WebSocket.CLOSED;
+        if (this.pc) {
+            this.pc.getSenders().forEach(sender => {
+                if (sender.track) sender.track.stop();
+            });
+            this.pc.close();
+            this.pc = null;
+        }
+
+        this.video.src = '';
+        this.video.srcObject = null;
+    }
+
+    /**
+     * @returns {Array.<string>} of modes (mse, webrtc, etc.)
+     */
+    onopen() {
+        // CONNECTING => OPEN
+        this.wsState = WebSocket.OPEN;
+
+        this.ws.addEventListener('message', ev => {
+            if (typeof ev.data === 'string') {
+                const msg = JSON.parse(ev.data);
+                for (const mode in this.onmessage) {
+                    this.onmessage[mode](msg);
+                }
+            } else {
+                this.ondata(ev.data);
+            }
+        });
+
+        this.ondata = null;
+        this.onmessage = {};
+
+        const modes = [];
+
+        if (this.mode.includes('mse') && ('MediaSource' in window || 'ManagedMediaSource' in window)) {
+            modes.push('mse');
+            this.onmse();
+        } else if (this.mode.includes('hls') && this.video.canPlayType('application/vnd.apple.mpegurl')) {
+            modes.push('hls');
+            this.onhls();
+        } else if (this.mode.includes('mp4')) {
+            modes.push('mp4');
+            this.onmp4();
+        }
+
+        if (this.mode.includes('webrtc') && 'RTCPeerConnection' in window) {
+            modes.push('webrtc');
+            this.onwebrtc();
+        }
+
+        if (this.mode.includes('mjpeg')) {
+            if (modes.length) {
+                this.onmessage['mjpeg'] = msg => {
+                    if (msg.type !== 'error' || msg.value.indexOf(modes[0]) !== 0) return;
+                    this.onmjpeg();
+                };
+            } else {
+                modes.push('mjpeg');
+                this.onmjpeg();
+            }
+        }
+
+        return modes;
+    }
+
+    /**
+     * @return {boolean} true if reconnection has started.
+     */
+    onclose() {
+        if (this.wsState === WebSocket.CLOSED) return false;
+
+        // CONNECTING, OPEN => CONNECTING
+        this.wsState = WebSocket.CONNECTING;
+        this.ws = null;
+
+        // reconnect no more than once every X seconds
+        const delay = Math.max(this.RECONNECT_TIMEOUT - (Date.now() - this.connectTS), 0);
+
+        this.reconnectTID = setTimeout(() => {
+            this.reconnectTID = 0;
+            this.onconnect();
+        }, delay);
+
+        return true;
+    }
+
+    onmse() {
+        /** @type {MediaSource} */
+        let ms;
+
+        if ('ManagedMediaSource' in window) {
+            const MediaSource = window.ManagedMediaSource;
+
+            ms = new MediaSource();
+            ms.addEventListener('sourceopen', () => {
+                this.send({type: 'mse', value: this.codecs(MediaSource.isTypeSupported)});
+            }, {once: true});
+
+            this.video.disableRemotePlayback = true;
+            this.video.srcObject = ms;
+        } else {
+            ms = new MediaSource();
+            ms.addEventListener('sourceopen', () => {
+                URL.revokeObjectURL(this.video.src);
+                this.send({type: 'mse', value: this.codecs(MediaSource.isTypeSupported)});
+            }, {once: true});
+
+            this.video.src = URL.createObjectURL(ms);
+            this.video.srcObject = null;
+        }
+
+        this.play();
+
+        this.mseCodecs = '';
+
+        this.onmessage['mse'] = msg => {
+            if (msg.type !== 'mse') return;
+
+            this.mseCodecs = msg.value;
+
+            const sb = ms.addSourceBuffer(msg.value);
+            sb.mode = 'segments'; // segments or sequence
+            sb.addEventListener('updateend', () => {
+                if (!sb.updating && bufLen > 0) {
+                    try {
+                        const data = buf.slice(0, bufLen);
+                        sb.appendBuffer(data);
+                        bufLen = 0;
+                    } catch (e) {
+                        // console.debug(e);
+                    }
+                }
+
+                if (!sb.updating && sb.buffered && sb.buffered.length) {
+                    const end = sb.buffered.end(sb.buffered.length - 1);
+                    const start = end - 5;
+                    const start0 = sb.buffered.start(0);
+                    if (start > start0) {
+                        sb.remove(start0, start);
+                        ms.setLiveSeekableRange(start, end);
+                    }
+                    if (this.video.currentTime < start) {
+                        this.video.currentTime = start;
+                    }
+                    const gap = end - this.video.currentTime;
+                    this.video.playbackRate = gap > 0.1 ? gap : 0.1;
+                    // console.debug('VideoRTC.buffered', gap, this.video.playbackRate, this.video.readyState);
+                }
+            });
+
+            const buf = new Uint8Array(2 * 1024 * 1024);
+            let bufLen = 0;
+
+            this.ondata = data => {
+                if (sb.updating || bufLen > 0) {
+                    const b = new Uint8Array(data);
+                    buf.set(b, bufLen);
+                    bufLen += b.byteLength;
+                    // console.debug('VideoRTC.buffer', b.byteLength, bufLen);
+                } else {
+                    try {
+                        sb.appendBuffer(data);
+                    } catch (e) {
+                        // console.debug(e);
+                    }
+                }
+            };
+        };
+    }
+
+    onwebrtc() {
+        const pc = new RTCPeerConnection(this.pcConfig);
+
+        pc.addEventListener('icecandidate', ev => {
+            if (ev.candidate && this.mode.includes('webrtc/tcp') && ev.candidate.protocol === 'udp') return;
+
+            const candidate = ev.candidate ? ev.candidate.toJSON().candidate : '';
+            this.send({type: 'webrtc/candidate', value: candidate});
+        });
+
+        pc.addEventListener('connectionstatechange', () => {
+            if (pc.connectionState === 'connected') {
+                const tracks = pc.getTransceivers()
+                    .filter(tr => tr.currentDirection === 'recvonly') // skip inactive
+                    .map(tr => tr.receiver.track);
+                /** @type {HTMLVideoElement} */
+                const video2 = document.createElement('video');
+                video2.addEventListener('loadeddata', () => this.onpcvideo(video2), {once: true});
+                video2.srcObject = new MediaStream(tracks);
+            } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+                pc.close(); // stop next events
+
+                this.pcState = WebSocket.CLOSED;
+                this.pc = null;
+
+                this.onconnect();
+            }
+        });
+
+        this.onmessage['webrtc'] = msg => {
+            switch (msg.type) {
+                case 'webrtc/candidate':
+                    if (this.mode.includes('webrtc/tcp') && msg.value.includes(' udp ')) return;
+
+                    pc.addIceCandidate({candidate: msg.value, sdpMid: '0'}).catch(er => {
+                        console.warn(er);
+                    });
+                    break;
+                case 'webrtc/answer':
+                    pc.setRemoteDescription({type: 'answer', sdp: msg.value}).catch(er => {
+                        console.warn(er);
+                    });
+                    break;
+                case 'error':
+                    if (!msg.value.includes('webrtc/offer')) return;
+                    pc.close();
+            }
+        };
+
+        this.createOffer(pc).then(offer => {
+            this.send({type: 'webrtc/offer', value: offer.sdp});
+        });
+
+        this.pcState = WebSocket.CONNECTING;
+        this.pc = pc;
+    }
+
+    /**
+     * @param pc {RTCPeerConnection}
+     * @return {Promise<RTCSessionDescriptionInit>}
+     */
+    async createOffer(pc) {
+        try {
+            if (this.media.includes('microphone')) {
+                const media = await navigator.mediaDevices.getUserMedia({audio: true});
+                media.getTracks().forEach(track => {
+                    pc.addTransceiver(track, {direction: 'sendonly'});
+                });
+            }
+        } catch (e) {
+            console.warn(e);
+        }
+
+        for (const kind of ['video', 'audio']) {
+            if (this.media.includes(kind)) {
+                pc.addTransceiver(kind, {direction: 'recvonly'});
+            }
+        }
+
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        return offer;
+    }
+
+    /**
+     * @param video2 {HTMLVideoElement}
+     */
+    onpcvideo(video2) {
+        if (this.pc) {
+            // Video+Audio > Video, H265 > H264, Video > Audio, WebRTC > MSE
+            let rtcPriority = 0, msePriority = 0;
+
+            /** @type {MediaStream} */
+            const stream = video2.srcObject;
+            if (stream.getVideoTracks().length > 0) {
+                // not the best, but a pretty simple way to check a codec
+                const isH265Supported =  this.pc.remoteDescription.sdp.includes('H265/90000');
+                rtcPriority += isH265Supported ? 0x240 : 0x220;
+            }
+            if (stream.getAudioTracks().length > 0) rtcPriority += 0x102;
+
+            if (this.mseCodecs.includes('hvc1.')) msePriority += 0x230;
+            if (this.mseCodecs.includes('avc1.')) msePriority += 0x210;
+            if (this.mseCodecs.includes('mp4a.')) msePriority += 0x101;
+
+            if (rtcPriority >= msePriority) {
+                this.video.srcObject = stream;
+                this.play();
+
+                this.pcState = WebSocket.OPEN;
+
+                this.wsState = WebSocket.CLOSED;
+                if (this.ws) {
+                    this.ws.close();
+                    this.ws = null;
+                }
+            } else {
+                this.pcState = WebSocket.CLOSED;
+                if (this.pc) {
+                    this.pc.close();
+                    this.pc = null;
+                }
+            }
+        }
+
+        video2.srcObject = null;
+    }
+
+    onmjpeg() {
+        this.ondata = data => {
+            this.video.controls = false;
+            this.video.poster = 'data:image/jpeg;base64,' + VideoRTC.btoa(data);
+        };
+
+        this.send({type: 'mjpeg'});
+    }
+
+    onhls() {
+        this.onmessage['hls'] = msg => {
+            if (msg.type !== 'hls') return;
+
+            const url = 'http' + this.wsURL.substring(2, this.wsURL.indexOf('/ws')) + '/hls/';
+            const playlist = msg.value.replace('hls/', url);
+            this.video.src = 'data:application/vnd.apple.mpegurl;base64,' + btoa(playlist);
+            this.play();
+        };
+
+        this.send({type: 'hls', value: this.codecs(type => this.video.canPlayType(type))});
+    }
+
+    onmp4() {
+        /** @type {HTMLCanvasElement} **/
+        const canvas = document.createElement('canvas');
+        /** @type {CanvasRenderingContext2D} */
+        let context;
+
+        /** @type {HTMLVideoElement} */
+        const video2 = document.createElement('video');
+        video2.autoplay = true;
+        video2.playsInline = true;
+        video2.muted = true;
+
+        video2.addEventListener('loadeddata', () => {
+            if (!context) {
+                canvas.width = video2.videoWidth;
+                canvas.height = video2.videoHeight;
+                context = canvas.getContext('2d');
+            }
+
+            context.drawImage(video2, 0, 0, canvas.width, canvas.height);
+
+            this.video.controls = false;
+            this.video.poster = canvas.toDataURL('image/jpeg');
+        });
+
+        this.ondata = data => {
+            video2.src = 'data:video/mp4;base64,' + VideoRTC.btoa(data);
+        };
+
+        this.send({type: 'mp4', value: this.codecs(this.video.canPlayType)});
+    }
+
+    static btoa(buffer) {
+        const bytes = new Uint8Array(buffer);
+        const len = bytes.byteLength;
+        let binary = '';
+        for (let i = 0; i < len; i++) {
+            binary += String.fromCharCode(bytes[i]);
+        }
+        return window.btoa(binary);
+    }
+}
+
+class LiveCam extends VideoRTC {
+  oninit() {
+    super.oninit();
+    this.video.controls = false; this.video.muted = true; this.video.autoplay = true;
+    this.video.setAttribute('playsinline', ''); this.video.disablePictureInPicture = true;
+  }
+}
+if (!customElements.get('live-cam')) customElements.define('live-cam', LiveCam);
+</script>
+
