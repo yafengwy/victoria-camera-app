@@ -916,7 +916,7 @@ const Frigate = {
         zones: ((r.data && r.data.zones) || []).map(z => z.replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase())),
         img: Frigate.thumb(r, det),
         preview: this.base() + '/api/review/' + r.id + '/preview?format=mp4',
-        clip: this.base() + '/api/' + r.camera + '/start/' + Math.floor(r.start_time - 2) + '/end/' + Math.ceil((r.end_time || r.start_time + 20) + 2) + '/clip.mp4'
+        clip: this.base() + '/api/' + r.camera + '/start/' + Math.floor(r.start_time - 1) + '/end/' + Math.ceil((r.end_time || r.start_time + 20) + 2) + '/clip.mp4'
       };
     }).sort((a, b) => b.t - a.t);
   },
@@ -1341,7 +1341,7 @@ function snapAlert(clientX) {
   let best = null, bd = 24;
   camEvents(S.expanded).forEach(e => { if (e.t < start || e.t > S.winEnd) return; const d = Math.abs(r.left + (e.t - start) / S.win * r.width - clientX); if (d < bd) { bd = d; best = e; } });
   if (!best) return false;
-  seek(S.expanded, best.t - 2000); S.playing = true; refreshTrack(); paintPanel();
+  seek(S.expanded, best.t - 1000); S.playing = true; refreshTrack(); paintPanel();
   const pp = document.querySelector('.ppgroup [data-act="playpause"],[data-act="playpause"]'); if (pp) pp.innerHTML = I.pause;
   return true;
 }
@@ -1920,7 +1920,7 @@ const ACT = {
       if (S.evPos >= 1) { evStop(); if (mm) mm.innerHTML = evMedia(e); evIcons(); }
     }, 250);
   },
-  focusat(d) { S.camTime[d.id] = +d.t - 5000; openFocus(d.id); },
+  focusat(d) { S.camTime[d.id] = +d.t - 1000; openFocus(d.id); },
   badge(d) {
     const t = camT(d.id);
     const m = Data.motion(d.id), still = t == null && !(m.active || (m.last != null && now() - m.last < 5000)) && !(S.forced[d.id] > now());
@@ -1930,7 +1930,7 @@ const ACT = {
     render();
   },
   live1(d) { seek(d.id, null); render(); },
-  seek(d) { seek(d.id, +d.t - 5000); render(); },
+  seek(d) { seek(d.id, +d.t - 1000); render(); },
   step(d) {
     const id = S.expanded; if (!id) return;
     const cur = camT(id) == null ? now() : camT(id);
@@ -2002,10 +2002,10 @@ const ACT = {
   fuitap(d, e) { if (e && e.target.closest('.fuitop')) return; S.fui = !S.fui; if (!S.fui) S.fpanel = false; render(); },
   fkick() { fuiKick(); },
   fpanel() { S.fpanel = !S.fpanel; S.fui = true; render(); fuiKick(); },
-  fseek(d) { S.camTime[S.focus.cam] = +d.t - 3000; render(); fuiKick(); },
+  fseek(d) { S.camTime[S.focus.cam] = +d.t - 1000; render(); fuiKick(); },
   flive() { S.camTime[S.focus.cam] = null; S.focus.dayEnd = null; render(); const sc = document.getElementById('fsc'); if (sc) sc.scrollTop = 0; const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
   flist() { S.flist = !S.flist; render(); const t = camT(S.focus.cam), sc = document.getElementById('fsc'); if (sc && t != null) sc.scrollTop = (focusEnd() - t) / MIN * FPX; },
-  fpick(d, e) { S.camTime[S.focus.cam] = +d.t; document.querySelectorAll('.fitem.cur').forEach(n => n.classList.remove('cur')); const b = e.target.closest('.fitem'); if (b) b.classList.add('cur'); paintFocus(); },
+  fpick(d, e) { S.camTime[S.focus.cam] = +d.t - 1000; document.querySelectorAll('.fitem.cur').forEach(n => n.classList.remove('cur')); const b = e.target.closest('.fitem'); if (b) b.classList.add('cur'); paintFocus(); },
   setwin(d) { setWin(+d.v); S.modal = null; render(); },
   objdd() { S.objOpen = !S.objOpen; render(); },
   ddobj() { S.ddObj = !S.ddObj; if (S.ddObj) S.ddCam = false; render(); },
@@ -2042,8 +2042,8 @@ const ACT = {
     rvTapLast = { id: d.id, at: t };
   },
   rvlive() { S.rv.t = null; rvScrollTo(null); paintReview(); },
-  fjump(d) {   /* tap a card or rail icon: go to that alert (2 s before it starts) */
-    const t = +d.t - 2000, sc = document.getElementById('fsc'), id = S.focus.cam;
+  fjump(d) {   /* tap a card or rail icon: go to that alert (1 s before it starts) */
+    const t = +d.t - 1000, sc = document.getElementById('fsc'), id = S.focus.cam;
     if (sc) sc.scrollTop = (focusEnd() - t) / MIN * FPX;
     setTimeout(() => { if (S.focus && S.focus.cam === id) { S.camTime[id] = t; paintFocus(); } }, 60);   /* scroll resolution is 30 s per px, so set the exact time after it */
   },
