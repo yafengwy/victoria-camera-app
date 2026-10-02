@@ -750,6 +750,11 @@ img{max-width:100%}
 :root[data-app-theme="google"]:not([data-dark]){--accent:#4F7FDB}
 .lvh{position:absolute;inset:0;pointer-events:none}
 .lvh[hidden]{display:none}
+.pbh{position:absolute;inset:0;pointer-events:none}
+.pbh[hidden]{display:none}
+.pbv{display:block;width:100%;height:100%;object-fit:cover;background:transparent}
+.fvw .pbv{object-fit:contain}
+@media (orientation:landscape){.full:not(.ui) .fvw .pbv{object-fit:cover}}
 .tag[hidden]{display:none!important}
 .lvc,.lvc video{display:block;width:100%;height:100%;object-fit:cover;background:transparent}
 .fvw .lvc video{object-fit:contain}
@@ -990,6 +995,103 @@ document.addEventListener('error', ev => {
   const a = n.tagName === 'IMG' ? 'src' : n.tagName === 'VIDEO' ? 'poster' : null; if (!a) return;
   const fb = Frigate.fb[n.getAttribute(a)]; if (fb) n.setAttribute(a, fb);
 }, true);
+/* Recorded playback in Frigate mode. Instead of one snapshot per second (slow: Frigate decodes a frame per request),
+   the open camera plays the real recording as HLS video from Frigate's /vod. Only motion is recorded, so the video
+   skips gaps; the segment list maps video time back to clock time. While the user drags or scrolls, the picture is a
+   snapshot (one request at a time); about half a second after they stop, the video seeks there and plays. */
+const Playback = {
+  st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
+  hlsP: null,
+  native() { const v = document.createElement('video'); return !!v.canPlayType('application/vnd.apple.mpegurl'); },
+  hls() {
+    if (window.Hls) return Promise.resolve(window.Hls);
+    if (!this.hlsP) this.hlsP = new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js'; sc.onload = () => ok(window.Hls); sc.onerror = no; document.head.appendChild(sc); });
+    return this.hlsP;
+  },
+  holder(id) { return Data.source === 'frigate' ? '<div class="pbh" data-pb="' + esc(id) + '"></div>' : ''; },
+  cams() { const c = {}; if (S.focus) c[S.focus.cam] = 1; else if (S.expanded && S.view === 'home') c[S.expanded] = 1; return c; },
+  showing(id) { const p = this.st[id]; return !!(p && p.on); },
+  wall(p, ct) {          /* video seconds -> clock ms */
+    let acc = 0; for (const g of p.win.segs) { const d = g[1] - g[0]; if (ct <= acc + d) return (g[0] + (ct - acc)) * 1000; acc += d; }
+    const l = p.win.segs[p.win.segs.length - 1]; return l ? l[1] * 1000 : p.win.a * 1000;
+  },
+  vtime(p, t) {          /* clock ms -> video seconds (null if t is past the loaded window) */
+    const ts = t / 1000; let acc = 0;
+    for (const g of p.win.segs) { if (ts < g[0]) return acc; if (ts <= g[1]) return acc + ts - g[0]; acc += g[1] - g[0]; }
+    return null;
+  },
+  async load(id, t) {
+    const p = this.st[id]; p.loading = true; p.on = false;
+    const a = Math.floor(t / 1000) - 2, b = Math.min(Math.floor(now() / 1000), a + 900);
+    try {
+      const rows = await Frigate.get('/api/' + id + '/recordings?after=' + a + '&before=' + b);
+      const segs = rows.map(r => [Math.max(a, r.start_time), Math.min(b, r.end_time)]).filter(g => g[1] > g[0]).sort((x, y) => x[0] - y[0]);
+      if (!segs.length) { p.win = { a, b, segs: [] }; p.loading = false; return; }
+      p.win = { a, b, segs };
+      const url = Frigate.base() + '/vod/' + id + '/start/' + a + '/end/' + b + '/index.m3u8';
+      const v = p.v;
+      if (p.h) { p.h.destroy(); p.h = null; }
+      if (this.native()) v.src = url;
+      else { const H = await this.hls(); if (!H.isSupported()) throw 0; p.h = new H(); p.h.loadSource(url); p.h.attachMedia(v); }
+      await new Promise(ok => { const f = () => { v.removeEventListener('loadedmetadata', f); ok(); }; v.addEventListener('loadedmetadata', f); setTimeout(ok, 8000); });
+      const vt = this.vtime(p, camT(id) == null ? t : camT(id)); if (vt != null) v.currentTime = vt;
+    } catch (e) { p.win = { a, b, segs: [] }; }
+    p.loading = false;
+  },
+  el(id) {
+    let p = this.st[id];
+    if (!p) {
+      const v = document.createElement('video'); v.className = 'pbv'; v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto';
+      p = this.st[id] = { v, win: null, loading: false, on: false, ext: 0, lastSet: null };
+      v.addEventListener('timeupdate', () => {
+        if (!p.on || !p.win || S.dragging || v.paused) return;
+        const t = this.wall(p, v.currentTime); p.lastSet = t;
+        if (t >= now() - 1500) { S.camTime[id] = null; this.stop(id); } else S.camTime[id] = t;
+        if (S.expanded === id && S.view === 'home') { const tt = camT(id); if (tt != null && tt > S.winEnd) S.winEnd = Math.min(now(), tt + S.win / 2); if (tt != null) S.pos = (tt - (S.winEnd - S.win)) / S.win; paintPanel(); }
+        if (S.focus && S.focus.cam === id) paintFocus();
+      });
+      v.addEventListener('ended', () => { const t = camT(id); if (t != null) { p.win = null; } });
+    }
+    return p;
+  },
+  stop(id) { const p = this.st[id]; if (!p) return; p.on = false; p.v.pause(); this.paintVis(id); },
+  paintVis(id) { const p = this.st[id]; document.querySelectorAll('[data-pb="' + id + '"]').forEach(h => { h.hidden = !(p && p.on); }); },
+  mount() {
+    if (Data.source !== 'frigate') return;
+    document.querySelectorAll('[data-pb]').forEach(h => { const p = this.el(h.dataset.pb); if (p.v.parentNode !== h) h.appendChild(p.v); h.hidden = !p.on; });
+  },
+  sync() {
+    if (Data.source !== 'frigate') return;
+    const want = this.cams();
+    for (const id in this.st) if (!want[id]) this.stop(id);
+    for (const id in want) {
+      const t = camT(id), p = this.el(id);
+      if (t == null || !S.playing || S.dragging || (S.hov && (S.hov.id === id || S.hov.id === 'full'))) { if (p.on || !p.v.paused) this.stop(id); continue; }
+      if (p.loading) continue;
+      const moved = p.lastSet == null || Math.abs(t - p.lastSet) > 2500;
+      if (moved) { if (!p.ext) p.ext = performance.now(); p.lastSet = t; if (p.on) { p.on = false; p.v.pause(); this.paintVis(id); } }
+      if (p.ext && performance.now() - p.ext < 450) continue;      /* still being dragged/scrolled: wait */
+      p.ext = 0;
+      const vt = p.win && p.win.segs.length ? this.vtime(p, t) : null;
+      if (!p.win || (vt == null && p.win.segs.length) || t / 1000 < p.win.a || t / 1000 > p.win.b - 3) { this.load(id, t).then(() => this.sync()); continue; }
+      if (!p.win.segs.length) continue;                             /* nothing recorded here: keep the snapshot */
+      if (moved || Math.abs(this.wall(p, p.v.currentTime) - t) > 2500) p.v.currentTime = vt;
+      p.v.playbackRate = S.speed || 1;
+      if (p.v.paused) p.v.play().catch(() => {});
+      if (!p.on && p.v.readyState >= 2) { p.on = true; p.lastSet = t; this.paintVis(id); }
+      else if (!p.on) p.v.addEventListener('playing', () => { if (camT(id) != null && S.playing) { p.on = true; this.paintVis(id); } }, { once: true });
+    }
+  }
+};
+/* Snapshot images: one request in flight per <img>; newer requests replace the queued one (keeps scrubbing responsive) */
+function setImg(img, src) {
+  if (!img || img.getAttribute('src') === src || img.dataset.next === src) return;
+  if (img.dataset.busy === '1') { img.dataset.next = src; return; }
+  img.dataset.busy = '1';
+  const done = () => { img.dataset.busy = ''; const n = img.dataset.next; img.dataset.next = ''; if (n && n !== img.getAttribute('src')) setImg(img, n); };
+  img.onload = done; img.onerror = done; img.src = src;
+}
+
 /* ===== State ===== */
 /* Served from the mini PC (home IP or victoriashome.app): talk to the real Frigate on the same address by default */
 const HOSTED = /^(192\.168\.|10\.|localhost$|frigate)|victoriashome\.app$/.test(location.hostname);
@@ -1072,7 +1174,7 @@ function render() {
   if (S.modal === 'settings') h += modalSettings();
   if (S.modal === 'win') h += modalWin();
   app.innerHTML = h;
-  Live.mount();
+  Live.mount(); Playback.mount();
   wire();
   if (S.view === 'review') {
     const top = document.getElementById('rvtop'); if (top) app.style.setProperty('--rvtop', top.getBoundingClientRect().bottom + 'px');
@@ -1127,7 +1229,7 @@ function camCard(c) {
     '<div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button>' +
     (S.layout === 'list' ? '<button class="ic" aria-label="Sound" data-act="toast" data-v="Sound turns on with live video on the mini PC">' + I.sound + '</button>' : '') +
     '</div>' +
-    '<div class="frame"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null) + (S.layout === 'grid' ? '<div class="cnm">' + esc(c.name) + '</div>' : '') +
+    '<div class="frame"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null) + Playback.holder(c.id) + (S.layout === 'grid' ? '<div class="cnm">' + esc(c.name) + '</div>' : '') +
     '<button class="hit" data-act="tap" data-id="' + c.id + '" aria-label="Show playback for ' + esc(c.name) + '"></button>' +
     badgeHtml(c.id, t, f) + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="tag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div></article>';
 }
@@ -1195,7 +1297,7 @@ function paintCam(id) {
   const t = camT(id), f = Data.frame(c, t);
   const img = document.getElementById('img-' + id);
   const fi = S.hov && S.hov.id === id ? Data.frame(c, S.hov.t) : f;     /* mouse hovering the timeline: preview that moment */
-  if (img && img.getAttribute('src') !== fi.img) img.src = fi.img;
+  if (img && !(fi === f && Playback.showing(id))) { if (Data.source === 'frigate') setImg(img, fi.img); else if (img.getAttribute('src') !== fi.img) img.src = fi.img; }
   Live.show(document.querySelector('#cam-' + id + ' .lvh'), t == null && fi === f);
   const b = document.getElementById('badge-' + id);
   if (b) b.outerHTML = badgeHtml(id, t, f);
@@ -1405,7 +1507,7 @@ function viewFocus() {
   const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk">' + esc(c.name) + '</div><div style="flex:1"></div>' +
     '<div class="pillk" id="fbadge">' + (t == null ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : hms(t)) + '</div></div>';
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
-    '<div class="fvid"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
+    '<div class="fvid"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fctl" id="fctl"><button class="fday" data-act="fdate">' + I.cal + (S.focus.dayEnd ? dayLabel(S.focus.dayEnd - 1) : 'Today') + '</button><div style="flex:1"></div>' +
     (S.flist ? '<button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button>' : '') +
     '<button class="dk' + (S.flist ? ' on' : '') + '" data-act="flist" aria-label="' + (S.flist ? 'Show Timeline' : 'Show Alert List') + '">' + (S.flist ? I.tline : I.bellO) + '</button></div>' +
@@ -1445,7 +1547,7 @@ function viewFull(c, t, f) {
       '<button class="dk sm wide" data-act="flive" aria-label="Go Live">Live</button></div>' +
       (S.fpanel ? '' : '<div class="fsb zdesk2"><button class="dk sm" data-act="fzoombtn" data-v="out" aria-label="Show Longer Time">−</button><button class="dk sm" data-act="fzoombtn" data-v="in" aria-label="Show Shorter Time">+</button></div>') + '</aside>';
   }
-  return '<div class="full' + (S.fui ? ' ui' : '') + '" id="fullv"><div class="fvw" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'fulllive') +
+  return '<div class="full' + (S.fui ? ' ui' : '') + '" id="fullv"><div class="fvw" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
     (S.fui ? '<div class="fuitop"><button class="dk" data-act="unfull" aria-label="Exit Full Screen">' + I.shrink + '</button><div style="flex:1"></div><div class="pillk" id="fullbadge">' + (t == null ? '<span class="dot"></span>Live' : hms(t)) + '</div></div>' : '') +
     '</div>' + side + '</div>';
 }
@@ -1512,8 +1614,9 @@ function paintFocus() {
   const c = Data.cam(S.focus.cam), t = camT(c.id), f = Data.frame(c, t);
   const set = (id, fn) => { const n = document.getElementById(id); if (n) fn(n); };
   const fh = S.hov && S.hov.id === 'full' ? Data.frame(c, S.hov.t) : f;
-  set('fimg', n => { if (n.getAttribute('src') !== f.img) n.src = f.img; });
-  set('fullimg', n => { if (n.getAttribute('src') !== fh.img) n.src = fh.img; });
+  const pb = Playback.showing(c.id), si = (n, src) => { if (Data.source === 'frigate') setImg(n, src); else if (n.getAttribute('src') !== src) n.src = src; };
+  set('fimg', n => { if (!pb) si(n, f.img); });
+  set('fullimg', n => { if (!(pb && fh === f)) si(n, fh.img); });
   Live.show(document.getElementById('flive'), t == null);
   Live.show(document.getElementById('fulllive'), t == null && fh === f);
   const label = t == null ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : hms(t);
@@ -2206,6 +2309,7 @@ function edgeTick() {
 }
 
 /* ===== Playback clock: past cameras keep playing forward ===== */
+setInterval(() => { Playback.sync(); }, 250);
 setInterval(() => {
   if (S.dragging) return;
   if (S.playing) {
@@ -2213,6 +2317,7 @@ setInterval(() => {
       const t = S.camTime[c.id];
       if (t == null) return;
       if (S.focus && S.focus.cam === c.id) return;
+      if (Playback.showing(c.id)) return;
       const nt = t + 1000 * S.speed;
       S.camTime[c.id] = nt >= now() - 1000 ? null : nt;
     });
