@@ -7,6 +7,9 @@ curl -fsSL "$R/index.html?t=$T" -o /tmp/vh.html && [ -s /tmp/vh.html ] && cp /tm
 if curl -fsSL "$R/app-nginx.conf?t=$T" -o /tmp/vh.conf && [ -s /tmp/vh.conf ] && ! cmp -s /tmp/vh.conf "$D/app-nginx.conf"; then
   cp /tmp/vh.conf "$D/app-nginx.conf" && docker exec vh-app nginx -s reload
 fi
+if curl -fsSL "$R/Caddyfile?t=$T" -o /tmp/vh.caddy && [ -s /tmp/vh.caddy ] && ! cmp -s /tmp/vh.caddy "$D/Caddyfile"; then
+  cp /tmp/vh.caddy "$D/Caddyfile" && docker exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
+fi
 if curl -fsSL "$R/update-app.sh?t=$T" -o /tmp/vh.sh && [ -s /tmp/vh.sh ] && head -1 /tmp/vh.sh | grep -q '^#!/bin/sh' && ! cmp -s /tmp/vh.sh "$D/update-app.sh"; then
   cp /tmp/vh.sh "$D/update-app.sh" && chmod +x "$D/update-app.sh"
 fi

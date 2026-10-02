@@ -1,10 +1,20 @@
 # Outside access: https://cam.victoriashome.app
-# Caddy gets the HTTPS certificate by itself and asks for a username and password before anything else.
-# The password hash lives only on the mini PC in ~/frigate/caddy-auth (one line: "username hash").
+# First visit asks for the username and password once, then sets a 1-year cookie so the phone isn't asked again
+# (phones don't re-send the password for live video, which made the sign-in box keep popping up).
+# The password hash (caddy-auth) and the cookie secret (caddy.env) live only on the mini PC.
 cam.victoriashome.app {
 	encode gzip
-	basic_auth {
-		import /etc/caddy/auth
+	@remembered header Cookie *vh_session={$VH_COOKIE}*
+	handle @remembered {
+		reverse_proxy vh-app:80
 	}
-	reverse_proxy vh-app:80
+	handle {
+		route {
+			basic_auth {
+				import /etc/caddy/auth
+			}
+			header Set-Cookie "vh_session={$VH_COOKIE}; Path=/; Max-Age=31536000; Secure; HttpOnly; SameSite=Lax"
+			reverse_proxy vh-app:80
+		}
+	}
 }

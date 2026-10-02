@@ -47,3 +47,4 @@ services:
       - ./caddy-auth:/etc/caddy/auth:ro
       - ./caddy-data:/data
       - ./caddy-config:/config
+    env_file: caddy.env
