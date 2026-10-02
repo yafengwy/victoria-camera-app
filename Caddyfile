@@ -1,0 +1,10 @@
+# Outside access: https://cam.victoriashome.app
+# Caddy gets the HTTPS certificate by itself and asks for a username and password before anything else.
+# The password hash lives only on the mini PC in ~/frigate/caddy-auth (one line: "username hash").
+cam.victoriashome.app {
+	encode gzip
+	basic_auth {
+		import /etc/caddy/auth
+	}
+	reverse_proxy vh-app:80
+}
