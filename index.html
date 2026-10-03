@@ -343,6 +343,7 @@ img.rf{opacity:0}
 .dd2 svg{width:16px;height:16px;color:var(--sub)}
 .ddl{border:1.5px solid var(--line);border-radius:10px;padding:2px 0;max-height:300px;overflow-y:auto}
 .mrow{display:flex;align-items:center;gap:8px;min-height:32px;padding:0 10px;font-size:13px;font-weight:600;text-align:left;color:var(--text)}
+.camquick{flex-wrap:wrap;gap:4px 14px;justify-content:flex-start}
 .mrow.head{font-size:12px;font-weight:800;color:var(--sub);border-bottom:1px solid var(--line)}
 .mrow.tight{padding:0 4px;min-height:30px}
 .lnk{font-size:12px;font-weight:800;color:var(--head-fg);padding:6px 8px}
@@ -1267,7 +1268,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.1.48 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.1.49 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1555,8 +1556,6 @@ function passes(e) {
   if (e.interesting ? !f.int : !f.unint) return false;
   if (!objOn(f, e.label)) return false;
   if (f.off[e.cam]) return false;
-  const z = f.zones && f.zones[e.cam];
-  if (z && z.length && !(e.zones || []).some(x => z.includes(x))) return false;
   return true;
 }
 function saveFilt() { store.set('filt3', S.filt); }
@@ -1935,7 +1934,8 @@ function filterPanel() {
   const objsOn = OBJS().filter(o => objOn(f, o)), allObj = objsOn.length === OBJS().length;
   const camsOn = Data.cams.filter(c => !f.off[c.id]);
   const objSum = allObj ? 'Any Object' : objsOn.length ? objsOn.join(', ') : 'No Objects';
-  const camSum = camsOn.length === Data.cams.length ? 'All Cameras' : camsOn.length ? camsOn.length + ' Cameras' : 'No Cameras';
+  const grpOn = [...new Set(Data.cams.map(c => c.group))].find(g => { const gc = Data.cams.filter(c => c.group === g); return gc.length === camsOn.length && gc.every(c => camsOn.includes(c)); });
+  const camSum = camsOn.length === Data.cams.length ? 'All Cameras' : grpOn ? grpOn + ' Only' : camsOn.length ? camsOn.length + (camsOn.length === 1 ? ' Camera' : ' Cameras') : 'No Cameras';
   let h = '<div class="fpanel2"><div class="frow">' +
     '<button class="dd2" data-act="ddobj" aria-expanded="' + S.ddObj + '"><span>' + esc(objSum) + '</span>' + (S.ddObj ? I.up : I.down) + '</button>' +
     '<button class="dd2" data-act="ddcam" aria-expanded="' + S.ddCam + '"><span>' + esc(camSum) + '</span>' + (S.ddCam ? I.up : I.down) + '</button></div>';
@@ -1944,15 +1944,12 @@ function filterPanel() {
       OBJS().map(o => '<button class="mrow" data-act="obj" data-v="' + o + '">' + mini(objOn(f, o)) + o + '</button>').join('') + '</div>';
   }
   if (S.ddCam) {
-    h += '<div class="ddl"><div class="mrow head"><span style="flex:1">Cameras</span><button class="lnk" data-act="allcams" data-v="1">All</button><button class="lnk" data-act="allcams" data-v="0">None</button></div>';
+    const groups = [...new Set(Data.cams.map(c => c.group))];
+    h += '<div class="ddl"><div class="mrow head camquick"><button class="lnk" data-act="allcams" data-v="1">All</button>' +
+      groups.map(g => '<button class="lnk" data-act="allcams" data-v="g:' + esc(g) + '">' + esc(g) + ' Only</button>').join('') +
+      '<button class="lnk" data-act="allcams" data-v="0">None</button></div>';
     Data.cams.forEach(c => {
-      const z = (f.zones && f.zones[c.id]) || [];
-      h += '<div class="crow"><button class="mrow" style="flex:1" data-act="camf" data-id="' + c.id + '">' + mini(!f.off[c.id]) + esc(c.name) + '</button>' +
-        (c.zones && c.zones.length ? '<button class="zbtn' + (z.length ? ' on' : '') + '" data-act="zopen" data-id="' + c.id + '" aria-expanded="' + (S.zoneOpen === c.id) + '" aria-label="Zones for ' + esc(c.name) + '">' + I.zone + '<span>' + (z.length ? z.length + (z.length > 1 ? ' Zones' : ' Zone') : 'Whole') + '</span></button>' : '') + '</div>';
-      if (S.zoneOpen === c.id) {
-        h += '<div class="zrow"><button class="chip sm" data-act="zone" data-id="' + c.id + '" data-v="" aria-pressed="' + !z.length + '">Whole Camera</button>' +
-          c.zones.map(zn => '<button class="chip sm" data-act="zone" data-id="' + c.id + '" data-v="' + esc(zn) + '" aria-pressed="' + z.includes(zn) + '">' + esc(zn) + '</button>').join('') + '</div>';
-      }
+      h += '<div class="crow"><button class="mrow" style="flex:1" data-act="camf" data-id="' + c.id + '">' + mini(!f.off[c.id]) + esc(c.name) + '</button></div>';
     });
     h += '</div>';
   }
@@ -2244,7 +2241,7 @@ function rvMark(box, c, t) {
 }
 function rvPass(e) {
   const f = S.rv.f; if (e.interesting ? !f.int : !f.unint) return false; if (!objOn(f, e.label)) return false;
-  const z = S.rv.zones[e.cam]; return !(z && z.length && !(e.zones || []).some(x => z.includes(x)));
+  return true;
 }
 function rvDropdown() {
   const ck = (on, act, v, label, cls) => '<button class="check' + (cls ? ' ' + cls : '') + '" role="checkbox" aria-checked="' + on + '" data-act="' + act + '" data-v="' + esc(v) + '"><span class="box">' + (on ? I.check : '') + '</span>' + esc(label) + '</button>';
@@ -2265,13 +2262,7 @@ function rvDropdown() {
     groups.forEach(g => {
       h += '<div class="rvddh">' + esc(g) + '</div>';
       Data.cams.filter(c => c.group === g).forEach(c => {
-        const z = S.rv.zones[c.id] || [];
-        h += '<div class="rvcrow">' + ck(on(c.id), 'rvcam', c.id, c.name) +
-          (c.zones && c.zones.length ? '<button class="zbtn' + (z.length ? ' on' : '') + '" data-act="rvzopen" data-v="' + c.id + '" aria-expanded="' + (S.rv.zopen === c.id) + '" aria-label="Zones For ' + esc(c.name) + '">' + I.zone + '<span>' + (z.length ? z.length + (z.length > 1 ? ' Zones' : ' Zone') : 'Whole') + '</span></button>' : '') + '</div>';
-        if (S.rv.zopen === c.id) {
-          const zk = (zon, v, label) => '<button class="check" role="checkbox" aria-checked="' + zon + '" data-act="rvzone" data-id="' + c.id + '" data-v="' + esc(v) + '"><span class="box">' + (zon ? I.check : '') + '</span>' + esc(label) + '</button>';
-          h += '<div class="rvzl">' + zk(!z.length, '', 'Whole Camera') + c.zones.map(zn => zk(z.includes(zn), zn, zn)).join('') + '</div>';
-        }
+        h += '<div class="rvcrow">' + ck(on(c.id), 'rvcam', c.id, c.name) + '</div>';
       });
     });
   }
@@ -2469,7 +2460,7 @@ function modalFilter() {
     '<button class="dd" data-act="objdd" aria-expanded="' + S.objOpen + '">' + esc(summary) + (S.objOpen ? I.up : I.down) + '</button>' +
     (S.objOpen ? '<div class="ddlist">' + OBJS().map(o => '<button class="check" role="checkbox" aria-checked="' + (objOn(f, o)) + '" data-act="obj" data-v="' + o + '"><span class="box">' + (objOn(f, o) ? I.check : '') + '</span>' + o + '</button>').join('') + '</div>' : '') +
     '<button class="check" role="checkbox" aria-checked="' + all + '" data-act="anyobj"><span class="box">' + (all ? I.check : '') + '</span>Any Recognized Object</button>' +
-    filterZones() +
+
     '<button class="btn solid" style="align-self:flex-end" data-act="close">Save</button></div></div></div>';
 }
 /* Zones for the camera being viewed (camera view, full screen, or the expanded card on the home page) */
@@ -2491,7 +2482,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.48 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.49 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -2658,7 +2649,12 @@ const ACT = {
   },
   obj(d) { objToggle(S.filt, d.v); saveFilt(); render(); },
   camf(d) { S.filt.off[d.id] = !S.filt.off[d.id]; saveFilt(); render(); },
-  allcams(d) { S.filt.off = {}; if (d.v === '0') Data.cams.forEach(c => { S.filt.off[c.id] = true; }); saveFilt(); render(); },
+  allcams(d) {
+    S.filt.off = {};
+    if (d.v === '0') Data.cams.forEach(c => { S.filt.off[c.id] = true; });
+    else if (String(d.v).startsWith('g:')) { const g = d.v.slice(2); Data.cams.forEach(c => { if (c.group !== g) S.filt.off[c.id] = true; }); }
+    saveFilt(); render();
+  },
   filters() { S.filtersOpen = !S.filtersOpen; render(); },
   day(d) { S.evDay = +d.v; render(); window.scrollTo(0, 0); },
   hour(d) {
@@ -3120,7 +3116,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.1.48';
+    const BUILD = '1.1.49';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
