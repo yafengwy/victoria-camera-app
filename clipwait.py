@@ -2,7 +2,8 @@
 # A notification asks for a short video right after an alert starts, before Frigate has saved that part of the
 # recording. Instead of failing, this waits (up to 25 s) until the recording covers the requested time, then
 # passes Frigate's clip on. So the video shows up as early as it exists, and never comes back empty.
-import json, time, re, urllib.request
+# The sound is taken out, so the video always plays silently on the phone.
+import json, time, re, os, subprocess, tempfile, urllib.request
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
 FRIGATE = 'http://frigate:5000'
@@ -16,6 +17,16 @@ def covered(cam, s, e):
     except Exception:
         return False
 
+def silent(body):
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            a, b = os.path.join(d, 'in.mp4'), os.path.join(d, 'out.mp4')
+            open(a, 'wb').write(body)
+            subprocess.run(['ffmpeg', '-v', 'error', '-i', a, '-an', '-c:v', 'copy', '-movflags', '+faststart', b], check=True, timeout=20)
+            return open(b, 'rb').read()
+    except Exception:
+        return body
+
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
         m = PATH.match(self.path.split('?')[0])
@@ -28,6 +39,7 @@ class H(BaseHTTPRequestHandler):
         try:
             with urllib.request.urlopen(f'{FRIGATE}/api/{cam}/start/{s}/end/{e}/clip.mp4', timeout=30) as r:
                 body = r.read()
+            body = silent(body)
             self.send_response(200)
             self.send_header('Content-Type', 'video/mp4')
             self.send_header('Content-Length', str(len(body)))

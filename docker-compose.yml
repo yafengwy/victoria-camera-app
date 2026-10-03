@@ -58,4 +58,4 @@ services:
       - frigate
     volumes:
       - ./repo/clipwait.py:/clipwait.py:ro
-    command: ["python", "-u", "/clipwait.py"]
+    command: ["sh", "-c", "apk add --no-cache ffmpeg >/dev/null 2>&1; exec python -u /clipwait.py"]
