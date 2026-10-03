@@ -60,7 +60,7 @@ img.rf{opacity:0}
 .cam{border-radius:14px;overflow:hidden;background:var(--head);display:flex;flex-direction:column;outline:3px solid transparent;outline-offset:-3px;transition:outline-color .15s}
 .cam.on{outline-color:var(--accent,var(--strong))}
 .chead{height:44px;display:flex;align-items:center;padding:0 2px 0 12px;color:var(--head-fg)}
-.cname{flex:1;min-width:0;font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;height:44px}
+.cname{flex:1;min-width:0;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;height:44px}
 .cam .ic{color:var(--head-fg);width:38px;height:40px}
 .frame{position:relative;aspect-ratio:16/9;background:#1E2226;overflow:hidden;touch-action:manipulation}
 /* upright cameras (e.g. a doorbell): same height as the others, narrower, centred */
@@ -388,8 +388,8 @@ img.rf{opacity:0}
 .gchev{display:flex;color:var(--sub)}
 .gchev svg{width:18px;height:18px}
 .group.bare{background:none;padding:0}
-.group.bare .ghead{height:24px;padding:0 2px}
-.group.bare .gname{font-size:11px;font-weight:800;color:var(--sub);text-transform:uppercase;letter-spacing:.06em}
+.group.bare .ghead{height:34px;padding:0 2px}
+.group.bare .gname{font-size:14px;font-weight:800;color:var(--head-fg);text-transform:uppercase;letter-spacing:.06em}
 .group.bare .gchev svg{width:15px;height:15px}
 .main{gap:8px}
 .dot.idle{background:#B0B8BE}
@@ -509,6 +509,8 @@ img.rf{opacity:0}
 
 :root[data-cover] .main{padding-top:max(8px,env(safe-area-inset-top,0px))}
 .dbg{font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums;line-height:1.5}
+.dbg .btn{padding:3px 10px;font-size:11px;min-height:0;height:auto;margin-left:4px}
+.dbglog{font-size:10px;line-height:1.35;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-all;background:var(--card,rgba(0,0,0,.05));padding:6px;border-radius:8px;margin:6px 0 0;color:var(--sub)}
 
 /* ---- v21: review alert-type filter ---- */
 .rvbar .rvtitle{flex:1;min-width:0}
@@ -746,9 +748,9 @@ img.rf{opacity:0}
 :is([data-app-theme="noir"]) :is(.brand,.rvtitle){font-family:var(--serif);font-weight:600;font-size:23px;letter-spacing:.01em}
 :is([data-app-theme="noir"]) .gname{font-family:var(--serif);font-weight:600;font-size:19px;letter-spacing:.01em}
 :is([data-app-theme="noir"]) :is(.top,.evtop,.rvtop){background:var(--bg);border-color:var(--line)}
-:is([data-app-theme="noir"]) .cam .cname{font-family:var(--serif);font-size:22px;font-weight:600;letter-spacing:.005em}
+:is([data-app-theme="noir"]) .cam .cname{font-family:var(--serif);font-size:18px;font-weight:500;letter-spacing:.005em}
 :is([data-app-theme="noir"]) .chip{background:transparent;box-shadow:inset 0 0 0 1px var(--line);color:var(--text);font-weight:600}
-:is([data-app-theme="noir"]) .group.bare .gname{font-family:var(--font);font-size:11px;letter-spacing:.18em;color:var(--sub)}
+:is([data-app-theme="noir"]) .group.bare .gname{font-family:var(--font);font-size:14px;letter-spacing:.14em;color:var(--head-fg)}
 :is([data-app-theme="noir"]) .evbar>span{font-family:var(--serif);font-size:25px;font-weight:600}
 :is([data-app-theme="noir"]) .day{background:transparent;box-shadow:inset 0 0 0 1px var(--line);color:var(--text)}
 :is([data-app-theme="noir"]) .day[aria-pressed="true"]{background:var(--strong);color:var(--strong-fg);box-shadow:none}
@@ -767,7 +769,7 @@ img.rf{opacity:0}
 :is([data-app-theme="green"],[data-app-theme="google"]) .evcard{border-radius:20px}
 [data-app-theme="green"] .brand{font-weight:500;font-size:22px}
 [data-app-theme="green"] .gname,[data-app-theme="green"] .cam .cname{font-weight:500}
-[data-app-theme="green"] .group.bare .gname{letter-spacing:.02em;text-transform:none;font-size:14px;font-weight:500}
+[data-app-theme="green"] .group.bare .gname{letter-spacing:.02em;text-transform:none;font-size:16px;font-weight:700}
 :is([data-app-theme="green"],[data-app-theme="google"]) :is(.top,.evtop){background:var(--bg);border-bottom:0}
 /* Google light: tonal buttons (light blue fill, dark blue icon); lines, outlines and the logo dot use a visible mid blue */
 :root[data-app-theme="google"]:not([data-dark]){--accent:#4F7FDB}
@@ -1189,7 +1191,7 @@ function recFail(n, src) {
       try { const r = await fetch(base + '&retry=' + i, { credentials: 'include' }); if (r.ok) { apply(base + '&retry=' + i); return; } } catch (e) {}
     }
     const p = recAsk[key] || (recAsk[key] = Frigate.get('/api/' + cam + '/recordings?after=' + (sec - 2) + '&before=' + (sec + 2)).then(r => r.length > 0).catch(() => true));
-    apply((await p) ? LOADFAIL : NOREC);
+    const has = await p; Dbg.log('picture failed', cam, hms(sec * 1000), has ? 'recorded' : 'no recording'); apply(has ? LOADFAIL : NOREC);
   })();
 }
 const LOADFAIL = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><rect width="640" height="360" fill="#1B1F23"/><text x="320" y="172" fill="#AEB6BE" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="26" font-weight="700" text-anchor="middle">Picture Did Not Load</text><text x="320" y="210" fill="#7C858E" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="18" text-anchor="middle">Recorded · Tap To Play</text></svg>');
@@ -1199,6 +1201,16 @@ const NOREC = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www
    the open camera plays the real recording as HLS video from Frigate's /vod. Only motion is recorded, so the video
    skips gaps; the segment list maps video time back to clock time. While the user drags or scrolls, the picture is a
    snapshot (one request at a time); about half a second after they stop, the video seeks there and plays. */
+/* Playback log: what the phone did while loading and playing a recording, to copy from Settings when something is stuck */
+const Dbg = {
+  a: (() => { try { return JSON.parse(localStorage.getItem('vhlog') || '[]'); } catch (e) { return []; } })(),
+  log(...m) {
+    const d = new Date(), ts = d.toTimeString().slice(0, 8) + '.' + String(d.getMilliseconds()).padStart(3, '0');
+    this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
+    clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
+  },
+  text() { return 'Version 1.1.35 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+};
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
   hlsP: null,
@@ -1232,6 +1244,7 @@ const Playback = {
     const p = this.st[id], seq = p.seq = (p.seq || 0) + 1; p.loading = true; p.loadT = t; p.on = false; p.win = null; this.paintVis(id);
     const gone = () => seq !== p.seq;          /* a newer tap started another load: drop this one */
     let a = Math.floor(t / 1000) - 1, b = Math.min(Math.floor(now() / 1000), a + 900);
+    Dbg.log('load', id, hms(t), 'native=' + this.native());
     try {
       /* Start the video exactly at the beginning of the recording piece that holds t (pieces start on a key frame).
          Cutting in the middle of a piece made the player start at the key frame before, up to ~20 s too early. */
@@ -1243,6 +1256,7 @@ const Playback = {
       const rows = await Frigate.get('/api/' + id + '/recordings?after=' + a + '&before=' + b);
       if (gone()) return;
       const segs = rows.map(r => [Math.max(a, r.start_time), Math.min(b, r.end_time)]).filter(g => g[1] > g[0]).sort((x, y) => x[0] - y[0]);
+      Dbg.log('segs', id, segs.length, segs.length ? 'first ' + hms(segs[0][0] * 1000) : 'none', 'start ' + hms(a * 1000));
       if (!segs.length) { p.win = { a, b, segs: [], at: performance.now() }; p.loading = false; return; }
       p.win = { a, b, segs, at: performance.now() };
       const v = p.v;
@@ -1251,14 +1265,14 @@ const Playback = {
         /* iPhone: give the start position together with the video and play at once. Waiting for the video's details
            first could take ~8 s there (it loads little until it is told to play). */
         const vt = this.vtime(p, camT(id) == null ? t : camT(id));
-        v.src = url; if (vt != null) v.currentTime = vt; p.v.play().catch(() => {});
+        v.src = url; if (vt != null) v.currentTime = vt; p.v.play().then(() => Dbg.log('play ok', id)).catch(e => Dbg.log('play refused', id, e && e.name));
       } else {
         const H = await this.hls(); if (gone()) return; if (!H.isSupported()) throw 0; p.h = new H(); p.h.loadSource(url); p.h.attachMedia(v);
         await new Promise(ok => { const f = () => { v.removeEventListener('loadedmetadata', f); ok(); }; v.addEventListener('loadedmetadata', f); setTimeout(ok, 4000); });
         if (gone()) return;
         const vt = this.vtime(p, camT(id) == null ? t : camT(id)); if (vt != null) v.currentTime = vt;
       }
-    } catch (e) { if (gone()) return; p.win = { a, b, segs: [], at: performance.now() }; }
+    } catch (e) { Dbg.log('load error', id, String(e && e.message || e)); if (gone()) return; p.win = { a, b, segs: [], at: performance.now() }; }
     p.loading = false;
   },
   el(id) {
@@ -1266,6 +1280,8 @@ const Playback = {
     if (!p) {
       const v = document.createElement('video'); v.className = 'pbv'; v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto';
       p = this.st[id] = { v, win: null, loading: false, on: false, ext: 0, lastSet: null };
+      ['loadstart', 'loadedmetadata', 'canplay', 'playing', 'waiting', 'stalled', 'pause', 'seeked'].forEach(k => v.addEventListener(k, () => Dbg.log('video', id, k, 'at ' + v.currentTime.toFixed(1), 'ready ' + v.readyState)));
+      v.addEventListener('error', () => Dbg.log('video', id, 'error', v.error ? v.error.code + ' ' + (v.error.message || '') : ''));
       v.addEventListener('timeupdate', () => {
         if (!p.on || !p.win || S.dragging || v.paused || p.prep) return;
         const t = this.wall(p, v.currentTime);
@@ -1312,13 +1328,13 @@ const Playback = {
       /* a just-happened alert may not be saved yet: ask again every 2 s until it is */
       const stale = p.win && (!p.win.segs.length || vt == null) && performance.now() - (p.win.at || 0) > 2000;
       if (!p.win || stale || t / 1000 < p.win.a || (t / 1000 > p.win.b - 3 && performance.now() - (p.win.at || 0) > 2000)) { this.load(id, t).then(() => this.sync()); continue; }
-      if (!p.win.segs.length || vt == null) continue;               /* nothing recorded here (yet): keep the snapshot */
+      if (!p.win.segs.length || vt == null) { if (p.dbgNo !== t) { p.dbgNo = t; Dbg.log('no video here', id, hms(t)); } continue; }   /* nothing recorded here (yet): keep the snapshot */
       if (p.prep) continue;
       p.expect = t;
       if (moved || Math.abs(p.v.currentTime - vt) > 2.5) {
         if (p.on) { p.on = false; this.paintVis(id); }
         if (this.native()) {            /* iPhone: seek while playing (a paused video there does not load), show it once it moves */
-          p.v.currentTime = vt; p.v.playbackRate = S.speed || 1; p.v.play().catch(() => {});
+          Dbg.log('seek+play', id, hms(t), 'vt ' + vt.toFixed(1)); p.v.currentTime = vt; p.v.playbackRate = S.speed || 1; p.v.play().catch(e => Dbg.log('play refused', id, e && e.name));
           p.v.addEventListener('playing', () => { if (camT(id) != null && S.playing) { p.on = true; p.lastSet = camT(id); this.paintVis(id); } }, { once: true });
           continue;
         }
@@ -1479,6 +1495,7 @@ function detectCover() {
 function openLink() {
   const q = new URLSearchParams(location.hash.slice(1)), id = q.get('cam'), t = +q.get('t');
   if (!id || !Data.cam(id)) return;
+  Dbg.log('notification link', id, t ? hms(t) : '');
   history.replaceState(history.state, '', location.pathname + location.search);
   S.view = 'home'; S.modal = null; openFocus(id);
   if (t) { S.camTime[id] = Math.min(t, now() - 2000) - 1000; S.playing = true; paintFocus(); fShow(S.camTime[id]); Playback.sync(); }
@@ -2299,10 +2316,12 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.34 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.35 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
-      ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
+      ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
+    '<div class="dbg">Playback Log · ' + Dbg.a.length + ' Lines <button class="btn" data-act="copylog">Copy</button> <button class="btn" data-act="clearlog">Clear</button></div>' +
+    '<pre class="dbglog">' + esc(Dbg.a.slice(-40).join('\n')) + '</pre></details>' +
     '<div class="srow"><span class="slbl">Frigate</span><input id="server" class="field" type="url" inputmode="url" placeholder="http://192.168.1.50:5000" value="' + esc(S.server) + '" autocomplete="off"></div>' +
     '<div class="srow">' + checkRow('demo', 'Use Demo Data', S.demo) + '<button class="btn solid" data-act="savesettings">Save</button></div>' +
     '</div></div></div>';
@@ -2319,6 +2338,12 @@ function toast(msg) {
 let tapTimer = null, lastTap = { id: null, at: 0 };
 const ACT = {
   go(d) { S.view = d.v; S.modal = null; render(); window.scrollTo(0, 0); },
+  copylog() {
+    const txt = Dbg.text();
+    const fallback = () => { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('Log Copied'); } catch (e) { toast('Copy Failed'); } ta.remove(); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(() => toast('Log Copied'), fallback); else fallback();
+  },
+  clearlog() { Dbg.a = []; try { localStorage.removeItem('vhlog'); } catch (e) {} render(); },
   async mode(d) {
     const name = HA.names[d.v];
     if (Data.source === 'frigate') {
@@ -2890,7 +2915,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.1.34';
+    const BUILD = '1.1.35';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
