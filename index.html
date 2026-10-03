@@ -750,7 +750,7 @@ img{max-width:100%}
 :root[data-app-theme="google"]:not([data-dark]){--accent:#4F7FDB}
 .lvh{position:absolute;inset:0;pointer-events:none}
 .lvh[hidden]{display:none}
-.fmark.ico .segn,.fico .segn{top:-6px;right:-9px;color:var(--hot);z-index:1;box-shadow:0 0 0 2px var(--dark-bg)}
+.fmark.ico .segn,.fico .segn{top:-6px;right:-9px;color:#FF8A3D;z-index:1;box-shadow:0 0 0 2px var(--dark-bg)}
 .fmark.ico.dim .segn,.fico.un .segn{color:#8FA0B8}
 .fmark.ico .segn i,.fico .segn i{color:#0F1113}
 .offv{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:#15181B;color:#C9D1D9;text-align:center;padding:10px}
@@ -1951,7 +1951,7 @@ function modalSettings() {
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
-    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 19:02 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm +
+    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 19:04 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
     '<div class="srow"><span class="slbl">Frigate</span><input id="server" class="field" type="url" inputmode="url" placeholder="http://192.168.1.50:5000" value="' + esc(S.server) + '" autocomplete="off"></div>' +
     '<div class="srow">' + checkRow('demo', 'Use Demo Data', S.demo) + '<button class="btn solid" data-act="savesettings">Save</button></div>' +
