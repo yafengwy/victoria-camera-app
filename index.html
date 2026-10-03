@@ -817,7 +817,7 @@ img{max-width:100%}
 .evplayi{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:23px;background:rgba(0,0,0,.5);color:#fff;display:flex;align-items:center;justify-content:center;pointer-events:none}
 .evplayi svg{width:20px;height:20px}
 .pbh{position:absolute;inset:0;pointer-events:none}
-.pbh[hidden]{display:none}
+.pbh.wait{opacity:.01}   /* not display:none: iPhone will not play (or even load) a video it cannot see */
 .pbv{display:block;width:100%;height:100%;object-fit:cover;background:transparent}
 .fvw .pbv{object-fit:contain}
 @media (orientation:landscape){.full:not(.ui) .fvw .pbv{object-fit:cover}}
@@ -1168,7 +1168,7 @@ const Playback = {
     if (!this.hlsP) this.hlsP = new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js'; sc.onload = () => ok(window.Hls); sc.onerror = no; document.head.appendChild(sc); });
     return this.hlsP;
   },
-  holder(id) { return Data.source === 'frigate' ? '<div class="pbh" data-pb="' + esc(id) + '"></div>' : ''; },
+  holder(id) { return Data.source === 'frigate' ? '<div class="pbh wait" data-pb="' + esc(id) + '"></div>' : ''; },
   cams() { const c = {}; if (S.focus) c[S.focus.cam] = 1; else if (S.expanded && S.view === 'home') c[S.expanded] = 1; return c; },
   showing(id) { const p = this.st[id]; return !!(p && p.on); },
   waiting(id) { const p = this.st[id]; return !!(p && (p.prep || p.loading)); },
@@ -1189,26 +1189,30 @@ const Playback = {
     return null;
   },
   async load(id, t) {
-    const p = this.st[id]; p.loading = true; p.on = false;
+    const p = this.st[id], seq = p.seq = (p.seq || 0) + 1; p.loading = true; p.loadT = t; p.on = false; p.win = null; this.paintVis(id);
+    const gone = () => seq !== p.seq;          /* a newer tap started another load: drop this one */
     let a = Math.floor(t / 1000) - 1, b = Math.min(Math.floor(now() / 1000), a + 900);
     try {
       /* Start the video exactly at the beginning of the recording piece that holds t (pieces start on a key frame).
          Cutting in the middle of a piece made the player start at the key frame before, up to ~20 s too early. */
       const pre = await Frigate.get('/api/' + id + '/recordings?after=' + (a - 60) + '&before=' + (a + 1));
+      if (gone()) return;
       const hold = pre.filter(r => r.start_time <= a + 1 && r.end_time > a).sort((x, y) => y.start_time - x.start_time)[0];
       if (hold) a = Math.floor(hold.start_time);
       const url = Frigate.base() + '/vod/' + id + '/start/' + a + '/end/' + b + '/index.m3u8';
       const v0 = p.v; if (this.native()) { v0.src = url; v0.play().catch(() => {}); }   /* iPhone only starts loading once asked to play */
       const rows = await Frigate.get('/api/' + id + '/recordings?after=' + a + '&before=' + b);
+      if (gone()) return;
       const segs = rows.map(r => [Math.max(a, r.start_time), Math.min(b, r.end_time)]).filter(g => g[1] > g[0]).sort((x, y) => x[0] - y[0]);
       if (!segs.length) { p.win = { a, b, segs: [], at: performance.now() }; p.loading = false; return; }
       p.win = { a, b, segs, at: performance.now() };
       const v = p.v;
       if (p.h) { p.h.destroy(); p.h = null; }
-      if (!this.native()) { const H = await this.hls(); if (!H.isSupported()) throw 0; p.h = new H(); p.h.loadSource(url); p.h.attachMedia(v); }
+      if (!this.native()) { const H = await this.hls(); if (gone()) return; if (!H.isSupported()) throw 0; p.h = new H(); p.h.loadSource(url); p.h.attachMedia(v); }
       await new Promise(ok => { const f = () => { v.removeEventListener('loadedmetadata', f); ok(); }; v.addEventListener('loadedmetadata', f); setTimeout(ok, 8000); });
+      if (gone()) return;
       const vt = this.vtime(p, camT(id) == null ? t : camT(id)); if (vt != null) v.currentTime = vt;
-    } catch (e) { p.win = { a, b, segs: [], at: performance.now() }; }
+    } catch (e) { if (gone()) return; p.win = { a, b, segs: [], at: performance.now() }; }
     p.loading = false;
   },
   el(id) {
@@ -1231,10 +1235,10 @@ const Playback = {
     return p;
   },
   stop(id) { const p = this.st[id]; if (!p) return; p.on = false; p.v.pause(); this.paintVis(id); },
-  paintVis(id) { const p = this.st[id]; document.querySelectorAll('[data-pb="' + id + '"]').forEach(h => { h.hidden = !(p && p.on); }); },
+  paintVis(id) { const p = this.st[id]; document.querySelectorAll('[data-pb="' + id + '"]').forEach(h => { h.classList.toggle('wait', !(p && p.on)); }); },
   mount() {
     if (Data.source !== 'frigate') return;
-    document.querySelectorAll('[data-pb]').forEach(h => { const p = this.el(h.dataset.pb); if (p.v.parentNode !== h) h.appendChild(p.v); h.hidden = !p.on; });
+    document.querySelectorAll('[data-pb]').forEach(h => { const p = this.el(h.dataset.pb); if (p.v.parentNode !== h) h.appendChild(p.v); h.classList.toggle('wait', !p.on); });
   },
   sync() {
     if (Data.source !== 'frigate') return;
@@ -1249,7 +1253,7 @@ const Playback = {
     for (const id in want) {
       const t = camT(id), p = this.el(id);
       if (t == null || !S.playing || S.dragging || (S.hov && (S.hov.id === id || S.hov.id === 'full'))) { if (p.on || !p.v.paused) this.stop(id); continue; }
-      if (p.loading) continue;
+      if (p.loading && Math.abs(t - (p.loadT || 0)) < 2500) continue;   /* still loading this spot; a different spot starts a new load below */
       const moved = p.lastSet == null || Math.abs(t - p.lastSet) > 2500;
       if (moved) {                                                     /* a jump (tap) goes at once; repeated jumps (scrolling) wait until they stop */
         const n = performance.now(); p.busy = p.lastJump && n - p.lastJump < 400; p.lastJump = n; p.lastSet = t;
@@ -2229,7 +2233,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.17 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.18 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
@@ -2802,7 +2806,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.1.17';
+    const BUILD = '1.1.18';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
