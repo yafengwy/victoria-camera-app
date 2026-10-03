@@ -750,6 +750,9 @@ img{max-width:100%}
 :root[data-app-theme="google"]:not([data-dark]){--accent:#4F7FDB}
 .lvh{position:absolute;inset:0;pointer-events:none}
 .lvh[hidden]{display:none}
+.fmark.ico .segn,.fico .segn{top:-6px;right:-9px;color:var(--hot);z-index:1;box-shadow:0 0 0 2px var(--dark-bg)}
+.fmark.ico.dim .segn,.fico.un .segn{color:#8FA0B8}
+.fmark.ico .segn i,.fico .segn i{color:#0F1113}
 .offv{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:#15181B;color:#C9D1D9;text-align:center;padding:10px}
 .offv svg{width:30px;height:30px;color:#8B949E;margin-bottom:4px}
 .offv b{font-size:15px;color:#EEF1F3}
@@ -1571,13 +1574,22 @@ function viewFocus() {
     let rows = '';
     for (let k = Math.floor(end / HOUR) * HOUR; k > end - span; k -= HOUR)
       rows += '<div class="fhr" style="top:' + (FTOP + (end - k) / MIN * FPX - 8) + 'px">' + pad(new Date(k).getHours()) + '</div>';
-    let last = -999; const laneY = [-999, -999, -999];
+    /* Icons: alerts of the same kind within ~20 min merge into one icon with a count; different kinds fan out sideways */
+    const groups = [], open = {};
+    evs.forEach(e => {
+      const y = FTOP + (end - e.t) / MIN * FPX, k = e.label + (e.interesting ? '+' : '-'), g = open[k];
+      if (g && y - g.y < 40) g.n++; else { const ng = { y, e, n: 1 }; groups.push(ng); open[k] = ng; }
+    });
+    const laneY = [-999, -999, -999];
+    groups.sort((a, b) => a.y - b.y).forEach(g => {
+      const e = g.e, y = g.y;
+      const cols = S.markStyle !== 'b' ? [0, 1, 2] : e.interesting ? [0, 1] : [2];      /* Two Rows: Interesting in columns 1-2, Uninteresting in column 3 */
+      let ln = cols.find(k => y - laneY[k] >= 24); if (ln == null) ln = cols[0]; laneY[ln] = y;
+      rows += '<button class="fmark ico' + (e.interesting ? '' : ' dim') + '" style="top:' + (y - 9) + 'px;--ln:' + ln + '" data-act="fjump" data-t="' + e.t + '" aria-label="' + esc(e.label) + ' ' + hm(e.t) + (g.n > 1 ? ', ' + g.n + ' Alerts' : '') + '">' + objIcon(e.label) + (g.n > 1 ? '<b class="segn"><i>' + g.n + '</i></b>' : '') + '</button>';
+    });
+    let last = -999;
     evs.forEach(e => {
       const y = FTOP + (end - e.t) / MIN * FPX;
-      let ln;
-      const cols = S.markStyle !== 'b' ? [0, 1, 2] : e.interesting ? [0, 1] : [2];      /* Two Rows: Interesting in columns 1-2, Uninteresting in column 3 */
-      ln = cols.find(k => y - laneY[k] >= 24); if (ln == null) ln = cols[0]; laneY[ln] = y;   /* icons too close fan out sideways */
-      rows += '<button class="fmark ico' + (e.interesting ? '' : ' dim') + '" style="top:' + (y - 9) + 'px;--ln:' + ln + '" data-act="fjump" data-t="' + e.t + '" aria-label="' + esc(e.label) + ' ' + hm(e.t) + '">' + objIcon(e.label) + '</button>';
       if (y - last < 70) return; last = y;
       rows += '<button class="fev" style="top:' + (y - 32) + 'px" data-act="fjump" data-t="' + e.t + '"><img src="' + e.img + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(e.label) + '</i>' + esc(e.label) + '</b><small>' + hm(e.t) + ' · ' + durLabel(e) + '</small></span></button>';
     });
@@ -1645,13 +1657,14 @@ function fTrack(c) {
     tr += '<div class="ftk" style="top:' + Y(k).toFixed(1) + 'px;width:' + (isMaj ? 10 : 5) + 'px"></div>';
     if (isMaj) tr += '<div class="flb" style="top:' + Y(k).toFixed(1) + 'px">' + (new Date(k).getHours() === 0 && new Date(k).getMinutes() === 0 ? dayLabel(k) : hm(k)) + '</div>';
   }
-  let lastIc = -1e9;
+  let lastIc = -1e9; const icons = [];
   camEvents(c.id).filter(e => e.t <= end && (e.end || e.t) > end - FSPAN).sort((a, b) => b.t - a.t).forEach(e => {
     const y0 = Y(Math.max(e.end || e.t, e.t + 5000)), y1 = Math.max(Y(e.t), y0 + 3);
     tr += '<button class="fseg' + (e.interesting ? '' : ' un') + '" data-act="fseek" data-t="' + e.t + '" aria-label="' + esc(e.label) + ' At ' + hm(e.t) + '" style="top:' + y0.toFixed(1) + 'px;height:' + (y1 - y0).toFixed(1) + 'px"></button>';
     const yc = (y0 + y1) / 2;
-    if (yc - lastIc >= 18) { lastIc = yc; tr += '<span class="fico' + (e.interesting ? '' : ' un') + '" style="top:' + (yc - 7.5).toFixed(1) + 'px">' + objIcon(e.label) + '</span>'; }
+    if (yc - lastIc >= 18) { lastIc = yc; icons.push({ e, yc, n: 1 }); } else if (icons.length) icons[icons.length - 1].n++;   /* close ones add to the count */
   });
+  icons.forEach(g => { tr += '<span class="fico' + (g.e.interesting ? '' : ' un') + '" style="top:' + (g.yc - 7.5).toFixed(1) + 'px">' + objIcon(g.e.label) + (g.n > 1 ? '<b class="segn"><i>' + g.n + '</i></b>' : '') + '</span>'; });
   return tr;
 }
 function fZoom(px) {
@@ -1938,7 +1951,7 @@ function modalSettings() {
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
-    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 19:00 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm +
+    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 19:02 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
     '<div class="srow"><span class="slbl">Frigate</span><input id="server" class="field" type="url" inputmode="url" placeholder="http://192.168.1.50:5000" value="' + esc(S.server) + '" autocomplete="off"></div>' +
     '<div class="srow">' + checkRow('demo', 'Use Demo Data', S.demo) + '<button class="btn solid" data-act="savesettings">Save</button></div>' +
