@@ -193,6 +193,7 @@ img{max-width:100%}
 .fev small{display:block;font-size:12px;font-weight:600;color:var(--dark-sub);font-variant-numeric:tabular-nums}
 .pullhint{position:absolute;left:50%;top:4px;width:40px;height:4px;margin-left:-20px;border-radius:2px;background:#3A3F44;z-index:2}
 .full{position:fixed;inset:0;z-index:45;background:#000;display:flex;align-items:center;justify-content:center}
+.full.rot{inset:auto;top:0;left:var(--vpw,100vw);width:var(--vph,100vh);height:var(--vpw,100vw);transform-origin:0 0;transform:rotate(90deg)}
 @media (orientation:landscape){.full:not(.ui) .fvw img{object-fit:cover}}
 .full .fov{top:calc(12px + env(safe-area-inset-top,0px))}
 .full .fbot{position:absolute;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom,0px));text-align:center;font-size:12px;font-weight:600;color:#B8C0C7}
@@ -1786,13 +1787,13 @@ function viewFull(c, t, f) {
       });
       side += '</div>';
     } else {
-      side += '<div class="fts" id="fts"><div class="ftsc" id="ftsc"><div class="sp"></div><div class="ftrack" id="ftrack" style="height:' + TW + 'px">' + fTrack(c) + '</div><div class="sp"></div></div><div class="fline2"></div><div class="fbub" id="fbub">' + (t == null ? 'Live' : hm(t)) + '</div><div class="fzoom" id="fzoom" hidden></div></div>';
+      side += '<div class="fts" id="fts"><div class="ftsc" id="ftsc"><div class="sp"></div><div class="ftrack" id="ftrack" style="height:' + TW + 'px">' + fTrack(c) + '</div><div class="sp"></div></div><div class="fline2" id="fline2"></div><div class="fbub" id="fbub">' + (t == null ? 'Live' : hm(t)) + '</div><div class="fzoom" id="fzoom" hidden></div></div>';
     }
     side += '<div class="fsb"><button class="dk sm" data-act="playpause" aria-label="' + (S.playing ? 'Pause' : 'Play') + '">' + (S.playing ? I.pause : I.play) + '</button>' +
       '<button class="dk sm wide" data-act="flive" aria-label="Go Live">Live</button></div>' +
       (S.fpanel ? '' : '<div class="fsb zdesk2"><button class="dk sm" data-act="fzoombtn" data-v="out" aria-label="Show Longer Time">−</button><button class="dk sm" data-act="fzoombtn" data-v="in" aria-label="Show Shorter Time">+</button></div>') + '</aside>';
   }
-  return '<div class="full' + (S.fui ? ' ui' : '') + '" id="fullv"><div class="fvw" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
+  return '<div class="full' + (S.fui ? ' ui' : '') + (fullRot() ? ' rot' : '') + '" id="fullv"><div class="fvw" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
     (S.fui ? '<div class="fuitop"><button class="dk" data-act="unfull" aria-label="Exit Full Screen">' + I.shrink + '</button><div style="flex:1"></div><div class="pillk" id="fullbadge">' + (t == null ? '<span class="dot"></span>Live' : hms(t)) + '</div></div>' : '') +
     '</div>' + side + '</div>';
 }
@@ -1826,11 +1827,28 @@ function fZoom(px) {
   const fts = document.getElementById('fts'), z = document.getElementById('fzoom');
   if (z && fts) { z.textContent = winLabel(fts.clientHeight / FFPX * MIN); z.hidden = false; clearTimeout(fZoom.tm); fZoom.tm = setTimeout(() => { z.hidden = true; }, 1200); }
 }
+function fFullY() { return S.focus.fullY == null ? VTOP : S.focus.fullY; }
 function fScrollTo(t) {
   const sc = document.getElementById('ftsc'); if (!sc) return;
-  S.fLock = true; sc.scrollTop = t == null ? 0 : (focusEnd() - t) / MIN * FFPX;
+  if (t == null) S.focus.fullY = VTOP;
+  S.fLock = true; sc.scrollTop = t == null ? 0 : (focusEnd() - t) / MIN * FFPX - (fFullY() - VTOP);
   requestAnimationFrame(() => { S.fLock = false; });
+  fullPaintLine();
 }
+/* Full screen: same as the list view — swiping moves the timeline under the red line, a tap moves the line */
+function fullPaintLine() {
+  const sc = document.getElementById('ftsc'), ln = document.getElementById('fline2'), bub = document.getElementById('fbub'); if (!sc || !ln || !S.focus) return;
+  const t = camT(S.focus.cam);
+  let y = t == null ? VTOP : VTOP + (focusEnd() - t) / MIN * FFPX - sc.scrollTop;
+  if (t != null && (y < 0 || y > sc.clientHeight - 10)) {
+    S.focus.fullY = Math.min(VTOP + 96, sc.clientHeight / 3);
+    S.fLock = true; sc.scrollTop = Math.max(0, (focusEnd() - t) / MIN * FFPX - (S.focus.fullY - VTOP)); requestAnimationFrame(() => { S.fLock = false; });
+    y = VTOP + (focusEnd() - t) / MIN * FFPX - sc.scrollTop;
+  }
+  S.focus.fullY = y; ln.style.top = y + 'px'; if (bub) bub.style.top = y + 'px';
+}
+/* position along the full-screen rail, also when the full view is turned sideways on a phone held upright */
+function fullLocalY(e, el) { const r = el.getBoundingClientRect(), fv = document.getElementById('fullv'); return fv && fv.classList.contains('rot') ? r.right - e.clientX : e.clientY - r.top; }
 function fuiKick() {}
 function wireFull() {
   const sc = document.getElementById('ftsc'); if (!sc) return;
@@ -1850,10 +1868,16 @@ function wireFull() {
   zone.addEventListener('wheel', e => { const k = wheelKind(e); if (k === 'pad') return; e.preventDefault(); fZoom(FFPX * Math.exp(-e.deltaY * (k === 'pinch' ? 0.02 : 0.002))); }, { passive: false });
   sc.addEventListener('scroll', () => {
     if (S.fLock) return;
-    const y = sc.scrollTop;
+    const y = sc.scrollTop + fFullY() - VTOP;
     S.camTime[S.focus.cam] = (y < 3 && !S.focus.dayEnd) ? null : focusEnd() - y / FFPX * MIN;
     paintFocus();
   }, { passive: true });
+  sc.addEventListener('click', e => {           /* tap an empty spot on the rail: go to that time */
+    if (e.target.closest('button')) return;
+    const tr = document.getElementById('ftrack'); if (!tr) return;
+    const y = fullLocalY(e, tr), t = focusEnd() - y / FFPX * MIN;
+    S.camTime[S.focus.cam] = (y < 2 && !S.focus.dayEnd) ? null : t; S.playing = true; paintFocus(); Playback.sync();
+  });
 }
 function paintFocus() {
   if (!S.focus) return;
@@ -1870,7 +1894,7 @@ function paintFocus() {
   const hv = S.hov && S.hov.id === 'full' ? S.hov.t : undefined;
   fPaintLine();
   set('fbadge', n => n.innerHTML = label); set('fullbadge', n => n.innerHTML = hv !== undefined ? hms(hv) : label); set('fbub', n => n.textContent = hv !== undefined ? hm(hv) : t == null ? 'Live' : hm(t));
-  if (S.full && S.playing && !S.fLock && t != null) fScrollTo(t);
+  if (S.full && !S.fLock) fullPaintLine();
   set('ftag', n => setTag(n, f));
   set('livepill', n => { n.hidden = t == null; });
 }
@@ -2103,7 +2127,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
@@ -2261,7 +2285,7 @@ const ACT = {
   fuitap(d, e) { if (e && e.target.closest('.fuitop')) return; S.fui = !S.fui; if (!S.fui) S.fpanel = false; render(); },
   fkick() { fuiKick(); },
   fpanel() { S.fpanel = !S.fpanel; S.fui = true; render(); fuiKick(); },
-  fseek(d) { S.camTime[S.focus.cam] = +d.t - 1000; render(); fuiKick(); },
+  fseek(d) { S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true; if (S.fpanel) render(); else { paintFocus(); Playback.sync(); } fuiKick(); },
   fbadge() { const id = S.focus && S.focus.cam; if (!id) return; if (camT(id) != null) { ACT.flive(); return; } if (!Ctl.on(id)) return; Live.restart(id); toast('Reconnecting'); },
   flive() { S.camTime[S.focus.cam] = null; S.focus.dayEnd = null; S.focus.lineY = FTOP; render(); const sc = document.getElementById('fsc'); if (sc) { fSetScroll(sc, 0); fPaintLine(); } const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
   flist() { S.flist = !S.flist; render(); fShow(camT(S.focus.cam)); },
@@ -2644,11 +2668,15 @@ setInterval(() => {
 document.addEventListener('visibilitychange', () => { if (document.hidden) S.forced = {}; });
 let resizeTimer, lastCols = null;
 /* Turning the phone sideways while a camera is open goes full screen; turning it back returns to the camera view. */
+function fullRot() { return window.innerHeight > window.innerWidth && window.innerWidth < 560; }
+function setVp() { document.documentElement.style.setProperty('--vpw', window.innerWidth + 'px'); document.documentElement.style.setProperty('--vph', window.innerHeight + 'px'); }
+setVp(); window.addEventListener('resize', setVp);
 function isLand() { return window.innerWidth > window.innerHeight && window.innerHeight < 560; }
 window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => {
   if (S.focus) {
     if (isLand() && !S.full) { S.full = true; S.autoFull = true; S.fui = false; S.fpanel = false; render(); }
     else if (!isLand() && S.full && S.autoFull) { S.full = false; S.autoFull = false; S.fpanel = false; render(); }
+    else if (S.full) { const fv = document.getElementById('fullv'); if (fv && fv.classList.contains('rot') !== fullRot()) render(); }
   } const was = COVER; detectCover(); const n = cols() * 10 + rvCols() + (COVER ? 100 : 0) + (rvVert() ? 1000 : 0); if (S.view === 'review') { S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); } if (n !== lastCols || was !== COVER) { lastCols = n; render(); } }, 150); });
 
 (async function start() {
@@ -2664,7 +2692,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
   if (HOSTED) {
-    const BUILD = '1.1.6';
+    const BUILD = '1.1.7';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
