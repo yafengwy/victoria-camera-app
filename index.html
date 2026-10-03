@@ -961,7 +961,7 @@ const Frigate = {
    the same motion Frigate's own UI shows (any pixel change counts, including leaves and shadows).
    Fallback while the websocket is down: /api/stats (a camera running object detection is moving). */
 const Motion = {
-  sock: null, up: false,
+  sock: null, up: false, n: 0, nm: 0,
   set(id, on) { const m = Data.motion(id); if (on) { m.active = true; m.last = now(); } else { if (m.active) m.last = now(); m.active = false; } },
   seed() { Data.events.forEach(e => { const m = Data.motion(e.cam); const t = e.end || e.t; if (m.last == null || t > m.last) m.last = t; }); },
   connect() {
@@ -972,6 +972,7 @@ const Motion = {
     s.onmessage = ev => {
       let d; try { d = JSON.parse(ev.data); } catch (e) { return; }
       if (!d || !d.topic) return;
+      this.n++;
       if (d.topic === 'camera_activity') {
         let a = d.payload; if (typeof a === 'string') { try { a = JSON.parse(a); } catch (e) { return; } }
         let ch = false;
@@ -983,7 +984,7 @@ const Motion = {
         return;
       }
       if (Ctl.msg(d.topic, d.payload)) return;
-      const m = /^([^/]+)\/motion$/.exec(d.topic); if (m) this.set(m[1], d.payload === 'ON' || d.payload === true);
+      const m = /^([^/]+)\/motion$/.exec(d.topic); if (m) { this.nm++; this.set(m[1], d.payload === 'ON' || d.payload === true); }
     };
     s.onclose = () => { this.up = false; setTimeout(() => this.connect(), 5000); };
   }
@@ -1923,6 +1924,7 @@ function modalSettings() {
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
+    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 18:21 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + '</div>' : '') +
     '<div class="srow"><span class="slbl">Frigate</span><input id="server" class="field" type="url" inputmode="url" placeholder="http://192.168.1.50:5000" value="' + esc(S.server) + '" autocomplete="off"></div>' +
     '<div class="srow">' + checkRow('demo', 'Use Demo Data', S.demo) + '<button class="btn solid" data-act="savesettings">Save</button></div>' +
     '</div></div></div>';
