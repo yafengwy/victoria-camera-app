@@ -945,7 +945,7 @@ const Frigate = {
       };
     }).sort((a, b) => b.t - a.t);
   },
-  /* New and still-running alerts: every 20 s fetch the last 2 hours and merge them in (the list used to load only at start) */
+  /* New and still-running alerts: every 10 s fetch the last 2 hours and merge them in (the list used to load only at start) */
   async refresh() {
     let fresh; try { fresh = await this.reviews(Math.floor((now() - 2 * HOUR) / 1000)); } catch (e) { return; }
     const sig = e => e.id + ':' + e.end + ':' + e.interesting + ':' + e.label + ':' + e.zones.join(',');
@@ -1966,7 +1966,7 @@ function modalSettings() {
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
-    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 19:06 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm +
+    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 19:08 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
     '<div class="srow"><span class="slbl">Frigate</span><input id="server" class="field" type="url" inputmode="url" placeholder="http://192.168.1.50:5000" value="' + esc(S.server) + '" autocomplete="off"></div>' +
     '<div class="srow">' + checkRow('demo', 'Use Demo Data', S.demo) + '<button class="btn solid" data-act="savesettings">Save</button></div>' +
@@ -2475,7 +2475,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
 (async function start() {
   await Data.load(); lastCols = cols() * 10 + rvCols(); render();
   if (Data.source === 'frigate') {
-    Motion.seed(); Motion.connect(); Diag.run(); setInterval(() => Frigate.refresh(), 20000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
+    Motion.seed(); Motion.connect(); Diag.run(); setInterval(() => Frigate.refresh(), 10000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
 })();
