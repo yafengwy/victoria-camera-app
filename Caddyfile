@@ -9,6 +9,16 @@ cam.victoriashome.app {
 	handle @public {
 		reverse_proxy vh-app:80
 	}
+	# Phone notifications: the alert picture and video, reachable without signing in only through a secret link
+	# (VH_NOTIFY, a 32-character key kept in caddy.env on the mini PC). Without that key nothing here is public.
+	@notify {
+		path_regexp notify ^/n/{$VH_NOTIFY}/(api/events/[A-Za-z0-9.\-]+/snapshot\.jpg|api/[a-z0-9_]+/start/[0-9.]+/end/[0-9.]+/clip\.mp4)$
+		not path /n//*
+	}
+	handle @notify {
+		rewrite * /{re.notify.1}
+		reverse_proxy vh-app:80
+	}
 	@remembered header Cookie *vh_session={$VH_COOKIE}*
 	handle @remembered {
 		reverse_proxy vh-app:80
