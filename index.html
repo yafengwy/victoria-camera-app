@@ -524,6 +524,24 @@ img.rf{opacity:0}
 :root{--rvgrey:#B9C0C5}
 :root[data-dark]{--rvgrey:#5A6268}
 .rvscrim{position:fixed;inset:0;z-index:40}
+.snzban{display:flex;align-items:center;gap:10px;margin:10px 4px 2px;padding:9px 12px;border-radius:14px;background:#FFF1E6;border:1px solid #F3C9A6;color:#5A3517}
+.snzban svg{flex:none;color:#C4561F}
+.snzt{flex:1;min-width:0;display:flex;flex-direction:column;font-size:12px;line-height:1.35}
+.snzt b{font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.snzban button{flex:none;border:0;background:#C4561F;color:#fff;font:inherit;font-weight:800;font-size:12px;padding:7px 12px;border-radius:999px}
+:root[data-dark] .snzban{background:#3A2416;border-color:#6B3F22;color:#FBD9BE}
+:root[data-dark] .snzban svg{color:#F29A62}
+.snzb{display:inline-flex;align-items:center;gap:3px;flex:none;margin-right:6px;padding:3px 8px;border-radius:999px;background:#FFF1E6;color:#8A4A1F;font-size:11px;font-weight:800}
+.snzb svg{width:12px;height:12px}
+:root[data-dark] .snzb{background:#3A2416;color:#FBD9BE}
+.snzd .chips{gap:6px}
+.snzdur{display:flex;gap:6px}
+.snzdur button{flex:1;padding:9px 4px;border-radius:12px;border:0;background:var(--track);color:var(--head-fg);font:inherit;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center}
+.snzdur button small{font-size:10px;font-weight:600;opacity:.75;margin-top:2px}
+.snzdur button[aria-pressed="true"]{background:var(--strong);color:var(--strong-fg)}
+.snzgo{width:100%;margin-top:14px}
+.snzgo[disabled]{opacity:.5}
+.msoon.on{background:#FFF1E6;color:#8A4A1F}
 .moredd{position:fixed;right:8px;top:calc(env(safe-area-inset-top,0px) + 56px);z-index:41;width:min(320px,calc(100vw - 16px));background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.22);padding:6px}
 .mrow{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 10px;width:100%;border:0;background:none;color:var(--head-fg);font:inherit;text-align:left;border-radius:10px}
 .mrow + .mrow{border-top:1px solid var(--line);border-radius:0}
@@ -1226,7 +1244,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.1.41 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.1.42 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1375,6 +1393,59 @@ function setImg(img, src) {
   const done = () => { img.dataset.busy = ''; const n = img.dataset.next; img.dataset.next = ''; if (n && n !== img.getAttribute('src')) setImg(img, n); };
   img.onload = done; img.onerror = done; img.src = src;
   setTimeout(() => { if (img.dataset.busy === '1' && img.getAttribute('src') === src) done(); }, 6000);   /* never stay stuck on a picture that does not answer */
+}
+
+/* Snooze lives in Home Assistant too (input_text.camera_snooze), so the notification automation can read it:
+   "UNTIL|MODE|cam,cam" with UNTIL in seconds, MODE t (fixed time) or c (until no person for 10 minutes; Home
+   Assistant pushes UNTIL forward while a person is still seen), cams "all" for every camera. Empty = nothing snoozed. */
+const Snz = {
+  st: { until: 0, mode: 't', cams: [] }, missing: false,
+  active() { return this.st.cams.length > 0 && this.st.until * 1000 > Date.now(); },
+  has(id) { return this.active() && (this.st.cams.includes('all') || this.st.cams.includes(id)); },
+  parse(v) { const p = String(v || '').split('|'); return p.length === 3 ? { until: +p[0] || 0, mode: p[1] === 'c' ? 'c' : 't', cams: p[2].split(',').filter(Boolean) } : { until: 0, mode: 't', cams: [] }; },
+  async get() {
+    if (Data.source !== 'frigate') return;
+    try {
+      const r = await fetch(Frigate.base() + '/ha/snooze', { credentials: 'include', cache: 'no-store' });
+      if (r.status === 404) { this.missing = true; return; } if (!r.ok) return;
+      this.missing = false;
+      if (Date.now() - (this.setAt || 0) < 5000) return;
+      const n = this.parse((await r.json()).state), was = JSON.stringify(this.st);
+      this.st = n; if (JSON.stringify(n) !== was && S.view === 'home' && !S.modal) render();
+    } catch (e) {}
+  },
+  async put(st) {
+    let cams = st.cams; if (cams.length && Data.cams.every(c => cams.includes(c.id))) cams = ['all'];
+    const v = cams.length ? Math.round(st.until) + '|' + st.mode + '|' + cams.join(',') : '';
+    if (v.length > 255) { toast('Too Many Cameras · Choose All Instead'); return false; }
+    this.setAt = Date.now();
+    try {
+      const r = await fetch(Frigate.base() + '/ha/snoozeset', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entity_id: 'input_text.camera_snooze', value: v }) });
+      if (!r.ok) { toast(r.status === 400 || r.status === 404 ? 'Snooze Is Not Set Up In Home Assistant Yet' : 'Could Not Reach Home Assistant'); return false; }
+      this.st = { until: st.until, mode: st.mode, cams }; return true;
+    } catch (e) { toast('Could Not Reach Home Assistant'); return false; }
+  },
+  left() { const m = Math.max(0, Math.round((this.st.until * 1000 - Date.now()) / 60000)); return m >= 60 ? Math.floor(m / 60) + 'h ' + (m % 60) + 'm' : m + 'm'; },
+  names() { const c = this.st.cams; if (c.includes('all')) return 'All Cameras'; const n = c.map(id => (Data.cam(id) || { name: id }).name); return n.length > 2 ? n.slice(0, 2).join(' · ') + ' +' + (n.length - 2) : n.join(' · '); }
+};
+function snoozeBanner() {
+  if (!Snz.active()) return '';
+  const back = Snz.st.mode === 'c' ? 'Until No Person For 10 Min' : 'Back On At ' + hm(Snz.st.until * 1000) + ' · ' + Snz.left() + ' Left';
+  return '<div class="snzban">' + I.snooze + '<div class="snzt"><b>' + esc(Snz.names()) + ' Snoozed</b><span>' + back + '</span></div><button data-act="snzresume">Resume</button></div>';
+}
+function modalSnooze() {
+  const pick = S.snzPick || {}, groups = []; Data.cams.forEach(c => { if (!groups.includes(c.group)) groups.push(c.group); });
+  const n = Data.cams.filter(c => pick[c.id]).length, dur = S.snzDur || '1';
+  const allIn = g => { const cs = Data.cams.filter(c => c.group === g); return cs.length && cs.every(c => pick[c.id]); };
+  return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm snzd" role="dialog" aria-label="Snooze Notifications" data-stop="1">' +
+    '<div class="dhead">Snooze Notifications<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
+    '<div class="lbl" style="margin-top:0">Cameras</div><div class="chips">' +
+    groups.map(g => '<button class="chip sm" data-act="snzgroup" data-v="' + esc(g) + '" aria-pressed="' + allIn(g) + '">All ' + esc(g) + '</button>').join('') +
+    Data.cams.map(c => '<button class="chip sm" data-act="snzcam" data-v="' + c.id + '" aria-pressed="' + !!pick[c.id] + '">' + esc(c.name) + '</button>').join('') + '</div>' +
+    '<div class="lbl">For</div><div class="snzdur">' +
+    [['1', '1 Hour', ''], ['2', '2 Hours', ''], ['c', 'Until Clear', 'No Person 10 Min']].map(o => '<button data-act="snzdur" data-v="' + o[0] + '" aria-pressed="' + (dur === o[0]) + '">' + o[1] + (o[2] ? '<small>' + o[2] + '</small>' : '') + '</button>').join('') + '</div>' +
+    '<button class="btn solid snzgo" data-act="snzgo"' + (n ? '' : ' disabled') + '>' + (n ? 'Snooze ' + n + (n === 1 ? ' Camera' : ' Cameras') + ' · ' + (dur === 'c' ? 'Until Clear' : dur === '1' ? '1 Hour' : '2 Hours') : 'Pick Cameras') + '</button>' +
+    '</div></div></div>';
 }
 
 /* Camera Mode lives in Home Assistant (input_select.camera_mode), which switches it on its own when you leave,
@@ -1544,6 +1615,7 @@ function render() {
   if (S.modal === 'filter') h += modalFilter();
   if (S.modal === 'settings') h += modalSettings();
   if (S.modal === 'win') h += modalWin();
+  if (S.modal === 'snooze') h += modalSnooze();
   const fo = document.getElementById('fsc'), fscTop = fo && S.focus ? fo.scrollTop : null;
   const keep = {}; ['thumbs'].forEach(id => { const n = document.getElementById(id); if (n) keep[id] = [n.scrollLeft, n.scrollTop]; });
   app.innerHTML = h;
@@ -1577,7 +1649,7 @@ function moreMenu() {
   const lay = (v, label, icon) => '<button data-act="layoutset" data-v="' + v + '" aria-pressed="' + (S.layout === v) + '">' + icon + label + '</button>';
   return '<div class="rvscrim" data-act="moreclose"></div><div class="moredd" role="dialog" aria-label="More">' +
     '<div class="mrow"><span class="mlbl">Layout</span><div class="mseg">' + lay('list', 'List', I.rows) + lay('grid', 'Grid', I.grid4) + '</div></div>' +
-    '<button class="mrow mbtn" data-act="soon">' + I.snooze + '<span class="mlbl">Snooze Notifications</span><span class="msoon">Soon</span></button>' +
+    '<button class="mrow mbtn" data-act="snzopen">' + I.snooze + '<span class="mlbl">Snooze Notifications</span>' + (Snz.active() ? '<span class="msoon on">' + Snz.left() + '</span>' : '') + '</button>' +
     '<button class="mrow mbtn" data-act="soon">' + I.box + '<span class="mlbl">Today&#39;s Waiting</span><span class="msoon">Soon</span></button></div>';
 }
 function viewHome() {
@@ -1588,7 +1660,7 @@ function viewHome() {
     '<button class="ic" data-act="more" aria-label="More" aria-expanded="' + !!S.more + '">' + I.extras + '</button>' +
     '<button class="ic" data-act="go" data-v="events" aria-label="All Alerts">' + I.bell + '</button>' +
     '<button class="ic" data-act="go" data-v="review" aria-label="Review All Cameras">' + I.review + '</button>' +
-    '<button class="ic" data-act="modal" data-v="settings" aria-label="Settings">' + I.gear + '</button></div></header>' + (S.more ? moreMenu() : '') + '<main class="main">';
+    '<button class="ic" data-act="modal" data-v="settings" aria-label="Settings">' + I.gear + '</button></div></header>' + (S.more ? moreMenu() : '') + '<main class="main">' + snoozeBanner();
   groups.forEach(g => {
     /* cameras that are off go to the end of their group; the rest keep their order */
     const cams = Data.cams.filter(c => c.group === g).sort((a, b) => (Ctl.on(b.id) ? 1 : 0) - (Ctl.on(a.id) ? 1 : 0));
@@ -1614,7 +1686,7 @@ function camCard(c) {
   const t = camT(c.id), f = Data.frame(c, t), off = !Ctl.on(c.id);
   const tall = c.ar && c.ar < 1.2;
   return '<article class="cam' + (c.id === S.expanded ? ' on' : '') + (off ? ' off' : '') + (tall ? ' tall' : '') + '" id="cam-' + c.id + '"' + (tall ? ' style="--ar:' + c.ar.toFixed(4) + '"' : '') + '>' +
-    '<div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button>' +
+    '<div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button>' + (Snz.has(c.id) ? '<span class="snzb">' + I.snooze + (Snz.st.mode === 'c' ? 'Clear' : Snz.left()) + '</span>' : '') +
     (S.layout === 'list' ? '<button class="ic" aria-label="Sound" data-act="toast" data-v="Sound turns on with live video on the mini PC">' + I.sound + '</button>' : '') +
     '</div>' +
     '<div class="frame"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(Live.cardSrc(c.id), t != null) + Playback.holder(c.id) + (S.layout === 'grid' ? '<div class="cnm">' + esc(c.name) + '</div>' : '') +
@@ -2385,7 +2457,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.41 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.42 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -2429,6 +2501,19 @@ const ACT = {
   moreclose() { S.more = false; render(); },
   layoutset(d) { S.layout = d.v; store.set('layout', S.layout); S.more = false; render(); },
   soon() { toast('Coming Soon'); },
+  snzopen() {
+    S.more = false; S.snzPick = {}; if (Snz.active()) (Snz.st.cams.includes('all') ? Data.cams.map(c => c.id) : Snz.st.cams).forEach(id => { S.snzPick[id] = true; });
+    S.snzDur = S.snzDur || '1'; S.modal = 'snooze'; render(); if (Snz.missing) toast('Snooze Is Not Set Up In Home Assistant Yet');
+  },
+  snzcam(d) { S.snzPick[d.v] = !S.snzPick[d.v]; render(); },
+  snzgroup(d) { const cs = Data.cams.filter(c => c.group === d.v), on = !cs.every(c => S.snzPick[c.id]); cs.forEach(c => { S.snzPick[c.id] = on; }); render(); },
+  snzdur(d) { S.snzDur = d.v; render(); },
+  async snzgo() {
+    const cams = Data.cams.filter(c => S.snzPick[c.id]).map(c => c.id); if (!cams.length) return;
+    const secs = S.snzDur === '2' ? 7200 : S.snzDur === 'c' ? 600 : 3600;
+    if (await Snz.put({ until: Date.now() / 1000 + secs, mode: S.snzDur === 'c' ? 'c' : 't', cams })) { S.modal = null; render(); toast('Notifications Snoozed'); }
+  },
+  async snzresume() { if (await Snz.put({ until: 0, mode: 't', cams: [] })) { render(); toast('Notifications Back On'); } },
   layout() { S.layout = S.layout === 'list' ? 'grid' : 'list'; store.set('layout', S.layout); render(); },
   group(d) { S.open[d.v] = S.open[d.v] === false; store.set('open', S.open); render(); },
   modal(d) { S.modal = d.v; render(); },
@@ -2985,13 +3070,14 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   if (Data.source === 'frigate') {
     Motion.seed(); Diag.run();
     setInterval(() => Motion.ensure(), 3000); setInterval(() => Live.watch(), 2000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) { Motion.ensure(); Frigate.refresh(); HA.get(); } });
-    window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); HA.get(); setInterval(() => HA.get(), 10000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { Motion.ensure(); Frigate.refresh(); HA.get(); Snz.get(); } });
+    window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); HA.get(); setInterval(() => HA.get(), 10000); Snz.get(); setInterval(() => Snz.get(), 15000);
+    setInterval(() => { if (S.view === 'home' && !S.modal && (Snz.active() || document.querySelector('.snzban'))) render(); }, 60000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.1.41';
+    const BUILD = '1.1.42';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
