@@ -531,6 +531,12 @@ img.rf{opacity:0}
 .bbx i{position:absolute;border:2px solid #FFD400;border-radius:3px;box-shadow:0 0 0 1px rgba(0,0,0,.45)}
 .bbx b{position:absolute;left:-2px;bottom:100%;margin-bottom:2px;background:#FFD400;color:#111;font-size:10px;font-weight:800;line-height:15px;padding:0 5px;border-radius:3px;white-space:nowrap}
 .dk.bxbtn[aria-pressed="true"]{background:#FFD400;color:#111}
+.pctl2{display:flex;gap:8px}
+.chip.bxchip{padding:0 8px}
+.chip.bxchip svg{width:16px;height:16px}
+.chip.bxchip[aria-pressed="true"]{background:#FFD400;color:#111;box-shadow:none}
+.round.bxr{background:var(--track);color:var(--head-fg)}
+.round.bxr[aria-pressed="true"]{background:#FFD400;color:#111}
 .bxbtn2[aria-pressed="true"]{color:#111;background:#FFD400;border-radius:10px}
 .snzban{display:flex;align-items:center;gap:10px;margin:10px 4px 2px;padding:9px 12px;border-radius:14px;background:#FFF1E6;border:1px solid #F3C9A6;color:#5A3517}
 .snzban svg{flex:none;color:#C4561F}
@@ -1310,6 +1316,14 @@ const Box = {
       const id = S.focus.cam, t = camT(id), host = S.full ? document.querySelector('#fullv .fvw') : document.querySelector('.focus .fvid');
       if (host && t != null) out.push({ host, cam: id, t });
     }
+    if (S.view === 'home' && S.expanded && !S.focus) {
+      const id = S.expanded, t = camT(id), host = document.querySelector('#cam-' + id + ' .frame');
+      if (host && t != null) out.push({ host, cam: id, t });
+    }
+    if (S.view === 'review' && !S.focus) {
+      const t = S.hov && S.hov.id === 'rv' ? S.hov.t : S.rv.t;
+      if (t != null) rvCams().forEach(c => { const host = document.getElementById('rv-' + c.id); if (host) out.push({ host, cam: c.id, t, media: host.querySelector('img') }); });
+    }
     if (S.view === 'events' && S.evPlay && !S.focus) {
       const e = Data.events.find(x => x.id === S.evPlay), host = e && document.getElementById('evm-' + e.id), v = host && host.querySelector('video.evv');
       if (v && v.currentTime > 0) out.push({ host, cam: e.cam, t: (Math.floor(e.t / 1000 - 1) + v.currentTime) * 1000, media: v });
@@ -1345,7 +1359,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.2.1 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.2.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1847,7 +1861,7 @@ function panel(c) {
       '<div class="cliptxt">' + (cl.a ? 'Start ' + hms(cl.a) : 'Start —') + ' · ' + (cl.b ? 'End ' + hms(cl.b) : 'End —') + '</div>';
   }
   return '<div class="panel" id="panel">' +
-    '<div class="pctl"><button class="round" data-act="date" aria-label="Pick Date">' + I.cal + '</button>' +
+    '<div class="pctl"><div class="pctl2"><button class="round" data-act="date" aria-label="Pick Date">' + I.cal + '</button>' + (Data.source === 'frigate' ? '<button class="round bxr" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '</div>' +
     '<div class="trio"><button data-act="step" data-v="-1" aria-label="Previous Event">' + I.prev + '</button>' +
     '<button data-act="playpause" aria-label="' + (S.playing ? 'Pause' : 'Play') + '">' + (S.playing ? I.pause : I.play) + '</button>' +
     '<button data-act="step" data-v="1" aria-label="Next Event">' + I.next + '</button></div>' +
@@ -2442,6 +2456,7 @@ function viewReview() {
     '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + (S.rv.fopen ? I.up : I.down).replace(/22/g, '14') + '</button>' +
     '<button class="chip sm" data-act="rvcols" aria-label="' + rvCols() + ' Cameras Per Row">' + I.grid4.replace(/22/g, '15') + rvCols() + '</button>' +
     '<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button></div><div class="rvchips">' +
+    (Data.source === 'frigate' ? '<button class="chip sm bxchip" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
     '<button class="chip sm" data-act="rvgroup" data-v="all" aria-pressed="' + (st === 'all') + '">All Cameras</button>' +
     groups.map(g => '<button class="chip sm" data-act="rvgroup" data-v="' + esc(g) + '" aria-pressed="' + (st === g) + '">' + esc(g) + ' Only</button>').join('') +
     '<button class="chip sm" data-act="rvpick" aria-pressed="' + (st === 'custom' || S.rv.pick) + '">Choose' + (S.rv.pick ? I.up : I.down).replace(/22/g, '14') + '</button></div>';
@@ -2560,7 +2575,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.2.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.2.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3206,7 +3221,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.2.1';
+    const BUILD = '1.2.2';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
