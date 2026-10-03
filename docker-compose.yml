@@ -59,3 +59,16 @@ services:
     volumes:
       - ./repo/clipwait.py:/clipwait.py:ro
     command: ["sh", "-c", "apk add --no-cache ffmpeg >/dev/null 2>&1; exec python -u /clipwait.py"]
+  # Furbo cameras (no local video of their own): the ha-furbo bridge holds the Furbo P2P session and serves
+  # RTSP on 8564 for Frigate. Built on this machine from github.com/willbeeching/ha-furbo (furbo-bridge).
+  # Settings and the Furbo login live in ./furbo-data/options.json on the mini PC only.
+  furbo:
+    container_name: furbo
+    profiles: ["furbo"]   # not started yet: removed once furbo-data/options.json exists on the mini PC
+    build: https://github.com/willbeeching/ha-furbo.git#main:furbo-bridge
+    image: furbo-bridge:local
+    restart: on-failure:5
+    network_mode: host
+    volumes:
+      - ./furbo-data:/data
+      - ./repo/furbo-go2rtc.yaml:/app/go2rtc.yaml:ro

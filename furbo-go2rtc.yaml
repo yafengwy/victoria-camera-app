@@ -1,0 +1,43 @@
+# Furbo Bridge go2rtc template for the mini PC: same as the add-on's, but RTSP on 8564 and WebRTC on 8565
+# because Frigate already uses 8554/8555 on this machine.
+# go2rtc turns the raw H.264 that furbo_p2p.py emits into RTSP/WebRTC.
+#
+# The exec source runs on demand: go2rtc starts the stream only while a client
+# is watching and stops it when idle. /app/stream.sh does not open its own P2P
+# session — it reads H.264 from the bridge's single session over
+# GET /api/stream, so the camera only ever has one session and one credential.
+
+# The go2rtc API (config, stream list, snapshots) is for the bridge's own use;
+# it needs no network exposure, so bind it to loopback. RTSP/WebRTC below stay
+# reachable so Home Assistant can pull the stream.
+api:
+  listen: "127.0.0.1:1984"
+
+# RTSP is reachable on the LAN so Home Assistant can pull the stream, so it is
+# password-protected: go2rtc requires these credentials for any non-loopback
+# client. The password is DERIVED from the api_token (a one-way hash, set in
+# run.sh), not the token itself, so a leaked stream URL grants only video and
+# never the control API. The integration derives the same value. (go2rtc skips
+# the check for loopback, so local tools still work without credentials.)
+rtsp:
+  listen: ":8564"
+  username: "furbo"
+  password: "${RTSP_PASSWORD}"
+
+webrtc:
+  listen: ":8565"
+
+log:
+  level: ${GO2RTC_LOG}
+
+# The streams below are generated at startup, one pair per camera on the
+# account, by `furbo_p2p.py go2rtc-config`. Each camera gets a video stream
+# named furbo_<device_id>, and the first also answers on the plain name
+# `furbo` that a single-camera bridge has always published.
+#
+# Talkback is not wired up in this version. It ran talk.sh, which opened a
+# second P2P session to the camera, and because the camera reissues its P2P
+# credential on every fetch, that session and the bridge's own could
+# invalidate each other and take video and controls down with them. talk.sh
+# stays in the image and returns once it reads from the shared session.
+streams:
