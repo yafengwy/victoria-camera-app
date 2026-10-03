@@ -64,7 +64,6 @@ services:
   # Settings and the Furbo login live in ./furbo-data/options.json on the mini PC only.
   furbo:
     container_name: furbo
-    profiles: ["furbo"]   # not started yet: removed once furbo-data/options.json exists on the mini PC
     build: https://github.com/willbeeching/ha-furbo.git#main:furbo-bridge
     image: furbo-bridge:local
     restart: on-failure:5
