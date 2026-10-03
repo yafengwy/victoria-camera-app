@@ -926,6 +926,20 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .rvdock:not(.v) .hbub{top:auto;bottom:0;height:24px;font-size:12px;padding:0 10px}
 .rvdock:not(.v) .hline{top:0;bottom:24px}
 .rvdock:not(.v) .hzoom{top:4px}
+
+/* ---- v62: compact Review header: one row of icon buttons; camera quick picks live in the Cameras list ---- */
+.rvtop.c1 .rvbar{gap:4px;padding:0 6px}
+.rvtop.c1 .rvtitle{font-size:17px;white-space:nowrap;overflow:hidden}
+.rvtop.c1 .rvbar > .ic{width:36px;min-width:36px;flex-shrink:0}
+.rvib{width:34px;padding:0;justify-content:center;position:relative;flex-shrink:0}
+.rvib svg{width:18px;height:18px}
+.rvib[aria-pressed="true"]{background:var(--strong);color:var(--strong-fg)}
+.rvibn{position:absolute;top:-3px;right:-3px;min-width:15px;height:15px;padding:0 3px;border-radius:8px;background:var(--hot);color:#fff;font-size:9px;font-weight:800;line-height:15px;text-align:center}
+.rvquick{display:flex;flex-wrap:wrap;gap:6px;padding:6px 8px 8px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.rvquick .chip{height:30px;padding:0 10px;font-size:12px}
+.rvtop.c1 + .rvscrim + .rvdd,.rvtop.c1 .rvdd{top:calc(100% - 4px)}
+@media (max-width:340px){.rvtop.c1 .rvtitle{font-size:0}}
+:root[data-cover] .rvtop.c1 .rvtitle{font-size:16px}
 </style>
 
 <div id="app" class="app"></div>
@@ -974,6 +988,7 @@ const I = {
   sound: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/></svg>',
   expand: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>',
   more: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
+  camsel: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="m16 10 6-3v10l-6-3"/></svg>',
   cal: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>',
   prev: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 5v14M19 5 9 12l10 7z"/></svg>',
   next: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M18 5v14M5 5l10 7-10 7z"/></svg>',
@@ -1411,7 +1426,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.3.6 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.3.7 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2431,7 +2446,10 @@ function rvDropdown() {
   } else {
     const sel = S.rv.sel, on = id => sel != null && sel.includes(id);
     const groups = [...new Set(Data.cams.map(c => c.group))];
-    h += ck(sel == null, 'rvcamall', '*', 'All Cameras', 'strong');
+    if (rvCompact()) {
+      const st = sel == null ? 'all' : groups.find(g => { const ids = Data.cams.filter(c => c.group === g).map(c => c.id); return ids.length === sel.length && ids.every(i => sel.includes(i)); }) || 'custom';
+      h += '<div class="rvquick">' + [['all', 'All Cameras']].concat(groups.map(g => [g, g + ' Only'])).map(([v, l]) => '<button class="chip sm" data-act="rvgroup" data-v="' + esc(v) + '" aria-pressed="' + (st === v) + '">' + esc(l) + '</button>').join('') + '</div>';
+    } else h += ck(sel == null, 'rvcamall', '*', 'All Cameras', 'strong');
     groups.forEach(g => {
       h += '<div class="rvddh">' + esc(g) + '</div>';
       Data.cams.filter(c => c.group === g).forEach(c => {
@@ -2440,6 +2458,18 @@ function rvDropdown() {
     });
   }
   return h + '</div>';
+}
+/* small screens (short windows, Duo cover, narrow phones): one header row of icon buttons */
+function rvCompact() { return window.innerHeight < 640 || window.innerWidth < 420; }
+function rvBarCompact(st) {
+  const ib = (act, on, label, icon, extra) => '<button class="chip sm rvib" data-act="' + act + '" aria-pressed="' + on + '" aria-label="' + label + '" title="' + label + '">' + icon + (extra || '') + '</button>';
+  const n = S.rv.sel == null ? '' : '<span class="rvibn">' + S.rv.sel.length + '</span>';
+  return '<div class="rvtop c1" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
+    ib('rvpick', st !== 'all' || S.rv.pick, 'Cameras', I.camsel, n) +
+    ib('rvfopen', S.rv.fopen || !rvFDefault(), 'Alert Types On Timeline', I.filter) +
+    ib('rvcolsopen', !!S.rv.colsOpen, 'Layout', I.grid4.replace(/22/g, '18')) +
+    (Data.source === 'frigate' ? ib('boxes', Box.on, 'Show Object Boxes', I.boxes) : '') +
+    '<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button></div>';
 }
 function rvFDefault() { const f = S.rv.f; return f.int && !f.unint && OBJS().every(o => objOn(f, o)); }
 function rvFSummary() {
@@ -2571,7 +2601,8 @@ function viewReview() {
   const cams = rvCams(), t = S.rv.t, end = now();
   const groups = [...new Set(Data.cams.map(c => c.group))];
   const st = rvGroupState();
-  let h = '<div class="rvtop" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
+  const RVC = rvCompact();
+  let h = RVC ? rvBarCompact(st) : '<div class="rvtop" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
     '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + (S.rv.fopen ? I.up : I.down).replace(/22/g, '14') + '</button>' +
     '<button class="chip sm" data-act="rvcolsopen" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvLay() === 'big' ? 'Big' : rvLay() === 'top' ? 'Top' : rvCols()) + '</button>' +
     '<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button></div><div class="rvchips">' +
@@ -2737,7 +2768,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.3.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.3.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3376,7 +3407,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
     if (isLand() && !S.full) { S.full = true; S.autoFull = true; S.fui = false; S.fpanel = false; render(); }
     else if (!isLand() && S.full && S.autoFull) { S.full = false; S.autoFull = false; S.fpanel = false; render(); }
     else if (S.full) { const fv = document.getElementById('fullv'); if (fv && fv.classList.contains('rot') !== fullRot()) render(); }
-  } const was = COVER; detectCover(); const n = cols() * 10 + rvCols() + (COVER ? 100 : 0) + (rvVert() ? 1000 : 0); if (S.view === 'review') { S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); } if (n !== lastCols || was !== COVER) { lastCols = n; render(); } }, 150); });
+  } const was = COVER; detectCover(); const n = cols() * 10 + rvCols() + (COVER ? 100 : 0) + (rvVert() ? 1000 : 0) + (rvCompact() ? 10000 : 0); if (S.view === 'review') { S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); } if (n !== lastCols || was !== COVER) { lastCols = n; render(); } }, 150); });
 
 (async function start() {
   await Data.load(); lastCols = cols() * 10 + rvCols();
@@ -3393,7 +3424,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.3.6';
+    const BUILD = '1.3.7';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
