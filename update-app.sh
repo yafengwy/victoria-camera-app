@@ -16,6 +16,9 @@ fi
 if [ -s "$G/Caddyfile" ] && ! cmp -s "$G/Caddyfile" "$D/.applied-caddy"; then
   cp "$G/Caddyfile" "$D/Caddyfile" && docker exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile && cp "$G/Caddyfile" "$D/.applied-caddy"
 fi
+if [ -s "$G/docker-compose.yml" ] && ! cmp -s "$G/docker-compose.yml" "$D/.applied-compose"; then
+  cp "$G/docker-compose.yml" "$D/docker-compose.yml" && (cd "$D" && docker compose up -d) && cp "$G/docker-compose.yml" "$D/.applied-compose"
+fi
 if head -1 "$G/update-app.sh" | grep -q '^#!/bin/sh' && ! cmp -s "$G/update-app.sh" "$D/update-app.sh"; then
   cp "$G/update-app.sh" "$D/update-app.sh" && chmod +x "$D/update-app.sh"
 fi

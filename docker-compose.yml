@@ -4,7 +4,7 @@ services:
     image: ghcr.io/blakeblackshear/frigate:stable
     restart: unless-stopped
     privileged: true
-    shm_size: "256mb"
+    shm_size: "512mb"
     devices:
       - /dev/dri/renderD128:/dev/dri/renderD128
     volumes:
