@@ -40,6 +40,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(--accent,var(--strong));outline-offset:2px}
 svg{display:block;flex-shrink:0}
 img{max-width:100%}
+img.rf{opacity:0}
 .ic{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:12px;color:var(--icon)}
 .ic:active{background:var(--chip)}
 .app{min-height:100%;display:flex;flex-direction:column}
@@ -1166,15 +1167,19 @@ document.addEventListener('error', ev => {
   const n = ev.target; if (!n || !n.getAttribute) return;
   const a = n.tagName === 'IMG' ? 'src' : n.tagName === 'VIDEO' ? 'poster' : null; if (!a) return;
   const fb = Frigate.fb[n.getAttribute(a)]; if (fb) { n.setAttribute(a, fb); return; }
-  if (a === 'src') recFail(n, n.getAttribute('src') || '');
+  if (a === 'src') { if (/\/recordings\/\d+\/snapshot/.test(n.getAttribute('src') || '')) n.classList.add('rf'); recFail(n, n.getAttribute('src') || ''); }
 }, true);
+/* never show the browser's broken-picture "?" while a picture is being retried */
+document.addEventListener('load', ev => { const n = ev.target; if (n && n.tagName === 'IMG') n.classList.remove('rf'); }, true);
 /* A past picture did not load. Only say "No Recording" when Frigate really has no recording then; otherwise it was a
    loading hiccup (Frigate busy, slow network): try again, and if it keeps failing say so instead. */
-const recAsk = {}, recResult = {}, recBusy = {};
+const recAsk = {}, recResult = {}, recBusy = {}, recTries = {};
 function recFail(n, src) {
   const m = /\/api\/([a-z0-9_]+)\/recordings\/(\d+)\/snapshot/.exec(src); if (!m) return;
   const base = src.replace(/&retry=\d+$/, '');
-  if (recResult[base]) { n.setAttribute('src', recResult[base]); return; }
+  if (recResult[base] && recResult[base] !== src) { n.setAttribute('src', recResult[base]); return; }
+  /* the retried picture itself failed now (it worked before): ask again, but give up after a few rounds */
+  if (recResult[base]) { delete recResult[base]; if ((recTries[base] = (recTries[base] || 0) + 1) > 2) { recResult[base] = LOADFAIL; n.setAttribute('src', LOADFAIL); return; } }
   if (recBusy[base]) return; recBusy[base] = 1;
   const cam = m[1], sec = +m[2], key = cam + ':' + Math.floor(sec / 10);
   const apply = v => { recResult[base] = v; delete recBusy[base]; document.querySelectorAll('img').forEach(i => { const s2 = i.getAttribute('src') || ''; if (s2 === base || s2.startsWith(base + '&retry=')) i.setAttribute('src', v); }); };
@@ -2294,7 +2299,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.33 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.34 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
@@ -2885,7 +2890,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.1.33';
+    const BUILD = '1.1.34';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
