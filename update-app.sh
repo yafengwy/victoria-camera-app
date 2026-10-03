@@ -10,6 +10,12 @@ exec 2>>"$L"
 [ -d "$G/.git" ] || git clone -q --depth 1 https://github.com/yafengwy/victoria-camera-app "$G" || exit 0
 # Home Assistant key file for the Camera Mode buttons: created empty once, the key is added by hand on the mini PC
 [ -f "$D/ha-auth.conf" ] || echo '# proxy_set_header Authorization "Bearer <token>";' > "$D/ha-auth.conf"
+# Furbo bridge key for the turn buttons, taken from the bridge's own settings (never in the repo)
+if [ ! -s "$D/furbo-auth.conf" ] || [ -d "$D/furbo-auth.conf" ]; then
+  [ -d "$D/furbo-auth.conf" ] && rmdir "$D/furbo-auth.conf" 2>/dev/null
+  K=$(python3 -c "import json; print(json.load(open('$D/furbo-data/options.json'))['api_token'])" 2>/dev/null)
+  if [ -n "$K" ]; then echo "proxy_set_header Authorization \"Bearer $K\";" > "$D/furbo-auth.conf"; else echo '# no Furbo bridge key yet' > "$D/furbo-auth.conf"; fi
+fi
 git -C "$G" fetch -q --depth 1 origin main && git -C "$G" reset -q --hard origin/main || exit 0
 for f in index.html version.txt icon-180.png icon-192.png icon-512.png manifest.webmanifest; do
   [ -s "$G/$f" ] && ! cmp -s "$G/$f" "$D/app/$f" && cp "$G/$f" "$D/app/$f"

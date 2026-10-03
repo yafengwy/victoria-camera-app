@@ -783,6 +783,10 @@ img{max-width:100%}
 .offv span{font-size:12px;color:#9AA3AB}
 .offv .btn{margin-top:8px;height:34px;padding:0 16px;font-size:13px}
 .fvid .offv{z-index:1;padding-top:52px}
+.panb{position:absolute;top:50%;width:40px;height:40px;margin-top:-20px;border-radius:20px;background:rgba(0,0,0,.45);color:#fff;display:flex;align-items:center;justify-content:center;z-index:3;transition:background .15s}
+.panb.left{left:10px}.panb.right{right:10px}
+.panb svg{width:22px;height:22px}
+.panb:active,.panb.busy{background:rgba(0,0,0,.75)}
 .offv[hidden]{display:none}
 .grid.compact .offv{gap:2px;padding:6px 6px 26px;justify-content:center}
 .grid.compact .offv svg{width:20px;height:20px;margin-bottom:0}
@@ -1307,6 +1311,24 @@ function setImg(img, src) {
   img.onload = done; img.onerror = done; img.src = src;
 }
 
+/* Furbo 360 cameras turn left and right. The mini PC passes the turn to the Furbo bridge with the bridge's key,
+   so no key is in this page. Each tap turns about 20 degrees. */
+const Pan = {
+  cams: { upstairs_furbo: 'D07CB28AD690', bedroom_furbo: '48D01C1D17E8' },
+  buttons(id, t) {
+    if (Data.source !== 'frigate' || !this.cams[id] || t != null || !Ctl.on(id)) return '';
+    const ch = d => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="' + (d === 'left' ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7') + '"/></svg>';
+    return ['left', 'right'].map(d => '<button class="panb ' + d + '" data-act="pan" data-id="' + id + '" data-v="' + d + '" aria-label="Turn ' + (d === 'left' ? 'Left' : 'Right') + '">' + ch(d) + '</button>').join('');
+  },
+  async turn(id, dir, btn) {
+    const dev = this.cams[id]; if (!dev) return;
+    if (btn) { btn.classList.add('busy'); setTimeout(() => btn.classList.remove('busy'), 600); }
+    try {
+      const r = await fetch(Frigate.base() + '/furbo/' + dev + '/pan', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ direction: dir, degrees: 20 }) });
+      if (!r.ok) toast('Could Not Turn The Camera');
+    } catch (e) { toast('Could Not Turn The Camera'); }
+  }
+};
 /* Camera Mode lives in Home Assistant (input_select.camera_mode), which switches it on its own when you leave,
    come home or go to sleep. The mini PC passes these two requests on to Home Assistant with its own key,
    so no key is ever in this page. */
@@ -1856,7 +1878,7 @@ function viewFocus() {
     (frig && cs.enabled ? '<button class="dk ctl" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
     '<button class="pillk" id="fbadge" data-act="fbadge" aria-label="Live. Tap to reconnect">' + (t == null ? (cs.enabled ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t)) + '</button></div>';
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
-    '<div class="fvid"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
+    '<div class="fvid"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + Pan.buttons(c.id, t) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fctl" id="fctl"><button class="fday" data-act="fdate">' + I.cal + (S.focus.dayEnd ? dayLabel(S.focus.dayEnd - 1) : 'Today') + '</button><div style="flex:1"></div>' +
     (S.flist ? '<button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button>' : '') +
     '<button class="dk' + (S.flist ? ' on' : '') + '" data-act="flist" aria-label="' + (S.flist ? 'Show Timeline' : 'Show Alert List') + '">' + (S.flist ? I.tline : I.bellO) + '</button></div>' +
@@ -1897,6 +1919,7 @@ function viewFull(c, t, f) {
       (S.fpanel ? '' : '<div class="fsb zdesk2"><button class="dk sm" data-act="fzoombtn" data-v="out" aria-label="Show Longer Time">−</button><button class="dk sm" data-act="fzoombtn" data-v="in" aria-label="Show Shorter Time">+</button></div>') + '</aside>';
   }
   return '<div class="full' + (S.fui ? ' ui' : '') + (fullRot() ? ' rot' : '') + '" id="fullv"><div class="fvw" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
+    (S.fui ? Pan.buttons(c.id, t) : '') +
     (S.fui ? '<div class="fuitop"><button class="dk" data-act="unfull" aria-label="Exit Full Screen">' + I.shrink + '</button><div style="flex:1"></div><div class="pillk" id="fullbadge">' + (t == null ? '<span class="dot"></span>Live' : hms(t)) + '</div></div>' : '') +
     '</div>' + side + '</div>';
 }
@@ -2248,7 +2271,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.23 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.24 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
@@ -2414,6 +2437,7 @@ const ACT = {
   fkick() { fuiKick(); },
   fpanel() { S.fpanel = !S.fpanel; S.fui = true; render(); fuiKick(); },
   fseek(d) { S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true; if (S.fpanel) render(); else { paintFocus(); Playback.sync(); } fuiKick(); },
+  pan(d, e) { if (e) e.stopPropagation(); Pan.turn(d.id, d.v, e && e.target.closest('.panb')); },
   fbadge() { const id = S.focus && S.focus.cam; if (!id) return; if (camT(id) != null) { ACT.flive(); return; } if (!Ctl.on(id)) return; Live.restart(id); toast('Reconnecting'); },
   flive() { S.camTime[S.focus.cam] = null; S.focus.dayEnd = null; S.focus.lineY = FTOP; render(); const sc = document.getElementById('fsc'); if (sc) { fSetScroll(sc, 0); fPaintLine(); } const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
   flist() { S.flist = !S.flist; render(); fShow(camT(S.focus.cam)); },
@@ -2821,7 +2845,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.1.23';
+    const BUILD = '1.1.24';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
