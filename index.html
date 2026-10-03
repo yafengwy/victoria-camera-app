@@ -1178,14 +1178,14 @@ const Playback = {
       const v0 = p.v; if (this.native()) v0.src = url;                       /* start fetching video while the segment list loads */
       const rows = await Frigate.get('/api/' + id + '/recordings?after=' + a + '&before=' + b);
       const segs = rows.map(r => [Math.max(a, r.start_time), Math.min(b, r.end_time)]).filter(g => g[1] > g[0]).sort((x, y) => x[0] - y[0]);
-      if (!segs.length) { p.win = { a, b, segs: [] }; p.loading = false; return; }
-      p.win = { a, b, segs };
+      if (!segs.length) { p.win = { a, b, segs: [], at: performance.now() }; p.loading = false; return; }
+      p.win = { a, b, segs, at: performance.now() };
       const v = p.v;
       if (p.h) { p.h.destroy(); p.h = null; }
       if (!this.native()) { const H = await this.hls(); if (!H.isSupported()) throw 0; p.h = new H(); p.h.loadSource(url); p.h.attachMedia(v); }
       await new Promise(ok => { const f = () => { v.removeEventListener('loadedmetadata', f); ok(); }; v.addEventListener('loadedmetadata', f); setTimeout(ok, 8000); });
       const vt = this.vtime(p, camT(id) == null ? t : camT(id)); if (vt != null) v.currentTime = vt;
-    } catch (e) { p.win = { a, b, segs: [] }; }
+    } catch (e) { p.win = { a, b, segs: [], at: performance.now() }; }
     p.loading = false;
   },
   el(id) {
@@ -1235,8 +1235,10 @@ const Playback = {
       if (p.busy && performance.now() - p.lastJump < 400) continue;
       p.busy = false;
       const vt = p.win && p.win.segs.length ? this.vtime(p, t) : null;
-      if (!p.win || (vt == null && p.win.segs.length) || t / 1000 < p.win.a || t / 1000 > p.win.b - 3) { this.load(id, t).then(() => this.sync()); continue; }
-      if (!p.win.segs.length) continue;                             /* nothing recorded here: keep the snapshot */
+      /* a just-happened alert may not be saved yet: ask again every 2 s until it is */
+      const stale = p.win && (!p.win.segs.length || vt == null) && performance.now() - (p.win.at || 0) > 2000;
+      if (!p.win || stale || t / 1000 < p.win.a || (t / 1000 > p.win.b - 3 && performance.now() - (p.win.at || 0) > 2000)) { this.load(id, t).then(() => this.sync()); continue; }
+      if (!p.win.segs.length || vt == null) continue;               /* nothing recorded here (yet): keep the snapshot */
       if (p.prep) continue;
       p.expect = t;
       if (moved || Math.abs(p.v.currentTime - vt) > 2.5) {
@@ -2198,7 +2200,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.12 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.13 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
@@ -2771,7 +2773,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.1.12';
+    const BUILD = '1.1.13';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
