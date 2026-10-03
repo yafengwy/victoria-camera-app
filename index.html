@@ -903,6 +903,24 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .lvc,.lvc video{display:block;width:100%;height:100%;object-fit:cover;background:transparent}
 .fvw .lvc video{object-fit:contain}
 @media (orientation:landscape){.full:not(.ui) .fvw .lvc video{object-fit:cover}}
+
+/* ---- v60: short screens (small windows, Duo cover): the hour rail scrolls; Review header and dock are tighter ---- */
+.hours{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;touch-action:pan-y}
+.hours::-webkit-scrollbar{display:none}
+.hours .hr{flex-shrink:0}
+@media (max-height:640px){
+  .hr{min-height:16px}
+  .rvbar{height:46px}
+  .rvbar .chip,.rvbar .ic{height:32px}
+  .rvbar .ic{width:32px}
+  .rvchips{padding-bottom:6px}
+  .rvchips .chip{height:30px;padding:0 10px;font-size:12px}
+  .rvh{height:58px}
+  .rvctl{padding:0 6px 4px}
+  .rvctl button{height:34px;min-width:34px}
+  .rvcams{padding-bottom:calc(110px + env(safe-area-inset-bottom,0px))}
+}
+@media (max-width:420px){.rvbar .rvtitle{font-size:0}}
 </style>
 
 <div id="app" class="app"></div>
@@ -1388,7 +1406,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.3.4 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.3.5 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1551,7 +1569,17 @@ function setImg(img, src) {
   if (img.dataset.busy === '1') { img.dataset.next = src; return; }
   img.dataset.busy = '1';
   const done = () => { img.dataset.busy = ''; const n = img.dataset.next; img.dataset.next = ''; if (n && n !== img.getAttribute('src')) setImg(img, n); };
-  img.onload = done; img.onerror = done; if (!img.naturalWidth || /^data:/.test(img.getAttribute('src') || '')) img.dataset.ld = '1'; img.src = src;
+  const cur = img.getAttribute('src') || '', have = img.naturalWidth && !/^data:/.test(cur);
+  if (have && !/^data:/.test(src)) {
+    /* a picture is already showing: fetch the next one out of sight and swap it in once it has arrived,
+       so the tile never goes blank or says Loading while it waits (a miss keeps the last picture and its time) */
+    const pre = new Image(); let fin = false;
+    const end = ok => { if (fin) return; fin = true; if (ok && img.dataset.busy === '1') { img.onload = done; img.onerror = done; img.src = src; } else done(); };
+    pre.onload = () => end(true); pre.onerror = () => end(false); pre.src = src;
+    setTimeout(() => end(false), 6000);
+    return;
+  }
+  img.onload = done; img.onerror = done; img.dataset.ld = '1'; img.src = src;
   setTimeout(() => { if (img.dataset.busy === '1' && img.getAttribute('src') === src) done(); }, 6000);   /* never stay stuck on a picture that does not answer */
 }
 
@@ -2704,7 +2732,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.3.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.3.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3196,7 +3224,7 @@ function evTopPx() { const et = document.querySelector('.evtop'); return et ? et
 function setEvTop() { app.style.setProperty('--evtop', evTopPx() + 'px'); }
 function setCur(hr) {
   document.querySelectorAll('.hr.cur').forEach(n => n.classList.remove('cur'));
-  const b = document.getElementById('hr-' + hr); if (b) b.classList.add('cur');
+  const b = document.getElementById('hr-' + hr); if (b) { b.classList.add('cur'); const r = b.parentNode; if (r && r.scrollHeight > r.clientHeight + 2) { const y = b.offsetTop - r.offsetTop; if (y < r.scrollTop || y + b.offsetHeight > r.scrollTop + r.clientHeight) r.scrollTop = y - r.clientHeight / 2; } }
 }
 /* Alerts page: the alert at the top of the screen plays by itself (one at a time, so the phone stays smooth) */
 let evAutoT = 0;
@@ -3354,7 +3382,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.3.4';
+    const BUILD = '1.3.5';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
