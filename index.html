@@ -944,6 +944,22 @@ const I = {
 
 /* ===== Data layer: demo data now, Frigate when the mini PC is ready ===== */
 const OBJECTS = ['Person', 'Car', 'Cat', 'Dog', 'Package'];
+/* The object list in the filters: with Frigate, every object any camera is set to recognize, plus any label that
+   actually shows up in the alerts (so nothing can slip past a filter unseen) */
+const OBJ_FIRST = ['Person', 'Cat', 'Dog', 'Car'];
+function OBJS() {
+  const set = new Set(Data.source === 'frigate' && Data.objs && Data.objs.length ? Data.objs : OBJECTS);
+  (Data.events || []).forEach(e => { if (e.label && e.label !== 'Motion') set.add(e.label); });
+  [S.filt, S.rv && S.rv.f].forEach(f => { if (f) Object.keys(f.objs || {}).forEach(k => { if (f.objs[k]) set.add(k); }); });   /* keep showing what was picked */
+  return [...set].sort((a, b) => { const ia = OBJ_FIRST.indexOf(a), ib = OBJ_FIRST.indexOf(b); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b); });
+}
+/* Is this object chosen? Nothing turned off = everything shows (also objects not in the list). Once some are turned
+   off, only the ones turned on show, so an object nobody picked (a Suitcase when only Package is on) stays hidden. */
+function objOn(f, o) { const v = f.objs[o]; if (v !== undefined) return v; return !Object.values(f.objs).includes(false); }
+function objToggle(f, o) {
+  if (!Object.values(f.objs).includes(false)) OBJS().forEach(x => { f.objs[x] = true; });   /* leaving "all": fix the list first */
+  f.objs[o] = !objOn(f, o);
+}
 const Data = {
   cams: [], events: [], source: 'demo',
   async load() {
@@ -1022,6 +1038,8 @@ const Frigate = {
     Object.keys(cfg.cameras).forEach(id => { const cc = cfg.cameras[id], st = Ctl.get(id);
       Object.values((cc.live && cc.live.streams) || {}).forEach(k => { this.streams[k] = 1; });
       st.enabled = cc.enabled !== false; st.alerts = !(cc.review && cc.review.alerts && cc.review.alerts.enabled === false); });
+    const cap = l => String(l).replace(/^\w/, m => m.toUpperCase());
+    Data.objs = [...new Set([].concat(((cfg.objects || {}).track) || [], ...Object.values(cfg.cameras).map(cc => ((cc.objects || {}).track) || [])).map(cap))];
     Data.cams = Object.keys(cfg.cameras).map(id => ({
       id, name: (cfg.cameras[id].friendly_name || id.replace(/_/g, ' ')).replace(/\b\w/g, m => m.toUpperCase()),
       group: groupOf(id), img: this.base() + '/api/' + id + '/latest.webp?height=480',
@@ -1249,7 +1267,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.1.46 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.1.47 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1535,7 +1553,7 @@ const S = {
 function passes(e) {
   const f = S.filt;
   if (e.interesting ? !f.int : !f.unint) return false;
-  if (f.objs[e.label] === false) return false;
+  if (!objOn(f, e.label)) return false;
   if (f.off[e.cam]) return false;
   const z = f.zones && f.zones[e.cam];
   if (z && z.length && !(e.zones || []).some(x => z.includes(x))) return false;
@@ -1911,7 +1929,7 @@ function modalWin() {
 function mini(on) { return '<span class="mbox">' + (on ? I.check : '') + '</span>'; }
 function filterPanel() {
   const f = S.filt;
-  const objsOn = OBJECTS.filter(o => f.objs[o] !== false), allObj = objsOn.length === OBJECTS.length;
+  const objsOn = OBJS().filter(o => objOn(f, o)), allObj = objsOn.length === OBJS().length;
   const camsOn = Data.cams.filter(c => !f.off[c.id]);
   const objSum = allObj ? 'Any Object' : objsOn.length ? objsOn.join(', ') : 'No Objects';
   const camSum = camsOn.length === Data.cams.length ? 'All Cameras' : camsOn.length ? camsOn.length + ' Cameras' : 'No Cameras';
@@ -1920,7 +1938,7 @@ function filterPanel() {
     '<button class="dd2" data-act="ddcam" aria-expanded="' + S.ddCam + '"><span>' + esc(camSum) + '</span>' + (S.ddCam ? I.up : I.down) + '</button></div>';
   if (S.ddObj) {
     h += '<div class="ddl"><button class="mrow" data-act="anyobj">' + mini(allObj) + 'Any Recognized Object</button>' +
-      OBJECTS.map(o => '<button class="mrow" data-act="obj" data-v="' + o + '">' + mini(f.objs[o] !== false) + o + '</button>').join('') + '</div>';
+      OBJS().map(o => '<button class="mrow" data-act="obj" data-v="' + o + '">' + mini(objOn(f, o)) + o + '</button>').join('') + '</div>';
   }
   if (S.ddCam) {
     h += '<div class="ddl"><div class="mrow head"><span style="flex:1">Cameras</span><button class="lnk" data-act="allcams" data-v="1">All</button><button class="lnk" data-act="allcams" data-v="0">None</button></div>';
@@ -2222,7 +2240,7 @@ function rvMark(box, c, t) {
   if (tg) { tg.innerHTML = e ? objIcon(e.label) + '<span>' + esc(e.label) + '</span>' : ''; tg.hidden = !e; tg.classList.toggle('un', !!e && !e.interesting); tg.classList.remove('dim'); }
 }
 function rvPass(e) {
-  const f = S.rv.f; if (e.interesting ? !f.int : !f.unint) return false; if (f.objs[e.label] === false) return false;
+  const f = S.rv.f; if (e.interesting ? !f.int : !f.unint) return false; if (!objOn(f, e.label)) return false;
   const z = S.rv.zones[e.cam]; return !(z && z.length && !(e.zones || []).some(x => z.includes(x)));
 }
 function rvDropdown() {
@@ -2233,9 +2251,9 @@ function rvDropdown() {
     h += '<div class="rvddh">Cameras Per Row</div>';
     for (let n = 1; n <= mx; n++) h += '<button class="check" role="radio" aria-checked="' + (rvCols() === n) + '" data-act="rvcols" data-v="' + n + '"><span class="box rdo">' + (rvCols() === n ? I.check : '') + '</span>' + n + '</button>';
   } else if (S.rv.fopen) {
-    const f = S.rv.f, all = OBJECTS.every(o => f.objs[o] !== false);
+    const f = S.rv.f, all = OBJS().every(o => objOn(f, o));
     h += '<div class="rvddh">Objects</div>' + ck(all, 'rvobj', '*', 'Any Recognized Object', 'strong') +
-      OBJECTS.map(o => ck(f.objs[o] !== false, 'rvobj', o, o)).join('') +
+      OBJS().map(o => ck(objOn(f, o), 'rvobj', o, o)).join('') +
       '<div class="rvddh">Alert Level</div>' + ck(f.int, 'rvsev', 'int', 'Interesting') + ck(f.unint, 'rvsev', 'unint', 'Uninteresting');
   } else {
     const sel = S.rv.sel, on = id => sel == null || sel.includes(id);
@@ -2256,10 +2274,10 @@ function rvDropdown() {
   }
   return h + '</div>';
 }
-function rvFDefault() { const f = S.rv.f; return f.int && !f.unint && OBJECTS.every(o => f.objs[o] !== false); }
+function rvFDefault() { const f = S.rv.f; return f.int && !f.unint && OBJS().every(o => objOn(f, o)); }
 function rvFSummary() {
-  const f = S.rv.f, on = OBJECTS.filter(o => f.objs[o] !== false);
-  const objs = on.length === OBJECTS.length ? 'Any Object' : on.length ? on.join(', ') : 'No Object';
+  const f = S.rv.f, on = OBJS().filter(o => objOn(f, o));
+  const objs = on.length === OBJS().length ? 'Any Object' : on.length ? on.join(', ') : 'No Object';
   return objs + (f.int && f.unint ? ' · All' : f.unint ? ' · Uninteresting' : f.int ? '' : ' · None');
 }
 /* Wide landscape screens (Duo inner screen turned sideways, tablets, desktop): the timeline becomes a vertical rail on the
@@ -2438,15 +2456,15 @@ function rvScrollTo(t) { const sc = document.getElementById('rvsc'); if (!sc) re
 
 /* ===== Dialogs ===== */
 function modalFilter() {
-  const f = S.filt, all = OBJECTS.every(o => f.objs[o] !== false);
-  const picked = OBJECTS.filter(o => f.objs[o] !== false);
+  const f = S.filt, all = OBJS().every(o => objOn(f, o));
+  const picked = OBJS().filter(o => objOn(f, o));
   const summary = all ? 'All Objects' : picked.length ? picked.join(', ') : 'Select Objects';
   return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm" role="dialog" aria-label="Alert Settings" data-stop="1">' +
     '<div class="dhead">Alert Settings<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
     '<div class="lbl" style="margin-top:0">Show Me</div>' + checkRow('int', 'Interesting Alerts', f.int) + checkRow('unint', 'Uninteresting Alerts', f.unint) +
     '<div class="lbl">That Involve</div>' +
     '<button class="dd" data-act="objdd" aria-expanded="' + S.objOpen + '">' + esc(summary) + (S.objOpen ? I.up : I.down) + '</button>' +
-    (S.objOpen ? '<div class="ddlist">' + OBJECTS.map(o => '<button class="check" role="checkbox" aria-checked="' + (f.objs[o] !== false) + '" data-act="obj" data-v="' + o + '"><span class="box">' + (f.objs[o] !== false ? I.check : '') + '</span>' + o + '</button>').join('') + '</div>' : '') +
+    (S.objOpen ? '<div class="ddlist">' + OBJS().map(o => '<button class="check" role="checkbox" aria-checked="' + (objOn(f, o)) + '" data-act="obj" data-v="' + o + '"><span class="box">' + (objOn(f, o) ? I.check : '') + '</span>' + o + '</button>').join('') + '</div>' : '') +
     '<button class="check" role="checkbox" aria-checked="' + all + '" data-act="anyobj"><span class="box">' + (all ? I.check : '') + '</span>Any Recognized Object</button>' +
     filterZones() +
     '<button class="btn solid" style="align-self:flex-end" data-act="close">Save</button></div></div></div>';
@@ -2470,7 +2488,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.46 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.47 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -2635,7 +2653,7 @@ const ACT = {
     if (d.v === 'demo') { S.demo = !S.demo; render(); return; }
     S.filt[d.v] = !S.filt[d.v]; saveFilt(); render();
   },
-  obj(d) { S.filt.objs[d.v] = S.filt.objs[d.v] === false; saveFilt(); render(); },
+  obj(d) { objToggle(S.filt, d.v); saveFilt(); render(); },
   camf(d) { S.filt.off[d.id] = !S.filt.off[d.id]; saveFilt(); render(); },
   allcams(d) { S.filt.off = {}; if (d.v === '0') Data.cams.forEach(c => { S.filt.off[c.id] = true; }); saveFilt(); render(); },
   filters() { S.filtersOpen = !S.filtersOpen; render(); },
@@ -2682,7 +2700,7 @@ const ACT = {
   ddcam() { S.ddCam = !S.ddCam; if (S.ddCam) S.ddObj = false; render(); },
   zopen(d) { S.zoneOpen = S.zoneOpen === d.id ? null : d.id; render(); },
   zone(d) { const z = (S.filt.zones = S.filt.zones || {}); let cur = z[d.id] || []; if (!d.v) cur = []; else cur = cur.includes(d.v) ? cur.filter(x => x !== d.v) : cur.concat(d.v); z[d.id] = cur; saveFilt(); render(); },
-  anyobj() { const all = OBJECTS.every(o => S.filt.objs[o] !== false); OBJECTS.forEach(o => { S.filt.objs[o] = !all; }); saveFilt(); render(); },
+  anyobj() { const all = OBJS().every(o => objOn(S.filt, o)); if (all) OBJS().forEach(o => { S.filt.objs[o] = false; }); else S.filt.objs = {}; saveFilt(); render(); },
   rvgroup(d) { S.rv.sel = d.v === 'all' ? null : Data.cams.filter(c => c.group === d.v).map(c => c.id); render(); },
   rvpick() { S.rv.pick = !S.rv.pick; S.rv.fopen = false; S.rv.colsOpen = false; render(); },
   rvcamall() { S.rv.sel = null; render(); },
@@ -2696,10 +2714,10 @@ const ACT = {
   rvzone(d) { const z = S.rv.zones; let cur = z[d.id] || []; cur = !d.v ? [] : cur.includes(d.v) ? cur.filter(x => x !== d.v) : cur.concat(d.v); if (cur.length) z[d.id] = cur; else delete z[d.id]; store.set('rvzones', z); render(); },
   rvfopen() { S.rv.fopen = !S.rv.fopen; S.rv.pick = false; S.rv.colsOpen = false; render(); },
   rvobj(d) {
-    const f = S.rv.f, all = OBJECTS.every(o => f.objs[o] !== false);
+    const f = S.rv.f, all = OBJS().every(o => objOn(f, o));
     if (d.v === '*') f.objs = {};
-    else if (all) { f.objs = {}; OBJECTS.forEach(o => { if (o !== d.v) f.objs[o] = false; }); }
-    else { f.objs[d.v] = f.objs[d.v] === false; if (OBJECTS.every(o => f.objs[o] === false)) f.objs = {}; }
+    else if (all) { f.objs = {}; OBJS().forEach(o => { f.objs[o] = o === d.v; }); }
+    else { objToggle(f, d.v); if (OBJS().every(o => !objOn(f, o))) f.objs = {}; }
     store.set('rvf', f); render();
   },
   rvsev(d) { const f = S.rv.f; f[d.v] = !f[d.v]; if (!f.int && !f.unint) f[d.v === 'int' ? 'unint' : 'int'] = true; store.set('rvf', f); render(); },
@@ -3099,7 +3117,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.1.46';
+    const BUILD = '1.1.47';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
