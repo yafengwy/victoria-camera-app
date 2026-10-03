@@ -1359,7 +1359,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.2.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.2.3 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1399,18 +1399,20 @@ const Playback = {
   async load(id, t) {
     const p = this.st[id], seq = p.seq = (p.seq || 0) + 1; p.loading = true; p.loadT = t; p.on = false; p.win = null; this.paintVis(id);
     const gone = () => seq !== p.seq;          /* a newer tap started another load: drop this one */
+    if (p.h) { p.h.destroy(); p.h = null; }    /* stop downloading the old spot at once, so the new tap gets the network */
     let a = Math.floor(t / 1000) - 1, b = Math.min(Math.floor(now() / 1000), a + 180);   /* a short window: Frigate builds it faster */
     Dbg.log('load', id, hms(t), 'native=' + this.native());
     try {
       /* Start the video exactly at the beginning of the recording piece that holds t (pieces start on a key frame).
          Cutting in the middle of a piece made the player start at the key frame before, up to ~20 s too early. */
-      const pre = await Frigate.get('/api/' + id + '/recordings?after=' + (a - 60) + '&before=' + (a + 1));
+      /* one question to Frigate instead of two (each round trip cost ~0.5 s) */
+      const t0 = performance.now(), all = await Frigate.get('/api/' + id + '/recordings?after=' + (a - 60) + '&before=' + b);
       if (gone()) return;
-      const hold = pre.filter(r => r.start_time <= a + 1 && r.end_time > a).sort((x, y) => y.start_time - x.start_time)[0];
+      const hold = all.filter(r => r.start_time <= a + 1 && r.end_time > a).sort((x, y) => y.start_time - x.start_time)[0];
       if (hold) a = Math.floor(hold.start_time);
       const url = Frigate.base() + '/vod/' + id + '/start/' + a + '/end/' + b + '/index.m3u8';
-      const rows = await Frigate.get('/api/' + id + '/recordings?after=' + a + '&before=' + b);
-      if (gone()) return;
+      const rows = all.filter(r => r.end_time > a);
+      Dbg.log('recordings answered', id, Math.round(performance.now() - t0) + 'ms');
       const segs = rows.map(r => [Math.max(a, r.start_time), Math.min(b, r.end_time)]).filter(g => g[1] > g[0]).sort((x, y) => x[0] - y[0]);
       Dbg.log('segs', id, segs.length, segs.length ? 'first ' + hms(segs[0][0] * 1000) : 'none', 'start ' + hms(a * 1000));
       if (!segs.length) { p.win = { a, b, segs: [], at: performance.now() }; p.loading = false; return; }
@@ -1424,10 +1426,14 @@ const Playback = {
         const f0 = performance.now(); fetch(url, { credentials: 'include' }).then(r => r.text().then(x => Dbg.log('server answered', id, r.status, Math.round(performance.now() - f0) + 'ms', (x.match(/#EXTINF/g) || []).length + ' parts'))).catch(e => Dbg.log('server error', id, String(e)));
         v.src = url; if (vt != null) v.currentTime = vt; p.v.play().then(() => Dbg.log('play ok', id)).catch(e => Dbg.log('play refused', id, e && e.name));
       } else {
-        const H = await this.hls(); if (gone()) return; if (!H.isSupported()) throw 0; p.h = new H(); p.h.loadSource(url); p.h.attachMedia(v);
+        /* start loading right at the wanted spot (not from the beginning and then jump), small buffer, play at once */
+        const H = await this.hls(); if (gone()) return; if (!H.isSupported()) throw 0;
+        const vt0 = this.vtime(p, camT(id) == null ? t : camT(id));
+        p.h = new H({ startPosition: vt0 != null ? vt0 : -1, maxBufferLength: 8, maxMaxBufferLength: 20, backBufferLength: 10, startFragPrefetch: true, manifestLoadingTimeOut: 8000, fragLoadingTimeOut: 8000 });
+        p.h.loadSource(url); p.h.attachMedia(v); v.play().catch(() => {});
         await new Promise(ok => { const f = () => { v.removeEventListener('loadedmetadata', f); ok(); }; v.addEventListener('loadedmetadata', f); setTimeout(ok, 4000); });
         if (gone()) return;
-        const vt = this.vtime(p, camT(id) == null ? t : camT(id)); if (vt != null) v.currentTime = vt;
+        const vt = this.vtime(p, camT(id) == null ? t : camT(id)); if (vt != null && Math.abs(v.currentTime - vt) > 1) v.currentTime = vt;
       }
     } catch (e) { Dbg.log('load error', id, String(e && e.message || e)); if (gone()) return; p.win = { a, b, segs: [], at: performance.now() }; }
     p.loading = false;
@@ -2505,7 +2511,7 @@ function paintReview() {
    and tapping it brings that camera into view */
 function rvHint() {
   let n = document.getElementById('rvhint');
-  if (S.view !== 'review') { if (n) n.hidden = true; return; }
+  if (S.view !== 'review' || S.focus) { if (n) n.hidden = true; return; }
   if (!n) { n = document.createElement('button'); n.id = 'rvhint'; n.className = 'rvhint'; n.hidden = true; document.body.appendChild(n);
     n.addEventListener('click', e => { e.stopPropagation(); const box = document.getElementById('rv-' + n.dataset.id); if (box) box.scrollIntoView({ behavior: 'smooth', block: 'center' }); }); }
   const top = document.getElementById('rvtop'), dock = document.querySelector('.rvdock');
@@ -2575,7 +2581,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.2.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.2.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3215,13 +3221,13 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
     Motion.seed(); Diag.run();
     setInterval(() => Motion.ensure(), 3000); setInterval(() => Live.watch(), 2000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) { Motion.ensure(); Frigate.refresh(); HA.get(); Snz.get(); } });
-    window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); HA.get(); setInterval(() => HA.get(), 10000); if (store.get('boxes', false)) Box.set(true); Snz.get(); setInterval(() => Snz.get(), 15000);
+    window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); HA.get(); setInterval(() => HA.get(), 10000); if (store.get('boxes', false)) Box.set(true); if (!Playback.native()) Playback.hls().catch(() => {}); Snz.get(); setInterval(() => Snz.get(), 15000);
     setInterval(() => { if (S.view === 'home' && !S.modal && (Snz.active() || document.querySelector('.snzban'))) render(); }, 60000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.2.2';
+    const BUILD = '1.2.3';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
