@@ -8,6 +8,8 @@ L=$D/app/update-log.txt
 exec 2>>"$L"
 [ "$(wc -c < "$L" 2>/dev/null || echo 0)" -gt 20000 ] && tail -c 10000 "$L" > "$L.tmp" && mv "$L.tmp" "$L"
 [ -d "$G/.git" ] || git clone -q --depth 1 https://github.com/yafengwy/victoria-camera-app "$G" || exit 0
+# Home Assistant key file for the Camera Mode buttons: created empty once, the key is added by hand on the mini PC
+[ -f "$D/ha-auth.conf" ] || echo '# proxy_set_header Authorization "Bearer <token>";' > "$D/ha-auth.conf"
 git -C "$G" fetch -q --depth 1 origin main && git -C "$G" reset -q --hard origin/main || exit 0
 for f in index.html version.txt icon-180.png icon-192.png icon-512.png manifest.webmanifest; do
   [ -s "$G/$f" ] && ! cmp -s "$G/$f" "$D/app/$f" && cp "$G/$f" "$D/app/$f"

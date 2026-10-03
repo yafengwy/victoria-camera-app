@@ -33,6 +33,7 @@ services:
     volumes:
       - ./app:/usr/share/nginx/html:ro
       - ./app-nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./ha-auth.conf:/etc/nginx/ha-auth.conf:ro
   caddy:
     container_name: caddy
     image: caddy:2

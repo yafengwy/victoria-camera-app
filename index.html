@@ -1256,6 +1256,28 @@ function setImg(img, src) {
   img.onload = done; img.onerror = done; img.src = src;
 }
 
+/* Camera Mode lives in Home Assistant (input_select.camera_mode), which switches it on its own when you leave,
+   come home or go to sleep. The mini PC passes these two requests on to Home Assistant with its own key,
+   so no key is ever in this page. */
+const HA = {
+  names: { normal: 'Normal', home: 'At Home', sleep: 'Sleep' },
+  key(name) { for (const k in this.names) if (this.names[k] === name) return k; return null; },
+  async get() {
+    try {
+      const r = await fetch(Frigate.base() + '/ha/mode', { credentials: 'include', cache: 'no-store' }); if (!r.ok) return;
+      const k = this.key((await r.json()).state);
+      if (Date.now() - (this.setAt || 0) < 5000) return;     /* just changed here: ignore an answer that left before it */
+      if (k && k !== S.mode) { S.mode = k; store.set('mode', k); const n = document.querySelector('.modes'); if (n) n.querySelectorAll('.mode').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === k))); }
+    } catch (e) {}
+  },
+  async set(name) {
+    this.setAt = Date.now();
+    try {
+      const r = await fetch(Frigate.base() + '/ha/set', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entity_id: 'input_select.camera_mode', option: name }) });
+      return r.ok;
+    } catch (e) { return false; }
+  }
+};
 /* Camera switches, stored in Frigate (so Home Assistant automations and this app always agree):
    enabled  = camera on/off — off means no live view, no recording, no detection (privacy)
    alerts   = alerts on/off — keeps recording, but creates no alerts (so nothing to notify about) */
@@ -2165,7 +2187,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
@@ -2185,7 +2207,14 @@ function toast(msg) {
 let tapTimer = null, lastTap = { id: null, at: 0 };
 const ACT = {
   go(d) { S.view = d.v; S.modal = null; render(); window.scrollTo(0, 0); },
-  mode(d) { S.mode = d.v; store.set('mode', S.mode); render(); toast('Mode: ' + ({ normal: 'Normal', home: 'At Home', sleep: 'Sleep' })[d.v] + (Data.source === 'frigate' ? '' : ' (demo)')); },
+  async mode(d) {
+    const name = HA.names[d.v];
+    if (Data.source === 'frigate') {
+      const ok = await HA.set(name);
+      if (!ok) { toast('Could Not Reach Home Assistant'); return; }
+    }
+    S.mode = d.v; store.set('mode', S.mode); render(); toast('Mode: ' + name + (Data.source === 'frigate' ? '' : ' (Demo)'));
+  },
   markstyle(d) { S.markStyle = d.v; store.set('markStyle', d.v); render(); },
   cover(d) { S.cover = d.v; store.set('cover', d.v); render(); },
   look(d) { S.look = d.v; store.set('look', d.v); render(); },
@@ -2725,12 +2754,12 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   if (Data.source === 'frigate') {
     Motion.seed(); Diag.run();
     setInterval(() => Motion.ensure(), 3000); setInterval(() => Live.watch(), 2000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) { Motion.ensure(); Frigate.refresh(); } });
-    window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { Motion.ensure(); Frigate.refresh(); HA.get(); } });
+    window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); HA.get(); setInterval(() => HA.get(), 10000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
   if (HOSTED) {
-    const BUILD = '1.1.9';
+    const BUILD = '1.1.10';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
