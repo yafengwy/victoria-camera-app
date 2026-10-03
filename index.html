@@ -750,6 +750,8 @@ img{max-width:100%}
 :root[data-app-theme="google"]:not([data-dark]){--accent:#4F7FDB}
 .lvh{position:absolute;inset:0;pointer-events:none}
 .lvh[hidden]{display:none}
+.evplayi{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:23px;background:rgba(0,0,0,.5);color:#fff;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.evplayi svg{width:20px;height:20px}
 .pbh{position:absolute;inset:0;pointer-events:none}
 .pbh[hidden]{display:none}
 .pbv{display:block;width:100%;height:100%;object-fit:cover;background:transparent}
@@ -916,6 +918,7 @@ const Frigate = {
         zones: ((r.data && r.data.zones) || []).map(z => z.replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase())),
         img: Frigate.thumb(r, det),
         preview: this.base() + '/api/review/' + r.id + '/preview?format=mp4',
+        vod: this.base() + '/vod/' + r.camera + '/start/' + Math.floor(r.start_time - 1) + '/end/' + Math.ceil((r.end_time || r.start_time + 20) + 1) + '/index.m3u8',
         clip: this.base() + '/api/' + r.camera + '/start/' + Math.floor(r.start_time - 1) + '/end/' + Math.ceil((r.end_time || r.start_time + 20) + 2) + '/clip.mp4'
       };
     }).sort((a, b) => b.t - a.t);
@@ -1022,17 +1025,17 @@ const Playback = {
   },
   async load(id, t) {
     const p = this.st[id]; p.loading = true; p.on = false;
-    const a = Math.floor(t / 1000) - 2, b = Math.min(Math.floor(now() / 1000), a + 900);
+    const a = Math.floor(t / 1000) - 1, b = Math.min(Math.floor(now() / 1000), a + 900);
     try {
+      const url = Frigate.base() + '/vod/' + id + '/start/' + a + '/end/' + b + '/index.m3u8';
+      const v0 = p.v; if (this.native()) v0.src = url;                       /* start fetching video while the segment list loads */
       const rows = await Frigate.get('/api/' + id + '/recordings?after=' + a + '&before=' + b);
       const segs = rows.map(r => [Math.max(a, r.start_time), Math.min(b, r.end_time)]).filter(g => g[1] > g[0]).sort((x, y) => x[0] - y[0]);
       if (!segs.length) { p.win = { a, b, segs: [] }; p.loading = false; return; }
       p.win = { a, b, segs };
-      const url = Frigate.base() + '/vod/' + id + '/start/' + a + '/end/' + b + '/index.m3u8';
       const v = p.v;
       if (p.h) { p.h.destroy(); p.h = null; }
-      if (this.native()) v.src = url;
-      else { const H = await this.hls(); if (!H.isSupported()) throw 0; p.h = new H(); p.h.loadSource(url); p.h.attachMedia(v); }
+      if (!this.native()) { const H = await this.hls(); if (!H.isSupported()) throw 0; p.h = new H(); p.h.loadSource(url); p.h.attachMedia(v); }
       await new Promise(ok => { const f = () => { v.removeEventListener('loadedmetadata', f); ok(); }; v.addEventListener('loadedmetadata', f); setTimeout(ok, 8000); });
       const vt = this.vtime(p, camT(id) == null ? t : camT(id)); if (vt != null) v.currentTime = vt;
     } catch (e) { p.win = { a, b, segs: [] }; }
@@ -1062,6 +1065,11 @@ const Playback = {
   },
   sync() {
     if (Data.source !== 'frigate') return;
+    document.querySelectorAll('video[data-hls]:not([data-on])').forEach(v => {     /* alert cards */
+      v.dataset.on = '1'; const u = v.dataset.hls;
+      if (this.native()) { v.src = u; v.play().catch(() => {}); }
+      else this.hls().then(H => { const h = new H(); h.loadSource(u); h.attachMedia(v); v.play().catch(() => {}); }).catch(() => { v.src = u; });
+    });
     const want = this.cams();
     for (const id in this.st) if (!want[id]) this.stop(id);
     for (const id in want) {
@@ -1069,9 +1077,12 @@ const Playback = {
       if (t == null || !S.playing || S.dragging || (S.hov && (S.hov.id === id || S.hov.id === 'full'))) { if (p.on || !p.v.paused) this.stop(id); continue; }
       if (p.loading) continue;
       const moved = p.lastSet == null || Math.abs(t - p.lastSet) > 2500;
-      if (moved) { if (!p.ext) p.ext = performance.now(); p.lastSet = t; if (p.on) { p.on = false; p.v.pause(); this.paintVis(id); } }
-      if (p.ext && performance.now() - p.ext < 450) continue;      /* still being dragged/scrolled: wait */
-      p.ext = 0;
+      if (moved) {                                                     /* a jump (tap) goes at once; repeated jumps (scrolling) wait until they stop */
+        const n = performance.now(); p.busy = p.lastJump && n - p.lastJump < 400; p.lastJump = n; p.lastSet = t;
+        if (p.on && p.busy) { p.on = false; p.v.pause(); this.paintVis(id); }
+      }
+      if (p.busy && performance.now() - p.lastJump < 400) continue;
+      p.busy = false;
       const vt = p.win && p.win.segs.length ? this.vtime(p, t) : null;
       if (!p.win || (vt == null && p.win.segs.length) || t / 1000 < p.win.a || t / 1000 > p.win.b - 3) { this.load(id, t).then(() => this.sync()); continue; }
       if (!p.win.segs.length) continue;                             /* nothing recorded here: keep the snapshot */
@@ -1361,8 +1372,8 @@ function refreshTrack() {
 function evMedia(e) {
   const playing = S.evPlay === e.id;
   if (Data.source === 'frigate') {
-    if (playing) return '<video src="' + e.clip + '" poster="' + e.img + '" autoplay controls playsinline></video>';
-    return '<video class="evprev" data-src="' + e.clip + '" poster="' + e.img + '" muted loop playsinline preload="none"></video>';
+    if (playing) return '<video data-hls="' + e.vod + '" poster="' + e.img + '" autoplay muted controls playsinline></video>';
+    return '<img src="' + e.img + '" alt="" loading="lazy"><span class="evplayi">' + I.play + '</span>';
   }
   const dur = Math.max(4000, (e.end || e.t) - e.t);
   return '<img src="' + (playing ? Data.frame(Data.cam(e.cam), e.t + (S.evPos || 0) * dur).img : e.img) + '" alt="" loading="lazy">' +
@@ -1899,7 +1910,8 @@ const ACT = {
     const e = Data.events.find(x => x.id === d.v); if (!e) return;
     const t = Date.now();
     if (evTapLast.id === d.v && t - evTapLast.at < 320) { clearTimeout(evTapTimer); evTapLast = { id: null, at: 0 }; evStop(); ACT.focusat({ id: e.cam, t: e.t }); return; }
-    evTapLast = { id: d.v, at: t };   /* single tap does nothing; play is the button in the header */
+    evTapLast = { id: d.v, at: t };   /* single tap: play it here (Frigate); double tap: open the camera */
+    if (Data.source === 'frigate' && S.evPlay !== d.v) ACT.evplay({ v: d.v }, ev);
   },
   evdl(d) {
     const e = Data.events.find(x => x.id === d.v); if (!e) return;
