@@ -1445,7 +1445,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.3.10 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.4.1 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1616,7 +1616,8 @@ function setImg(img, src) {
     const far = a0 == null || a1 == null || Math.abs(a1 - a0) > 10;   /* a jump: the old picture is from another moment */
     if (far) img.dataset.ld = '1';                                   /* dim it and say Loading until the new one arrives */
     const pre = new Image(); let fin = false;
-    const end = ok => { if (fin) return; fin = true; if (img.dataset.busy !== '1') return done(); if (ok || far) { img.onload = done; img.onerror = done; img.src = src; } else done(); };
+    const end = ok => { if (fin) return; fin = true; if (img.dataset.busy !== '1') return done();
+      if ((img.getAttribute('src') || '') !== cur) { if (/^data:/.test(img.getAttribute('src') || '')) img.dataset.ld = ''; return done(); }   /* meanwhile set to No Recording: leave it */ if (ok || far) { img.onload = done; img.onerror = done; img.src = src; } else done(); };
     pre.onload = () => end(true); pre.onerror = () => end(false); pre.src = src;
     setTimeout(() => end(false), 6000);
     return;
@@ -2603,8 +2604,9 @@ function drawRvTrack(force) {
     let n = 0, hot = false, other = 0; const lab = {}, first = {};
     for (let m = m0; m < m0 + g; m++) { const bk = rvBk.get(m); if (bk) { n = Math.max(n, bk.n); hot = hot || bk.hot; other = Math.max(other, bk.other); for (const k in bk.lab) { lab[k] = (lab[k] || 0) + bk.lab[k]; if (!(first[k] <= bk.first[k])) first[k] = bk.first[k]; } } }
     let w = 0, col = '';
-    if (n) { w = Math.min(RVV ? 24 : 28, 14 + n * 6); col = hot ? 'var(--hot)' : '#E8B54A'; }
-    else if (other) { w = Math.min(RVV ? 12 : 14, 6 + other * 3); col = 'var(--rvgrey)'; }
+    /* every mark the same length: it only says "something here", the icon says what */
+    if (n) { w = 14; col = hot ? 'var(--hot)' : '#E8B54A'; }
+    else if (other) { w = 8; col = 'var(--rvgrey)'; }
     /* the bar and icon sit where the first alert in this group starts (not at the group's first minute), so a jump
        to that alert puts the line right on the bar */
     const fx = Object.values(first).filter(v => v != null).reduce((a, b) => Math.min(a, b), Infinity);
@@ -2614,7 +2616,7 @@ function drawRvTrack(force) {
     /* a person always wins the icon, also over a nearby icon already placed */
     if (n) {
       const top = Object.keys(lab).sort((a, b) => (/^person$/i.test(b) - /^person$/i.test(a)) || lab[b] - lab[a])[0], ic = OBJ_ICON[top];
-      const near = Math.abs(x - lastIcon) < 18, takeOver = near && /^person$/i.test(top) && lastStr && !/title="person"/i.test(lastStr);
+      const near = Math.abs(x - lastIcon) < 24, takeOver = near && /^person$/i.test(top) && lastStr && !/title="person"/i.test(lastStr);
       if (ic && (!near || takeOver)) {
         if (takeOver) h = h.replace(lastStr, '');
         lastIcon = x; lastStr = '<span class="hico' + (hot ? ' hot' : '') + '" style="' + P + ':' + (x - (hot ? 10 : 7)).toFixed(1) + 'px;' + (RVV ? 'right:' + (8 + w + 3) : 'bottom:' + (26 + w + 2)) + 'px" data-t="' + (first[top] || '') + '" data-l="' + esc(top) + '" title="' + esc(top) + '">' + ic + '</span>';
@@ -2819,7 +2821,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.3.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.4.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3482,7 +3484,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.3.10';
+    const BUILD = '1.4.1';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
