@@ -967,8 +967,11 @@ const Motion = {
   connect() {
     let u; try { u = new URL(Frigate.base() + '/ws', location.href); } catch (e) { return; }
     u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
-    const s = new WebSocket(u.href); this.sock = s;
-    s.onopen = () => { this.up = true; s.send(JSON.stringify({ topic: 'onConnect', message: '', payload: '', retain: false })); };
+    let s; try { s = new WebSocket(u.href); } catch (e) { this.err = 'Create ' + e.name; setTimeout(() => this.connect(), 5000); return; }
+    this.sock = s; this.tries = (this.tries || 0) + 1;
+    const to = setTimeout(() => { if (s.readyState === 0) { this.err = 'Timeout'; try { s.close(); } catch (e) {} } }, 8000);
+    s.onerror = () => { this.err = (this.err && this.err !== 'Error' ? this.err + ', ' : '') + 'Error'; };
+    s.onopen = () => { clearTimeout(to); this.err = ''; this.up = true; s.send(JSON.stringify({ topic: 'onConnect', message: '', payload: '', retain: false })); };
     s.onmessage = ev => {
       let d; try { d = JSON.parse(ev.data); } catch (e) { return; }
       if (!d || !d.topic) return;
@@ -986,7 +989,7 @@ const Motion = {
       if (Ctl.msg(d.topic, d.payload)) return;
       const m = /^([^/]+)\/motion$/.exec(d.topic); if (m) { this.nm++; this.set(m[1], d.payload === 'ON' || d.payload === true); }
     };
-    s.onclose = ev => { this.up = false; this.err = 'Code ' + ev.code; setTimeout(() => this.connect(), 5000); };
+    s.onclose = ev => { clearTimeout(to); this.up = false; this.err = (this.err === 'Timeout' ? 'Timeout ' : '') + 'Code ' + ev.code + (ev.reason ? ' ' + ev.reason : ''); setTimeout(() => this.connect(), 5000); };
   }
 };
 Frigate.pollStats = async function () {
@@ -1935,8 +1938,8 @@ function modalSettings() {
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
-    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 18:53 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm +
-      ' · Feed Route ' + Diag.route + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
+    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 19:00 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm +
+      ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
     '<div class="srow"><span class="slbl">Frigate</span><input id="server" class="field" type="url" inputmode="url" placeholder="http://192.168.1.50:5000" value="' + esc(S.server) + '" autocomplete="off"></div>' +
     '<div class="srow">' + checkRow('demo', 'Use Demo Data', S.demo) + '<button class="btn solid" data-act="savesettings">Save</button></div>' +
     '</div></div></div>';
