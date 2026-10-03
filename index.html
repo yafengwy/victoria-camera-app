@@ -750,6 +750,19 @@ img{max-width:100%}
 :root[data-app-theme="google"]:not([data-dark]){--accent:#4F7FDB}
 .lvh{position:absolute;inset:0;pointer-events:none}
 .lvh[hidden]{display:none}
+.offv{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:#15181B;color:#C9D1D9;text-align:center;padding:10px}
+.offv svg{width:30px;height:30px;color:#8B949E;margin-bottom:4px}
+.offv b{font-size:15px;color:#EEF1F3}
+.offv span{font-size:12px;color:#9AA3AB}
+.offv .btn{margin-top:8px;height:34px;padding:0 16px;font-size:13px}
+.fvid .offv{z-index:1;padding-top:52px}
+.pillk.ctlp{gap:5px;color:#fff;cursor:pointer;white-space:nowrap}
+.pillk.ctlp svg{width:16px;height:16px}
+.pillk.warn{background:#C8361E}
+#fbadge[hidden]{display:none}
+.dk.ctl{width:40px;height:40px}
+.dk.ctl svg{width:20px;height:20px}
+.dk.warn{background:#C8361E!important;color:#fff}
 .evplayi{position:absolute;left:50%;top:50%;width:46px;height:46px;margin:-23px 0 0 -23px;border-radius:23px;background:rgba(0,0,0,.5);color:#fff;display:flex;align-items:center;justify-content:center;pointer-events:none}
 .evplayi svg{width:20px;height:20px}
 .pbh{position:absolute;inset:0;pointer-events:none}
@@ -791,6 +804,8 @@ const I = {
   menu: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
   gear: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
   bell: '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22a2.5 2.5 0 0 0 2.4-2h-4.8a2.5 2.5 0 0 0 2.4 2zm7-6V11a7 7 0 0 0-5.5-6.8V3.5a1.5 1.5 0 0 0-3 0v.7A7 7 0 0 0 5 11v5l-2 2v1h18v-1z"/></svg>',
+  power: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v9"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>',
+  bellOff: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 20a2.5 2.5 0 0 0 5 0"/><path d="M18 14V10a6 6 0 0 0-9.3-5"/><path d="M6.2 7.6A6 6 0 0 0 6 10v4l-2 3h13"/><path d="M3 3l18 18"/></svg>',
   bellO: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>',
   home: '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3 2 11h3v9h5v-6h4v6h5v-9h3z"/></svg>',
   grid4: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18M12 3v18"/></svg>',
@@ -902,7 +917,9 @@ const Frigate = {
     const cfg = await this.get('/api/config');
     const groups = cfg.camera_groups || {};
     const groupOf = id => { for (const g in groups) if ((groups[g].cameras || []).includes(id)) return g; return 'Cameras'; };
-    Data.cams = Object.keys(cfg.cameras).filter(id => cfg.cameras[id].enabled !== false).map(id => ({
+    Object.keys(cfg.cameras).forEach(id => { const cc = cfg.cameras[id], st = Ctl.get(id);
+      st.enabled = cc.enabled !== false; st.alerts = !(cc.review && cc.review.alerts && cc.review.alerts.enabled === false); });
+    Data.cams = Object.keys(cfg.cameras).map(id => ({
       id, name: (cfg.cameras[id].friendly_name || id.replace(/_/g, ' ')).replace(/\b\w/g, m => m.toUpperCase()),
       group: groupOf(id), img: this.base() + '/api/' + id + '/latest.webp?height=480',
       zones: Object.keys(cfg.cameras[id].zones || {}).map(z => z.replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase()))
@@ -957,9 +974,15 @@ const Motion = {
       if (!d || !d.topic) return;
       if (d.topic === 'camera_activity') {
         let a = d.payload; if (typeof a === 'string') { try { a = JSON.parse(a); } catch (e) { return; } }
-        for (const id in (a || {})) this.set(id, !!(a[id] && a[id].motion));
+        let ch = false;
+        for (const id in (a || {})) {
+          this.set(id, !!(a[id] && a[id].motion));
+          const cf = a[id] && a[id].config; if (cf && typeof cf.enabled === 'boolean' && Ctl.get(id).enabled !== cf.enabled) { Ctl.get(id).enabled = cf.enabled; ch = true; }
+        }
+        if (ch) render();
         return;
       }
+      if (Ctl.msg(d.topic, d.payload)) return;
       const m = /^([^/]+)\/motion$/.exec(d.topic); if (m) this.set(m[1], d.payload === 'ON' || d.payload === true);
     };
     s.onclose = () => { this.up = false; setTimeout(() => this.connect(), 5000); };
@@ -989,7 +1012,7 @@ const Live = {
     }
     return e;
   },
-  mount() { if (!this.on()) return; document.querySelectorAll('[data-live]').forEach(h => { const e = this.el(h.dataset.live); if (e.parentNode !== h) h.appendChild(e); }); },
+  mount() { if (!this.on()) return; for (const k in this.els) { const id = k; if (!Ctl.on(id) && this.els[k].parentNode) this.els[k].remove(); } document.querySelectorAll('[data-live]').forEach(h => { const e = this.el(h.dataset.live); if (e.parentNode !== h) h.appendChild(e); }); },
   show(h, yes) { if (h) h.hidden = !yes; }
 };
 
@@ -1102,6 +1125,31 @@ function setImg(img, src) {
   const done = () => { img.dataset.busy = ''; const n = img.dataset.next; img.dataset.next = ''; if (n && n !== img.getAttribute('src')) setImg(img, n); };
   img.onload = done; img.onerror = done; img.src = src;
 }
+
+/* Camera switches, stored in Frigate (so Home Assistant automations and this app always agree):
+   enabled  = camera on/off — off means no live view, no recording, no detection (privacy)
+   alerts   = alerts on/off — keeps recording, but creates no alerts (so nothing to notify about) */
+const Ctl = {
+  st: {},
+  topic: { enabled: 'enabled', alerts: 'review_alerts' },
+  get(id) { return this.st[id] || (this.st[id] = { enabled: true, alerts: true }); },
+  on(id) { return this.get(id).enabled; },
+  set(id, key, on) {
+    if (!Motion.up || !Motion.sock) { toast('Not connected to Frigate. Try again in a moment.'); return; }
+    Motion.sock.send(JSON.stringify({ topic: id + '/' + this.topic[key] + '/set', payload: on ? 'ON' : 'OFF', retain: false }));
+    this.get(id)[key] = on;
+    if (key === 'enabled' && !on) { S.camTime[id] = null; Playback.stop(id); }
+    render();
+    const c = Data.cam(id), n = c ? c.name : id;
+    toast(key === 'enabled' ? (on ? n + ' Is On' : n + ' Is Off · Not Viewing Or Recording') : (on ? 'Alerts On For ' + n : 'Alerts Off For ' + n + ' · Still Recording'));
+  },
+  msg(topic, payload) {
+    const m = /^([^/]+)\/(enabled|review_alerts)\/state$/.exec(topic); if (!m) return false;
+    const key = m[2] === 'enabled' ? 'enabled' : 'alerts', on = payload === 'ON' || payload === true, st = this.get(m[1]);
+    if (st[key] !== on) { st[key] = on; render(); }
+    return true;
+  }
+};
 
 /* ===== State ===== */
 /* Served from the mini PC (home IP or victoriashome.app): talk to the real Frigate on the same address by default */
@@ -1237,6 +1285,9 @@ function viewHome() {
   return h + '</main>';
 }
 function camCard(c) {
+  if (!Ctl.on(c.id)) return '<article class="cam off" id="cam-' + c.id + '"><div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button></div>' +
+    '<div class="frame"><div class="offv">' + I.power + '<b>Camera Off</b><span>Not Viewing Or Recording</span><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>' +
+    (S.layout === 'grid' ? '<div class="cnm">' + esc(c.name) + '</div>' : '') + '</div></article>';
   const t = camT(c.id), f = Data.frame(c, t);
   return '<article class="cam' + (c.id === S.expanded ? ' on' : '') + '" id="cam-' + c.id + '">' +
     '<div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button>' +
@@ -1517,10 +1568,13 @@ function viewFocus() {
     });
     body = '<div class="fsc" id="fsc"><div style="position:relative;height:' + height + 'px"><div class="frail"></div>' + rows + '</div></div><div class="fline"></div>';
   }
+  const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
   const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk">' + esc(c.name) + '</div><div style="flex:1"></div>' +
-    '<div class="pillk" id="fbadge">' + (t == null ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : hms(t)) + '</div></div>';
+    (frig && cs.enabled ? '<button class="pillk ctlp' + (cs.alerts ? '' : ' warn') + '" data-act="camset" data-id="' + c.id + '" data-k="alerts" data-v="' + (cs.alerts ? '' : '1') + '" aria-label="' + (cs.alerts ? 'Turn Alerts Off' : 'Turn Alerts On') + '">' + (cs.alerts ? I.bellO + 'Alerts On' : I.bellOff + 'Alerts Off') + '</button>' +
+      '<button class="dk ctl" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
+    '<div class="pillk" id="fbadge"' + (cs.enabled ? '' : ' hidden') + '>' + (t == null ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : hms(t)) + '</div></div>';
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
-    '<div class="fvid"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
+    '<div class="fvid">' + (!cs.enabled ? '<div class="offv">' + I.power + '<b>Camera Off</b><span>Not Viewing Or Recording</span><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>' : '<img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id)) + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fctl" id="fctl"><button class="fday" data-act="fdate">' + I.cal + (S.focus.dayEnd ? dayLabel(S.focus.dayEnd - 1) : 'Today') + '</button><div style="flex:1"></div>' +
     (S.flist ? '<button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button>' : '') +
     '<button class="dk' + (S.flist ? ' on' : '') + '" data-act="flist" aria-label="' + (S.flist ? 'Show Timeline' : 'Show Alert List') + '">' + (S.flist ? I.tline : I.bellO) + '</button></div>' +
@@ -1959,6 +2013,7 @@ const ACT = {
     if (!target) { toast(+d.v < 0 ? 'No earlier events' : 'No later events'); return; }
     seek(id, target.t - 5000); render();
   },
+  camset(d) { Ctl.set(d.id, d.k, !!d.v); },
   playpause() { S.playing = !S.playing; render(); },
   speed(d) { S.speed = +d.v; render(); },
   tab(d) { S.tab = d.v; render(); },
