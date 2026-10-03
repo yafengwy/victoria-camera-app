@@ -160,6 +160,11 @@ img{max-width:100%}
 .pillk{height:36px;padding:0 13px;border-radius:18px;background:rgba(0,0,0,.6);display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
 .dk{width:44px;height:44px;border-radius:22px;background:var(--dark-card);color:var(--dark-fg);display:flex;align-items:center;justify-content:center}
 .fov .dk{background:rgba(0,0,0,.6)}
+.fov{gap:6px}
+.fov .pillk{height:30px;padding:0 10px;border-radius:15px;font-size:12px;font-weight:700;white-space:nowrap;min-width:0}
+.fov .pillk:nth-child(2){overflow:hidden;text-overflow:ellipsis;display:block;line-height:30px;max-width:55%}
+.fov .dk,.fov .dk.ctl{width:32px;height:32px;border-radius:16px}
+.fov .dk svg,.fov .dk.ctl svg{width:17px;height:17px}
 .fctl{height:68px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--dark-line);width:100%;max-width:900px;margin:0 auto}
 .fday{height:44px;padding:0 14px;border-radius:22px;background:var(--dark-card);display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700}
 .flive{height:44px;padding:0 16px;border-radius:22px;background:var(--dark-card);font-size:13px;font-weight:800}
@@ -1682,8 +1687,7 @@ function viewFocus() {
   }
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
   const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk">' + esc(c.name) + '</div><div style="flex:1"></div>' +
-    (frig && cs.enabled ? '<button class="pillk ctlp' + (cs.alerts ? '' : ' warn') + '" data-act="camset" data-id="' + c.id + '" data-k="alerts" data-v="' + (cs.alerts ? '' : '1') + '" aria-label="' + (cs.alerts ? 'Turn Alerts Off' : 'Turn Alerts On') + '">' + (cs.alerts ? I.bellO + 'Alerts On' : I.bellOff + 'Alerts Off') + '</button>' +
-      '<button class="dk ctl" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
+    (frig && cs.enabled ? '<button class="dk ctl" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
     '<div class="pillk" id="fbadge">' + (t == null ? (cs.enabled ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t)) + '</div></div>';
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
     '<div class="fvid"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
@@ -2038,7 +2042,7 @@ function modalSettings() {
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Status · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
-    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 19:55 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
+    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 20:00 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
     '<div class="srow"><span class="slbl">Frigate</span><input id="server" class="field" type="url" inputmode="url" placeholder="http://192.168.1.50:5000" value="' + esc(S.server) + '" autocomplete="off"></div>' +
     '<div class="srow">' + checkRow('demo', 'Use Demo Data', S.demo) + '<button class="btn solid" data-act="savesettings">Save</button></div>' +
@@ -2557,7 +2561,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
   if (HOSTED) {
-    const BUILD = '10-02 19:55';
+    const BUILD = '10-02 20:00';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
