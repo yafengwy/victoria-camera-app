@@ -175,7 +175,7 @@ img{max-width:100%}
 .flive.on{background:var(--dark-fg);color:var(--dark-bg)}
 .fscroll{flex:1;min-height:0;position:relative;width:100%;max-width:900px;margin:0 auto}
 .fsc{position:absolute;inset:0;overflow-y:auto;overscroll-behavior:contain}
-.fline{position:absolute;left:0;right:0;top:24px;height:2px;background:var(--dark-accent);pointer-events:none;z-index:2}
+.fline{position:absolute;left:0;right:0;top:24px;height:2px;margin-top:-1px;background:var(--dark-accent);pointer-events:none;z-index:2}
 .frail{position:absolute;top:0;bottom:0;left:62px;width:2px;background:var(--dark-line)}
 .fhr{position:absolute;left:12px;font-size:12px;font-weight:700;color:var(--dark-sub);font-variant-numeric:tabular-nums}
 .fev{position:absolute;left:54px;right:12px;height:60px;display:flex;align-items:center;gap:12px;text-align:left}
@@ -1672,6 +1672,9 @@ const FPX = 2; /* pixels per minute on the vertical timeline */
 const FTOP = 24;
 function focusEnd() { return S.focus.dayEnd || now(); }
 function focusSpan() { return S.focus.dayEnd ? DAY : (now() - dayStart(now()) + HOUR); }
+function fLineY(t) { return t == null ? FTOP : FTOP + (focusEnd() - t) / MIN * FPX; }
+/* keep the playing time in view without jumping: only scroll when it is off screen */
+function fShow(t) { const sc = document.getElementById('fsc'); if (!sc) return; const y = fLineY(t); if (y < sc.scrollTop + 10 || y > sc.scrollTop + sc.clientHeight - 40) sc.scrollTop = Math.max(0, y - 120); }
 function durLabel(e) { const d = Math.max(1, Math.round(((e.end || e.t) - e.t) / 1000)); return d >= 60 ? Math.floor(d / 60) + ' min ' + (d % 60) + ' sec' : d + ' sec'; }
 function viewFocus() {
   const c = Data.cam(S.focus.cam), t = camT(c.id), f = Data.frame(c, t), end = focusEnd(), span = focusSpan();
@@ -1725,7 +1728,7 @@ function viewFocus() {
         rows += '<button class="fev" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + e.img + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(e.label) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span></button>';
       }
     });
-    body = '<div class="fsc" id="fsc"><div style="position:relative;height:' + height + 'px"><div class="frail"></div>' + rows + '</div></div><div class="fline"></div>';
+    body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px"><div class="frail"></div>' + rows + '<div class="fline" id="fpline" style="top:' + fLineY(t) + 'px"></div></div></div>';
   }
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
   const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk fname">' + esc(c.name) + '</div><div style="flex:1"></div>' +
@@ -1848,6 +1851,7 @@ function paintFocus() {
   Live.show(document.getElementById('foff'), t == null);
   const label = t == null ? (Ctl.on(c.id) ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t);
   const hv = S.hov && S.hov.id === 'full' ? S.hov.t : undefined;
+  set('fpline', n => { n.style.top = fLineY(t) + 'px'; });
   set('fbadge', n => n.innerHTML = label); set('fullbadge', n => n.innerHTML = hv !== undefined ? hms(hv) : label); set('fbub', n => n.textContent = hv !== undefined ? hm(hv) : t == null ? 'Live' : hm(t));
   if (S.full && S.playing && !S.fLock && t != null) fScrollTo(t);
   set('ftag', n => setTag(n, f));
@@ -2082,7 +2086,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
@@ -2243,7 +2247,7 @@ const ACT = {
   fseek(d) { S.camTime[S.focus.cam] = +d.t - 1000; render(); fuiKick(); },
   fbadge() { const id = S.focus && S.focus.cam; if (!id) return; if (camT(id) != null) { ACT.flive(); return; } if (!Ctl.on(id)) return; Live.restart(id); toast('Reconnecting'); },
   flive() { S.camTime[S.focus.cam] = null; S.focus.dayEnd = null; render(); const sc = document.getElementById('fsc'); if (sc) sc.scrollTop = 0; const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
-  flist() { S.flist = !S.flist; render(); const t = camT(S.focus.cam), sc = document.getElementById('fsc'); if (sc && t != null) sc.scrollTop = (focusEnd() - t) / MIN * FPX; },
+  flist() { S.flist = !S.flist; render(); fShow(camT(S.focus.cam)); },
   fpick(d, e) { S.camTime[S.focus.cam] = +d.t - 1000; document.querySelectorAll('.fitem.cur').forEach(n => n.classList.remove('cur')); const b = e.target.closest('.fitem'); if (b) b.classList.add('cur'); paintFocus(); },
   setwin(d) { setWin(+d.v); S.modal = null; render(); },
   objdd() { S.objOpen = !S.objOpen; render(); },
@@ -2285,13 +2289,12 @@ const ACT = {
     const g = S.focus && S.focus.groups && S.focus.groups[+d.g]; if (!g) return;
     const e = (d.k && g.items.find(x => x.label + (x.interesting ? '+' : '-') === d.k)) || g.items[0];
     const og = g.items.length > 1 ? String(g.items[0].t) : null;
-    if (S.focus.og !== og) { S.focus.og = og; render(); }
+    if (S.focus.og !== og) { const sc = document.getElementById('fsc'), st = sc ? sc.scrollTop : 0; S.focus.og = og; render(); const s2 = document.getElementById('fsc'); if (s2) s2.scrollTop = st; }
     ACT.fjump({ t: e.t });
   },
   fjump(d) {   /* tap a card or rail icon: go to that alert (1 s before it starts) */
-    const t = +d.t - 1000, sc = document.getElementById('fsc'), id = S.focus.cam;
-    if (sc) sc.scrollTop = (focusEnd() - t) / MIN * FPX;
-    setTimeout(() => { if (S.focus && S.focus.cam === id) { S.camTime[id] = t; paintFocus(); } }, 60);   /* scroll resolution is 30 s per px, so set the exact time after it */
+    const t = +d.t - 1000, id = S.focus.cam;
+    S.camTime[id] = t; S.playing = true; paintFocus();       /* the line moves to the alert; the list stays where it is */
     document.querySelectorAll('.fsi').forEach(n => n.classList.toggle('cur', +n.dataset.t === +d.t));
     Playback.sync();
   },
@@ -2301,8 +2304,7 @@ function openFocus(id) {
   S.focus = { cam: id, dayEnd: null }; S.full = false; S.fui = false; S.fpanel = false;
   if (isLand()) { S.full = true; S.autoFull = true; }   /* phone held sideways: open straight into full screen */
   render();
-  const t = camT(id), sc = document.getElementById('fsc');
-  if (sc && t != null) sc.scrollTop = (focusEnd() - t) / MIN * FPX;
+  fShow(camT(id));
 }
 /* Date + time (hours and minutes; seconds start at :00). Up to 7 days back. */
 function openDateTime(cur, cb) {
@@ -2484,11 +2486,12 @@ function wire() {
   dragScroll(document.getElementById('fsc'), true);
   const sc = document.getElementById('fsc');
   if (sc) {
-    sc.addEventListener('scroll', () => {
-      const t = focusEnd() - sc.scrollTop / FPX * MIN;
-      S.camTime[S.focus.cam] = (!S.focus.dayEnd && sc.scrollTop < 2) ? null : t;
-      paintFocus();
-    }, { passive: true });
+    sc.addEventListener('click', e => {
+      if (e.target.closest('button')) return;
+      const fin = sc.querySelector('.fin'); if (!fin) return;
+      const y = e.clientY - fin.getBoundingClientRect().top, t = focusEnd() - (y - FTOP) / FPX * MIN;
+      S.camTime[S.focus.cam] = (!S.focus.dayEnd && y < FTOP + 4) ? null : t; S.playing = true; paintFocus(); Playback.sync();
+    });
     let y0 = null;
     sc.addEventListener('touchstart', e => { y0 = sc.scrollTop <= 0 ? e.touches[0].clientY : null; }, { passive: true });
     sc.addEventListener('touchmove', e => { if (y0 != null && e.touches[0].clientY - y0 > 80) { y0 = null; ACT.full(); } }, { passive: true });
@@ -2637,7 +2640,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
   if (HOSTED) {
-    const BUILD = '1.1.3';
+    const BUILD = '1.1.4';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
