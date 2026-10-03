@@ -1364,6 +1364,24 @@ function detectCover() {
   if (COVER) document.documentElement.setAttribute('data-cover', ''); else document.documentElement.removeAttribute('data-cover');
   return { w, h, sa, auto };
 }
+/* Phone back button / swipe-back steps out one level (menu → full screen → camera view → other page → home)
+   instead of leaving the app: each open level adds a browser history entry. */
+let hDepth = 0, hSkip = false;
+function histDepth() { return (S.view !== 'home' ? 1 : 0) + (S.focus ? 1 : 0) + (S.focus && S.full ? 1 : 0) + (S.modal ? 1 : 0); }
+function syncHist() {
+  const d = histDepth();
+  while (hDepth < d) { history.pushState({ vh: ++hDepth }, ''); }
+  if (hDepth > d) { hSkip = true; history.go(d - hDepth); hDepth = d; }
+}
+window.addEventListener('popstate', () => {
+  if (hSkip) { hSkip = false; return; }
+  hDepth = Math.max(0, hDepth - 1);
+  if (S.modal) S.modal = null;
+  else if (S.focus && S.full) { S.full = false; S.autoFull = false; S.fpanel = false; }
+  else if (S.focus) { S.focus = null; S.full = false; }
+  else if (S.view !== 'home') S.view = 'home';
+  render();
+});
 function render() {
   document.documentElement.dataset.mark = S.markStyle;
   applyLook();
@@ -1379,6 +1397,7 @@ function render() {
   app.innerHTML = h;
   for (const id in keep) { const n = document.getElementById(id); if (n) { n.scrollLeft = keep[id][0]; n.scrollTop = keep[id][1]; } }
   if (fscTop != null) { const n = document.getElementById('fsc'); if (n) fSetScroll(n, fscTop); }
+  syncHist();
   document.querySelectorAll('.fov .fname').forEach(n => { let fs = 12; while (n.scrollWidth > n.clientWidth + 1 && fs > 8) { fs -= 0.5; n.style.fontSize = fs + 'px'; } });
   Live.mount(); Playback.mount();
   wire();
@@ -2146,7 +2165,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
@@ -2711,7 +2730,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
   if (HOSTED) {
-    const BUILD = '1.1.8';
+    const BUILD = '1.1.9';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
