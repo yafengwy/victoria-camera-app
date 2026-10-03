@@ -954,6 +954,10 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
   .fctl .dk,.focus .fctl .dk{width:32px;height:32px}
   .fctl .dk svg{width:18px;height:18px}
 }
+
+/* ---- v65: a picture's time is a button: all cameras jump to it ---- */
+.rvcam .tm{pointer-events:auto;cursor:pointer}
+.rvcam .tm::before{content:"";position:absolute;inset:-8px -6px}
 </style>
 
 <div id="app" class="app"></div>
@@ -1449,7 +1453,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.4.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.4.3 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2670,7 +2674,7 @@ function viewReview() {
   cams.forEach(c => {
     const f = Data.frame(c, t);
     const e = rvAt(c, t);
-    h += '<div class="rvcam' + (e ? (e.interesting ? ' hot' : ' uhot') : '') + '" id="rv-' + c.id + '" data-act="rvopen" data-id="' + c.id + '"><img data-ld="1"' + (Data.source !== 'frigate' || t == null || RecMap.has(c.id, t) === true ? ' src="' + f.img + '"' : '') + ' alt=""><div class="nm">' + esc(c.name) + '</div><div class="tm" hidden></div><div class="tag' + (e && !e.interesting ? ' un' : '') + '" id="rvtag-' + c.id + '"' + (e ? '' : ' hidden') + '>' + (e ? objIcon(e.label) + '<span>' + esc(e.label) + '</span>' : '') + '</div></div>';
+    h += '<div class="rvcam' + (e ? (e.interesting ? ' hot' : ' uhot') : '') + '" id="rv-' + c.id + '" data-act="rvopen" data-id="' + c.id + '"><img data-ld="1"' + (Data.source !== 'frigate' || t == null || RecMap.has(c.id, t) === true ? ' src="' + f.img + '"' : '') + ' alt=""><div class="nm">' + esc(c.name) + '</div><div class="tm" data-act="rvsync" data-id="' + c.id + '" role="button" aria-label="Show All Cameras At This Time" hidden></div><div class="tag' + (e && !e.interesting ? ' un' : '') + '" id="rvtag-' + c.id + '"' + (e ? '' : ' hidden') + '>' + (e ? objIcon(e.label) + '<span>' + esc(e.label) + '</span>' : '') + '</div></div>';
   });
   rvEnd = end;
   RVV = rvVert();
@@ -2825,7 +2829,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.4.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.4.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3078,6 +3082,13 @@ const ACT = {
     store.set('rvf', f); render();
   },
   rvsev(d) { const f = S.rv.f; f[d.v] = !f[d.v]; if (!f.int && !f.unint) f[d.v === 'int' ? 'unint' : 'int'] = true; store.set('rvf', f); render(); },
+  /* tap a picture's time: every camera jumps to that second (a camera with nothing recorded then says No Recording) */
+  rvsync(d) {
+    const img = document.querySelector('#rv-' + d.id + ' img'), m = img && /\/recordings\/([\d.]+)\/snapshot/.exec(img.getAttribute('src') || ''); if (!m) return;
+    S.rv.t = Math.round(+m[1] * 1000);
+    document.querySelectorAll('.rvcam img').forEach(i => { i.dataset.at = '0'; });   /* no 3 s wait for the small pictures */
+    S.rvLock = true; drawRvTrack(false); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); paintReview();
+  },
   rvjump(d) { S.rv.t = +d.v; S.rvLock = true; drawRvTrack(false); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); paintReview(); },
   rvzoombtn(d) { const sp = S.rv.span; rvZoom(sp >= HOUR ? (d.v === 'in' ? Math.max(sp / 2, sp - 6 * HOUR, 30 * MIN) : Math.min(sp * 2, sp + 6 * HOUR)) : sp * (d.v === 'in' ? 0.5 : 2)); },
   fzoombtn(d) { fZoom(FFPX * (d.v === 'in' ? 1 / 0.6 : 0.6)); },
@@ -3488,7 +3499,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.4.2';
+    const BUILD = '1.4.3';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
