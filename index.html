@@ -312,6 +312,8 @@ img.rf{opacity:0}
 .rvchips{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 10px}
 .rvwrap{display:flex;align-items:flex-start}
 .rvcams{flex:1;min-width:0;padding:10px 8px 120px 10px;display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:8px;align-content:start}
+.rvhint{position:fixed;z-index:40;transform:translateX(-50%);padding:7px 14px;border-radius:999px;border:0;background:var(--hot,#E8692C);color:#fff;font:inherit;font-size:13px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.25);white-space:nowrap}
+.rvhint.un{background:#5A6470}
 .rvcam{position:relative;border-radius:10px;overflow:hidden;background:#1E2226;aspect-ratio:16/9}
 .rvcam img{width:100%;height:100%;object-fit:cover;display:block}
 .rvcam .nm{position:absolute;top:6px;left:6px;padding:3px 8px;border-radius:999px;background:rgba(18,22,24,.7);color:#fff;font-size:11px;font-weight:700}
@@ -1210,7 +1212,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.1.38 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.1.39 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1541,6 +1543,7 @@ function render() {
     const top = document.getElementById('rvtop'); if (top) app.style.setProperty('--rvtop', top.getBoundingClientRect().bottom + 'px');
     S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; });
   }
+  requestAnimationFrame(rvHint);
 }
 function rail() {
   const b = (v, icon, label) => '<button class="ic" data-act="go" data-v="' + v + '" aria-label="' + label + '"' + (S.view === v ? ' aria-current="page"' : '') + '>' + icon + '</button>';
@@ -2281,7 +2284,34 @@ function paintReview() {
     rvMark(box, c, ht !== undefined ? ht : t);
   });
   const b = document.getElementById('rvbub'); if (b) b.textContent = ht !== undefined ? hms(ht) : t == null ? 'Live' : hms(t);
+  rvHint();
 }
+/* A camera with an alert at the chosen time may be scrolled out of sight: a small pill above the timeline names it,
+   and tapping it brings that camera into view */
+function rvHint() {
+  let n = document.getElementById('rvhint');
+  if (S.view !== 'review') { if (n) n.hidden = true; return; }
+  if (!n) { n = document.createElement('button'); n.id = 'rvhint'; n.className = 'rvhint'; n.hidden = true; document.body.appendChild(n);
+    n.addEventListener('click', e => { e.stopPropagation(); const box = document.getElementById('rv-' + n.dataset.id); if (box) box.scrollIntoView({ behavior: 'smooth', block: 'center' }); }); }
+  const top = document.getElementById('rvtop'), dock = document.querySelector('.rvdock');
+  const y0 = top ? Math.max(0, top.getBoundingClientRect().bottom) : 0, dr = dock ? dock.getBoundingClientRect() : null;
+  const y1 = dr && !dock.classList.contains('v') ? dr.top : innerHeight;
+  const out = [];
+  rvCams().forEach(c => {
+    const box = document.getElementById('rv-' + c.id); if (!box || !(box.classList.contains('hot') || box.classList.contains('uhot'))) return;
+    const r = box.getBoundingClientRect(), vis = Math.min(r.bottom, y1) - Math.max(r.top, y0);
+    if (vis < r.height * 0.4) out.push({ c, down: r.top >= y1 - r.height * 0.6, hot: box.classList.contains('hot'), e: rvAt(c, S.hov && S.hov.id === 'rv' ? S.hov.t : S.rv.t) });
+  });
+  if (!out.length) { n.hidden = true; return; }
+  out.sort((a, b) => b.hot - a.hot);
+  const f = out[0], lab = f.e ? f.e.label.charAt(0).toUpperCase() + f.e.label.slice(1) : '';
+  n.dataset.id = f.c.id; n.classList.toggle('un', !f.hot);
+  n.innerHTML = (f.down ? '↓ ' : '↑ ') + esc(f.c.name) + (lab ? ' · ' + esc(lab) : '') + (out.length > 1 ? ' · +' + (out.length - 1) : '');
+  n.style.bottom = (dr && !dock.classList.contains('v') ? innerHeight - dr.top + 42 : 16) + 'px';
+  n.style.left = dr && dock.classList.contains('v') ? 'calc((100% - ' + dr.width + 'px) / 2)' : '50%';
+  n.hidden = false;
+}
+window.addEventListener('scroll', () => { if (S.view === 'review') rvHint(); else { const n = document.getElementById('rvhint'); if (n) n.hidden = true; } }, { passive: true });
 function rvScrollTo(t) { const sc = document.getElementById('rvsc'); if (!sc) return; if (RVV) sc.scrollTop = t == null ? 0 : (rvEnd - t) / MIN * rvPx(); else sc.scrollLeft = t == null ? sc.scrollWidth : rvTW() - (rvEnd - t) / MIN * rvPx(); }
 
 /* ===== Dialogs ===== */
@@ -2318,7 +2348,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.38 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.39 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -2915,7 +2945,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.1.38';
+    const BUILD = '1.1.39';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
