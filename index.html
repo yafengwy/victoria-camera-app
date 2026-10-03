@@ -193,6 +193,7 @@ img{max-width:100%}
 .fev small{display:block;font-size:12px;font-weight:600;color:var(--dark-sub);font-variant-numeric:tabular-nums}
 .pullhint{position:absolute;left:50%;top:4px;width:40px;height:4px;margin-left:-20px;border-radius:2px;background:#3A3F44;z-index:2}
 .full{position:fixed;inset:0;z-index:45;background:#000;display:flex;align-items:center;justify-content:center}
+.full.rot .ftsc,.full.rot .fpl{touch-action:none}
 .full.rot{inset:auto;top:0;left:var(--vpw,100vw);width:var(--vph,100vh);height:var(--vpw,100vw);transform-origin:0 0;transform:rotate(90deg)}
 @media (orientation:landscape){.full:not(.ui) .fvw img{object-fit:cover}}
 .full .fov{top:calc(12px + env(safe-area-inset-top,0px))}
@@ -1848,9 +1849,27 @@ function fullPaintLine() {
   S.focus.fullY = y; ln.style.top = y + 'px'; if (bub) bub.style.top = y + 'px';
 }
 /* position along the full-screen rail, also when the full view is turned sideways on a phone held upright */
+/* When the full view is turned sideways, the browser still thinks in screen directions, so a sideways swipe would not
+   scroll the (now sideways) timeline. Here a one-finger swipe across the screen scrolls it directly. */
+function rotDrag(el) {
+  if (!el || el._rot) return; el._rot = true;
+  let x0 = null, s0 = 0, moved = false, lastX = 0, lastT = 0, v = 0, raf = 0;
+  el.addEventListener('touchstart', e => { if (e.touches.length !== 1) { x0 = null; return; } cancelAnimationFrame(raf); x0 = lastX = e.touches[0].clientX; s0 = el.scrollTop; moved = false; lastT = performance.now(); v = 0; }, { passive: true });
+  el.addEventListener('touchmove', e => {
+    if (x0 == null || e.touches.length !== 1) return;
+    const x = e.touches[0].clientX, dx = x - x0; if (!moved && Math.abs(dx) < 6) return;
+    moved = true; e.preventDefault(); el.scrollTop = s0 + dx;
+    const n = performance.now(); v = (x - lastX) / Math.max(8, n - lastT); lastX = x; lastT = n;
+  }, { passive: false });
+  el.addEventListener('touchend', () => {
+    if (x0 == null) return; x0 = null; if (!moved) return;
+    let vel = v * 16; const step = () => { if (Math.abs(vel) < 0.5) return; el.scrollTop += vel; vel *= 0.94; raf = requestAnimationFrame(step); }; raf = requestAnimationFrame(step);
+  }, { passive: true });
+}
 function fullLocalY(e, el) { const r = el.getBoundingClientRect(), fv = document.getElementById('fullv'); return fv && fv.classList.contains('rot') ? r.right - e.clientX : e.clientY - r.top; }
 function fuiKick() {}
 function wireFull() {
+  if (document.querySelector('.full.rot')) { rotDrag(document.getElementById('ftsc')); rotDrag(document.querySelector('.full .fpl')); }
   const sc = document.getElementById('ftsc'); if (!sc) return;
   fScrollTo(camT(S.focus.cam));
   /* two-finger pinch on the timeline: faster pinch = bigger change, continuous */
@@ -2127,7 +2146,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
@@ -2692,7 +2711,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
   if (HOSTED) {
-    const BUILD = '1.1.7';
+    const BUILD = '1.1.8';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
