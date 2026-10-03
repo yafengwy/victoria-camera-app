@@ -1179,7 +1179,7 @@ const Frigate = {
     if (t == null) return { img: this.base() + '/api/' + cam.id + '/latest.webp?height=480&ts=' + Math.floor(now() / 10000), tag: '', busy: false };
     const ev0 = Data.events.find(e => e.cam === cam.id && t >= e.t - 2000 && t <= (e.end || e.t) + 2000 && passes(e));
     /* Frigate has nothing recorded then: don't ask it for a picture (each miss costs a request and ~1 s) */
-    if (RecMap.has(cam.id, t) === false && !ev0) return { img: NOREC, tag: '', hot: false, busy: false };
+    if (RecMap.has(cam.id, t) === false && !alertTry(cam.id, ev0)) return { img: NOREC, tag: '', hot: false, busy: false };
     const sec = RecMap.snap(cam.id, t);
     const ev = Data.events.find(e => e.cam === cam.id && t >= e.t - 2000 && t <= (e.end || e.t) + 2000 && passes(e));
     return { img: this.base() + '/api/' + cam.id + '/recordings/' + sec + '/snapshot.jpg?height=480', tag: ev ? ev.label : '', hot: ev ? ev.interesting : false, busy: !!ev };
@@ -1326,7 +1326,11 @@ function rvTm(img) {
 }
 /* A past picture did not load. Only say "No Recording" when Frigate really has no recording then; otherwise it was a
    loading hiccup (Frigate busy, slow network): try again, and if it keeps failing say so instead. */
-const recAsk = {}, recResult = {}, recBusy = {}, recTries = {};
+const recAsk = {}, recResult = {}, recBusy = {}, recTries = {}, recMiss = {};
+/* an alert usually means Frigate recorded it, so its pictures are asked for even where the recording list looks
+   empty — but once a picture inside that alert came back "no recording", stop asking for the rest of it (a Nest
+   stream that dropped out would otherwise cost one failed request every second) */
+function alertTry(cam, ev) { return !!ev && !(recMiss[cam] || []).some(ms => ms >= ev.t - 3000 && ms <= (ev.end || now()) + 3000); }
 function recFail(n, src) {
   const m = /\/api\/([a-z0-9_]+)\/recordings\/([\d.]+)\/snapshot/.exec(src); if (!m) return;
   const base = src.replace(/&retry=\d+$/, '');
@@ -1339,14 +1343,14 @@ function recFail(n, src) {
   (async () => {
     /* first ask whether this second was recorded at all (one cheap question); a gap needs no retry */
     const ask = recAsk[key] || (recAsk[key] = Promise.race([new Promise(ok => setTimeout(() => ok(true), 6000)), Frigate.get('/api/' + cam + '/recordings?after=' + (sec - 2) + '&before=' + (sec + 2)).then(r => r.length > 0).catch(() => true)]));
-    if (!(await ask)) { Dbg.log('picture failed', cam, hms(sec * 1000), 'no recording'); apply(NOREC); return; }
+    if (!(await ask)) { Dbg.log('picture failed', cam, hms(sec * 1000), 'no recording'); (recMiss[cam] = recMiss[cam] || []).push(sec * 1000); apply(NOREC); return; }
     for (let i = 1; i <= 1; i++) {          /* one retry: each miss costs Frigate a decode */
       await new Promise(ok => setTimeout(ok, 1200 * i));
       const t0 = performance.now(), ac = new AbortController(), to = setTimeout(() => ac.abort(), 6000);   /* a server that never answers must not leave the picture blank */
       try { const r = await fetch(base + '&retry=' + i, { credentials: 'include', signal: ac.signal }); clearTimeout(to); Dbg.log('picture retry', cam, hms(sec * 1000), r.status, Math.round(performance.now() - t0) + 'ms'); if (r.ok) { apply(base + '&retry=' + i); return; } } catch (e) { clearTimeout(to); Dbg.log('picture retry', cam, hms(sec * 1000), 'no answer', Math.round(performance.now() - t0) + 'ms'); }
     }
     const p = recAsk[key] || (recAsk[key] = Promise.race([new Promise(ok => setTimeout(() => ok(true), 6000)), Frigate.get('/api/' + cam + '/recordings?after=' + (sec - 2) + '&before=' + (sec + 2)).then(r => r.length > 0).catch(() => true)]));
-    const has = await p; Dbg.log('picture failed', cam, hms(sec * 1000), has ? 'recorded' : 'no recording'); apply(has ? LOADFAIL : NOREC);
+    const has = await p; Dbg.log('picture failed', cam, hms(sec * 1000), has ? 'recorded' : 'no recording'); if (!has) (recMiss[cam] = recMiss[cam] || []).push(sec * 1000); apply(has ? LOADFAIL : NOREC);
   })();
 }
 const LOADFAIL = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><rect width="640" height="360" fill="#1B1F23"/><text x="320" y="172" fill="#AEB6BE" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="26" font-weight="700" text-anchor="middle">Picture Did Not Load</text><text x="320" y="210" fill="#7C858E" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="18" text-anchor="middle">Recorded · Tap To Play</text></svg>');
@@ -1445,7 +1449,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.4.1 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.4.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2491,7 +2495,7 @@ function rvRefine(t0, label) {
   const want = String(label).toLowerCase();
   Promise.all(ev.dets.slice(0, 12).map(d => rvDetStart[d] || (rvDetStart[d] = Frigate.get('/api/events/' + encodeURIComponent(d)).then(r => r ? { l: String(r.label || '').toLowerCase(), t: r.start_time * 1000 } : null).catch(() => null))))
     .then(rs => {
-      const ts = rs.filter(r => r && r.l === want && r.t).map(r => r.t); if (!ts.length) return;
+      const ts = rs.filter(r => r && r.l === want && r.t && r.t >= t0 - 1000).map(r => r.t); if (!ts.length) return;   /* a parked object seen long before is not "when it arrived" */
       const tt = Math.min(...ts) + 500;
       if (Math.abs(S.rv.t - (t0 + 500)) > 1500 || Math.abs(tt - S.rv.t) < 2000) return;   /* the user moved on, or no real difference */
       Dbg.log('review jump moved to object start', ev.cam, label, hms(t0), '→', hms(tt));
@@ -2727,7 +2731,7 @@ function paintReview() {
     const img = box.querySelector('img');
     if (Data.source === 'frigate') {
       const tt = ht !== undefined ? ht : t; let cov = tt == null ? true : RecMap.has(c.id, tt);
-      if (cov === false && rvAt(c, tt)) cov = true;    /* an alert here means Frigate saw it: still ask for the picture (a miss shows No Recording) */
+      if (cov === false && alertTry(c.id, rvAt(c, tt))) cov = true;    /* an alert here means Frigate saw it: still ask for the picture (a miss shows No Recording) */
       if (cov === false) { img.dataset.next = ''; img.dataset.ld = ''; if (img.getAttribute('src') !== NOREC) img.src = NOREC; }
       else if (cov === true) {
         const big = c.id === S.rv.feat && rvLay() !== 'grid', nowMs = Date.now();
@@ -2749,7 +2753,7 @@ function paintReview() {
    and tapping it brings that camera into view */
 function rvHint() {
   let n = document.getElementById('rvhint');
-  if (S.view !== 'review' || S.focus) { if (n) n.hidden = true; return; }
+  if (S.view !== 'review' || S.focus || S.rv.fopen || S.rv.pick || S.rv.colsOpen) { if (n) n.hidden = true; return; }
   if (!n) { n = document.createElement('button'); n.id = 'rvhint'; n.className = 'rvhint'; n.hidden = true; document.body.appendChild(n);
     n.addEventListener('click', e => { e.stopPropagation(); const box = document.getElementById('rv-' + n.dataset.id); if (box) box.scrollIntoView({ behavior: 'smooth', block: 'center' }); }); }
   const top = document.getElementById('rvtop'), dock = document.querySelector('.rvdock');
@@ -2821,7 +2825,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.4.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.4.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3484,7 +3488,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.4.1';
+    const BUILD = '1.4.2';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
