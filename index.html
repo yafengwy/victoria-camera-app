@@ -1153,7 +1153,7 @@ const Playback = {
   prep(p, id) {
     if (p.prep) return; p.prep = true; const t0 = performance.now();
     const w = setInterval(() => {
-      if (!(p.v.seeking || p.v.readyState < 3) || performance.now() - t0 > 6000) { clearInterval(w); p.prep = false; this.sync(); }
+      if (!(p.v.seeking || p.v.readyState < 2) || performance.now() - t0 > 3000) { clearInterval(w); p.prep = false; p.kick = true; this.sync(); }
     }, 80);
   },
   wall(p, ct) {          /* video seconds -> clock ms */
@@ -1246,8 +1246,9 @@ const Playback = {
         p.v.currentTime = vt; this.prep(p, id); continue;
       }
       p.v.playbackRate = S.speed || 1;
-      if (p.v.paused) { if (p.v.readyState < 3) { this.prep(p, id); continue; } p.v.play().catch(() => {}); }
-      if (!p.on && !p.v.paused && p.v.readyState >= 3) { p.on = true; p.lastSet = t; this.paintVis(id); }
+      /* iPhone only loads more video once it is told to play, so after the first picture is ready, play */
+      if (p.v.paused) { if (p.v.readyState < 2 && !p.kick) { this.prep(p, id); continue; } p.kick = false; p.v.play().catch(() => {}); }
+      if (!p.on && !p.v.paused && p.v.readyState >= 2) { p.on = true; p.lastSet = t; this.paintVis(id); }
       else if (!p.on) p.v.addEventListener('playing', () => { if (camT(id) != null && S.playing && !p.prep) { p.on = true; this.paintVis(id); } }, { once: true });
     }
   }
@@ -2200,7 +2201,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.13 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.14 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
@@ -2773,7 +2774,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.1.13';
+    const BUILD = '1.1.14';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
