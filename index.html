@@ -317,6 +317,13 @@ img.rf{opacity:0}
 .rvhint{position:fixed;z-index:40;transform:translateX(-50%);padding:7px 14px;border-radius:999px;border:0;background:var(--hot,#E8692C);color:#fff;font:inherit;font-size:13px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.25);white-space:nowrap}
 .rvhint.un{background:#5A6470}
 .rvcams.big3{grid-auto-flow:row dense}
+.rvcams.top24{grid-auto-flow:row dense;gap:6px 4px}
+.rvcams.top24 .rvcam{grid-column:span 6}
+.rvcams.top24 .rvcam.nr{opacity:.5}
+.rvcams.top24 .rvcam.feat .nm{font-size:12px}
+.rvperrow{display:flex;gap:6px;padding:4px 12px 8px}
+.rvperrow button{flex:1;height:34px;border-radius:10px;border:0;background:var(--track);color:var(--head-fg);font:inherit;font-weight:800}
+.rvperrow button[aria-pressed="true"]{background:var(--strong);color:var(--strong-fg)}
 :is(.rvcam,.frame,.fvid):has(> img[data-ld="1"],> img.rf)::after{content:"Loading…";position:absolute;right:8px;bottom:8px;z-index:3;font-size:11px;font-weight:700;color:#fff;background:rgba(0,0,0,.55);padding:3px 8px;border-radius:999px}
 .rvsevrow{display:flex}.rvsevrow .check{flex:1}
 .rvcams.big3 .rvcam.feat{grid-column:span 2;grid-row:span 2;aspect-ratio:auto}
@@ -1365,7 +1372,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.2.6 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.2.7 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1524,7 +1531,7 @@ function setImg(img, src) {
   if (img.dataset.busy === '1') { img.dataset.next = src; return; }
   img.dataset.busy = '1';
   const done = () => { img.dataset.busy = ''; const n = img.dataset.next; img.dataset.next = ''; if (n && n !== img.getAttribute('src')) setImg(img, n); };
-  img.onload = done; img.onerror = done; img.dataset.ld = '1'; img.src = src;
+  img.onload = done; img.onerror = done; if (!img.naturalWidth || /^data:/.test(img.getAttribute('src') || '')) img.dataset.ld = '1'; img.src = src;
   setTimeout(() => { if (img.dataset.busy === '1' && img.getAttribute('src') === src) done(); }, 6000);   /* never stay stuck on a picture that does not answer */
 }
 
@@ -1651,7 +1658,7 @@ const S = {
   winEnd: now(), pos: 1, win: store.get('win', 30 * MIN), playing: true, speed: 1, tab: 'events',
   filt: store.get('filt3', { int: true, unint: false, objs: { Person: true, Car: true, Cat: true, Dog: true, Package: true }, off: {}, zones: {} }),
   ddObj: false, ddCam: false, zoneOpen: null,
-  objOpen: false, rv: { sel: null, pick: false, t: null, cols: store.get('rvcols', 0), big: store.get('rvbig', true), feat: null, autoFeat: null, span: store.get('rvspan', 2 * HOUR), f: store.get('rvf', { int: true, unint: false, objs: {} }), zones: store.get('rvzones', {}), fopen: false, zopen: null, colsOpen: false }, flist: false,
+  objOpen: false, rv: { sel: null, pick: false, t: null, cols: store.get('rvcols', 0), lay: store.get('rvlay', store.get('rvbig', true) ? 'big' : 'grid'), feat: null, autoFeat: null, span: store.get('rvspan', 2 * HOUR), f: store.get('rvf', { int: true, unint: false, objs: {} }), zones: store.get('rvzones', {}), fopen: false, zopen: null, colsOpen: false }, flist: false,
   evDay: 0, filtersOpen: false, modal: null, focus: null, full: false, dragging: false
 };
 function passes(e) {
@@ -1764,6 +1771,7 @@ function render() {
   if (S.view === 'review') {
     const top = document.getElementById('rvtop'); if (top) app.style.setProperty('--rvtop', top.getBoundingClientRect().bottom + 'px');
     S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; });
+    paintReview();
   }
   requestAnimationFrame(rvHint);
 }
@@ -2351,11 +2359,16 @@ function rvPass(e) {
 }
 function rvDropdown() {
   const ck = (on, act, v, label, cls) => '<button class="check' + (cls ? ' ' + cls : '') + '" role="checkbox" aria-checked="' + on + '" data-act="' + act + '" data-v="' + esc(v) + '"><span class="box">' + (on ? I.check : '') + '</span>' + esc(label) + '</button>';
-  let h = '<div class="rvscrim" data-act="rvdclose"></div><div class="rvdd' + (S.rv.pick ? ' low' : '') + (S.rv.colsOpen ? ' narrow' : '') + '" role="dialog" aria-label="' + (S.rv.fopen ? 'Alert Types' : S.rv.colsOpen ? 'Cameras Per Row' : 'Cameras') + '">';
+  let h = '<div class="rvscrim" data-act="rvdclose"></div><div class="rvdd' + (S.rv.pick ? ' low' : '') + (S.rv.colsOpen ? ' narrow' : '') + '" role="dialog" aria-label="' + (S.rv.fopen ? 'Alert Types' : S.rv.colsOpen ? 'Layout' : 'Cameras') + '">';
   if (S.rv.colsOpen) {
-    const mx = window.innerWidth >= 1000 ? 5 : 4;
-    h += '<div class="rvddh">Cameras Per Row</div>';
-    for (let n = 1; n <= mx; n++) h += '<button class="check" role="radio" aria-checked="' + (rvCols() === n) + '" data-act="rvcols" data-v="' + n + '"><span class="box rdo">' + (rvCols() === n ? I.check : '') + '</span>' + n + '</button>';
+    const mx = window.innerWidth >= 1000 ? 5 : 4, L = S.rv.lay;
+    h += '<div class="rvddh">Layout</div>' +
+      ['big', 'top', 'grid'].map(k => '<button class="check" role="radio" aria-checked="' + (L === k) + '" data-act="rvlay" data-v="' + k + '"><span class="box rdo">' + (L === k ? I.check : '') + '</span>' + RV_LAYS[k] + '</button>').join('');
+    if (L === 'grid') {
+      h += '<div class="rvddh">Per Row</div><div class="rvperrow">';
+      for (let n = 1; n <= mx; n++) h += '<button data-act="rvcols" data-v="' + n + '" aria-pressed="' + (rvCols() === n) + '">' + n + '</button>';
+      h += '</div>';
+    }
   } else if (S.rv.fopen) {
     const f = S.rv.f, all = OBJS().every(o => objOn(f, o));
     h += '<div class="rvddh">Alert Level</div><div class="rvsevrow">' + ck(f.int, 'rvsev', 'int', 'Interesting') + ck(f.unint, 'rvsev', 'unint', 'Uninteresting') + '</div>' +
@@ -2383,11 +2396,27 @@ function rvFSummary() {
 /* Wide landscape screens (Duo inner screen turned sideways, tablets, desktop): the timeline becomes a vertical rail on the
    right, newest at the top, so the camera grid keeps the full height. Portrait: horizontal strip at the bottom. */
 const VTOP = 24;   /* vertical timelines: the playhead sits near the top (newest = Live at the top), like Frigate */
-function rvBig() { return S.rv.big && !rvVert() && rvCams().length > 3; }
+/* Review layouts: big (one big picture + small), top (cameras with an alert side by side on top), grid (N per row) */
+function rvLay() { return S.rv.lay !== 'grid' && !rvVert() && rvCams().length > 3 ? S.rv.lay : 'grid'; }
+function rvBig() { return rvLay() === 'big'; }
+const RV_LAYS = { big: 'Big', top: 'Alerts On Top', grid: 'Grid' };
 /* Big layout: the camera with an alert at the line gets the big picture (2/3 wide), the next two sit beside it,
    the rest follow 3 per row. Tiles are only reordered (CSS order), never redrawn, so dragging stays smooth. */
 function rvLayout(t) {
-  const box = document.querySelector('.rvcams'); if (!box || !box.classList.contains('big3')) return;
+  const box = document.querySelector('.rvcams'); if (!box || !(box.classList.contains('big3') || box.classList.contains('top24'))) return;
+  if (box.classList.contains('top24')) {      /* alerts side by side on top: 1 → 3/4 wide, 2 → halves, 3+ → thirds; the rest 4 per row */
+    const cams = rvCams(), hits = cams.map(c => ({ c, e: rvAt(c, t) })).filter(x => x.e).sort((a, b) => (b.e.interesting - a.e.interesting) || (b.e.t - a.e.t));
+    const top = hits.map(x => x.c.id).slice(0, 3), span = top.length === 1 ? 18 : top.length === 2 ? 12 : 8;
+    cams.forEach((c, i) => {
+      const n = document.getElementById('rv-' + c.id); if (!n) return;
+      const k = top.indexOf(c.id);
+      n.classList.toggle('feat', k >= 0);
+      n.style.order = k >= 0 ? -100 + k : i;
+      n.style.gridColumn = k >= 0 ? (top.length === 1 ? '4 / span 18' : 'span ' + span) : 'span 6';
+      const img = n.querySelector('img'); n.classList.toggle('nr', !!img && img.getAttribute('src') === NOREC);
+    });
+    return;
+  }
   const cams = rvCams(), hits = cams.map(c => ({ c, e: rvAt(c, t) })).filter(x => x.e).sort((a, b) => (b.e.interesting - a.e.interesting) || (b.e.t - a.e.t));
   const top = hits[0] && hits[0].c.id;
   if (top && top !== S.rv.autoFeat) { S.rv.feat = top; }             /* a new alert under the line takes the big picture */
@@ -2487,7 +2516,7 @@ function viewReview() {
   const st = rvGroupState();
   let h = '<div class="rvtop" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
     '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + (S.rv.fopen ? I.up : I.down).replace(/22/g, '14') + '</button>' +
-    '<button class="chip sm" data-act="rvcols" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvBig() ? 'Big' : rvCols()) + '</button>' +
+    '<button class="chip sm" data-act="rvcolsopen" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvLay() === 'big' ? 'Big' : rvLay() === 'top' ? 'Top' : rvCols()) + '</button>' +
     '<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button></div><div class="rvchips">' +
     (Data.source === 'frigate' ? '<button class="chip sm bxchip" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
     '<button class="chip sm" data-act="rvgroup" data-v="all" aria-pressed="' + (st === 'all') + '">All Cameras</button>' +
@@ -2495,12 +2524,13 @@ function viewReview() {
     '<button class="chip sm" data-act="rvpick" aria-pressed="' + (st === 'custom' || S.rv.pick) + '">Choose' + (S.rv.pick ? I.up : I.down).replace(/22/g, '14') + '</button></div>';
   if (S.rv.fopen || S.rv.pick || S.rv.colsOpen) h += rvDropdown();
   const nc = rvCols();
-  h += '</div><div class="rvcams c' + (rvBig() ? '3 big3' : nc) + (rvVert() ? ' v' : '') + '" style="--cols:' + (rvBig() ? 3 : nc) + '">';
+  const L = rvLay();
+  h += '</div><div class="rvcams c' + (L === 'big' ? '3 big3' : L === 'top' ? '4 top24' : nc) + (rvVert() ? ' v' : '') + '" style="--cols:' + (L === 'big' ? 3 : L === 'top' ? 24 : nc) + '">';
   if (!cams.length) h += '<div class="empty">Choose at least one camera.</div>';
   cams.forEach(c => {
     const f = Data.frame(c, t);
     const e = rvAt(c, t);
-    h += '<div class="rvcam' + (e ? (e.interesting ? ' hot' : ' uhot') : '') + '" id="rv-' + c.id + '" data-act="rvopen" data-id="' + c.id + '"><img data-ld="1" src="' + f.img + '" alt="' + esc(c.name) + '"><div class="nm">' + esc(c.name) + '</div><div class="tag' + (e && !e.interesting ? ' un' : '') + '" id="rvtag-' + c.id + '"' + (e ? '' : ' hidden') + '>' + (e ? objIcon(e.label) + '<span>' + esc(e.label) + '</span>' : '') + '</div></div>';
+    h += '<div class="rvcam' + (e ? (e.interesting ? ' hot' : ' uhot') : '') + '" id="rv-' + c.id + '" data-act="rvopen" data-id="' + c.id + '"><img data-ld="1"' + (Data.source !== 'frigate' || t == null || RecMap.has(c.id, t) === true ? ' src="' + f.img + '"' : '') + ' alt=""><div class="nm">' + esc(c.name) + '</div><div class="tag' + (e && !e.interesting ? ' un' : '') + '" id="rvtag-' + c.id + '"' + (e ? '' : ' hidden') + '>' + (e ? objIcon(e.label) + '<span>' + esc(e.label) + '</span>' : '') + '</div></div>';
   });
   rvEnd = end;
   RVV = rvVert();
@@ -2521,6 +2551,26 @@ function viewReview() {
     '</div><div class="rvz"><button data-act="rvzoombtn" data-v="out" aria-label="Show Longer Time">−</button><span id="rvzl">' + rvzLabel(S.rv.span) + '</span><button data-act="rvzoombtn" data-v="in" aria-label="Show Shorter Time">+</button></div></div>';
   return h;
 }
+/* Which cameras have a recording at a moment: one small list per camera covering ±10 minutes, kept for reuse.
+   Cameras with nothing recorded then show No Recording right away, without asking Frigate to make a picture
+   (each picture costs Frigate a video decode, which is what made Review slow). */
+const RecMap = {
+  w: {},
+  has(cam, ms) {
+    const sec = ms / 1000; if (ms >= now() - 20000) return true;            /* the last seconds are still being written */
+    const w = this.w[cam];
+    if (w && sec >= w.a && sec <= w.b) return w.segs ? w.segs.some(g => sec >= g[0] - 1 && sec <= g[1] + 1) : null;
+    if (!w || !w.busy) this.load(cam, sec);
+    return null;
+  },
+  load(cam, sec) {
+    const a = Math.floor(sec - 600), b = Math.min(Math.ceil(sec + 600), Math.floor(now() / 1000));
+    const w = this.w[cam] = { a, b, segs: null, busy: true };
+    Frigate.get('/api/' + cam + '/recordings?after=' + a + '&before=' + b)
+      .then(rows => { if (this.w[cam] === w) { w.segs = rows.map(r => [r.start_time, r.end_time]); w.busy = false; if (S.view === 'review') paintReview(); } })
+      .catch(() => { if (this.w[cam] === w) delete this.w[cam]; });
+  }
+};
 function paintReview() {
   const t = S.rv.t, ht = S.hov && S.hov.id === 'rv' ? S.hov.t : undefined;
   rvCams().slice().sort((a, b) => (b.id === S.rv.feat) - (a.id === S.rv.feat)).forEach(c => {   /* the big picture is asked for first */
@@ -2528,7 +2578,13 @@ function paintReview() {
     const fi = ht !== undefined ? Data.frame(c, ht) : f;
     /* one picture request per camera at a time, newest wins: setting src on every drag step cancelled the
        request before Frigate could answer, so nothing ever changed while dragging */
-    const img = box.querySelector('img'); if (Data.source === 'frigate') setImg(img, fi.img); else if (img.getAttribute('src') !== fi.img) img.src = fi.img;
+    const img = box.querySelector('img');
+    if (Data.source === 'frigate') {
+      const tt = ht !== undefined ? ht : t, cov = tt == null ? true : RecMap.has(c.id, tt);
+      if (cov === false) { img.dataset.next = ''; if (img.getAttribute('src') !== NOREC) { img.dataset.ld = ''; img.src = NOREC; } }
+      else if (cov === true) setImg(img, fi.img);
+      else if (!img.naturalWidth || img.getAttribute('src') === NOREC) img.dataset.ld = '1';     /* still finding out */
+    } else if (img.getAttribute('src') !== fi.img) img.src = fi.img;
     rvMark(box, c, ht !== undefined ? ht : t);
   });
   const b = document.getElementById('rvbub'); if (b) b.textContent = ht !== undefined ? hms(ht) : t == null ? 'Live' : hms(t);
@@ -2609,7 +2665,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.2.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.2.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -2847,11 +2903,8 @@ const ACT = {
   rvstep(d) { const cur = S.rv.t == null ? now() : S.rv.t; let t = clamp(cur + (+d.v) * 1000, now() - RSPAN, now()); S.rv.t = t >= now() - 1000 ? null : t; rvScrollTo(S.rv.t); paintReview(); },
   rvspeed() { const sp = [1, 2, 4, 8]; S.speed = sp[(sp.indexOf(S.speed) + 1) % sp.length] || 1; render(); },
   /* layout chip: Big (one big picture + small ones) → 1 → 2 → … per row → Big */
-  rvcols() {
-    const mx = window.innerWidth >= 1000 ? 5 : 4;
-    if (rvBig()) { S.rv.big = false; S.rv.cols = 1; } else if (rvCols() >= mx) { S.rv.big = true; } else S.rv.cols = rvCols() + 1;
-    store.set('rvbig', S.rv.big); store.set('rvcols', S.rv.cols); render();
-  },
+  rvlay(d) { S.rv.lay = d.v; store.set('rvlay', d.v); if (d.v !== 'grid') S.rv.colsOpen = false; render(); },
+  rvcols(d) { S.rv.lay = 'grid'; store.set('rvlay', 'grid'); S.rv.cols = +d.v || 2; store.set('rvcols', S.rv.cols); S.rv.colsOpen = false; render(); },
   rvcolsopen() { S.rv.colsOpen = !S.rv.colsOpen; S.rv.fopen = false; S.rv.pick = false; render(); },
   rvzopen(d) { S.rv.zopen = S.rv.zopen === d.v ? null : d.v; render(); },
   rvzone(d) { const z = S.rv.zones; let cur = z[d.id] || []; cur = !d.v ? [] : cur.includes(d.v) ? cur.filter(x => x !== d.v) : cur.concat(d.v); if (cur.length) z[d.id] = cur; else delete z[d.id]; store.set('rvzones', z); render(); },
@@ -2871,7 +2924,7 @@ const ACT = {
     const t = Date.now();
     if (rvTapLast.id === d.id && t - rvTapLast.at < 350) { rvTapLast = { id: null, at: 0 }; S.camTime[d.id] = S.rv.t; openFocus(d.id); return; }
     rvTapLast = { id: d.id, at: t };
-    if (rvBig() && S.rv.feat !== d.id) { S.rv.feat = d.id; rvLayout(S.hov && S.hov.id === 'rv' ? S.hov.t : S.rv.t); }   /* a small picture tapped: make it the big one */
+    if (rvLay() !== 'grid' && S.rv.feat !== d.id) { S.rv.feat = d.id; rvLayout(S.hov && S.hov.id === 'rv' ? S.hov.t : S.rv.t); }   /* a small picture tapped: make it the big one */
   },
   rvlive() { S.rv.t = null; rvScrollTo(null); paintReview(); },
   fgrp(d) {     /* tap a group's card or icon: play its newest alert (of that kind, for an icon); a group of several opens into a strip */
@@ -3261,7 +3314,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.2.6';
+    const BUILD = '1.2.7';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
