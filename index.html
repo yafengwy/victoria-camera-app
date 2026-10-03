@@ -986,7 +986,7 @@ const Motion = {
       if (Ctl.msg(d.topic, d.payload)) return;
       const m = /^([^/]+)\/motion$/.exec(d.topic); if (m) { this.nm++; this.set(m[1], d.payload === 'ON' || d.payload === true); }
     };
-    s.onclose = () => { this.up = false; setTimeout(() => this.connect(), 5000); };
+    s.onclose = ev => { this.up = false; this.err = 'Code ' + ev.code; setTimeout(() => this.connect(), 5000); };
   }
 };
 Frigate.pollStats = async function () {
@@ -1152,6 +1152,17 @@ const Ctl = {
   }
 };
 
+/* Diagnostics shown in Settings: is /ws forwarded to Frigate (Old Config = the web server still serves the app page there),
+   and the last lines of the mini PC's update log */
+const Diag = {
+  route: 'Checking', log: '',
+  async run() {
+    try { const r = await fetch(Frigate.base() + '/ws', { credentials: 'include' }); const t = (await r.text()).slice(0, 200).toLowerCase();
+      this.route = t.includes('<!doctype') || t.includes('<html') ? 'Old Config' : 'OK (' + r.status + ')'; } catch (e) { this.route = 'Error'; }
+    try { const r = await fetch('update-log.txt?t=' + Date.now(), { credentials: 'include' }); if (r.ok) { const l = (await r.text()).trim().split('\n').filter(Boolean); this.log = l.slice(-3).join(' | ').slice(0, 300); } } catch (e) {}
+    if (S.modal === 'settings') render();
+  }
+};
 /* ===== State ===== */
 /* Served from the mini PC (home IP or victoriashome.app): talk to the real Frigate on the same address by default */
 const HOSTED = /^(192\.168\.|10\.|localhost$|frigate)|victoriashome\.app$/.test(location.hostname);
@@ -1924,7 +1935,8 @@ function modalSettings() {
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
-    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 18:34 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + '</div>' : '') +
+    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 18:53 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm +
+      ' · Feed Route ' + Diag.route + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
     '<div class="srow"><span class="slbl">Frigate</span><input id="server" class="field" type="url" inputmode="url" placeholder="http://192.168.1.50:5000" value="' + esc(S.server) + '" autocomplete="off"></div>' +
     '<div class="srow">' + checkRow('demo', 'Use Demo Data', S.demo) + '<button class="btn solid" data-act="savesettings">Save</button></div>' +
     '</div></div></div>';
@@ -2432,7 +2444,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
 (async function start() {
   await Data.load(); lastCols = cols() * 10 + rvCols(); render();
   if (Data.source === 'frigate') {
-    Motion.seed(); Motion.connect(); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
+    Motion.seed(); Motion.connect(); Diag.run(); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
 })();
