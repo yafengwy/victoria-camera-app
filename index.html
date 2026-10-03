@@ -1127,8 +1127,11 @@ const Live = {
 document.addEventListener('error', ev => {
   const n = ev.target; if (!n || !n.getAttribute) return;
   const a = n.tagName === 'IMG' ? 'src' : n.tagName === 'VIDEO' ? 'poster' : null; if (!a) return;
-  const fb = Frigate.fb[n.getAttribute(a)]; if (fb) n.setAttribute(a, fb);
+  const fb = Frigate.fb[n.getAttribute(a)]; if (fb) { n.setAttribute(a, fb); return; }
+  if (a === 'src' && /\/recordings\/\d+\/snapshot/.test(n.getAttribute('src') || '')) n.setAttribute('src', NOREC);   /* nothing recorded at that moment */
 }, true);
+/* Frigate only keeps video while something moves, so a camera can have nothing at a past moment */
+const NOREC = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><rect width="640" height="360" fill="#1B1F23"/><text x="320" y="172" fill="#AEB6BE" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="26" font-weight="700" text-anchor="middle">No Recording At This Time</text><text x="320" y="210" fill="#7C858E" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="18" text-anchor="middle">Nothing Moved Here Then</text></svg>');
 /* Recorded playback in Frigate mode. Instead of one snapshot per second (slow: Frigate decodes a frame per request),
    the open camera plays the real recording as HLS video from Frigate's /vod. Only motion is recorded, so the video
    skips gaps; the segment list maps video time back to clock time. While the user drags or scrolls, the picture is a
@@ -2195,7 +2198,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.11 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.12 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
@@ -2768,7 +2771,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.1.11';
+    const BUILD = '1.1.12';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
