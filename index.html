@@ -1344,7 +1344,7 @@ function panel(c) {
     '<div class="trio"><button data-act="step" data-v="-1" aria-label="Previous Event">' + I.prev + '</button>' +
     '<button data-act="playpause" aria-label="' + (S.playing ? 'Pause' : 'Play') + '">' + (S.playing ? I.pause : I.play) + '</button>' +
     '<button data-act="step" data-v="1" aria-label="Next Event">' + I.next + '</button></div>' +
-    '<button class="round' + (live ? '' : ' ghost') + '" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button></div>' +
+    '<button class="round" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button></div>' +
     '<div class="tl"><div class="tlrow"><span id="tlstart">' + hm(start) + ' ' + dayLabel(start) + '</span><button class="pill" id="winpill" data-act="modal" data-v="win" aria-label="Change Timeline Length">' + winLabel(S.win) + '</button><span id="tlend">' + (S.winEnd >= now() - 2000 ? 'Now' : hm(S.winEnd)) + '</span></div>' +
     '<div class="track' + (S.markStyle === 'b' ? ' lanes' : '') + '" id="track" role="slider" aria-label="Playback Time" aria-valuetext="' + (live ? 'Live' : hms(t)) + '" tabindex="0">' + clipBand(c.id, start) + segs +
     '<div class="head-mk" id="playhead" style="left:' + (S.pos * 100).toFixed(2) + '%"></div></div>' +
@@ -1377,7 +1377,7 @@ function paintPanel() {
   const t = camT(id), live = t == null, hv = S.hov && S.hov.id === id ? S.hov : null;
   const ph = document.getElementById('playhead'); if (ph) ph.style.left = ((hv ? hv.p : S.pos) * 100).toFixed(2) + '%';
   const ro = document.getElementById('readout'); if (ro) ro.textContent = hv ? dayLabel(hv.t) + ' ' + hms(hv.t) : live ? 'Live · Drag To Go Back' : dayLabel(t) + ' ' + hms(t);
-  const lb = document.getElementById('livebtn'); if (lb) lb.className = 'round' + (live ? '' : ' ghost');
+  const lb = document.getElementById('livebtn'); if (lb) lb.className = 'round';
   const tr = document.getElementById('track'); if (tr) tr.setAttribute('aria-valuetext', live ? 'Live' : hms(t));
   paintCam(id);
 }
@@ -1924,7 +1924,7 @@ function modalSettings() {
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
-    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 18:21 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + '</div>' : '') +
+    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 18:34 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + '</div>' : '') +
     '<div class="srow"><span class="slbl">Frigate</span><input id="server" class="field" type="url" inputmode="url" placeholder="http://192.168.1.50:5000" value="' + esc(S.server) + '" autocomplete="off"></div>' +
     '<div class="srow">' + checkRow('demo', 'Use Demo Data', S.demo) + '<button class="btn solid" data-act="savesettings">Save</button></div>' +
     '</div></div></div>';
