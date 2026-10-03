@@ -954,8 +954,8 @@ const Frigate = {
     fresh.forEach(e => { const o = old.get(e.id); if (!o || sig(o) !== sig(e)) { old.set(e.id, e); changed = true; } });
     if (!changed) return;
     Data.events = [...old.values()].sort((a, b) => b.t - a.t);
-    if (!S.dragging && !S.modal && !S.focus && S.view !== 'review' && !S.evPlay) render();
-    else if (S.expanded && S.view === 'home') refreshTrack();
+    if (S.view === 'events' && !S.modal && !S.evPlay) render();
+    else if (S.expanded && S.view === 'home' && !S.dragging) refreshTrack();
   },
   /* Review thumbnail = the frame Frigate picked for the alert, centred on what moved. If it can't load, use the object crop. */
   fb: {},
@@ -986,7 +986,11 @@ const Motion = {
     u.protocol = u.protocol === 'https:' ? 'wss:' : 'ws:';
     let s; try { s = new WebSocket(u.href); } catch (e) { this.err = 'Create ' + e.name; setTimeout(() => this.connect(), 5000); return; }
     this.sock = s; this.tries = (this.tries || 0) + 1;
-    const to = setTimeout(() => { if (s.readyState === 0) { this.err = 'Timeout'; try { s.close(); } catch (e) {} } }, 8000);
+    const to = setTimeout(() => {      /* stuck handshake: drop it and start a fresh one */
+      if (s.readyState !== 0) return;
+      this.err = 'Timeout'; s.onopen = s.onclose = s.onmessage = s.onerror = null; try { s.close(); } catch (e) {}
+      this.connect();
+    }, 8000);
     s.onerror = () => { this.err = (this.err && this.err !== 'Error' ? this.err + ', ' : '') + 'Error'; };
     s.onopen = () => { clearTimeout(to); this.err = ''; this.up = true; s.send(JSON.stringify({ topic: 'onConnect', message: '', payload: '', retain: false })); };
     s.onmessage = ev => {
@@ -1027,14 +1031,29 @@ const Live = {
     let e = this.els[src];
     if (!e) {
       e = document.createElement('live-cam');
-      e.className = 'lvc'; e.mode = 'mse,hls,mjpeg'; e.visibilityThreshold = 0.05;
+      e.className = 'lvc'; e.mode = 'mse,hls,mjpeg'; e.visibilityThreshold = 0.05; e.suspended = true;
       e.src = new URL(Frigate.base() + '/live/mse/api/ws?src=' + encodeURIComponent(src), location.href).href;
       this.els[src] = e;
     }
     return e;
   },
   mount() { if (!this.on()) return; for (const k in this.els) { const id = k; if (!Ctl.on(id) && this.els[k].parentNode) this.els[k].remove(); } document.querySelectorAll('[data-live]').forEach(h => { const e = this.el(h.dataset.live); if (e.parentNode !== h) h.appendChild(e); }); },
-  show(h, yes) { if (h) h.hidden = !yes; }
+  show(h, yes) { if (h) h.hidden = !yes; },
+  /* Phones have few video decoders: while one camera is open full view or playing a recording, the other live
+     streams are stopped (they show their last picture) so the picture you are watching and the app stay smooth. */
+  policy() {
+    if (!this.on()) return;
+    const busy = !!S.focus || Object.keys(Playback.st).some(id => Playback.st[id].on || Playback.st[id].loading);
+    for (const src in this.els) {
+      const e = this.els[src], keep = !busy || (S.focus && S.focus.cam === src);
+      if (!keep && !e.suspended) { e.suspended = true; try { e.ondisconnect(); } catch (x) {} }
+      else if (keep && e.suspended) {
+        e.suspended = false;
+        const r = e.getBoundingClientRect(), vis = e.isConnected && r.bottom > 0 && r.top < innerHeight && r.width > 0;
+        if (vis) try { e.onconnect(); } catch (x) {}
+      }
+    }
+  }
 };
 
 document.addEventListener('error', ev => {
@@ -1109,6 +1128,7 @@ const Playback = {
   },
   sync() {
     if (Data.source !== 'frigate') return;
+    Live.policy();
     document.querySelectorAll('video[data-hls]:not([data-on])').forEach(v => {     /* alert cards */
       v.dataset.on = '1'; const u = v.dataset.hls;
       if (this.native()) { v.src = u; v.play().catch(() => {}); }
@@ -1966,7 +1986,7 @@ function modalSettings() {
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
-    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 19:08 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm +
+    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 19:21 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
     '<div class="srow"><span class="slbl">Frigate</span><input id="server" class="field" type="url" inputmode="url" placeholder="http://192.168.1.50:5000" value="' + esc(S.server) + '" autocomplete="off"></div>' +
     '<div class="srow">' + checkRow('demo', 'Use Demo Data', S.demo) + '<button class="btn solid" data-act="savesettings">Save</button></div>' +
@@ -2473,9 +2493,12 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   } const was = COVER; detectCover(); const n = cols() * 10 + rvCols() + (COVER ? 100 : 0) + (rvVert() ? 1000 : 0); if (S.view === 'review') { S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); } if (n !== lastCols || was !== COVER) { lastCols = n; render(); } }, 150); });
 
 (async function start() {
-  await Data.load(); lastCols = cols() * 10 + rvCols(); render();
+  await Data.load(); lastCols = cols() * 10 + rvCols();
+  /* Browsers open one websocket handshake at a time per site, so open the motion feed before the live videos queue theirs */
+  if (Data.source === 'frigate') { Motion.connect(); await new Promise(ok => { const t0 = Date.now(), w = setInterval(() => { if (Motion.up || Date.now() - t0 > 3000) { clearInterval(w); ok(); } }, 50); }); }
+  render();
   if (Data.source === 'frigate') {
-    Motion.seed(); Motion.connect(); Diag.run(); setInterval(() => Frigate.refresh(), 10000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
+    Motion.seed(); Diag.run(); setInterval(() => Frigate.refresh(), 10000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
 })();
@@ -3179,6 +3202,7 @@ class VideoRTC extends HTMLElement {
 }
 
 class LiveCam extends VideoRTC {
+  onconnect() { if (this.suspended) return false; return super.onconnect(); }
   oninit() {
     super.oninit();
     this.video.controls = false; this.video.muted = true; this.video.autoplay = true;
