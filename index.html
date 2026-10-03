@@ -1388,6 +1388,14 @@ function detectCover() {
 }
 /* Phone back button / swipe-back steps out one level (menu → full screen → camera view → other page → home)
    instead of leaving the app: each open level adds a browser history entry. */
+/* A notification opens the app at its alert: https://cam.victoriashome.app/#cam=front_door&t=<ms> */
+function openLink() {
+  const q = new URLSearchParams(location.hash.slice(1)), id = q.get('cam'), t = +q.get('t');
+  if (!id || !Data.cam(id)) return;
+  history.replaceState(history.state, '', location.pathname + location.search);
+  S.view = 'home'; S.modal = null; openFocus(id);
+  if (t) { S.camTime[id] = Math.min(t, now() - 2000) - 1000; S.playing = true; paintFocus(); fShow(S.camTime[id]); Playback.sync(); }
+}
 let hDepth = 0, hSkip = false;
 function histDepth() { return (S.view !== 'home' ? 1 : 0) + (S.focus ? 1 : 0) + (S.focus && S.full ? 1 : 0) + (S.modal ? 1 : 0); }
 function syncHist() {
@@ -2187,7 +2195,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.11 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
@@ -2758,8 +2766,9 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
     window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); HA.get(); setInterval(() => HA.get(), 10000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
+  openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.1.10';
+    const BUILD = '1.1.11';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);

@@ -24,6 +24,10 @@ fi
 if [ -s "$G/docker-compose.yml" ] && ! cmp -s "$G/docker-compose.yml" "$D/.applied-compose"; then
   cp "$G/docker-compose.yml" "$D/docker-compose.yml" && (cd "$D" && docker compose up -d) && cp "$G/docker-compose.yml" "$D/.applied-compose"
 fi
+# The notification clip service reads its script from the repo copy; restart it when the script changes
+if [ -s "$G/clipwait.py" ] && ! cmp -s "$G/clipwait.py" "$D/.applied-clipwait"; then
+  docker restart clipwait >/dev/null && cp "$G/clipwait.py" "$D/.applied-clipwait"
+fi
 # Connection check the app shows in Settings (Frigate version, and whether a websocket handshake to /ws answers,
 # directly on Frigate and through the app's web server)
 {

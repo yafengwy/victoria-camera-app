@@ -49,7 +49,7 @@ services:
       - ./caddy-data:/data
       - ./caddy-config:/config
     env_file: caddy.env
-  # Short notification videos: waits until Frigate has saved the requested seconds, then passes the clip on
+  # Short notification videos (mp4 or gif): waits until Frigate has saved the requested seconds, then passes the clip on
   clipwait:
     container_name: clipwait
     image: python:3.12-alpine
