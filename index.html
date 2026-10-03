@@ -524,6 +524,17 @@ img.rf{opacity:0}
 :root{--rvgrey:#B9C0C5}
 :root[data-dark]{--rvgrey:#5A6268}
 .rvscrim{position:fixed;inset:0;z-index:40}
+.moredd{position:fixed;right:8px;top:calc(env(safe-area-inset-top,0px) + 56px);z-index:41;width:min(320px,calc(100vw - 16px));background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.22);padding:6px}
+.mrow{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 10px;width:100%;border:0;background:none;color:var(--head-fg);font:inherit;text-align:left;border-radius:10px}
+.mrow + .mrow{border-top:1px solid var(--line);border-radius:0}
+.mrow svg{flex:none;color:var(--icon)}
+.mlbl{flex:1;font-size:14px;font-weight:700}
+.mseg{display:flex;gap:4px}
+.mseg button{display:flex;align-items:center;gap:4px;padding:6px 9px;border-radius:999px;border:0;background:var(--line);color:var(--head-fg);font:inherit;font-size:12px;font-weight:700}
+.mseg button svg{width:15px;height:15px}
+.mseg button[aria-pressed="true"]{background:var(--head-fg);color:var(--card)}
+.mseg button[aria-pressed="true"] svg{color:var(--card)}
+.msoon{font-size:11px;font-weight:800;color:var(--sub);background:var(--line);padding:3px 8px;border-radius:999px}
 .rvdd{position:absolute;right:8px;top:52px;z-index:41;width:min(300px,calc(100vw - 16px));max-height:min(70vh,520px);overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.22);padding:6px 4px 8px}
 .rvdd .check{width:100%;min-height:36px;font-size:14px;gap:10px;padding:0 10px}
 .rvdd .check.strong{font-weight:800}
@@ -582,8 +593,8 @@ img.rf{opacity:0}
 :root[data-app-theme="glass"] .cnm,:root[data-app-theme="glass"] .rvcam .nm{border-radius:0 12px 0 0}
 :root[data-app-theme="glass"] .evcard{border-radius:16px;box-shadow:0 1px 0 rgba(255,255,255,.8) inset,0 6px 18px rgba(31,58,104,.08)}
 :root[data-dark][data-app-theme="glass"] .evcard{box-shadow:none;background:rgba(255,255,255,.05)}
-:root[data-app-theme="glass"] .dialog,:root[data-app-theme="glass"] .rvdd{background:rgba(255,255,255,.88);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
-:root[data-dark][data-app-theme="glass"] .dialog,:root[data-dark][data-app-theme="glass"] .rvdd{background:rgba(22,28,38,.92)}
+:root[data-app-theme="glass"] .dialog,:root[data-app-theme="glass"] .rvdd,:root[data-app-theme="glass"] .moredd{background:rgba(255,255,255,.88);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+:root[data-dark][data-app-theme="glass"] .dialog,:root[data-dark][data-app-theme="glass"] .rvdd,:root[data-dark][data-app-theme="glass"] .moredd{background:rgba(22,28,38,.92)}
 
 /* ---- v30: list view uses the same slim section label; selected camera gets a soft ring, not a hard white border ---- */
 .cam.on{outline:2px solid color-mix(in srgb,var(--strong) 45%,transparent);outline-offset:-2px}
@@ -875,6 +886,9 @@ const I = {
   grid4: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18M12 3v18"/></svg>',
   rows: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/></svg>',
   up: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>',
+  extras: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="M8 12h.01M12 12h.01M16 12h.01" stroke-width="3"/></svg>',
+  snooze: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.7 21a2 2 0 0 1-3.4 0M18 8a6 6 0 0 0-9.3-5M6.3 6.3A6 6 0 0 0 6 8c0 7-3 9-3 9h14M2 2l20 20"/></svg>',
+  box: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg>',
   down: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
   back: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
   x: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
@@ -1212,7 +1226,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.1.39 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.1.40 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1558,15 +1572,23 @@ function bar() {
     '<button data-act="go" data-v="events"' + (S.view === 'events' ? ' aria-current="page"' : '') + '>' + I.bellO + 'Events</button></nav>';
 }
 
+/* Things used now and then live behind one button: layout, snooze, temporary rules */
+function moreMenu() {
+  const lay = (v, label, icon) => '<button data-act="layoutset" data-v="' + v + '" aria-pressed="' + (S.layout === v) + '">' + icon + label + '</button>';
+  return '<div class="rvscrim" data-act="moreclose"></div><div class="moredd" role="dialog" aria-label="More">' +
+    '<div class="mrow"><span class="mlbl">Layout</span><div class="mseg">' + lay('list', 'List', I.rows) + lay('grid', 'Grid', I.grid4) + '</div></div>' +
+    '<button class="mrow mbtn" data-act="soon">' + I.snooze + '<span class="mlbl">Snooze Notifications</span><span class="msoon">Soon</span></button>' +
+    '<button class="mrow mbtn" data-act="soon">' + I.box + '<span class="mlbl">Today&#39;s Waiting</span><span class="msoon">Soon</span></button></div>';
+}
 function viewHome() {
   const groups = [];
   Data.cams.forEach(c => { if (!groups.includes(c.group)) groups.push(c.group); });
   const n = cols();
   let h = '<header class="top"><div class="brand">' + I.logo + 'Victoria&#39;s Home</div><div class="topicons">' +
-    '<button class="ic" data-act="layout" aria-label="' + (S.layout === 'list' ? 'Show Side By Side' : 'Show One Per Row') + '">' + (S.layout === 'list' ? I.grid4 : I.rows) + '</button>' +
+    '<button class="ic" data-act="more" aria-label="More" aria-expanded="' + !!S.more + '">' + I.extras + '</button>' +
     '<button class="ic" data-act="go" data-v="events" aria-label="All Alerts">' + I.bell + '</button>' +
     '<button class="ic" data-act="go" data-v="review" aria-label="Review All Cameras">' + I.review + '</button>' +
-    '<button class="ic" data-act="modal" data-v="settings" aria-label="Settings">' + I.gear + '</button></div></header><main class="main">';
+    '<button class="ic" data-act="modal" data-v="settings" aria-label="Settings">' + I.gear + '</button></div></header>' + (S.more ? moreMenu() : '') + '<main class="main">';
   groups.forEach(g => {
     /* cameras that are off go to the end of their group; the rest keep their order */
     const cams = Data.cams.filter(c => c.group === g).sort((a, b) => (Ctl.on(b.id) ? 1 : 0) - (Ctl.on(a.id) ? 1 : 0));
@@ -2348,7 +2370,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.39 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.40 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -2369,7 +2391,7 @@ function toast(msg) {
 /* ===== Actions ===== */
 let tapTimer = null, lastTap = { id: null, at: 0 };
 const ACT = {
-  go(d) { S.view = d.v; S.modal = null; render(); window.scrollTo(0, 0); },
+  go(d) { S.view = d.v; S.modal = null; S.more = false; render(); window.scrollTo(0, 0); },
   copylog() {
     const txt = Dbg.text();
     const fallback = () => { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('Log Copied'); } catch (e) { toast('Copy Failed'); } ta.remove(); };
@@ -2388,6 +2410,10 @@ const ACT = {
   cover(d) { S.cover = d.v; store.set('cover', d.v); render(); },
   look(d) { S.look = d.v; store.set('look', d.v); render(); },
   colspref(d) { S.colsPref = d.v; store.set('colsPref', d.v); if (S.layout !== 'grid') { S.layout = 'grid'; store.set('layout', 'grid'); } render(); },
+  more() { S.more = !S.more; render(); },
+  moreclose() { S.more = false; render(); },
+  layoutset(d) { S.layout = d.v; store.set('layout', S.layout); S.more = false; render(); },
+  soon() { toast('Coming Soon'); },
   layout() { S.layout = S.layout === 'list' ? 'grid' : 'list'; store.set('layout', S.layout); render(); },
   group(d) { S.open[d.v] = S.open[d.v] === false; store.set('open', S.open); render(); },
   modal(d) { S.modal = d.v; render(); },
@@ -2945,7 +2971,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.1.39';
+    const BUILD = '1.1.40';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
