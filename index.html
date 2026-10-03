@@ -315,6 +315,7 @@ img{max-width:100%}
 .rvcam img{width:100%;height:100%;object-fit:cover;display:block}
 .rvcam .nm{position:absolute;top:6px;left:6px;padding:3px 8px;border-radius:999px;background:rgba(18,22,24,.7);color:#fff;font-size:11px;font-weight:700}
 .rvcam.hot{outline:3px solid var(--hot);outline-offset:-3px}
+.evmedia video.evv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:transparent}
 .rvcam.uhot{outline:3px solid #8FA0B8;outline-offset:-3px}
 .rvrail{width:84px;flex-shrink:0;position:sticky;top:var(--rvtop,110px);height:calc(100vh - var(--rvtop,110px));background:var(--card);border-left:1px solid var(--line)}
 .rvsc{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;touch-action:pan-y}
@@ -1169,8 +1170,28 @@ document.addEventListener('error', ev => {
   const n = ev.target; if (!n || !n.getAttribute) return;
   const a = n.tagName === 'IMG' ? 'src' : n.tagName === 'VIDEO' ? 'poster' : null; if (!a) return;
   const fb = Frigate.fb[n.getAttribute(a)]; if (fb) { n.setAttribute(a, fb); return; }
-  if (a === 'src' && /\/recordings\/\d+\/snapshot/.test(n.getAttribute('src') || '')) n.setAttribute('src', NOREC);   /* nothing recorded at that moment */
+  if (a === 'src') recFail(n, n.getAttribute('src') || '');
 }, true);
+/* A past picture did not load. Only say "No Recording" when Frigate really has no recording then; otherwise it was a
+   loading hiccup (Frigate busy, slow network): try again, and if it keeps failing say so instead. */
+const recAsk = {}, recResult = {}, recBusy = {};
+function recFail(n, src) {
+  const m = /\/api\/([a-z0-9_]+)\/recordings\/(\d+)\/snapshot/.exec(src); if (!m) return;
+  const base = src.replace(/&retry=\d+$/, '');
+  if (recResult[base]) { n.setAttribute('src', recResult[base]); return; }
+  if (recBusy[base]) return; recBusy[base] = 1;
+  const cam = m[1], sec = +m[2], key = cam + ':' + Math.floor(sec / 10);
+  const apply = v => { recResult[base] = v; delete recBusy[base]; document.querySelectorAll('img').forEach(i => { const s2 = i.getAttribute('src') || ''; if (s2 === base || s2.startsWith(base + '&retry=')) i.setAttribute('src', v); }); };
+  (async () => {
+    for (let i = 1; i <= 2; i++) {
+      await new Promise(ok => setTimeout(ok, 1200 * i));
+      try { const r = await fetch(base + '&retry=' + i, { credentials: 'include' }); if (r.ok) { apply(base + '&retry=' + i); return; } } catch (e) {}
+    }
+    const p = recAsk[key] || (recAsk[key] = Frigate.get('/api/' + cam + '/recordings?after=' + (sec - 2) + '&before=' + (sec + 2)).then(r => r.length > 0).catch(() => true));
+    apply((await p) ? LOADFAIL : NOREC);
+  })();
+}
+const LOADFAIL = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><rect width="640" height="360" fill="#1B1F23"/><text x="320" y="172" fill="#AEB6BE" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="26" font-weight="700" text-anchor="middle">Picture Did Not Load</text><text x="320" y="210" fill="#7C858E" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="18" text-anchor="middle">Recorded · Tap To Play</text></svg>');
 /* Frigate only keeps video while something moves, so a camera can have nothing at a past moment */
 const NOREC = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><rect width="640" height="360" fill="#1B1F23"/><text x="320" y="172" fill="#AEB6BE" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="26" font-weight="700" text-anchor="middle">No Recording At This Time</text><text x="320" y="210" fill="#7C858E" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="18" text-anchor="middle">Nothing Moved Here Then</text></svg>');
 /* Recorded playback in Frigate mode. Instead of one snapshot per second (slow: Frigate decodes a frame per request),
@@ -1263,6 +1284,7 @@ const Playback = {
     Live.policy();
     document.querySelectorAll('video[data-hls]:not([data-on])').forEach(v => {     /* alert cards */
       v.dataset.on = '1'; const u = v.dataset.hls;
+      v.addEventListener('playing', () => { v.style.opacity = '1'; });
       if (this.native()) { v.src = u; v.play().catch(() => {}); }
       else this.hls().then(H => { const h = new H(); h.loadSource(u); h.attachMedia(v); v.play().catch(() => {}); }).catch(() => { v.src = u; });
     });
@@ -1305,6 +1327,7 @@ const Playback = {
 };
 /* Snapshot images: one request in flight per <img>; newer requests replace the queued one (keeps scrubbing responsive) */
 function setImg(img, src) {
+  if (src && recResult[src]) src = recResult[src];
   if (!img || img.getAttribute('src') === src || img.dataset.next === src) return;
   if (img.dataset.busy === '1') { img.dataset.next = src; return; }
   img.dataset.busy = '1';
@@ -1695,8 +1718,8 @@ function refreshTrack() {
 function evMedia(e) {
   const playing = S.evPlay === e.id;
   if (Data.source === 'frigate') {
-    if (playing) return '<video data-hls="' + e.vod + '" poster="' + e.img + '" autoplay muted controls playsinline></video>';
-    return '<img src="' + e.img + '" alt="" loading="lazy"><span class="evplayi">' + I.play + '</span>';
+    if (playing) return '<img src="' + e.img + '" alt="" loading="lazy"><video class="evv" data-hls="' + e.vod + '" autoplay muted controls playsinline style="opacity:0"></video>';
+    return '<img src="' + e.img + '" alt="" loading="lazy">';
   }
   const dur = Math.max(4000, (e.end || e.t) - e.t);
   return '<img src="' + (playing ? Data.frame(Data.cam(e.cam), e.t + (S.evPos || 0) * dur).img : e.img) + '" alt="" loading="lazy">' +
@@ -2281,7 +2304,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.26 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.27 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
@@ -2348,6 +2371,7 @@ const ACT = {
     if (ev && ev.target && ev.target.tagName === 'VIDEO' && ev.target.controls) return;
     const was = S.evPlay; evStop();
     if (was === d.v) { const m = document.getElementById('evm-' + d.v); const e = Data.events.find(x => x.id === d.v); if (m && e) m.innerHTML = evMedia(e); evIcons(); return; }
+    if (was) { const om = document.getElementById('evm-' + was), oe = Data.events.find(x => x.id === was); if (om && oe) om.innerHTML = evMedia(oe); }   /* the one that was playing goes back to its picture */
     S.evPlay = d.v; S.evPos = 0;
     const e = Data.events.find(x => x.id === d.v), m = document.getElementById('evm-' + d.v); if (!e || !m) return;
     m.innerHTML = evMedia(e); evIcons();
@@ -2624,7 +2648,7 @@ function wire() {
   }
   if (S.view === 'events') wireEvPreviews(); else if (evIO) { evIO.disconnect(); evIO = null; }
   if (S.view !== 'events' && S.evPlay) evStop();
-  if (S.view === 'events') { const et = document.querySelector('.evtop'); if (et) { setEvTop(); if (window.ResizeObserver) { if (evRO) evRO.disconnect(); evRO = new ResizeObserver(setEvTop); evRO.observe(et); } } window.onscroll = onEvScroll; markHour(); } else { window.onscroll = null; if (evRO) { evRO.disconnect(); evRO = null; } }
+  if (S.view === 'events') { const et = document.querySelector('.evtop'); if (et) { setEvTop(); if (window.ResizeObserver) { if (evRO) evRO.disconnect(); evRO = new ResizeObserver(setEvTop); evRO.observe(et); } } window.onscroll = onEvScroll; markHour(); evAutoPlay(); } else { window.onscroll = null; if (evRO) { evRO.disconnect(); evRO = null; } }
   const rv = document.getElementById('rvsc');
   if (rv) rv.addEventListener('scroll', () => {
     if (S.rvLock) return;
@@ -2714,7 +2738,21 @@ function setCur(hr) {
   document.querySelectorAll('.hr.cur').forEach(n => n.classList.remove('cur'));
   const b = document.getElementById('hr-' + hr); if (b) b.classList.add('cur');
 }
+/* Alerts page: the alert at the top of the screen plays by itself (one at a time, so the phone stays smooth) */
+let evAutoT = 0;
+function evAutoPlay() {
+  clearTimeout(evAutoT);
+  evAutoT = setTimeout(() => {
+    if (S.view !== 'events' || S.modal || Data.source !== 'frigate') return;
+    const top = evTopPx(), h = window.innerHeight;
+    const card = [...document.querySelectorAll('.evmedia[id^="evm-"]')].find(m => { const r = m.getBoundingClientRect(); const vis = Math.min(r.bottom, h) - Math.max(r.top, top); return vis >= r.height * 0.6; });
+    if (!card) return;
+    const id = card.id.slice(4);
+    if (S.evPlay !== id) ACT.evplay({ v: id });
+  }, 350);
+}
 function onEvScroll() {
+  evAutoPlay();
   if (hourLock != null) { clearTimeout(lockTimer); lockTimer = setTimeout(() => { hourLock = null; }, 180); return; }
   markHour();
 }
@@ -2855,7 +2893,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.1.26';
+    const BUILD = '1.1.27';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
@@ -3583,6 +3621,7 @@ document.addEventListener('scroll', Live.onScroll, { capture: true, passive: tru
 /* Low Power Mode: videos only start from a tap, so any tap starts every video that should be running */
 function wakeVideos() {
   document.querySelectorAll('live-cam').forEach(e => { if (!e.suspended && e.video && e.video.paused && e.isConnected) e.video.play().catch(() => {}); });
+  document.querySelectorAll('video[data-hls]').forEach(v => { if (v.paused) v.play().catch(() => {}); });
   for (const id in Playback.st) { const p = Playback.st[id]; if (camT(id) != null && S.playing && p.v.paused && p.v.isConnected && (p.win || p.loading)) p.v.play().catch(() => {}); }
 }
 document.addEventListener('touchend', wakeVideos, { capture: true, passive: true });
