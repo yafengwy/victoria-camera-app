@@ -315,6 +315,7 @@ img{max-width:100%}
 .rvcam img{width:100%;height:100%;object-fit:cover;display:block}
 .rvcam .nm{position:absolute;top:6px;left:6px;padding:3px 8px;border-radius:999px;background:rgba(18,22,24,.7);color:#fff;font-size:11px;font-weight:700}
 .rvcam.hot{outline:3px solid var(--hot);outline-offset:-3px}
+.rvcam.uhot{outline:3px solid #8FA0B8;outline-offset:-3px}
 .rvrail{width:84px;flex-shrink:0;position:sticky;top:var(--rvtop,110px);height:calc(100vh - var(--rvtop,110px));background:var(--card);border-left:1px solid var(--line)}
 .rvsc{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;touch-action:pan-y}
 .rvsc::-webkit-scrollbar{display:none}
@@ -2061,6 +2062,17 @@ let rvEnd = 0;
 /* Bottom timeline zoom: the visible width shows S.rv.span (1 min … 48 h, continuous); pinch or ctrl+scroll to change it. */
 const RVMIN = MIN, RVMAX = 2 * DAY;
 let rvBk = new Map(), rvHasCams = true, rvDrawn = null;
+/* The alert a camera is in at time t (Live = now), following the Review page's own Interesting/Uninteresting and object choice */
+function rvAt(c, t) {
+  const tt = t == null ? now() : t;
+  const hits = Data.events.filter(e => e.cam === c.id && tt >= e.t - 1000 && tt <= (e.end || now()) + 1000 && rvPass(e));
+  return hits.find(e => e.interesting) || hits[0] || null;
+}
+function rvMark(box, c, t) {
+  const e = rvAt(c, t), tg = box.querySelector('.tag');
+  box.classList.toggle('hot', !!e && e.interesting); box.classList.toggle('uhot', !!e && !e.interesting);
+  if (tg) { tg.innerHTML = e ? objIcon(e.label) + '<span>' + esc(e.label) + '</span>' : ''; tg.hidden = !e; tg.classList.toggle('un', !!e && !e.interesting); tg.classList.remove('dim'); }
+}
 function rvPass(e) {
   const f = S.rv.f; if (e.interesting ? !f.int : !f.unint) return false; if (f.objs[e.label] === false) return false;
   const z = S.rv.zones[e.cam]; return !(z && z.length && !(e.zones || []).some(x => z.includes(x)));
@@ -2201,8 +2213,8 @@ function viewReview() {
   if (!cams.length) h += '<div class="empty">Choose at least one camera.</div>';
   cams.forEach(c => {
     const f = Data.frame(c, t);
-    const on = !!f.tag && S.rv.f.objs[f.tag] !== false;
-    h += '<div class="rvcam' + (on ? ' hot' : '') + '" id="rv-' + c.id + '" data-act="rvopen" data-id="' + c.id + '"><img src="' + f.img + '" alt="' + esc(c.name) + '"><div class="nm">' + esc(c.name) + '</div><div class="tag' + (f.tag && !on ? ' dim' : '') + (f.tag && !f.hot ? ' un' : '') + '" id="rvtag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>';
+    const e = rvAt(c, t);
+    h += '<div class="rvcam' + (e ? (e.interesting ? ' hot' : ' uhot') : '') + '" id="rv-' + c.id + '" data-act="rvopen" data-id="' + c.id + '"><img src="' + f.img + '" alt="' + esc(c.name) + '"><div class="nm">' + esc(c.name) + '</div><div class="tag' + (e && !e.interesting ? ' un' : '') + '" id="rvtag-' + c.id + '"' + (e ? '' : ' hidden') + '>' + (e ? objIcon(e.label) + '<span>' + esc(e.label) + '</span>' : '') + '</div></div>';
   });
   rvEnd = end;
   RVV = rvVert();
@@ -2229,9 +2241,7 @@ function paintReview() {
     const f = Data.frame(c, t), box = document.getElementById('rv-' + c.id); if (!box) return;
     const fi = ht !== undefined ? Data.frame(c, ht) : f;
     const img = box.querySelector('img'); if (img.getAttribute('src') !== fi.img) img.src = fi.img;
-    const on = !!f.tag && S.rv.f.objs[f.tag] !== false;
-    box.classList.toggle('hot', on);
-    const tg = document.getElementById('rvtag-' + c.id); setTag(tg, f); tg.classList.toggle('dim', !!f.tag && !on);
+    rvMark(box, c, ht !== undefined ? ht : t);
   });
   const b = document.getElementById('rvbub'); if (b) b.textContent = ht !== undefined ? hms(ht) : t == null ? 'Live' : hms(t);
 }
@@ -2271,7 +2281,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.24 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.25 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
@@ -2845,7 +2855,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.1.24';
+    const BUILD = '1.1.25';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
