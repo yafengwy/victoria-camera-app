@@ -317,6 +317,7 @@ img.rf{opacity:0}
 .rvhint{position:fixed;z-index:40;transform:translateX(-50%);padding:7px 14px;border-radius:999px;border:0;background:var(--hot,#E8692C);color:#fff;font:inherit;font-size:13px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.25);white-space:nowrap}
 .rvhint.un{background:#5A6470}
 .rvcams.big3{grid-auto-flow:row dense}
+.rvsevrow{display:flex}.rvsevrow .check{flex:1}
 .rvcams.big3 .rvcam.feat{grid-column:span 2;grid-row:span 2;aspect-ratio:auto}
 .rvcams.big3 .rvcam.feat .nm{font-size:13px;padding:4px 10px}
 .rvcams.big3 .rvcam.nr{opacity:.5}
@@ -1363,7 +1364,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.2.4 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.2.5 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2333,8 +2334,10 @@ let rvBk = new Map(), rvHasCams = true, rvDrawn = null;
 function rvTol() { return Math.max(1000, 10 / rvPx() * MIN); }
 function rvAt(c, t) {
   const tt = t == null ? now() : t, tol = rvTol();
-  const hits = Data.events.filter(e => e.cam === c.id && tt >= e.t - tol && tt <= (e.end || now()) + tol && rvPass(e));
-  return hits.find(e => e.interesting) || hits[0] || null;
+  const near = Data.events.filter(e => e.cam === c.id && tt >= e.t - tol && tt <= (e.end || now()) + tol), hits = near.filter(rvPass);
+  if (hits.length) return hits.find(e => e.interesting) || hits[0];
+  /* the grey marks on the timeline (not in the chosen filter) still point out their camera, in grey */
+  return near.length ? Object.assign({}, near[0], { interesting: false, other: true }) : null;
 }
 function rvMark(box, c, t) {
   const e = rvAt(c, t), tg = box.querySelector('.tag');
@@ -2354,9 +2357,9 @@ function rvDropdown() {
     for (let n = 1; n <= mx; n++) h += '<button class="check" role="radio" aria-checked="' + (rvCols() === n) + '" data-act="rvcols" data-v="' + n + '"><span class="box rdo">' + (rvCols() === n ? I.check : '') + '</span>' + n + '</button>';
   } else if (S.rv.fopen) {
     const f = S.rv.f, all = OBJS().every(o => objOn(f, o));
-    h += '<div class="rvddh">Objects</div>' + ck(all, 'rvobj', '*', 'Any Recognized Object', 'strong') +
-      OBJS().map(o => ck(objOn(f, o), 'rvobj', o, o)).join('') +
-      '<div class="rvddh">Alert Level</div>' + ck(f.int, 'rvsev', 'int', 'Interesting') + ck(f.unint, 'rvsev', 'unint', 'Uninteresting');
+    h += '<div class="rvddh">Alert Level</div><div class="rvsevrow">' + ck(f.int, 'rvsev', 'int', 'Interesting') + ck(f.unint, 'rvsev', 'unint', 'Uninteresting') + '</div>' +
+      '<div class="rvddh">Objects</div>' + ck(all, 'rvobj', '*', 'Any Recognized Object', 'strong') +
+      OBJS().map(o => ck(objOn(f, o), 'rvobj', o, o)).join('');
   } else {
     const sel = S.rv.sel, on = id => sel != null && sel.includes(id);
     const groups = [...new Set(Data.cams.map(c => c.group))];
@@ -2561,7 +2564,7 @@ window.addEventListener('scroll', () => { if (S.view === 'review') rvHint(); els
 function rvSnap() {
   const rv = document.getElementById('rvsc'); if (!rv || rv._touch || S.view !== 'review' || S.rv.t == null) return;
   const t = S.rv.t, tol = rvTol(), ids = rvCams().map(c => c.id);
-  const evs = Data.events.filter(e => ids.includes(e.cam) && rvPass(e));
+  const evs = Data.events.filter(e => ids.includes(e.cam));
   if (evs.some(e => t >= e.t - 1000 && t <= (e.end || now()) + 1000)) return;   /* already on one */
   let best = null, bd = tol;
   evs.forEach(e => { const d = t < e.t ? e.t - t : t - (e.end || now()); if (d < bd) { bd = d; best = e; } });
@@ -2605,7 +2608,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.2.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.2.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3257,7 +3260,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.2.4';
+    const BUILD = '1.2.5';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
