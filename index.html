@@ -1209,7 +1209,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.1.35 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.1.36 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1243,7 +1243,7 @@ const Playback = {
   async load(id, t) {
     const p = this.st[id], seq = p.seq = (p.seq || 0) + 1; p.loading = true; p.loadT = t; p.on = false; p.win = null; this.paintVis(id);
     const gone = () => seq !== p.seq;          /* a newer tap started another load: drop this one */
-    let a = Math.floor(t / 1000) - 1, b = Math.min(Math.floor(now() / 1000), a + 900);
+    let a = Math.floor(t / 1000) - 1, b = Math.min(Math.floor(now() / 1000), a + 180);   /* a short window: Frigate builds it faster */
     Dbg.log('load', id, hms(t), 'native=' + this.native());
     try {
       /* Start the video exactly at the beginning of the recording piece that holds t (pieces start on a key frame).
@@ -1265,6 +1265,7 @@ const Playback = {
         /* iPhone: give the start position together with the video and play at once. Waiting for the video's details
            first could take ~8 s there (it loads little until it is told to play). */
         const vt = this.vtime(p, camT(id) == null ? t : camT(id));
+        const f0 = performance.now(); fetch(url, { credentials: 'include' }).then(r => r.text().then(x => Dbg.log('server answered', id, r.status, Math.round(performance.now() - f0) + 'ms', (x.match(/#EXTINF/g) || []).length + ' parts'))).catch(e => Dbg.log('server error', id, String(e)));
         v.src = url; if (vt != null) v.currentTime = vt; p.v.play().then(() => Dbg.log('play ok', id)).catch(e => Dbg.log('play refused', id, e && e.name));
       } else {
         const H = await this.hls(); if (gone()) return; if (!H.isSupported()) throw 0; p.h = new H(); p.h.loadSource(url); p.h.attachMedia(v);
@@ -1296,7 +1297,7 @@ const Playback = {
     }
     return p;
   },
-  stop(id) { const p = this.st[id]; if (!p) return; p.on = false; p.v.pause(); this.paintVis(id); },
+  stop(id, why) { const p = this.st[id]; if (!p) return; if (!p.v.paused) Dbg.log('stop', id, why || ''); p.on = false; p.v.pause(); this.paintVis(id); },
   paintVis(id) { const p = this.st[id]; document.querySelectorAll('[data-pb="' + id + '"]').forEach(h => { h.classList.toggle('wait', !(p && p.on)); }); },
   mount() {
     if (Data.source !== 'frigate') return;
@@ -1312,15 +1313,15 @@ const Playback = {
       else this.hls().then(H => { const h = new H(); h.loadSource(u); h.attachMedia(v); v.play().catch(() => {}); }).catch(() => { v.src = u; });
     });
     const want = this.cams();
-    for (const id in this.st) if (!want[id]) this.stop(id);
+    for (const id in this.st) if (!want[id]) this.stop(id, 'not open');
     for (const id in want) {
       const t = camT(id), p = this.el(id);
-      if (t == null || !S.playing || S.dragging || (S.hov && (S.hov.id === id || S.hov.id === 'full'))) { if (p.on || !p.v.paused) this.stop(id); continue; }
+      if (t == null || !S.playing || S.dragging || (S.hov && (S.hov.id === id || S.hov.id === 'full'))) { if (p.on || !p.v.paused) this.stop(id, t == null ? 'live' : !S.playing ? 'paused' : S.dragging ? 'dragging' : 'hover'); continue; }
       if (p.loading && Math.abs(t - (p.loadT || 0)) < 2500) continue;   /* still loading this spot; a different spot starts a new load below */
       const moved = p.lastSet == null || Math.abs(t - p.lastSet) > 2500;
       if (moved) {                                                     /* a jump (tap) goes at once; repeated jumps (scrolling) wait until they stop */
         const n = performance.now(); p.busy = p.lastJump && n - p.lastJump < 400; p.lastJump = n; p.lastSet = t;
-        if (p.on && p.busy) { p.on = false; p.v.pause(); this.paintVis(id); }
+        if (p.on && p.busy) { Dbg.log('stop', id, 'quick jumps'); p.on = false; p.v.pause(); this.paintVis(id); }
       }
       if (p.busy && performance.now() - p.lastJump < 400) continue;
       p.busy = false;
@@ -2316,7 +2317,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.35 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.36 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -2915,7 +2916,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.1.35';
+    const BUILD = '1.1.36';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
