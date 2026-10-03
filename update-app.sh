@@ -9,10 +9,13 @@ exec 2>>"$L"
 [ "$(wc -c < "$L" 2>/dev/null || echo 0)" -gt 20000 ] && tail -c 10000 "$L" > "$L.tmp" && mv "$L.tmp" "$L"
 [ -d "$G/.git" ] || git clone -q --depth 1 https://github.com/yafengwy/victoria-camera-app "$G" || exit 0
 # Home Assistant key file for the Camera Mode buttons: created empty once, the key is added by hand on the mini PC
-[ -f "$D/ha-auth.conf" ] || echo '# proxy_set_header Authorization "Bearer <token>";' > "$D/ha-auth.conf"
 # Furbo bridge key for the turn buttons, taken from the bridge's own settings (never in the repo)
-if [ ! -s "$D/furbo-auth.conf" ] || [ -d "$D/furbo-auth.conf" ]; then
-  [ -d "$D/furbo-auth.conf" ] && rmdir "$D/furbo-auth.conf" 2>/dev/null
+# (Docker turns a missing mounted file into an empty folder, which stops the web server; repair that too)
+for a in furbo-auth.conf ha-auth.conf; do
+  if [ -d "$D/$a" ]; then docker run --rm -v "$D:/f" alpine rm -rf "/f/$a" >/dev/null 2>&1; touch "$D/.recreate-app"; fi
+done
+[ -f "$D/ha-auth.conf" ] || echo '# proxy_set_header Authorization "Bearer <token>";' > "$D/ha-auth.conf"
+if [ ! -s "$D/furbo-auth.conf" ]; then
   K=$(python3 -c "import json; print(json.load(open('$D/furbo-data/options.json'))['api_token'])" 2>/dev/null)
   if [ -n "$K" ]; then echo "proxy_set_header Authorization \"Bearer $K\";" > "$D/furbo-auth.conf"; else echo '# no Furbo bridge key yet' > "$D/furbo-auth.conf"; fi
 fi
@@ -30,6 +33,7 @@ fi
 if [ -s "$G/docker-compose.yml" ] && ! cmp -s "$G/docker-compose.yml" "$D/.applied-compose"; then
   cp "$G/docker-compose.yml" "$D/docker-compose.yml" && (cd "$D" && docker compose up -d) && cp "$G/docker-compose.yml" "$D/.applied-compose"
 fi
+if [ -f "$D/.recreate-app" ]; then (cd "$D" && docker compose up -d --force-recreate app) && rm -f "$D/.recreate-app"; fi
 # The notification clip service reads its script from the repo copy; restart it when the script changes
 if [ -s "$G/clipwait.py" ] && ! cmp -s "$G/clipwait.py" "$D/.applied-clipwait"; then
   docker restart clipwait >/dev/null && cp "$G/clipwait.py" "$D/.applied-clipwait"
