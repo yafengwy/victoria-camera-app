@@ -62,6 +62,8 @@ img{max-width:100%}
 .cname{flex:1;min-width:0;font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;height:44px}
 .cam .ic{color:var(--head-fg);width:38px;height:40px}
 .frame{position:relative;aspect-ratio:16/9;background:#1E2226;overflow:hidden;touch-action:manipulation}
+/* upright cameras (e.g. a doorbell): same height as the others, narrower, centred */
+.cam.tall .frame{aspect-ratio:var(--ar);width:calc(100% * 9 / 16 * var(--ar));margin-inline:auto}
 .frame img{width:100%;height:100%;object-fit:cover;display:block;user-select:none;-webkit-user-drag:none}
 .frame .hit{position:absolute;inset:0;width:100%;height:100%}
 .badge{position:absolute;top:8px;right:8px;height:30px;padding:0 11px;border-radius:15px;background:rgba(18,22,24,.72);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;z-index:2}
@@ -979,6 +981,7 @@ const Frigate = {
     Data.cams = Object.keys(cfg.cameras).map(id => ({
       id, name: (cfg.cameras[id].friendly_name || id.replace(/_/g, ' ')).replace(/\b\w/g, m => m.toUpperCase()),
       group: groupOf(id), img: this.base() + '/api/' + id + '/latest.webp?height=480',
+      ar: (d => d && d.width && d.height ? d.width / d.height : 0)(cfg.cameras[id].detect),   /* picture shape, from Frigate's detect size */
       zones: Object.keys(cfg.cameras[id].zones || {}).map(z => z.replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase()))
     }));
     /* Victoria's order; cameras not listed keep Frigate's order after these */
@@ -1529,7 +1532,8 @@ function viewHome() {
 }
 function camCard(c) {
   const t = camT(c.id), f = Data.frame(c, t), off = !Ctl.on(c.id);
-  return '<article class="cam' + (c.id === S.expanded ? ' on' : '') + (off ? ' off' : '') + '" id="cam-' + c.id + '">' +
+  const tall = c.ar && c.ar < 1.2;
+  return '<article class="cam' + (c.id === S.expanded ? ' on' : '') + (off ? ' off' : '') + (tall ? ' tall' : '') + '" id="cam-' + c.id + '"' + (tall ? ' style="--ar:' + c.ar.toFixed(4) + '"' : '') + '>' +
     '<div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button>' +
     (S.layout === 'list' ? '<button class="ic" aria-label="Sound" data-act="toast" data-v="Sound turns on with live video on the mini PC">' + I.sound + '</button>' : '') +
     '</div>' +
@@ -2244,7 +2248,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.22 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.23 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
@@ -2817,7 +2821,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.1.22';
+    const BUILD = '1.1.23';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
