@@ -1269,9 +1269,12 @@ function recFail(n, src) {
   /* the retried picture itself failed now (it worked before): ask again, but give up after a few rounds */
   if (recResult[base]) { delete recResult[base]; if ((recTries[base] = (recTries[base] || 0) + 1) > 2) { recResult[base] = LOADFAIL; n.setAttribute('src', LOADFAIL); return; } }
   if (recBusy[base]) return; recBusy[base] = 1;
-  const cam = m[1], sec = +m[2], key = cam + ':' + Math.floor(sec / 10);
+  const cam = m[1], sec = +m[2], key = cam + ':' + Math.floor(sec);
   const apply = v => { recResult[base] = v; delete recBusy[base]; document.querySelectorAll('img').forEach(i => { const s2 = i.getAttribute('src') || ''; if (s2 === base || s2.startsWith(base + '&retry=')) i.setAttribute('src', v); }); };
   (async () => {
+    /* first ask whether this second was recorded at all (one cheap question); a gap needs no retry */
+    const ask = recAsk[key] || (recAsk[key] = Promise.race([new Promise(ok => setTimeout(() => ok(true), 6000)), Frigate.get('/api/' + cam + '/recordings?after=' + (sec - 2) + '&before=' + (sec + 2)).then(r => r.length > 0).catch(() => true)]));
+    if (!(await ask)) { Dbg.log('picture failed', cam, hms(sec * 1000), 'no recording'); apply(NOREC); return; }
     for (let i = 1; i <= 1; i++) {          /* one retry: each miss costs Frigate a decode */
       await new Promise(ok => setTimeout(ok, 1200 * i));
       const t0 = performance.now(), ac = new AbortController(), to = setTimeout(() => ac.abort(), 6000);   /* a server that never answers must not leave the picture blank */
@@ -1375,7 +1378,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.3.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.3.3 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1450,6 +1453,8 @@ const Playback = {
         await new Promise(ok => { const f = () => { v.removeEventListener('loadedmetadata', f); ok(); }; v.addEventListener('loadedmetadata', f); setTimeout(ok, 4000); });
         if (gone()) return;
         const vt = this.vtime(p, camT(id) == null ? t : camT(id)); if (vt != null && Math.abs(v.currentTime - vt) > 1) v.currentTime = vt;
+        /* a stray pause while hls.js was setting up left the video sitting ready but never playing: start it again */
+        if (v.paused && S.playing && this.cams()[id]) { Dbg.log('kick play', id); v.play().catch(e => Dbg.log('play refused', id, e && e.name)); }
       }
     } catch (e) { Dbg.log('load error', id, String(e && e.message || e)); if (gone()) return; p.win = { a, b, segs: [], at: performance.now() }; }
     p.loading = false;
@@ -1460,6 +1465,7 @@ const Playback = {
       const v = document.createElement('video'); v.className = 'pbv'; v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto';
       p = this.st[id] = { v, win: null, loading: false, on: false, ext: 0, lastSet: null };
       ['loadstart', 'loadedmetadata', 'canplay', 'playing', 'waiting', 'stalled', 'pause', 'seeked'].forEach(k => v.addEventListener(k, () => Dbg.log('video', id, k, 'at ' + v.currentTime.toFixed(1), 'ready ' + v.readyState)));
+      v.addEventListener('canplay', () => { if (v.paused && !p.loading && !p.prep && p.win && S.playing && this.cams()[id]) setTimeout(() => { if (v.paused && !p.prep) this.sync(); }, 300); });
       v.addEventListener('error', () => Dbg.log('video', id, 'error', v.error ? v.error.code + ' ' + (v.error.message || '') : ''));
       v.addEventListener('timeupdate', () => {
         if (!p.on || !p.win || S.dragging || v.paused || p.prep) return;
@@ -1494,7 +1500,8 @@ const Playback = {
     for (const id in this.st) if (!want[id]) this.stop(id, 'not open');
     for (const id in want) {
       const t = camT(id), p = this.el(id);
-      if (t == null || !S.playing || S.dragging || (S.hov && (S.hov.id === id || S.hov.id === 'full'))) { if (p.on || !p.v.paused) this.stop(id, t == null ? 'live' : !S.playing ? 'paused' : S.dragging ? 'dragging' : 'hover'); continue; }
+      if (t == null || !S.playing || S.dragging || (S.hov && (S.hov.id === id || S.hov.id === 'full'))) { const why = t == null ? 'live' : !S.playing ? 'paused' : S.dragging ? 'dragging' : 'hover'; if (p.on || !p.v.paused) this.stop(id, why); else if (p.dbgHold !== why && t != null) Dbg.log('hold', id, why); p.dbgHold = why; continue; }
+      p.dbgHold = null;
       if (p.loading && Math.abs(t - (p.loadT || 0)) < 2500) continue;   /* still loading this spot; a different spot starts a new load below */
       const moved = p.lastSet == null || Math.abs(t - p.lastSet) > 2500;
       if (moved) {                                                     /* a jump (tap) goes at once; repeated jumps (scrolling) wait until they stop */
@@ -2686,7 +2693,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.3.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.3.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3336,7 +3343,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.3.2';
+    const BUILD = '1.3.3';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
