@@ -1111,6 +1111,14 @@ const Playback = {
   holder(id) { return Data.source === 'frigate' ? '<div class="pbh" data-pb="' + esc(id) + '"></div>' : ''; },
   cams() { const c = {}; if (S.focus) c[S.focus.cam] = 1; else if (S.expanded && S.view === 'home') c[S.expanded] = 1; return c; },
   showing(id) { const p = this.st[id]; return !!(p && p.on); },
+  waiting(id) { const p = this.st[id]; return !!(p && (p.prep || p.loading)); },
+  /* after a jump, wait (showing the alert picture) until enough video is loaded to play smoothly, then play */
+  prep(p, id) {
+    if (p.prep) return; p.prep = true; const t0 = performance.now();
+    const w = setInterval(() => {
+      if (!(p.v.seeking || p.v.readyState < 3) || performance.now() - t0 > 6000) { clearInterval(w); p.prep = false; this.sync(); }
+    }, 80);
+  },
   wall(p, ct) {          /* video seconds -> clock ms */
     let acc = 0; for (const g of p.win.segs) { const d = g[1] - g[0]; if (ct <= acc + d) return (g[0] + (ct - acc)) * 1000; acc += d; }
     const l = p.win.segs[p.win.segs.length - 1]; return l ? l[1] * 1000 : p.win.a * 1000;
@@ -1144,9 +1152,12 @@ const Playback = {
       const v = document.createElement('video'); v.className = 'pbv'; v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto';
       p = this.st[id] = { v, win: null, loading: false, on: false, ext: 0, lastSet: null };
       v.addEventListener('timeupdate', () => {
-        if (!p.on || !p.win || S.dragging || v.paused) return;
-        const t = this.wall(p, v.currentTime); p.lastSet = t;
-        if (t >= now() - 1500) { S.camTime[id] = null; this.stop(id); } else S.camTime[id] = t;
+        if (!p.on || !p.win || S.dragging || v.paused || p.prep) return;
+        const t = this.wall(p, v.currentTime);
+        /* the user just jumped somewhere else (tapped an alert or Live): this update is from the old position, ignore it */
+        if (S.camTime[id] !== p.expect && (S.camTime[id] == null || Math.abs(t - S.camTime[id]) > 2500)) return;
+        p.lastSet = t; p.expect = t;
+        if (t >= now() - 1500) { S.camTime[id] = null; p.expect = null; this.stop(id); } else S.camTime[id] = t;
         if (S.expanded === id && S.view === 'home') { const tt = camT(id); if (tt != null && tt > S.winEnd) S.winEnd = Math.min(now(), tt + S.win / 2); if (tt != null) S.pos = (tt - (S.winEnd - S.win)) / S.win; paintPanel(); }
         if (S.focus && S.focus.cam === id) paintFocus();
       });
@@ -1184,11 +1195,16 @@ const Playback = {
       const vt = p.win && p.win.segs.length ? this.vtime(p, t) : null;
       if (!p.win || (vt == null && p.win.segs.length) || t / 1000 < p.win.a || t / 1000 > p.win.b - 3) { this.load(id, t).then(() => this.sync()); continue; }
       if (!p.win.segs.length) continue;                             /* nothing recorded here: keep the snapshot */
-      if (moved || Math.abs(this.wall(p, p.v.currentTime) - t) > 2500) p.v.currentTime = vt;
+      if (p.prep) continue;
+      p.expect = t;
+      if (moved || Math.abs(p.v.currentTime - vt) > 2.5) {
+        p.v.pause(); if (p.on) { p.on = false; this.paintVis(id); }
+        p.v.currentTime = vt; this.prep(p, id); continue;
+      }
       p.v.playbackRate = S.speed || 1;
-      if (p.v.paused) p.v.play().catch(() => {});
-      if (!p.on && p.v.readyState >= 2) { p.on = true; p.lastSet = t; this.paintVis(id); }
-      else if (!p.on) p.v.addEventListener('playing', () => { if (camT(id) != null && S.playing) { p.on = true; this.paintVis(id); } }, { once: true });
+      if (p.v.paused) { if (p.v.readyState < 3) { this.prep(p, id); continue; } p.v.play().catch(() => {}); }
+      if (!p.on && !p.v.paused && p.v.readyState >= 3) { p.on = true; p.lastSet = t; this.paintVis(id); }
+      else if (!p.on) p.v.addEventListener('playing', () => { if (camT(id) != null && S.playing && !p.prep) { p.on = true; this.paintVis(id); } }, { once: true });
     }
   }
 };
@@ -1216,7 +1232,7 @@ const Ctl = {
     if (key === 'enabled' && !on) { S.camTime[id] = null; Playback.stop(id); }
     render();
     const c = Data.cam(id), n = c ? c.name : id;
-    toast(key === 'enabled' ? (on ? n + ' Is On' : n + ' Is Off · Not Viewing Or Recording') : (on ? 'Alerts On For ' + n : 'Alerts Off For ' + n + ' · Still Recording'));
+    toast(key === 'enabled' ? (on ? n + ' Is On' : n + ' Is Off') : (on ? 'Alerts On For ' + n : 'Alerts Off For ' + n + ' · Still Recording'));
   },
   msg(topic, payload) {
     const m = /^([^/]+)\/(enabled|review_alerts)\/state$/.exec(topic) || /^([^/]+)\/status\/(enabled|review_alerts|alerts)$/.exec(topic); if (!m) return false;
@@ -1379,7 +1395,7 @@ function camCard(c) {
     '</div>' +
     '<div class="frame"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(Live.cardSrc(c.id), t != null) + Playback.holder(c.id) + (S.layout === 'grid' ? '<div class="cnm">' + esc(c.name) + '</div>' : '') +
     '<button class="hit" data-act="tap" data-id="' + c.id + '" aria-label="Show playback for ' + esc(c.name) + '"></button>' +
-    (off ? '<div class="offv" id="off-' + c.id + '" data-act="tap" data-id="' + c.id + '"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><span>Earlier Video And Alerts Still Here</span><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>' : '') +
+    (off ? '<div class="offv" id="off-' + c.id + '" data-act="tap" data-id="' + c.id + '"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>' : '') +
     badgeHtml(c.id, t, f) + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="tag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div></article>';
 }
 function agoShort(ms) { const s = Math.max(0, Math.floor(ms / 1000)); if (s < 60) return s + 's'; const m = Math.floor(s / 60); if (m < 60) return m + 'm'; const h = Math.floor(m / 60); return h < 24 ? h + 'h' : Math.floor(h / 24) + 'd'; }
@@ -1492,7 +1508,7 @@ function snapAlert(clientX) {
   let best = null, bd = 24;
   camEvents(S.expanded).forEach(e => { if (e.t < start || e.t > S.winEnd) return; const d = Math.abs(r.left + (e.t - start) / S.win * r.width - clientX); if (d < bd) { bd = d; best = e; } });
   if (!best) return false;
-  seek(S.expanded, best.t - 1000); S.playing = true; refreshTrack(); paintPanel();
+  seek(S.expanded, best.t - 1000); S.playing = true; refreshTrack(); paintPanel(); Playback.sync();
   const pp = document.querySelector('.ppgroup [data-act="playpause"],[data-act="playpause"]'); if (pp) pp.innerHTML = I.pause;
   return true;
 }
@@ -1670,7 +1686,7 @@ function viewFocus() {
       '<button class="dk ctl" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
     '<div class="pillk" id="fbadge">' + (t == null ? (cs.enabled ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t)) + '</div></div>';
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
-    '<div class="fvid"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><span>Earlier Video And Alerts Still Here</span><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
+    '<div class="fvid"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fctl" id="fctl"><button class="fday" data-act="fdate">' + I.cal + (S.focus.dayEnd ? dayLabel(S.focus.dayEnd - 1) : 'Today') + '</button><div style="flex:1"></div>' +
     (S.flist ? '<button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button>' : '') +
     '<button class="dk' + (S.flist ? ' on' : '') + '" data-act="flist" aria-label="' + (S.flist ? 'Show Timeline' : 'Show Alert List') + '">' + (S.flist ? I.tline : I.bellO) + '</button></div>' +
@@ -2022,7 +2038,7 @@ function modalSettings() {
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Status · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
-    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 19:48 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
+    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 19:55 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
     '<div class="srow"><span class="slbl">Frigate</span><input id="server" class="field" type="url" inputmode="url" placeholder="http://192.168.1.50:5000" value="' + esc(S.server) + '" autocomplete="off"></div>' +
     '<div class="srow">' + checkRow('demo', 'Use Demo Data', S.demo) + '<button class="btn solid" data-act="savesettings">Save</button></div>' +
@@ -2300,9 +2316,9 @@ function wire() {
         if (Math.abs(Math.log(w / pinch.shown)) > 0.01) { pinch.shown = w; zoomTo(w); }
         return;
       }
-      if (S.dragging) { if (tapStart && Math.abs(e.clientX - tapStart.x) > 6) tapStart.moved = true; setFrom(e.clientX); }
+      if (S.dragging) { if (tapStart && Math.abs(e.clientX - tapStart.x) > 12) tapStart.moved = true; setFrom(e.clientX); }
     });
-    const end = e => { const wasPinch = !!pinch; pts.delete(e.pointerId); if (pts.size < 2 && pinch) { pinch = null; before = null; } if (!pts.size) { const hitEdge = edgeTick.used; edgeTick.used = false; S.dragging = false; edgeDir = 0; if (hitEdge && S.expanded && camT(S.expanded) != null) { const t = camT(S.expanded); S.winEnd = Math.min(now(), t + S.win / 2); S.pos = (t - (S.winEnd - S.win)) / S.win; refreshTrack(); paintPanel(); } if (tapStart && !wasPinch && !tapStart.moved && e.type === 'pointerup' && performance.now() - tapStart.at < 400) snapAlert(e.clientX); tapStart = null; } };
+    const end = e => { const wasPinch = !!pinch; pts.delete(e.pointerId); if (pts.size < 2 && pinch) { pinch = null; before = null; } if (!pts.size) { const hitEdge = edgeTick.used; edgeTick.used = false; S.dragging = false; edgeDir = 0; if (hitEdge && S.expanded && camT(S.expanded) != null) { const t = camT(S.expanded); S.winEnd = Math.min(now(), t + S.win / 2); S.pos = (t - (S.winEnd - S.win)) / S.win; refreshTrack(); paintPanel(); } if (tapStart && !wasPinch && !tapStart.moved && performance.now() - tapStart.at < 700) snapAlert(tapStart.x); tapStart = null; } };
     zone.addEventListener('pointerup', end); zone.addEventListener('pointercancel', end);
     zone.addEventListener('wheel', e => {
       const k = wheelKind(e);
@@ -2493,7 +2509,7 @@ setInterval(() => {
       const t = S.camTime[c.id];
       if (t == null) return;
       if (S.focus && S.focus.cam === c.id) return;
-      if (Playback.showing(c.id)) return;
+      if (Playback.showing(c.id) || Playback.waiting(c.id)) return;
       const nt = t + 1000 * S.speed;
       S.camTime[c.id] = nt >= now() - 1000 ? null : nt;
     });
@@ -2541,7 +2557,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
   if (HOSTED) {
-    const BUILD = '10-02 19:48';
+    const BUILD = '10-02 19:55';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
