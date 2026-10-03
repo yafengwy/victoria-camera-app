@@ -1268,7 +1268,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.1.49 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.1.50 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1949,7 +1949,7 @@ function filterPanel() {
       groups.map(g => '<button class="lnk" data-act="allcams" data-v="g:' + esc(g) + '">' + esc(g) + ' Only</button>').join('') +
       '<button class="lnk" data-act="allcams" data-v="0">None</button></div>';
     Data.cams.forEach(c => {
-      h += '<div class="crow"><button class="mrow" style="flex:1" data-act="camf" data-id="' + c.id + '">' + mini(!f.off[c.id]) + esc(c.name) + '</button></div>';
+      h += '<div class="crow"><button class="mrow" style="flex:1" data-act="camf" data-id="' + c.id + '">' + mini(camsOn.length < Data.cams.length && !f.off[c.id]) + esc(c.name) + '</button></div>';
     });
     h += '</div>';
   }
@@ -2256,7 +2256,7 @@ function rvDropdown() {
       OBJS().map(o => ck(objOn(f, o), 'rvobj', o, o)).join('') +
       '<div class="rvddh">Alert Level</div>' + ck(f.int, 'rvsev', 'int', 'Interesting') + ck(f.unint, 'rvsev', 'unint', 'Uninteresting');
   } else {
-    const sel = S.rv.sel, on = id => sel == null || sel.includes(id);
+    const sel = S.rv.sel, on = id => sel != null && sel.includes(id);
     const groups = [...new Set(Data.cams.map(c => c.group))];
     h += ck(sel == null, 'rvcamall', '*', 'All Cameras', 'strong');
     groups.forEach(g => {
@@ -2482,7 +2482,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.49 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.50 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -2648,7 +2648,13 @@ const ACT = {
     S.filt[d.v] = !S.filt[d.v]; saveFilt(); render();
   },
   obj(d) { objToggle(S.filt, d.v); saveFilt(); render(); },
-  camf(d) { S.filt.off[d.id] = !S.filt.off[d.id]; saveFilt(); render(); },
+  /* "All" shows no boxes ticked: the first tap starts a pick with just that camera; unticking the last one goes back to All */
+  camf(d) {
+    const f = S.filt, all = !Data.cams.some(c => f.off[c.id]);
+    if (all) { f.off = {}; Data.cams.forEach(c => { if (c.id !== d.id) f.off[c.id] = true; }); }
+    else { f.off[d.id] = !f.off[d.id]; if (Data.cams.every(c => f.off[c.id])) f.off = {}; }
+    saveFilt(); render();
+  },
   allcams(d) {
     S.filt.off = {};
     if (d.v === '0') Data.cams.forEach(c => { S.filt.off[c.id] = true; });
@@ -2704,7 +2710,12 @@ const ACT = {
   rvpick() { S.rv.pick = !S.rv.pick; S.rv.fopen = false; S.rv.colsOpen = false; render(); },
   rvcamall() { S.rv.sel = null; render(); },
   rvdclose() { S.rv.fopen = false; S.rv.pick = false; S.rv.colsOpen = false; S.rv.zopen = null; render(); },
-  rvcam(d) { if (d.v && !d.id) d = { id: d.v }; let sel = S.rv.sel == null ? Data.cams.map(c => c.id) : S.rv.sel.slice(); sel = sel.includes(d.id) ? sel.filter(i => i !== d.id) : sel.concat(d.id); S.rv.sel = sel.length === Data.cams.length ? null : sel; render(); },
+  rvcam(d) {
+    if (d.v && !d.id) d = { id: d.v };
+    let sel = S.rv.sel == null ? [] : S.rv.sel.slice();          /* from All, the first tap picks just this camera */
+    sel = sel.includes(d.id) ? sel.filter(i => i !== d.id) : sel.concat(d.id);
+    S.rv.sel = !sel.length || sel.length === Data.cams.length ? null : sel; render();
+  },
   rvstep(d) { const cur = S.rv.t == null ? now() : S.rv.t; let t = clamp(cur + (+d.v) * 1000, now() - RSPAN, now()); S.rv.t = t >= now() - 1000 ? null : t; rvScrollTo(S.rv.t); paintReview(); },
   rvspeed() { const sp = [1, 2, 4, 8]; S.speed = sp[(sp.indexOf(S.speed) + 1) % sp.length] || 1; render(); },
   rvcols() { const mx = window.innerWidth >= 1000 ? 5 : 4; S.rv.cols = rvCols() % mx + 1; store.set('rvcols', S.rv.cols); render(); },
@@ -3116,7 +3127,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.1.49';
+    const BUILD = '1.1.50';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
