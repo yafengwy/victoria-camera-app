@@ -9,7 +9,7 @@ exec 2>>"$L"
 [ "$(wc -c < "$L" 2>/dev/null || echo 0)" -gt 20000 ] && tail -c 10000 "$L" > "$L.tmp" && mv "$L.tmp" "$L"
 [ -d "$G/.git" ] || git clone -q --depth 1 https://github.com/yafengwy/victoria-camera-app "$G" || exit 0
 git -C "$G" fetch -q --depth 1 origin main && git -C "$G" reset -q --hard origin/main || exit 0
-for f in index.html icon-180.png icon-192.png icon-512.png manifest.webmanifest; do
+for f in index.html version.txt icon-180.png icon-192.png icon-512.png manifest.webmanifest; do
   [ -s "$G/$f" ] && ! cmp -s "$G/$f" "$D/app/$f" && cp "$G/$f" "$D/app/$f"
 done
 # Reload only counts once it succeeded (.applied-* copies), so a failed reload is retried next minute

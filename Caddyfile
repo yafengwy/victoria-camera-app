@@ -4,6 +4,11 @@
 # The password hash (caddy-auth) and the cookie secret (caddy.env) live only on the mini PC.
 cam.victoriashome.app {
 	encode gzip
+	# Home-screen icon files: the phone fetches these without the sign-in cookie, so they are public
+	@public path /icon-180.png /icon-192.png /icon-512.png /manifest.webmanifest
+	handle @public {
+		reverse_proxy vh-app:80
+	}
 	@remembered header Cookie *vh_session={$VH_COOKIE}*
 	handle @remembered {
 		reverse_proxy vh-app:80
