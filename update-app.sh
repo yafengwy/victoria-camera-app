@@ -22,6 +22,15 @@ fi
 if [ -s "$G/docker-compose.yml" ] && ! cmp -s "$G/docker-compose.yml" "$D/.applied-compose"; then
   cp "$G/docker-compose.yml" "$D/docker-compose.yml" && (cd "$D" && docker compose up -d) && cp "$G/docker-compose.yml" "$D/.applied-compose"
 fi
+# Connection check the app shows in Settings (Frigate version, and whether a websocket handshake to /ws answers,
+# directly on Frigate and through the app's web server)
+{
+  echo "Frigate $(curl -s -m 3 http://localhost:5000/api/version)"
+  for u in http://localhost:5000/ws http://localhost:8080/ws; do
+    r=$(curl -s -i -m 4 -N -H "Connection: Upgrade" -H "Upgrade: websocket" -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" "$u" 2>&1 | head -1 | tr -d "\r")
+    echo "$u -> ${r:-no answer}"
+  done
+} > "$D/app/diag.txt" 2>&1
 if head -1 "$G/update-app.sh" | grep -q '^#!/bin/sh' && ! cmp -s "$G/update-app.sh" "$D/update-app.sh"; then
   cp "$G/update-app.sh" "$D/update-app.sh" && chmod +x "$D/update-app.sh"
 fi

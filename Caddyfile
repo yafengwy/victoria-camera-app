@@ -18,3 +18,13 @@ cam.victoriashome.app {
 		}
 	}
 }
+
+# Frigate's own web page from outside (zones, masks, settings). Frigate asks for its own admin login.
+frigate.victoriashome.app {
+	encode gzip
+	reverse_proxy https://frigate:8971 {
+		transport http {
+			tls_insecure_skip_verify
+		}
+	}
+}
