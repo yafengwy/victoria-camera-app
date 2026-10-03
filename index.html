@@ -938,8 +938,10 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .rvquick{display:flex;flex-wrap:wrap;gap:6px;padding:6px 8px 8px;border-bottom:1px solid var(--line);margin-bottom:4px}
 .rvquick .chip{height:30px;padding:0 10px;font-size:12px}
 .rvtop.c1 + .rvscrim + .rvdd,.rvtop.c1 .rvdd{top:calc(100% - 4px)}
-@media (max-width:340px){.rvtop.c1 .rvtitle{font-size:0}}
-:root[data-cover] .rvtop.c1 .rvtitle{font-size:16px}
+/* keep the row inside the screen: the title gives way first, then the buttons get a little narrower */
+@media (max-width:400px){.rvtop.c1 .rvtitle{font-size:0;flex:1}}
+@media (max-width:340px){.rvib{width:30px}.rvtop.c1 .rvbar > .ic{width:30px;min-width:30px}}
+.rvtop.c1 .rvdd{left:6px;right:6px;width:auto;max-height:min(60vh,420px)}
 </style>
 
 <div id="app" class="app"></div>
@@ -1426,7 +1428,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.3.7 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.3.8 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2460,6 +2462,21 @@ function rvDropdown() {
   return h + '</div>';
 }
 /* small screens (short windows, Duo cover, narrow phones): one header row of icon buttons */
+/* A review item can start well before its object shows up (it opens on the first activity, say a car, and a person
+   joins later). After jumping to it, move on to when that object itself was first detected. */
+const rvDetStart = {};
+function rvRefine(t0, label) {
+  const ev = Data.events.find(e => e.t === t0 && e.label === label && rvCams().some(c => c.id === e.cam)); if (!ev || !ev.dets || !ev.dets.length || Data.source !== 'frigate') return;
+  const want = String(label).toLowerCase();
+  Promise.all(ev.dets.slice(0, 12).map(d => rvDetStart[d] || (rvDetStart[d] = Frigate.get('/api/events/' + encodeURIComponent(d)).then(r => r ? { l: String(r.label || '').toLowerCase(), t: r.start_time * 1000 } : null).catch(() => null))))
+    .then(rs => {
+      const ts = rs.filter(r => r && r.l === want && r.t).map(r => r.t); if (!ts.length) return;
+      const tt = Math.min(...ts) + 500;
+      if (Math.abs(S.rv.t - (t0 + 500)) > 1500 || Math.abs(tt - S.rv.t) < 2000) return;   /* the user moved on, or no real difference */
+      Dbg.log('review jump moved to object start', ev.cam, label, hms(t0), '→', hms(tt));
+      S.rv.t = tt; S.rvLock = true; drawRvTrack(false); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); paintReview();
+    });
+}
 function rvCompact() { return window.innerHeight < 640 || window.innerWidth < 420; }
 function rvBarCompact(st) {
   const ib = (act, on, label, icon, extra) => '<button class="chip sm rvib" data-act="' + act + '" aria-pressed="' + on + '" aria-label="' + label + '" title="' + label + '">' + icon + (extra || '') + '</button>';
@@ -2560,20 +2577,26 @@ function drawRvTrack(force) {
   let h = '';
   /* bars: group minutes so each bar is at least ~3px apart */
   const g = Math.max(1, Math.ceil(4 / px)), bw = Math.max(2, Math.min(px * g * 0.7, 14));
-  let lastIcon = -1e9;
+  let lastIcon = -1e9, lastStr = '';
   for (let m0 = Math.floor(lo / MIN / g) * g; m0 * MIN <= hi; m0 += g) {
     /* selected alert types: orange (Interesting) / yellow (Uninteresting); any other alert: grey; nothing: empty */
-    let n = 0, hot = false, other = 0; const lab = {};
-    for (let m = m0; m < m0 + g; m++) { const bk = rvBk.get(m); if (bk) { n = Math.max(n, bk.n); hot = hot || bk.hot; other = Math.max(other, bk.other); for (const k in bk.lab) lab[k] = (lab[k] || 0) + bk.lab[k]; } }
+    let n = 0, hot = false, other = 0; const lab = {}, first = {};
+    for (let m = m0; m < m0 + g; m++) { const bk = rvBk.get(m); if (bk) { n = Math.max(n, bk.n); hot = hot || bk.hot; other = Math.max(other, bk.other); for (const k in bk.lab) { lab[k] = (lab[k] || 0) + bk.lab[k]; if (!(first[k] <= bk.first[k])) first[k] = bk.first[k]; } } }
     let w = 0, col = '';
     if (n) { w = Math.min(RVV ? 24 : 28, 14 + n * 6); col = hot ? 'var(--hot)' : '#E8B54A'; }
     else if (other) { w = Math.min(RVV ? 12 : 14, 6 + other * 3); col = 'var(--rvgrey)'; }
     const x = X(m0 * MIN);
     if (w) h += '<div class="hbar" style="' + P + ':' + (x - bw / 2).toFixed(1) + 'px;' + W + ':' + bw.toFixed(1) + 'px;' + L + ':' + w.toFixed(0) + 'px;background:' + col + '"></div>';
     /* object icon next to the bar (person, car, cat, dog, package); skipped when it would overlap the previous one */
-    if (n && Math.abs(x - lastIcon) >= 18) {
-      const top = Object.keys(lab).sort((a, b) => lab[b] - lab[a])[0], ic = OBJ_ICON[top];
-      if (ic) { lastIcon = x; h += '<span class="hico' + (hot ? ' hot' : '') + '" style="' + P + ':' + (x - (hot ? 10 : 7)).toFixed(1) + 'px;' + (RVV ? 'right:' + (8 + w + 3) : 'bottom:' + (26 + w + 2)) + 'px" title="' + esc(top) + '">' + ic + '</span>'; }
+    /* a person always wins the icon, also over a nearby icon already placed */
+    if (n) {
+      const top = Object.keys(lab).sort((a, b) => (/^person$/i.test(b) - /^person$/i.test(a)) || lab[b] - lab[a])[0], ic = OBJ_ICON[top];
+      const near = Math.abs(x - lastIcon) < 18, takeOver = near && /^person$/i.test(top) && lastStr && !/title="person"/i.test(lastStr);
+      if (ic && (!near || takeOver)) {
+        if (takeOver) h = h.replace(lastStr, '');
+        lastIcon = x; lastStr = '<span class="hico' + (hot ? ' hot' : '') + '" style="' + P + ':' + (x - (hot ? 10 : 7)).toFixed(1) + 'px;' + (RVV ? 'right:' + (8 + w + 3) : 'bottom:' + (26 + w + 2)) + 'px" data-t="' + (first[top] || '') + '" data-l="' + esc(top) + '" title="' + esc(top) + '">' + ic + '</span>';
+        h += lastStr;
+      }
     }
   }
   /* ticks and labels sized to the zoom */
@@ -2628,7 +2651,7 @@ function viewReview() {
   rvBk = new Map(); rvHasCams = ids.length > 0;
   Data.events.filter(e => ids.includes(e.cam) && e.t > end - RSPAN).forEach(e => {
     const sel = rvPass(e);
-    for (let m = Math.floor(e.t / MIN); m <= Math.floor((e.end || e.t) / MIN); m++) { const b = rvBk.get(m) || { n: 0, hot: false, other: 0, lab: {} }; if (sel) { b.n++; b.hot = b.hot || e.interesting; b.lab[e.label] = (b.lab[e.label] || 0) + 1; } else b.other++; rvBk.set(m, b); }
+    for (let m = Math.floor(e.t / MIN); m <= Math.floor((e.end || e.t) / MIN); m++) { const b = rvBk.get(m) || { n: 0, hot: false, other: 0, lab: {}, first: {} }; if (sel) { b.n++; b.hot = b.hot || e.interesting; b.lab[e.label] = (b.lab[e.label] || 0) + 1; if (!(b.first[e.label] <= e.t)) b.first[e.label] = e.t; } else b.other++; rvBk.set(m, b); }
   });
   h += '</div><div class="sp"></div></div><div class="hline"></div><div class="hbub" id="rvbub">' + (t == null ? 'Live' : hms(t)) + '</div><div class="hzoom" id="rvzoom" hidden></div></div>';
   h += '<div class="rvctl"><button data-act="rvstep" data-v="-10" aria-label="Back 10 Seconds">' + I.back10 + '</button>' +
@@ -2768,7 +2791,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.3.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.3.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3229,11 +3252,18 @@ function wire() {
     if (RVV) { const y = rvs.scrollTop + (e.clientY - r.top) - VTOP; t = y < 0 ? null : rvEnd - y / px * MIN; }
     else { const x = rvs.scrollLeft + (e.clientX - r.left) - rvs.clientWidth / 2; t = x > rvTW() ? null : rvEnd - (rvTW() - x) / px * MIN; }
     S.hov = null; const ht = document.getElementById('hovtip'); if (ht) ht.hidden = true; const ln = rvs.parentElement.querySelector('.hovline'); if (ln) ln.hidden = true;
-    /* fingers are not precise: a tap within ~24 px of an alert (its icon or bar) means that alert */
+    /* fingers are not precise. A tap within ~24 px of an object icon goes to the start of the first alert that icon
+       stands for (a Person icon goes to when the person arrived, not to a car alert next to it); otherwise a tap
+       within ~12 px of an alert bar goes to that alert's start */
     if (t != null) {
-      const ids = rvCams().map(c => c.id), pxms = px / MIN; let best = null, bd = 24;
-      Data.events.filter(ev => ids.includes(ev.cam)).forEach(ev => { const a = ev.t, b2 = ev.end || now(), d = (t < a ? a - t : t > b2 ? t - b2 : 0) * pxms; if (d < bd) { bd = d; best = ev; } });
-      if (best) t = Math.min(best.t + 1000, best.end || now());
+      const at = RVV ? e.clientY : e.clientX; let ib = null, id2 = 24;
+      rvs.querySelectorAll('.hico[data-t]').forEach(n => { if (!n.dataset.t) return; const q = n.getBoundingClientRect(), c = RVV ? q.top + q.height / 2 : q.left + q.width / 2, d = Math.abs(c - at); if (d < id2) { id2 = d; ib = n; } });
+      if (ib) { t = +ib.dataset.t + 500; rvRefine(+ib.dataset.t, ib.dataset.l); }
+      else {
+        const ids = rvCams().map(c => c.id), pxms = px / MIN; let best = null, bd = 12;
+        Data.events.filter(ev => ids.includes(ev.cam)).forEach(ev => { const a = ev.t, b2 = ev.end || now(), d = (t < a ? a - t : t > b2 ? t - b2 : 0) * pxms - (rvPass(ev) ? 4 : 0); if (d < bd) { bd = d; best = ev; } });
+        if (best) t = Math.min(best.t + 500, best.end || now());
+      }
     }
     S.rv.t = t == null || t >= now() - 1000 ? null : t; S.playing = true;
     S.rvLock = true; drawRvTrack(false); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); paintReview();
@@ -3424,7 +3454,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.3.7';
+    const BUILD = '1.3.8';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
