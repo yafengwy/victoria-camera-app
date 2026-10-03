@@ -1184,7 +1184,9 @@ function render() {
   if (S.modal === 'filter') h += modalFilter();
   if (S.modal === 'settings') h += modalSettings();
   if (S.modal === 'win') h += modalWin();
+  const keep = {}; ['thumbs'].forEach(id => { const n = document.getElementById(id); if (n) keep[id] = [n.scrollLeft, n.scrollTop]; });
   app.innerHTML = h;
+  for (const id in keep) { const n = document.getElementById(id); if (n) { n.scrollLeft = keep[id][0]; n.scrollTop = keep[id][1]; } }
   Live.mount(); Playback.mount();
   wire();
   if (S.view === 'review') {
@@ -1942,7 +1944,13 @@ const ACT = {
     render();
   },
   live1(d) { seek(d.id, null); render(); },
-  seek(d) { seek(d.id, +d.t - 1000); render(); },
+  seek(d, ev) {   /* tap an alert under the camera: play it without rebuilding the row (keeps its scroll position) */
+    seek(d.id, +d.t - 1000); S.playing = true;
+    document.querySelectorAll('#thumbs .thumb.cur').forEach(n => n.classList.remove('cur'));
+    const b = ev && ev.target.closest('.thumb'); if (b) b.classList.add('cur');
+    const pp = document.querySelector('[data-act="playpause"]'); if (pp) pp.innerHTML = I.pause;
+    refreshTrack(); paintPanel(); Playback.sync();
+  },
   step(d) {
     const id = S.expanded; if (!id) return;
     const cur = camT(id) == null ? now() : camT(id);
