@@ -1068,6 +1068,22 @@ const Live = {
   },
   mount() { if (!this.on()) return; for (const k in this.els) { const id = this.cam(k); if (!Ctl.on(id) && this.els[k].parentNode) this.els[k].remove(); } document.querySelectorAll('[data-live]').forEach(h => { const e = this.el(h.dataset.live); if (e.parentNode !== h) h.appendChild(e); }); },
   show(h, yes) { if (h) h.hidden = !yes; },
+  /* start a stream over from scratch: the new connection begins on a clean key frame, which clears a smeared picture */
+  restart(src) {
+    const e = this.els[src]; if (!e || e.suspended) return;
+    try { e.ondisconnect(); } catch (x) {}
+    e.want = false; e.lastCt = -1; e.stuck = 0;
+    setTimeout(() => { try { e.onconnect(); } catch (x) {} }, 150);
+  },
+  /* a stream whose picture stops moving for 6 s is restarted on its own */
+  watch() {
+    for (const src in this.els) {
+      const e = this.els[src], v = e.video;
+      if (!v || e.suspended || !e.isConnected || !e.ws || v.closest('[hidden]') || document.hidden) { e.stuck = 0; continue; }
+      if (v.currentTime === e.lastCt) { if (++e.stuck >= 3) { e.stuck = 0; this.restart(src); } } else e.stuck = 0;
+      e.lastCt = v.currentTime;
+    }
+  },
   /* while a finger is scrolling the page, no new stream starts (starting a video decoder is what makes iPhone stutter);
      once scrolling stops for 0.4 s, the cameras now on screen connect */
   scrolling: false, sTimer: 0,
@@ -1693,7 +1709,7 @@ function viewFocus() {
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
   const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk fname">' + esc(c.name) + '</div><div style="flex:1"></div>' +
     (frig && cs.enabled ? '<button class="dk ctl" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
-    '<div class="pillk" id="fbadge">' + (t == null ? (cs.enabled ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t)) + '</div></div>';
+    '<button class="pillk" id="fbadge" data-act="fbadge" aria-label="Live. Tap to reconnect">' + (t == null ? (cs.enabled ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t)) + '</button></div>';
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
     '<div class="fvid"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fctl" id="fctl"><button class="fday" data-act="fdate">' + I.cal + (S.focus.dayEnd ? dayLabel(S.focus.dayEnd - 1) : 'Today') + '</button><div style="flex:1"></div>' +
@@ -2204,6 +2220,7 @@ const ACT = {
   fkick() { fuiKick(); },
   fpanel() { S.fpanel = !S.fpanel; S.fui = true; render(); fuiKick(); },
   fseek(d) { S.camTime[S.focus.cam] = +d.t - 1000; render(); fuiKick(); },
+  fbadge() { const id = S.focus && S.focus.cam; if (!id) return; if (camT(id) != null) { ACT.flive(); return; } if (!Ctl.on(id)) return; Live.restart(id); toast('Reconnecting'); },
   flive() { S.camTime[S.focus.cam] = null; S.focus.dayEnd = null; render(); const sc = document.getElementById('fsc'); if (sc) sc.scrollTop = 0; const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
   flist() { S.flist = !S.flist; render(); const t = camT(S.focus.cam), sc = document.getElementById('fsc'); if (sc && t != null) sc.scrollTop = (focusEnd() - t) / MIN * FPX; },
   fpick(d, e) { S.camTime[S.focus.cam] = +d.t - 1000; document.querySelectorAll('.fitem.cur').forEach(n => n.classList.remove('cur')); const b = e.target.closest('.fitem'); if (b) b.classList.add('cur'); paintFocus(); },
@@ -2584,7 +2601,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   render();
   if (Data.source === 'frigate') {
     Motion.seed(); Diag.run();
-    setInterval(() => Motion.ensure(), 3000);
+    setInterval(() => Motion.ensure(), 3000); setInterval(() => Live.watch(), 2000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) { Motion.ensure(); Frigate.refresh(); } });
     window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
