@@ -160,6 +160,15 @@ img{max-width:100%}
 .pillk{height:36px;padding:0 13px;border-radius:18px;background:rgba(0,0,0,.6);display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
 .dk{width:44px;height:44px;border-radius:22px;background:var(--dark-card);color:var(--dark-fg);display:flex;align-items:center;justify-content:center}
 .fov .dk{background:rgba(0,0,0,.6)}
+.fov{gap:6px}
+.fov .pillk{height:30px;padding:0 10px;border-radius:15px;font-size:12px;font-weight:700;white-space:nowrap;min-width:0}
+.fov .pillk.fname{flex:0 1 auto}
+#ptr{position:fixed;left:50%;top:0;width:36px;height:36px;margin-left:-18px;border-radius:18px;background:var(--card);color:var(--text);box-shadow:0 2px 10px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;z-index:60;transform:translateY(-44px);pointer-events:none;transition:opacity .2s}
+#ptr svg{width:20px;height:20px}
+#ptr.go svg{animation:ptrspin .8s linear infinite}
+@keyframes ptrspin{to{transform:rotate(360deg)}}
+.fov .dk,.fov .dk.ctl{width:32px;height:32px;border-radius:16px}
+.fov .dk svg,.fov .dk.ctl svg{width:17px;height:17px}
 .fctl{height:68px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--dark-line);width:100%;max-width:900px;margin:0 auto}
 .fday{height:44px;padding:0 14px;border-radius:22px;background:var(--dark-card);display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700}
 .flive{height:44px;padding:0 16px;border-radius:22px;background:var(--dark-card);font-size:13px;font-weight:800}
@@ -763,6 +772,9 @@ img{max-width:100%}
 .offv span{font-size:12px;color:#9AA3AB}
 .offv .btn{margin-top:8px;height:34px;padding:0 16px;font-size:13px}
 .fvid .offv{z-index:1;padding-top:52px}
+.offv[hidden]{display:none}
+.frame .offv{z-index:1;cursor:pointer}
+.frame .offv~.cnm,.cam.off .cnm{z-index:2}
 .pillk.ctlp{gap:5px;color:#fff;cursor:pointer;white-space:nowrap}
 .pillk.ctlp svg{width:16px;height:16px}
 .pillk.warn{background:#C8361E}
@@ -924,7 +936,9 @@ const Frigate = {
     const cfg = await this.get('/api/config');
     const groups = cfg.camera_groups || {};
     const groupOf = id => { for (const g in groups) if ((groups[g].cameras || []).includes(id)) return g; return 'Cameras'; };
+    this.streams = {}; Object.keys((cfg.go2rtc && cfg.go2rtc.streams) || {}).forEach(k => { this.streams[k] = 1; });
     Object.keys(cfg.cameras).forEach(id => { const cc = cfg.cameras[id], st = Ctl.get(id);
+      Object.values((cc.live && cc.live.streams) || {}).forEach(k => { this.streams[k] = 1; });
       st.enabled = cc.enabled !== false; st.alerts = !(cc.review && cc.review.alerts && cc.review.alerts.enabled === false); });
     Data.cams = Object.keys(cfg.cameras).map(id => ({
       id, name: (cfg.cameras[id].friendly_name || id.replace(/_/g, ' ')).replace(/\b\w/g, m => m.toUpperCase()),
@@ -1037,26 +1051,60 @@ Frigate.pollStats = async function () {
 const Live = {
   els: {},
   on() { return Data.source === 'frigate' && !!(window.customElements && customElements.get('live-cam')); },
-  holder(src, hide, id) { return Data.source === 'frigate' ? '<div class="lvh"' + (id ? ' id="' + id + '"' : '') + ' data-live="' + esc(src) + '"' + (hide ? ' hidden' : '') + '></div>' : ''; },
+  cam(src) { return String(src).replace(/_sub$/, ''); },
+  /* grid cards are small: use the camera's light "_sub" stream (fast to start, cheap to decode); list cards,
+     the opened card, full view and full screen use the HD stream */
+  cardSrc(id) { return S.layout === 'grid' && S.expanded !== id && Frigate.streams && Frigate.streams[id + '_sub'] ? id + '_sub' : id; },
+  holder(src, hide, id) { return Data.source === 'frigate' && Ctl.on(this.cam(src)) ? '<div class="lvh"' + (id ? ' id="' + id + '"' : '') + ' data-live="' + esc(src) + '"' + (hide ? ' hidden' : '') + '></div>' : ''; },
   el(src) {
     let e = this.els[src];
     if (!e) {
       e = document.createElement('live-cam');
-      e.className = 'lvc'; e.mode = 'mse,hls,mjpeg'; e.visibilityThreshold = 0.05; e.suspended = true;
+      e.className = 'lvc'; e.mode = 'mse,hls,mjpeg'; e.visibilityThreshold = 0.05; e.suspended = true; e.DISCONNECT_TIMEOUT = 1500;
       e.src = new URL(Frigate.base() + '/live/mse/api/ws?src=' + encodeURIComponent(src), location.href).href;
       this.els[src] = e;
     }
     return e;
   },
-  mount() { if (!this.on()) return; for (const k in this.els) { const id = k; if (!Ctl.on(id) && this.els[k].parentNode) this.els[k].remove(); } document.querySelectorAll('[data-live]').forEach(h => { const e = this.el(h.dataset.live); if (e.parentNode !== h) h.appendChild(e); }); },
+  mount() { if (!this.on()) return; for (const k in this.els) { const id = this.cam(k); if (!Ctl.on(id) && this.els[k].parentNode) this.els[k].remove(); } document.querySelectorAll('[data-live]').forEach(h => { const e = this.el(h.dataset.live); if (e.parentNode !== h) h.appendChild(e); }); },
   show(h, yes) { if (h) h.hidden = !yes; },
+  /* start a stream over from scratch: the new connection begins on a clean key frame, which clears a smeared picture */
+  restart(src) {
+    const e = this.els[src]; if (!e || e.suspended) return;
+    try { e.ondisconnect(); } catch (x) {}
+    e.want = false; e.lastCt = -1; e.stuck = 0;
+    setTimeout(() => { try { e.onconnect(); } catch (x) {} }, 150);
+  },
+  /* a stream whose picture stops moving for 6 s is restarted on its own */
+  watch() {
+    for (const src in this.els) {
+      const e = this.els[src], v = e.video;
+      if (!v || e.suspended || !e.isConnected || !e.ws || v.closest('[hidden]') || document.hidden) { e.stuck = 0; continue; }
+      if (v.currentTime === e.lastCt) { if (++e.stuck >= 3) { e.stuck = 0; this.restart(src); } } else e.stuck = 0;
+      e.lastCt = v.currentTime;
+    }
+  },
+  /* while a finger is scrolling the page, no new stream starts (starting a video decoder is what makes iPhone stutter);
+     once scrolling stops for 0.4 s, the cameras now on screen connect */
+  scrolling: false, sTimer: 0,
+  onScroll() {
+    Live.scrolling = true; clearTimeout(Live.sTimer);
+    Live.sTimer = setTimeout(() => { Live.scrolling = false; Live.resume(); }, 400);
+  },
+  resume() {
+    for (const src in this.els) {
+      const e = this.els[src]; if (!e.want || e.suspended || !e.isConnected) continue;
+      const r = e.getBoundingClientRect(); if (!(r.bottom > 0 && r.top < innerHeight && r.width > 0)) continue;
+      e.want = false; try { e.onconnect(); } catch (x) {}
+    }
+  },
   /* Phones have few video decoders: while one camera is open full view or playing a recording, the other live
      streams are stopped (they show their last picture) so the picture you are watching and the app stay smooth. */
   policy() {
     if (!this.on()) return;
     const busy = !!S.focus || Object.keys(Playback.st).some(id => Playback.st[id].on || Playback.st[id].loading);
     for (const src in this.els) {
-      const e = this.els[src], keep = !busy || (S.focus && S.focus.cam === src);
+      const e = this.els[src], keep = !busy || (S.focus && S.focus.cam === src) || !!(S.full && S.focus && S.focus.cam === src);
       if (!keep && !e.suspended) { e.suspended = true; try { e.ondisconnect(); } catch (x) {} }
       else if (keep && e.suspended) {
         e.suspended = false;
@@ -1088,6 +1136,14 @@ const Playback = {
   holder(id) { return Data.source === 'frigate' ? '<div class="pbh" data-pb="' + esc(id) + '"></div>' : ''; },
   cams() { const c = {}; if (S.focus) c[S.focus.cam] = 1; else if (S.expanded && S.view === 'home') c[S.expanded] = 1; return c; },
   showing(id) { const p = this.st[id]; return !!(p && p.on); },
+  waiting(id) { const p = this.st[id]; return !!(p && (p.prep || p.loading)); },
+  /* after a jump, wait (showing the alert picture) until enough video is loaded to play smoothly, then play */
+  prep(p, id) {
+    if (p.prep) return; p.prep = true; const t0 = performance.now();
+    const w = setInterval(() => {
+      if (!(p.v.seeking || p.v.readyState < 3) || performance.now() - t0 > 6000) { clearInterval(w); p.prep = false; this.sync(); }
+    }, 80);
+  },
   wall(p, ct) {          /* video seconds -> clock ms */
     let acc = 0; for (const g of p.win.segs) { const d = g[1] - g[0]; if (ct <= acc + d) return (g[0] + (ct - acc)) * 1000; acc += d; }
     const l = p.win.segs[p.win.segs.length - 1]; return l ? l[1] * 1000 : p.win.a * 1000;
@@ -1121,9 +1177,12 @@ const Playback = {
       const v = document.createElement('video'); v.className = 'pbv'; v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto';
       p = this.st[id] = { v, win: null, loading: false, on: false, ext: 0, lastSet: null };
       v.addEventListener('timeupdate', () => {
-        if (!p.on || !p.win || S.dragging || v.paused) return;
-        const t = this.wall(p, v.currentTime); p.lastSet = t;
-        if (t >= now() - 1500) { S.camTime[id] = null; this.stop(id); } else S.camTime[id] = t;
+        if (!p.on || !p.win || S.dragging || v.paused || p.prep) return;
+        const t = this.wall(p, v.currentTime);
+        /* the user just jumped somewhere else (tapped an alert or Live): this update is from the old position, ignore it */
+        if (S.camTime[id] !== p.expect && (S.camTime[id] == null || Math.abs(t - S.camTime[id]) > 2500)) return;
+        p.lastSet = t; p.expect = t;
+        if (t >= now() - 1500) { S.camTime[id] = null; p.expect = null; this.stop(id); } else S.camTime[id] = t;
         if (S.expanded === id && S.view === 'home') { const tt = camT(id); if (tt != null && tt > S.winEnd) S.winEnd = Math.min(now(), tt + S.win / 2); if (tt != null) S.pos = (tt - (S.winEnd - S.win)) / S.win; paintPanel(); }
         if (S.focus && S.focus.cam === id) paintFocus();
       });
@@ -1161,11 +1220,16 @@ const Playback = {
       const vt = p.win && p.win.segs.length ? this.vtime(p, t) : null;
       if (!p.win || (vt == null && p.win.segs.length) || t / 1000 < p.win.a || t / 1000 > p.win.b - 3) { this.load(id, t).then(() => this.sync()); continue; }
       if (!p.win.segs.length) continue;                             /* nothing recorded here: keep the snapshot */
-      if (moved || Math.abs(this.wall(p, p.v.currentTime) - t) > 2500) p.v.currentTime = vt;
+      if (p.prep) continue;
+      p.expect = t;
+      if (moved || Math.abs(p.v.currentTime - vt) > 2.5) {
+        p.v.pause(); if (p.on) { p.on = false; this.paintVis(id); }
+        p.v.currentTime = vt; this.prep(p, id); continue;
+      }
       p.v.playbackRate = S.speed || 1;
-      if (p.v.paused) p.v.play().catch(() => {});
-      if (!p.on && p.v.readyState >= 2) { p.on = true; p.lastSet = t; this.paintVis(id); }
-      else if (!p.on) p.v.addEventListener('playing', () => { if (camT(id) != null && S.playing) { p.on = true; this.paintVis(id); } }, { once: true });
+      if (p.v.paused) { if (p.v.readyState < 3) { this.prep(p, id); continue; } p.v.play().catch(() => {}); }
+      if (!p.on && !p.v.paused && p.v.readyState >= 3) { p.on = true; p.lastSet = t; this.paintVis(id); }
+      else if (!p.on) p.v.addEventListener('playing', () => { if (camT(id) != null && S.playing && !p.prep) { p.on = true; this.paintVis(id); } }, { once: true });
     }
   }
 };
@@ -1193,7 +1257,7 @@ const Ctl = {
     if (key === 'enabled' && !on) { S.camTime[id] = null; Playback.stop(id); }
     render();
     const c = Data.cam(id), n = c ? c.name : id;
-    toast(key === 'enabled' ? (on ? n + ' Is On' : n + ' Is Off · Not Viewing Or Recording') : (on ? 'Alerts On For ' + n : 'Alerts Off For ' + n + ' · Still Recording'));
+    toast(key === 'enabled' ? (on ? n + ' Is On' : n + ' Is Off') : (on ? 'Alerts On For ' + n : 'Alerts Off For ' + n + ' · Still Recording'));
   },
   msg(topic, payload) {
     const m = /^([^/]+)\/(enabled|review_alerts)\/state$/.exec(topic) || /^([^/]+)\/status\/(enabled|review_alerts|alerts)$/.exec(topic); if (!m) return false;
@@ -1299,6 +1363,7 @@ function render() {
   const keep = {}; ['thumbs'].forEach(id => { const n = document.getElementById(id); if (n) keep[id] = [n.scrollLeft, n.scrollTop]; });
   app.innerHTML = h;
   for (const id in keep) { const n = document.getElementById(id); if (n) { n.scrollLeft = keep[id][0]; n.scrollTop = keep[id][1]; } }
+  document.querySelectorAll('.fov .fname').forEach(n => { let fs = 12; while (n.scrollWidth > n.clientWidth + 1 && fs > 8) { fs -= 0.5; n.style.fontSize = fs + 'px'; } });
   Live.mount(); Playback.mount();
   wire();
   if (S.view === 'review') {
@@ -1349,22 +1414,21 @@ function viewHome() {
   return h + '</main>';
 }
 function camCard(c) {
-  if (!Ctl.on(c.id)) return '<article class="cam off" id="cam-' + c.id + '"><div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button></div>' +
-    '<div class="frame"><div class="offv">' + I.power + '<b>Camera Off</b><span>Not Viewing Or Recording</span><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>' +
-    (S.layout === 'grid' ? '<div class="cnm">' + esc(c.name) + '</div>' : '') + '</div></article>';
-  const t = camT(c.id), f = Data.frame(c, t);
-  return '<article class="cam' + (c.id === S.expanded ? ' on' : '') + '" id="cam-' + c.id + '">' +
+  const t = camT(c.id), f = Data.frame(c, t), off = !Ctl.on(c.id);
+  return '<article class="cam' + (c.id === S.expanded ? ' on' : '') + (off ? ' off' : '') + '" id="cam-' + c.id + '">' +
     '<div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button>' +
     (S.layout === 'list' ? '<button class="ic" aria-label="Sound" data-act="toast" data-v="Sound turns on with live video on the mini PC">' + I.sound + '</button>' : '') +
     '</div>' +
-    '<div class="frame"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null) + Playback.holder(c.id) + (S.layout === 'grid' ? '<div class="cnm">' + esc(c.name) + '</div>' : '') +
+    '<div class="frame"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(Live.cardSrc(c.id), t != null) + Playback.holder(c.id) + (S.layout === 'grid' ? '<div class="cnm">' + esc(c.name) + '</div>' : '') +
     '<button class="hit" data-act="tap" data-id="' + c.id + '" aria-label="Show playback for ' + esc(c.name) + '"></button>' +
+    (off ? '<div class="offv" id="off-' + c.id + '" data-act="tap" data-id="' + c.id + '"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>' : '') +
     badgeHtml(c.id, t, f) + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="tag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div></article>';
 }
 function agoShort(ms) { const s = Math.max(0, Math.floor(ms / 1000)); if (s < 60) return s + 's'; const m = Math.floor(s / 60); if (m < 60) return m + 'm'; const h = Math.floor(m / 60); return h < 24 ? h + 'h' : Math.floor(h / 24) + 'd'; }
 function badgeHtml(id, t, f) {
   let inner;
   if (t != null) inner = hms(t);
+  else if (!Ctl.on(id)) inner = '<span class="dot idle"></span>Off';
   else if (S.forced[id] && S.forced[id] > now()) inner = '<span class="dot forced"></span>Live';
   else { const m = Data.motion(id); inner = (m.active || (m.last != null && now() - m.last < 5000)) ? '<span class="dot busy"></span>Live' : '<span class="dot idle"></span>Still' + (m.last != null ? ' ' + agoShort(now() - m.last) : ''); }
   return '<button class="badge' + (t == null ? '' : ' past') + '" id="badge-' + id + '" data-act="badge" data-id="' + id + '" aria-label="' + (t == null ? 'Live. Tap to put every camera on live' : 'Playing ' + hms(t) + '. Tap to move every camera to this time') + '">' + inner + '</button>';
@@ -1427,6 +1491,7 @@ function paintCam(id) {
   const fi = S.hov && S.hov.id === id ? Data.frame(c, S.hov.t) : f;     /* mouse hovering the timeline: preview that moment */
   if (img && !(fi === f && Playback.showing(id))) { if (Data.source === 'frigate') setImg(img, fi.img); else if (img.getAttribute('src') !== fi.img) img.src = fi.img; }
   Live.show(document.querySelector('#cam-' + id + ' .lvh'), t == null && fi === f);
+  Live.show(document.getElementById('off-' + id), t == null && fi === f);
   const b = document.getElementById('badge-' + id);
   if (b) b.outerHTML = badgeHtml(id, t, f);
   const tag = document.getElementById('tag-' + id);
@@ -1469,7 +1534,7 @@ function snapAlert(clientX) {
   let best = null, bd = 24;
   camEvents(S.expanded).forEach(e => { if (e.t < start || e.t > S.winEnd) return; const d = Math.abs(r.left + (e.t - start) / S.win * r.width - clientX); if (d < bd) { bd = d; best = e; } });
   if (!best) return false;
-  seek(S.expanded, best.t - 1000); S.playing = true; refreshTrack(); paintPanel();
+  seek(S.expanded, best.t - 1000); S.playing = true; refreshTrack(); paintPanel(); Playback.sync();
   const pp = document.querySelector('.ppgroup [data-act="playpause"],[data-act="playpause"]'); if (pp) pp.innerHTML = I.pause;
   return true;
 }
@@ -1642,12 +1707,11 @@ function viewFocus() {
     body = '<div class="fsc" id="fsc"><div style="position:relative;height:' + height + 'px"><div class="frail"></div>' + rows + '</div></div><div class="fline"></div>';
   }
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
-  const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk">' + esc(c.name) + '</div><div style="flex:1"></div>' +
-    (frig && cs.enabled ? '<button class="pillk ctlp' + (cs.alerts ? '' : ' warn') + '" data-act="camset" data-id="' + c.id + '" data-k="alerts" data-v="' + (cs.alerts ? '' : '1') + '" aria-label="' + (cs.alerts ? 'Turn Alerts Off' : 'Turn Alerts On') + '">' + (cs.alerts ? I.bellO + 'Alerts On' : I.bellOff + 'Alerts Off') + '</button>' +
-      '<button class="dk ctl" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
-    '<div class="pillk" id="fbadge"' + (cs.enabled ? '' : ' hidden') + '>' + (t == null ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : hms(t)) + '</div></div>';
+  const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk fname">' + esc(c.name) + '</div><div style="flex:1"></div>' +
+    (frig && cs.enabled ? '<button class="dk ctl" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
+    '<button class="pillk" id="fbadge" data-act="fbadge" aria-label="Live. Tap to reconnect">' + (t == null ? (cs.enabled ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t)) + '</button></div>';
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
-    '<div class="fvid">' + (!cs.enabled ? '<div class="offv">' + I.power + '<b>Camera Off</b><span>Not Viewing Or Recording</span><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>' : '<img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id)) + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
+    '<div class="fvid"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fctl" id="fctl"><button class="fday" data-act="fdate">' + I.cal + (S.focus.dayEnd ? dayLabel(S.focus.dayEnd - 1) : 'Today') + '</button><div style="flex:1"></div>' +
     (S.flist ? '<button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button>' : '') +
     '<button class="dk' + (S.flist ? ' on' : '') + '" data-act="flist" aria-label="' + (S.flist ? 'Show Timeline' : 'Show Alert List') + '">' + (S.flist ? I.tline : I.bellO) + '</button></div>' +
@@ -1760,7 +1824,8 @@ function paintFocus() {
   set('fullimg', n => { if (!(pb && fh === f)) si(n, fh.img); });
   Live.show(document.getElementById('flive'), t == null);
   Live.show(document.getElementById('fulllive'), t == null && fh === f);
-  const label = t == null ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : hms(t);
+  Live.show(document.getElementById('foff'), t == null);
+  const label = t == null ? (Ctl.on(c.id) ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t);
   const hv = S.hov && S.hov.id === 'full' ? S.hov.t : undefined;
   set('fbadge', n => n.innerHTML = label); set('fullbadge', n => n.innerHTML = hv !== undefined ? hms(hv) : label); set('fbub', n => n.textContent = hv !== undefined ? hm(hv) : t == null ? 'Live' : hm(t));
   if (S.full && S.playing && !S.fLock && t != null) fScrollTo(t);
@@ -1996,9 +2061,9 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Status · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.1.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
-    (Data.source === 'frigate' ? '<div class="dbg">Version 10-02 19:35 · Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
+    (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') + '</details>' +
     '<div class="srow"><span class="slbl">Frigate</span><input id="server" class="field" type="url" inputmode="url" placeholder="http://192.168.1.50:5000" value="' + esc(S.server) + '" autocomplete="off"></div>' +
     '<div class="srow">' + checkRow('demo', 'Use Demo Data', S.demo) + '<button class="btn solid" data-act="savesettings">Save</button></div>' +
@@ -2155,6 +2220,7 @@ const ACT = {
   fkick() { fuiKick(); },
   fpanel() { S.fpanel = !S.fpanel; S.fui = true; render(); fuiKick(); },
   fseek(d) { S.camTime[S.focus.cam] = +d.t - 1000; render(); fuiKick(); },
+  fbadge() { const id = S.focus && S.focus.cam; if (!id) return; if (camT(id) != null) { ACT.flive(); return; } if (!Ctl.on(id)) return; Live.restart(id); toast('Reconnecting'); },
   flive() { S.camTime[S.focus.cam] = null; S.focus.dayEnd = null; render(); const sc = document.getElementById('fsc'); if (sc) sc.scrollTop = 0; const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
   flist() { S.flist = !S.flist; render(); const t = camT(S.focus.cam), sc = document.getElementById('fsc'); if (sc && t != null) sc.scrollTop = (focusEnd() - t) / MIN * FPX; },
   fpick(d, e) { S.camTime[S.focus.cam] = +d.t - 1000; document.querySelectorAll('.fitem.cur').forEach(n => n.classList.remove('cur')); const b = e.target.closest('.fitem'); if (b) b.classList.add('cur'); paintFocus(); },
@@ -2229,6 +2295,30 @@ document.addEventListener('click', e => {
   if (el.dataset.act === 'close' && e.target.closest('[data-stop]') && !e.target.closest('button[data-act="close"]')) return;
   const fn = ACT[el.dataset.act]; if (fn) fn(el.dataset, e);
 });
+(function pullToRefresh() {
+  let y0 = null, x0 = 0, d = 0, ind = null;
+  const icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>';
+  const show = () => { if (!ind) { ind = document.createElement('div'); ind.id = 'ptr'; ind.innerHTML = icon; document.body.appendChild(ind); } return ind; };
+  document.addEventListener('touchstart', e => {
+    y0 = null; d = 0;
+    if (S.focus || S.modal || window.scrollY > 0 || e.touches.length !== 1) return;
+    if (e.target.closest('.tl,.track,.thumbs,.rvsc,.rvhs,.days,input,select')) return;
+    y0 = e.touches[0].clientY; x0 = e.touches[0].clientX;
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (y0 == null) return;
+    const dy = e.touches[0].clientY - y0, dx = e.touches[0].clientX - x0;
+    if (window.scrollY > 0 || (d === 0 && Math.abs(dx) > Math.abs(dy))) { y0 = null; if (ind) ind.style.transform = 'translateY(-44px)'; return; }
+    d = Math.max(0, dy); const n = show(), k = Math.min(d, 140);
+    n.style.transform = 'translateY(' + (k * 0.6 - 30) + 'px) rotate(' + k * 2.4 + 'deg)'; n.style.opacity = Math.min(1, k / 80);
+  }, { passive: true });
+  document.addEventListener('touchend', () => {
+    if (y0 == null) return; y0 = null;
+    if (d > 110 && ind) { ind.classList.add('go'); ind.style.transform = 'translateY(40px)'; setTimeout(() => location.reload(), 150); }
+    else if (ind) { ind.style.transform = 'translateY(-44px)'; ind.style.opacity = 0; }
+    d = 0;
+  }, { passive: true });
+})();
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && (S.modal || S.focus)) { if (S.modal) S.modal = null; else if (S.full) S.full = false; else S.focus = null; render(); } });
 
 /* ===== Gestures: scrub track, focus timeline, pull down for full screen ===== */
@@ -2276,9 +2366,9 @@ function wire() {
         if (Math.abs(Math.log(w / pinch.shown)) > 0.01) { pinch.shown = w; zoomTo(w); }
         return;
       }
-      if (S.dragging) { if (tapStart && Math.abs(e.clientX - tapStart.x) > 6) tapStart.moved = true; setFrom(e.clientX); }
+      if (S.dragging) { if (tapStart && Math.abs(e.clientX - tapStart.x) > 12) tapStart.moved = true; setFrom(e.clientX); }
     });
-    const end = e => { const wasPinch = !!pinch; pts.delete(e.pointerId); if (pts.size < 2 && pinch) { pinch = null; before = null; } if (!pts.size) { const hitEdge = edgeTick.used; edgeTick.used = false; S.dragging = false; edgeDir = 0; if (hitEdge && S.expanded && camT(S.expanded) != null) { const t = camT(S.expanded); S.winEnd = Math.min(now(), t + S.win / 2); S.pos = (t - (S.winEnd - S.win)) / S.win; refreshTrack(); paintPanel(); } if (tapStart && !wasPinch && !tapStart.moved && e.type === 'pointerup' && performance.now() - tapStart.at < 400) snapAlert(e.clientX); tapStart = null; } };
+    const end = e => { const wasPinch = !!pinch; pts.delete(e.pointerId); if (pts.size < 2 && pinch) { pinch = null; before = null; } if (!pts.size) { const hitEdge = edgeTick.used; edgeTick.used = false; S.dragging = false; edgeDir = 0; if (hitEdge && S.expanded && camT(S.expanded) != null) { const t = camT(S.expanded); S.winEnd = Math.min(now(), t + S.win / 2); S.pos = (t - (S.winEnd - S.win)) / S.win; refreshTrack(); paintPanel(); } if (tapStart && !wasPinch && !tapStart.moved && performance.now() - tapStart.at < 700) snapAlert(tapStart.x); tapStart = null; } };
     zone.addEventListener('pointerup', end); zone.addEventListener('pointercancel', end);
     zone.addEventListener('wheel', e => {
       const k = wheelKind(e);
@@ -2469,7 +2559,7 @@ setInterval(() => {
       const t = S.camTime[c.id];
       if (t == null) return;
       if (S.focus && S.focus.cam === c.id) return;
-      if (Playback.showing(c.id)) return;
+      if (Playback.showing(c.id) || Playback.waiting(c.id)) return;
       const nt = t + 1000 * S.speed;
       S.camTime[c.id] = nt >= now() - 1000 ? null : nt;
     });
@@ -2511,10 +2601,17 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   render();
   if (Data.source === 'frigate') {
     Motion.seed(); Diag.run();
-    setInterval(() => Motion.ensure(), 3000);
+    setInterval(() => Motion.ensure(), 3000); setInterval(() => Live.watch(), 2000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) { Motion.ensure(); Frigate.refresh(); } });
     window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
+  }
+  if (HOSTED) {
+    const BUILD = '1.1.1';
+    const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
+      .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
+    checkVer(); setInterval(checkVer, 120000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVer(); });
   }
 })();
 </script>
@@ -3217,7 +3314,11 @@ class VideoRTC extends HTMLElement {
 }
 
 class LiveCam extends VideoRTC {
-  onconnect() { if (this.suspended) return false; return super.onconnect(); }
+  onconnect() {
+    if (this.suspended) return false;
+    if (Live.scrolling && !this.ws && !this.pc) { this.want = true; return false; }
+    this.want = false; return super.onconnect();
+  }
   oninit() {
     super.oninit();
     this.video.controls = false; this.video.muted = true; this.video.autoplay = true;
@@ -3225,5 +3326,7 @@ class LiveCam extends VideoRTC {
   }
 }
 if (!customElements.get('live-cam')) customElements.define('live-cam', LiveCam);
+document.addEventListener('scroll', Live.onScroll, { capture: true, passive: true });
+document.addEventListener('touchmove', Live.onScroll, { capture: true, passive: true });
 </script>
 

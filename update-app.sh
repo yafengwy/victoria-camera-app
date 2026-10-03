@@ -31,7 +31,7 @@ fi
     echo "$u -> ${r:-no answer}"
   done
 } > "$D/app/diag.txt" 2>&1
-if head -1 "$G/update-app.sh" | grep -q '^#!/bin/sh' && ! cmp -s "$G/update-app.sh" "$D/update-app.sh"; then
+if head -1 "$G/update-app.sh" | grep -q '^#!/bin/sh' && sh -n "$G/update-app.sh" && ! cmp -s "$G/update-app.sh" "$D/update-app.sh"; then
   # new file + rename, so the copy of this script that is still running is not overwritten under it
   cp "$G/update-app.sh" "$D/update-app.sh.new" && chmod +x "$D/update-app.sh.new" && mv -f "$D/update-app.sh.new" "$D/update-app.sh"
 fi
