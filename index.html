@@ -317,6 +317,7 @@ img.rf{opacity:0}
 .rvhint{position:fixed;z-index:40;transform:translateX(-50%);padding:7px 14px;border-radius:999px;border:0;background:var(--hot,#E8692C);color:#fff;font:inherit;font-size:13px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.25);white-space:nowrap}
 .rvhint.un{background:#5A6470}
 .rvcams.big3{grid-auto-flow:row dense}
+:is(.rvcam,.frame,.fvid):has(> img[data-ld="1"],> img.rf)::after{content:"Loading…";position:absolute;right:8px;bottom:8px;z-index:3;font-size:11px;font-weight:700;color:#fff;background:rgba(0,0,0,.55);padding:3px 8px;border-radius:999px}
 .rvsevrow{display:flex}.rvsevrow .check{flex:1}
 .rvcams.big3 .rvcam.feat{grid-column:span 2;grid-row:span 2;aspect-ratio:auto}
 .rvcams.big3 .rvcam.feat .nm{font-size:13px;padding:4px 10px}
@@ -1247,7 +1248,7 @@ document.addEventListener('error', ev => {
   if (a === 'src') { if (/\/recordings\/\d+\/snapshot/.test(n.getAttribute('src') || '')) n.classList.add('rf'); recFail(n, n.getAttribute('src') || ''); }
 }, true);
 /* never show the browser's broken-picture "?" while a picture is being retried */
-document.addEventListener('load', ev => { const n = ev.target; if (n && n.tagName === 'IMG') n.classList.remove('rf'); }, true);
+document.addEventListener('load', ev => { const n = ev.target; if (n && n.tagName === 'IMG') { n.classList.remove('rf'); if (n.dataset.ld) n.dataset.ld = ''; } }, true);
 /* A past picture did not load. Only say "No Recording" when Frigate really has no recording then; otherwise it was a
    loading hiccup (Frigate busy, slow network): try again, and if it keeps failing say so instead. */
 const recAsk = {}, recResult = {}, recBusy = {}, recTries = {};
@@ -1272,7 +1273,7 @@ function recFail(n, src) {
 }
 const LOADFAIL = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><rect width="640" height="360" fill="#1B1F23"/><text x="320" y="172" fill="#AEB6BE" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="26" font-weight="700" text-anchor="middle">Picture Did Not Load</text><text x="320" y="210" fill="#7C858E" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="18" text-anchor="middle">Recorded · Tap To Play</text></svg>');
 /* Frigate only keeps video while something moves, so a camera can have nothing at a past moment */
-const NOREC = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><rect width="640" height="360" fill="#1B1F23"/><text x="320" y="172" fill="#AEB6BE" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="26" font-weight="700" text-anchor="middle">No Recording At This Time</text><text x="320" y="210" fill="#7C858E" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="18" text-anchor="middle">Nothing Moved Here Then</text></svg>');
+const NOREC = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><rect width="640" height="360" fill="#59616A"/><text x="320" y="172" fill="#F1F3F5" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="26" font-weight="700" text-anchor="middle">No Recording At This Time</text><text x="320" y="210" fill="#D3D8DD" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="18" text-anchor="middle">Nothing Moved Here Then</text></svg>');
 /* Recorded playback in Frigate mode. Instead of one snapshot per second (slow: Frigate decodes a frame per request),
    the open camera plays the real recording as HLS video from Frigate's /vod. Only motion is recorded, so the video
    skips gaps; the segment list maps video time back to clock time. While the user drags or scrolls, the picture is a
@@ -1364,7 +1365,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.2.5 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.2.6 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1523,7 +1524,7 @@ function setImg(img, src) {
   if (img.dataset.busy === '1') { img.dataset.next = src; return; }
   img.dataset.busy = '1';
   const done = () => { img.dataset.busy = ''; const n = img.dataset.next; img.dataset.next = ''; if (n && n !== img.getAttribute('src')) setImg(img, n); };
-  img.onload = done; img.onerror = done; img.src = src;
+  img.onload = done; img.onerror = done; img.dataset.ld = '1'; img.src = src;
   setTimeout(() => { if (img.dataset.busy === '1' && img.getAttribute('src') === src) done(); }, 6000);   /* never stay stuck on a picture that does not answer */
 }
 
@@ -2499,7 +2500,7 @@ function viewReview() {
   cams.forEach(c => {
     const f = Data.frame(c, t);
     const e = rvAt(c, t);
-    h += '<div class="rvcam' + (e ? (e.interesting ? ' hot' : ' uhot') : '') + '" id="rv-' + c.id + '" data-act="rvopen" data-id="' + c.id + '"><img src="' + f.img + '" alt="' + esc(c.name) + '"><div class="nm">' + esc(c.name) + '</div><div class="tag' + (e && !e.interesting ? ' un' : '') + '" id="rvtag-' + c.id + '"' + (e ? '' : ' hidden') + '>' + (e ? objIcon(e.label) + '<span>' + esc(e.label) + '</span>' : '') + '</div></div>';
+    h += '<div class="rvcam' + (e ? (e.interesting ? ' hot' : ' uhot') : '') + '" id="rv-' + c.id + '" data-act="rvopen" data-id="' + c.id + '"><img data-ld="1" src="' + f.img + '" alt="' + esc(c.name) + '"><div class="nm">' + esc(c.name) + '</div><div class="tag' + (e && !e.interesting ? ' un' : '') + '" id="rvtag-' + c.id + '"' + (e ? '' : ' hidden') + '>' + (e ? objIcon(e.label) + '<span>' + esc(e.label) + '</span>' : '') + '</div></div>';
   });
   rvEnd = end;
   RVV = rvVert();
@@ -2522,7 +2523,7 @@ function viewReview() {
 }
 function paintReview() {
   const t = S.rv.t, ht = S.hov && S.hov.id === 'rv' ? S.hov.t : undefined;
-  rvCams().forEach(c => {
+  rvCams().slice().sort((a, b) => (b.id === S.rv.feat) - (a.id === S.rv.feat)).forEach(c => {   /* the big picture is asked for first */
     const f = Data.frame(c, t), box = document.getElementById('rv-' + c.id); if (!box) return;
     const fi = ht !== undefined ? Data.frame(c, ht) : f;
     /* one picture request per camera at a time, newest wins: setting src on every drag step cancelled the
@@ -2608,7 +2609,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.2.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.2.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3260,7 +3261,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.2.5';
+    const BUILD = '1.2.6';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
