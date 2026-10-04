@@ -20,7 +20,7 @@ cam.victoriashome.app {
 		reverse_proxy vh-app:80
 	}
 	@clipwait {
-		path_regexp clipwait ^/n/{$VH_NOTIFY}/wait/([a-z0-9_]+/[0-9]+/[0-9]+/clip\.(?:mp4|gif))$
+		path_regexp clipwait ^/n/{$VH_NOTIFY}/wait/([a-z0-9_]+/[0-9]+/[0-9]+/(?:clip\.mp4|clip\.gif|sound\.mp4))$
 		not path /n//*
 	}
 	handle @clipwait {
