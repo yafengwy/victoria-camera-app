@@ -1755,6 +1755,11 @@ const Playback = {
     document.querySelectorAll('video[data-hls]:not([data-on])').forEach(v => {     /* alert cards */
       v.dataset.on = '1'; const u = v.dataset.hls;
       v.addEventListener('playing', () => { v.style.opacity = '1'; });
+      /* alert-card and full-screen players: say what happened, so a clip that never starts shows up in the Playback Log */
+      const tag = (u.match(/\/vod\/([^/]+)\/start\/(\d+)\/end\/(\d+)/) || []).slice(1).map((x, i) => i ? hms(+x * 1000) : x).join(' ');
+      Dbg.log('alert clip', tag, this.native() ? 'native' : 'hls.js');
+      ['loadedmetadata', 'playing', 'stalled', 'error'].forEach(ev => v.addEventListener(ev, () => Dbg.log('alert clip', ev, tag, ev === 'error' && v.error ? 'code ' + v.error.code + ' ' + (v.error.message || '') : 'at ' + v.currentTime.toFixed(1))));
+      fetch(u, { credentials: 'include' }).then(r => r.text().then(t => Dbg.log('alert clip list', tag, r.status, (t.match(/#EXTINF/g) || []).length + ' parts'))).catch(e => Dbg.log('alert clip list', tag, 'failed'));
       if (this.native()) { v.src = u; v.play().catch(() => {}); }
       else this.hls().then(H => { const h = new H(); h.loadSource(u); h.attachMedia(v); v.play().catch(() => {}); }).catch(() => { v.src = u; });
     });
