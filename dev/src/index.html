@@ -3084,9 +3084,9 @@ function rvBarCompact(st) {
   return '<div class="rvtop c1" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
     ib('rvpick', st !== 'all' || S.rv.pick, 'Cameras', I.camsel, n) +
     ib('rvfopen', S.rv.fopen || !rvFDefault(), 'Alert Types On Timeline', I.filter) +
-    ib('rvcolsopen', !!S.rv.colsOpen, 'Layout', I.grid4.replace(/22/g, '18')) +
-    (Data.source === 'frigate' ? ib('boxes', Box.on, 'Show Object Boxes', I.boxes) : '') +
     ib('rvlist', !!S.rv.list, S.rv.list ? 'Show Timeline' : 'Show Alert List', S.rv.list ? I.tline : I.bellO.replace(/22/g, '18')) +
+    (Data.source === 'frigate' ? ib('boxes', Box.on, 'Show Object Boxes', I.boxes) : '') +
+    ib('rvcolsopen', !!S.rv.colsOpen, 'Layout', I.grid4.replace(/22/g, '18')) +
     '<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button></div>';
 }
 function rvFDefault() { const f = S.rv.f; return f.int && !f.unint && OBJS().every(o => objOn(f, o)); }
