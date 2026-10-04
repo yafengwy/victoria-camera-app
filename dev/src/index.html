@@ -444,6 +444,20 @@ img.rf{opacity:0}
 .ghead{width:100%;justify-content:space-between;color:var(--head-fg)}
 .grid.compact .chead{display:none}
 .grid.compact .cam{border-radius:10px;background:#1E2226}
+.watchv{position:fixed;inset:0;z-index:60;background:#000;overflow:hidden}
+.watchv .wgrid{position:absolute;inset:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);display:grid;gap:3px}
+.watchv.land .wgrid{grid-template-columns:repeat(var(--wc),1fr);grid-template-rows:repeat(var(--wr),1fr)}
+.watchv.port .wgrid{display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:56px 0 20px}
+.watchv.port .wgrid > .wt:first-child{margin-top:auto}.watchv.port .wgrid > .wt:last-child{margin-bottom:auto}
+.watchv.port .wt{flex:none;width:100%;aspect-ratio:var(--war,16/9)}
+.wt{position:relative;background:#111;overflow:hidden;min-height:0}
+.wt img,.wt .lvh,.wt .lvc,.wt .lvc video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain!important}
+.wt .hit{position:absolute;inset:0;z-index:2;background:transparent;border:0}
+.wt .ctm,.wt .wbd,.wt .cnm{z-index:3}
+.wbd{position:absolute;top:6px;right:6px;height:24px;padding:0 9px;border-radius:12px;background:rgba(18,22,24,.72);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;gap:5px;pointer-events:none}
+.wx{position:absolute;z-index:5;left:calc(10px + env(safe-area-inset-left,0px));top:calc(8px + env(safe-area-inset-top,0px));width:40px;height:40px;border-radius:20px;background:rgba(40,44,52,.85);color:#fff;display:flex;align-items:center;justify-content:center;border:0}
+.watchv.land .wx{top:auto;left:auto;right:calc(10px + env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+.wpc .wk{display:inline-flex;width:18px;height:18px;border-radius:9px;background:var(--accent,#233A6E);color:#fff;font-size:11px;align-items:center;justify-content:center;margin-right:6px}
 .ctm{position:absolute;left:6px;top:6px;padding:2px 6px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:9px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap;z-index:2;pointer-events:none}
 .grid.compact .tag{top:28px!important}
 .fulltm{position:absolute;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));padding:3px 8px;border-radius:6px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap;z-index:3;pointer-events:none}
@@ -2335,7 +2349,7 @@ function openLink() {
   if (t) { S.camTime[id] = Math.min(t, now() - 2000) - 1000; S.playing = true; paintFocus(); fShow(S.camTime[id]); Playback.sync(); }
 }
 let hDepth = 0, hSkip = false;
-function histDepth() { return (S.view !== 'home' ? 1 : 0) + (S.focus ? 1 : 0) + (S.focus && S.full ? 1 : 0) + (S.modal ? 1 : 0); }
+function histDepth() { return (S.watch ? 1 : 0) + (S.watch && S.wbig ? 1 : 0) + (S.view !== 'home' ? 1 : 0) + (S.focus ? 1 : 0) + (S.focus && S.full ? 1 : 0) + (S.modal ? 1 : 0); }
 function syncHist() {
   const d = histDepth();
   while (hDepth < d) { history.pushState({ vh: ++hDepth }, ''); }
@@ -2345,6 +2359,8 @@ window.addEventListener('popstate', () => {
   if (hSkip) { hSkip = false; return; }
   hDepth = Math.max(0, hDepth - 1);
   if (S.modal) S.modal = null;
+  else if (S.watch && S.wbig) S.wbig = null;
+  else if (S.watch) S.watch = false;
   else if (S.focus && S.full) { S.full = false; S.autoFull = false; S.fpanel = false; }
   else if (S.focus) { S.focus = null; S.full = false; }
   else if (S.view !== 'home') S.view = 'home';
@@ -2355,9 +2371,8 @@ function render() {
   document.documentElement.dataset.view = S.view;   /* cover screen: the side icons belong to the home page only */
   applyLook();
   detectCover();
-  let h = S.view === 'events' ? viewEvents() : S.view === 'review' ? viewReview() : viewHome();
-  h += bar() + rail();
-  if (S.focus) h += viewFocus();
+  let h = S.watch ? viewWatch() : (S.view === 'events' ? viewEvents() : S.view === 'review' ? viewReview() : viewHome()) + bar() + rail();
+  if (S.focus && !S.watch) h += viewFocus();
   if (S.modal === 'filter') h += modalFilter();
   if (S.modal === 'settings') h += modalSettings();
   if (S.modal === 'win') h += modalWin();
@@ -2366,6 +2381,7 @@ function render() {
   if (S.modal === 'who') h += modalWho();
   if (S.modal === 'del') h += modalDel();
   if (S.modal === 'people') h += modalPeople();
+  if (S.modal === 'wpick') h += modalWatchPick();
   const fo = document.getElementById('fsc'), fscTop = fo && S.focus ? fo.scrollTop : null;
   const keep = {}; ['thumbs'].forEach(id => { const n = document.getElementById(id); if (n) keep[id] = [n.scrollLeft, n.scrollTop]; });
   /* scrolled lists inside open menus and dialogs keep their place when a tap redraws the page */
@@ -2410,8 +2426,48 @@ function moreMenu() {
     '<div class="mrow"><span class="mlbl">Layout</span><div class="mseg">' + lay('list', 'List', I.rows) + lay('grid', 'Grid', I.grid4) + '</div></div>' +
     '<button class="mrow mbtn" data-act="snzopen">' + I.snooze + '<span class="mlbl">Snooze Notifications</span>' + (Snz.active() ? '<span class="msoon on">' + Snz.left() + '</span>' : '') + '</button>' +
     '<button class="mrow mbtn" data-act="ppopen">' + ICON_SVG.person.replace('viewBox', 'width="20" height="20" viewBox') + '<span class="mlbl">People</span></button>' +
+    '<button class="mrow mbtn" data-act="wpick">' + I.grid4.replace(/22/g, '20') + '<span class="mlbl">Watch Cameras</span></button>' +
     '<button class="mrow mbtn" data-act="wtopen">' + I.box + '<span class="mlbl">Today&#39;s Waiting</span>' + (Wait.active() ? '<span class="msoon wt">' + esc(Wait.names()) + '</span>' : '') + '</button></div>';
 }
+/* ===== Watch Cameras: a few cameras she picks, live, full screen =====
+   Phone upright: one per row (3 fill an iPhone 15 Pro; more scroll). Sideways / computer: 2 side by side, 3–4 as 2×2,
+   5–6 as 3×2, 7–9 as 3×3. Tap a picture to watch it alone, tap again to go back. The order is the order she picked. */
+function watchIds() { return (S.wsel || []).filter(id => Data.cam(id)).slice(0, 9); }
+function stillInner(id) {
+  if (!Ctl.on(id)) return '<span class="dot idle"></span>Off';
+  if (S.forced[id] && S.forced[id] > now()) return '<span class="dot forced"></span>Live';
+  const m = Data.motion(id);
+  return (m.active || (m.last != null && now() - m.last < 5000)) ? '<span class="dot busy"></span>Live' : '<span class="dot idle"></span>Still' + (m.last != null ? ' ' + agoShort(now() - m.last) : '');
+}
+function viewWatch() {
+  const ids = S.wbig ? [S.wbig] : watchIds(), n = ids.length, land = window.innerWidth > window.innerHeight;
+  S.wland = land;
+  const [c, r] = !land ? [1, n] : n <= 1 ? [1, 1] : n === 2 ? [2, 1] : n <= 4 ? [2, 2] : n <= 6 ? [3, 2] : [3, 3];
+  const src = id => n <= 2 || S.wbig || !(Frigate.streams && Frigate.streams[id + '_sub']) ? id : id + '_sub';
+  const tile = id => {
+    const cam = Data.cam(id), f = Data.frame(cam, null), sr = src(id);
+    return '<div class="wt" id="wt-' + id + '" data-src="' + esc(sr) + '"' + (cam.ar ? ' style="--war:' + cam.ar.toFixed(4) + '"' : '') + '><img id="img-' + id + '" src="' + f.img + '" alt="' + esc(cam.name) + '">' + Live.holder(sr, false) +
+      '<button class="hit" data-act="wtap" data-id="' + id + '" aria-label="' + (S.wbig ? 'Back To All' : 'Watch ' + esc(cam.name) + ' Alone') + '"></button>' +
+      '<div class="ctm" id="wtm-' + id + '">' + hms(shownT(id, sr)) + '</div><div class="wbd" id="wbd-' + id + '">' + stillInner(id) + '</div><div class="cnm">' + esc(cam.name) + '</div></div>';
+  };
+  return '<div class="watchv' + (land ? ' land' : ' port') + '" style="--wc:' + c + ';--wr:' + r + '"><div class="wgrid">' + ids.map(tile).join('') + '</div>' +
+    '<button class="wx" data-act="' + (S.wbig ? 'wtap' : 'wclose') + '"' + (S.wbig ? ' data-id="' + S.wbig + '"' : '') + ' aria-label="' + (S.wbig ? 'Back To All' : 'Close') + '">' + (S.wbig ? I.back : I.x) + '</button></div>';
+}
+function modalWatchPick() {
+  const sel = S.wsel || [], groups = [...new Set(Data.cams.map(c => c.group))];
+  let h = '<div class="scrim" data-act="close" role="presentation"><div class="dialog snzd" role="dialog" aria-label="Watch Cameras" data-stop="1">' +
+    '<div class="dhead">Watch Cameras<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
+    '<div class="wtnote" style="margin:0 0 4px">Pick The Cameras To Watch Full Screen · The Order You Tap Is The Order They Show · Up To 9</div>';
+  groups.forEach(g => {
+    h += '<div class="lbl">' + esc(g) + '</div><div class="chips">' + Data.cams.filter(c => c.group === g).map(c => {
+      const k = sel.indexOf(c.id);
+      return '<button class="chip sm wpc" data-act="wcam" data-id="' + c.id + '" aria-pressed="' + (k >= 0) + '">' + (k >= 0 ? '<span class="wk">' + (k + 1) + '</span>' : '') + esc(c.name) + '</button>';
+    }).join('') + '</div>';
+  });
+  return h + '</div><div class="dfoot" style="display:flex;gap:10px;padding:12px 16px">' + (sel.length ? '<button class="btn" data-act="wclear">Clear</button>' : '') +
+    '<button class="btn solid" style="flex:1"' + (sel.length ? ' data-act="wgo"' : ' disabled') + '>' + (sel.length ? 'Watch ' + sel.length + (sel.length === 1 ? ' Camera' : ' Cameras') : 'Pick Cameras') + '</button></div></div></div>';
+}
+window.addEventListener('resize', () => { if (S.watch && (window.innerWidth > window.innerHeight) !== S.wland) render(); });
 function viewHome() {
   const groups = [];
   Data.cams.forEach(c => { if (!groups.includes(c.group)) groups.push(c.group); });
@@ -2482,6 +2538,8 @@ function shownT(id, src) {
 /* today: time only; another day: date and time */
 const dtShort = t => dayStart(t) === dayStart(now()) ? hms(t) : fmtDT(t);
 function paintTimes() {
+  if (S.watch) document.querySelectorAll('.wt').forEach(w => { const id = w.id.slice(3), t = document.getElementById('wtm-' + id), b = document.getElementById('wbd-' + id);
+    if (t) { const v = hms(shownT(id, w.dataset.src)); if (t.textContent !== v) t.textContent = v; } if (b) { const v = stillInner(id); if (b.innerHTML !== v) b.innerHTML = v; } });
   if (S.view === 'home') Data.cams.forEach(c => { const n = document.getElementById('ctm-' + c.id); if (n) { const v = hms(shownT(c.id, Live.cardSrc(c.id))); if (n.textContent !== v) n.textContent = v; } });
   ['ftm', 'fulltm'].forEach(k => { const f = document.getElementById(k); if (f && S.focus) { const v = dtShort(shownT(S.focus.cam, S.focus.cam)); if (f.textContent !== v) f.textContent = v; } });
 }
@@ -3836,6 +3894,12 @@ const ACT = {
     if (!r.ok) { toast('Could Not Remove The Name'); return; }
     whoOf(e); S.modal = null; render(); toast('Name Removed');
   },
+  wpick() { S.more = false; S.wsel = S.wsel || store.get('wsel', []); S.modal = 'wpick'; render(); },
+  wcam(d) { const a = S.wsel = (S.wsel || []).slice(), k = a.indexOf(d.id); if (k >= 0) a.splice(k, 1); else if (a.length < 9) a.push(d.id); else toast('Up To 9 Cameras'); store.set('wsel', a); render(); },
+  wclear() { S.wsel = []; store.set('wsel', []); render(); },
+  wgo() { if (!watchIds().length) return; S.modal = null; S.focus = null; S.watch = true; S.wbig = null; render(); window.scrollTo(0, 0); },
+  wclose() { S.watch = false; S.wbig = null; render(); },
+  wtap(d) { S.wbig = S.wbig ? null : d.id; render(); },
   ppopen() { S.more = false; S.pfSel = null; S.modal = 'people'; render(); People.loadFaces().then(() => { if (S.modal === 'people') render(); }); },
   pfsel(d) { S.pfSel = S.pfSel === d.v ? null : d.v; render(); },
   async pfassign(d) {
