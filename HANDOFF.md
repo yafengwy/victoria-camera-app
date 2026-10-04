@@ -48,6 +48,7 @@ Read this first when picking the app up in a new conversation. No secrets live i
 - Review page: `paintReview`, `drawRvTrack`, `rvRefine`, `rvBarCompact`.
 - Wide Alerts page (at least 1000px): `evWide`.
 - Camera-view clip: `fclip*`.
+- Home Live button (#livebtn, ACT.live1): tap = this camera live; double tap = all cameras live.
 - Header button order everywhere: Power, Date, Boxes, Sound, Live (Live rightmost). Grid panel puts the same set at its right; on narrow phones (≤600px) it is Power, Sound | Play/Pause | Boxes, Date, Live. Panel has only Play/Pause (no previous/next).
 - Wide grids (3+ per row): panel is 2 columns wide; cameras pair up (1–2 → columns 1–2, 3–4 → 3–4, last odd one → last two) (`.grid.dense`, `panel(c, col)`). Panel spacing compacted in v71 CSS block.
 

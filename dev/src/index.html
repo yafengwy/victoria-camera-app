@@ -3261,7 +3261,11 @@ const ACT = {
     else { syncAll(t); toast('All cameras moved to ' + hms(t)); }
     render();
   },
-  live1(d) { seek(d.id, null); render(); },
+  live1(d) {   /* tap: this camera goes live. Second tap within 0.45 s (double tap): every camera goes live */
+    const tn = Date.now(), dbl = ACT.live1.last && tn - ACT.live1.last < 450; ACT.live1.last = dbl ? 0 : tn;
+    if (dbl) { syncAll(null); toast('All cameras are live'); } else seek(d.id, null);
+    render();
+  },
   seek(d, ev) {   /* tap an alert under the camera: play it without rebuilding the row (keeps its scroll position) */
     seek(d.id, +d.t - 1000); S.playing = true;
     document.querySelectorAll('#thumbs .thumb.cur').forEach(n => n.classList.remove('cur'));
