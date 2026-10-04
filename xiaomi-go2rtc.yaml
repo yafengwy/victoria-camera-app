@@ -18,4 +18,4 @@ xiaomi:
   "1814168282": "${XIAOMI_TOKEN}"
 
 streams:
-  litter_box: xiaomi://1814168282:us@192.168.1.84?did=1105958481&model=isa.camera.hlc7&transport=tcp   # tcp: cs2 over UDP kept timing out on WiFi (2K is fine over TCP)
+  litter_box: xiaomi://1814168282:us@192.168.1.84?did=1105958481&model=isa.camera.hlc7&subtype=sd&transport=tcp   # tcp: cs2 over UDP kept timing out on WiFi; sd pinned: left alone the camera switched between 2K and 640x360, and the size change zoomed playback
