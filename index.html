@@ -606,6 +606,24 @@ img.rf{opacity:0}
 .msoon.wt{background:#E8F1FF;color:#1F4E9A}
 :root[data-dark] .msoon.wt{background:#14263F;color:#CFE0FB}
 .wtnote{font-size:12px;color:var(--sub);margin:10px 2px 0;line-height:1.4}
+.whob{flex:none;border:0;background:var(--track);color:var(--head-fg);font:inherit;font-size:12px;font-weight:800;padding:5px 10px;border-radius:999px;margin-right:2px}
+.whoimg{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:10px;background:#000}
+.pfgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:6px}
+.pf{display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:3px;border:2px solid transparent;border-radius:12px;background:var(--track);color:var(--head-fg);font:inherit;text-align:center}
+.pf.on{border-color:#E8762B}
+.pf img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:9px;background:#000}
+.pf span{font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pf small{font-size:10px;color:var(--sub)}
+.pfbar{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:12px;background:var(--track);margin-top:6px}
+.pfnew{display:flex;gap:6px}
+.pfnew .field{flex:1;min-width:0}
+.pfnew .btn{margin:0;flex:none}
+.pflist{display:flex;flex-direction:column;gap:6px}
+.pfp{display:flex;align-items:center;gap:10px}
+.pfp img,.pfnone{width:44px;height:44px;border-radius:50%;object-fit:cover;flex:none;background:var(--track);display:flex;align-items:center;justify-content:center;color:var(--icon)}
+.pfp span{display:flex;flex-direction:column}
+.pfp b{font-size:14px}
+.pfp small{font-size:11px;color:var(--sub)}
 .moredd{position:fixed;right:8px;top:calc(env(safe-area-inset-top,0px) + 56px);z-index:41;width:min(320px,calc(100vw - 16px));background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.22);padding:6px}
 .mrow{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 10px;width:100%;border:0;background:none;color:var(--head-fg);font:inherit;text-align:left;border-radius:10px}
 .mrow + .mrow{border-top:1px solid var(--line);border-radius:0}
@@ -1253,7 +1271,8 @@ const Frigate = {
       Object.values((cc.live && cc.live.streams) || {}).forEach(k => { this.streams[k] = 1; });
       st.enabled = cc.enabled !== false; st.alerts = !(cc.review && cc.review.alerts && cc.review.alerts.enabled === false); });
     const cap = l => String(l).replace(/^\w/, m => m.toUpperCase());
-    Data.objs = [...new Set([].concat(((cfg.objects || {}).track) || [], ...Object.values(cfg.cameras).map(cc => ((cc.objects || {}).track) || [])).map(cap))];
+    Data.objs = [...new Set([].concat(((cfg.objects || {}).track) || [], ...Object.values(cfg.cameras).map(cc => ((cc.objects || {}).track) || [])).filter(l => !isAttr(l)).map(cap))];
+    People.faceOn = !!(cfg.face_recognition && cfg.face_recognition.enabled);
     Data.cams = Object.keys(cfg.cameras).map(id => ({
       id, name: (cfg.cameras[id].friendly_name || id.replace(/_/g, ' ')).replace(/\b\w/g, m => m.toUpperCase()),
       group: groupOf(id), img: this.base() + '/api/' + id + '/latest.webp?height=480',
@@ -1266,18 +1285,22 @@ const Frigate = {
       'nest_master_bedroom', 'fishtofu_furbo', 'riceball_furbo'];
     const rank = c => { const i = ORDER.indexOf(c.id); return i < 0 ? ORDER.length + Data.cams.indexOf(c) : i; };
     Data.cams = Data.cams.slice().sort((a, b) => rank(a) - rank(b));
+    await People.loadSubs();
     Data.events = await this.reviews(Math.floor((now() - 7 * DAY) / 1000));
   },
   async reviews(after) {
     const rows = await this.get('/api/review?limit=2000&after=' + after);
     return rows.map(r => {
-      let label = ((r.data && r.data.objects && r.data.objects[0]) || 'motion').replace(/^\w/, m => m.toUpperCase());
-      const det = r.data && r.data.detections && r.data.detections[0];
-      /* delivery logos Frigate+ found on a car (sub labels, or listed as objects): show the company instead of "Car" */
-      const subs = [...((r.data && r.data.sub_labels) || []), ...((r.data && r.data.objects) || [])].map(x => String(Array.isArray(x) ? x[0] : x).toLowerCase()).filter(x => WAIT_CO.some(c => c[0] === x));
-      if (subs.length) label = coName(subs[0]);
+      const objs = (r.data && r.data.objects) || [], sl = ((r.data && r.data.sub_labels) || []).map(x => String(Array.isArray(x) ? x[0] : x));
+      const label = (objs.find(o => !isAttr(o)) || objs[0] || 'motion').replace(/^\w/, m => m.toUpperCase());
+      const det = r.data && r.data.detections && r.data.detections[0], dets = (r.data && r.data.detections) || [];
+      /* delivery logos Frigate+ found on a car (sub labels, or listed as objects) and people's names (face recognition,
+         or a name given in this app) are shown after the object: "Car · UPS", "Person · Victoria" */
+      const subs = [...new Set([...sl, ...objs].map(x => x.toLowerCase()).filter(isLogo))];
+      const names = [...sl.filter(x => !isLogo(x.toLowerCase()) && x.toLowerCase() !== 'unknown'), ...dets.map(d => People.sub[d]).filter(Boolean)].map(niceName);
+      const who = [...new Set([...subs.map(coName), ...names])].join(' · ');
       return {
-        id: r.id, cam: r.camera, t: r.start_time * 1000, end: (r.end_time || r.start_time) * 1000, label, dets: (r.data && r.data.detections) || [],
+        id: r.id, cam: r.camera, t: r.start_time * 1000, end: (r.end_time || r.start_time) * 1000, label, dets, who, logo: subs[0] || '',
         sev: r.severity, subs, interesting: r.severity === 'alert' || Wait.hit(r.start_time * 1000, subs),
         zones: ((r.data && r.data.zones) || []).map(z => z.replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase())),
         img: Frigate.thumb(r, det),
@@ -1290,7 +1313,7 @@ const Frigate = {
   /* New and still-running alerts: every 10 s fetch the last 2 hours and merge them in (the list used to load only at start) */
   async refresh() {
     let fresh; try { fresh = await this.reviews(Math.floor((now() - 2 * HOUR) / 1000)); } catch (e) { return; }
-    const sig = e => e.id + ':' + e.end + ':' + e.interesting + ':' + e.label + ':' + e.zones.join(',');
+    const sig = e => e.id + ':' + e.end + ':' + e.interesting + ':' + e.label + ':' + e.who + ':' + e.zones.join(',');
     const old = new Map(Data.events.map(e => [e.id, e]));
     let changed = false;
     fresh.forEach(e => { const o = old.get(e.id); if (!o || sig(o) !== sig(e)) { old.set(e.id, e); changed = true; } });
@@ -1605,7 +1628,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.8.4 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.8.5 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1836,6 +1859,54 @@ const Snz = {
    Each phone also remembers past waits for 30 days, so those deliveries stay marked after the wait ends. */
 const WAIT_CO = [['amazon', 'Amazon'], ['fedex', 'FedEx'], ['ups', 'UPS'], ['usps', 'USPS'], ['dhl', 'DHL']];
 const coName = k => (WAIT_CO.find(c => c[0] === String(k).toLowerCase()) || [0, k])[1];
+const isLogo = l => WAIT_CO.some(c => c[0] === String(l).toLowerCase());
+/* Frigate+ attribute labels: attached to a person or car, never an alert of their own */
+const isAttr = l => isLogo(l) || ['face', 'license_plate'].includes(String(l).toLowerCase());
+const niceName = n => String(n).replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase());
+/* People: names from Frigate face recognition, plus names given to a person alert in this app (saved in Frigate as the
+   person's sub label, so every phone sees them). The Face Library itself lives in Frigate (/api/faces). */
+const People = {
+  sub: {}, person: {}, faces: null, faceOn: false, busy: false,
+  async loadSubs() {
+    try {
+      const rows = await Frigate.get('/api/events?labels=person&limit=1500&include_thumbnails=0&after=' + Math.floor((now() - 7 * DAY) / 1000));
+      rows.forEach(r => { if (r.label !== 'person') return; this.person[r.id] = 1; const n = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label; if (n && !isLogo(n) && String(n).toLowerCase() !== 'unknown') this.sub[r.id] = n; });
+    } catch (e) {}
+  },
+  async loadFaces() { try { this.faces = await Frigate.get('/api/faces'); } catch (e) { this.faces = {}; } },
+  known() {
+    const set = new Set(Object.keys(this.faces || {}).filter(n => n !== 'train').map(niceName));
+    Object.values(this.sub).forEach(n => set.add(niceName(n)));
+    return [...set].sort((a, b) => a.localeCompare(b));
+  },
+  /* faces Frigate saved for training: "<event id>-<time>-<best guess>-<score>.webp" (the event id has dashes too) */
+  train() {
+    return ((this.faces && this.faces.train) || []).map(f => { const p = f.replace(/\.webp$/i, '').split('-'); const score = +p.pop(), guess = p.pop(), ts = +p.pop(); return { f, ev: p.join('-'), ts, guess, score }; })
+      .sort((a, b) => b.ts - a.ts);
+  },
+  async post(path, body) {
+    const r = await fetch(Frigate.base() + path, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '1' }, body: JSON.stringify(body || {}) });
+    let j = {}; try { j = await r.json(); } catch (e) {} return { ok: r.ok && j.success !== false, msg: j.message || String(r.status) };
+  },
+  key: n => String(n).trim().replace(/\s+/g, '_'),
+  /* give the person(s) in an alert a name; optionally teach face recognition from that picture */
+  async name(e, n, teach) {
+    let dets = e.dets.filter(d => this.person[d]);
+    if (!dets.length) for (const d of e.dets) { try { const ev = await Frigate.get('/api/events/' + d); if (ev.label === 'person') { dets.push(d); this.person[d] = 1; } } catch (x) {} }
+    if (!dets.length) return { ok: false, msg: 'No Person In This Alert' };
+    let ok = true, taught = 0;
+    for (const d of dets) {
+      const r = await this.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: n ? this.key(n) : '' });
+      if (!r.ok) ok = false; else if (n) this.sub[d] = this.key(n); else delete this.sub[d];
+      if (n && teach && this.faceOn) { const t = await this.post('/api/faces/train/' + encodeURIComponent(this.key(n)) + '/classify', { event_id: d }); if (t.ok) taught++; }
+    }
+    return { ok, taught };
+  }
+};
+function whoOf(e) {   /* recompute the names shown on one alert after a change here */
+  const names = e.dets.map(d => People.sub[d]).filter(Boolean).map(niceName);
+  e.who = [...new Set([...(e.logo ? [coName(e.logo)] : []), ...names])].join(' · ');
+}
 const Wait = {
   st: { from: 0, until: 0, cos: [] }, missing: false,
   hist: (() => { try { return JSON.parse(localStorage.getItem('vhwait') || '[]'); } catch (e) { return []; } })(),
@@ -1880,6 +1951,41 @@ const Wait = {
   },
   names() { return this.st.cos.map(coName).join(' · '); }
 };
+function modalWho() {
+  const e = Data.events.find(x => x.id === S.whoId); if (!e) return '';
+  const names = People.known(), cur = S.whoName || '';
+  return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm snzd" role="dialog" aria-label="Who Is This" data-stop="1">' +
+    '<div class="dhead">Who Is This?<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
+    '<img class="whoimg" src="' + e.img + '" alt="">' +
+    (names.length ? '<div class="lbl" style="margin-top:6px">People</div><div class="chips">' + names.map(n => '<button class="chip sm" data-act="whopick" data-v="' + esc(n) + '" aria-pressed="' + (cur === n) + '">' + esc(n) + '</button>').join('') + '</div>' : '') +
+    '<div class="lbl">' + (names.length ? 'Or A New Name' : 'Name') + '</div><input id="whonew" class="field" type="text" placeholder="E.g. UPS Driver" autocomplete="off" value="' + (names.includes(cur) ? '' : esc(cur)) + '">' +
+    (People.faceOn ? '<button class="check" role="checkbox" aria-checked="' + (S.whoTeach !== false) + '" data-act="whoteach"><span class="box">' + (S.whoTeach !== false ? I.check : '') + '</span>Teach Face Recognition</button>' : '') +
+    '<button class="btn solid snzgo" data-act="whosave">Save Name</button>' +
+    (e.who && e.dets.some(d => People.sub[d]) ? '<button class="btn snzgo" style="margin-top:6px" data-act="whoclear">Remove Name</button>' : '') +
+    '</div></div></div>';
+}
+function modalPeople() {
+  const f = People.faces, tr = People.train().slice(0, 60), names = People.known(), sel = S.pfSel;
+  const lib = Object.keys(f || {}).filter(n => n !== 'train').sort((a, b) => a.localeCompare(b));
+  let h = '<div class="scrim" data-act="close" role="presentation"><div class="dialog snzd" role="dialog" aria-label="People" data-stop="1">' +
+    '<div class="dhead">People<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">';
+  if (!People.faceOn) h += '<div class="wtnote" style="margin:0">Face Recognition Is Off · Turn It On In Frigate: Settings, Enrichments, Face Recognition.</div>';
+  else if (!f) h += '<div class="wtnote" style="margin:0">Loading…</div>';
+  else {
+    h += '<div class="lbl" style="margin-top:0">New Faces · ' + tr.length + '</div>';
+    if (!tr.length) h += '<div class="wtnote" style="margin:0">No New Faces Yet. Faces Show Up Here After The Cameras See Them.</div>';
+    else h += '<div class="pfgrid">' + tr.map(x => '<button class="pf' + (sel === x.f ? ' on' : '') + '" data-act="pfsel" data-v="' + esc(x.f) + '"><img src="' + Frigate.base() + '/clips/faces/train/' + encodeURIComponent(x.f) + '" alt="" loading="lazy"><span>' + (x.guess === 'unknown' ? 'Unknown' : esc(niceName(x.guess)) + ' ' + Math.round(x.score * 100) + '%') + '</span><small>' + (x.ts ? hm(x.ts * 1000) + (dayStart(x.ts * 1000) === dayStart(now()) ? '' : ' ' + dayLabel(x.ts * 1000)) : '') + '</small></button>').join('') + '</div>';
+    if (sel) {
+      h += '<div class="pfbar"><div class="lbl" style="margin-top:0">This Is</div>' + (names.length ? '<div class="chips">' + names.map(n => '<button class="chip sm" data-act="pfassign" data-v="' + esc(n) + '">' + esc(n) + '</button>').join('') + '</div>' : '') +
+        '<div class="pfnew"><input id="pfnew" class="field" type="text" placeholder="New Name" autocomplete="off"><button class="btn solid" data-act="pfassign" data-v="">Add</button></div>' +
+        '<button class="btn" data-act="pfdel">Not Useful · Delete</button></div>';
+    }
+    h += '<div class="lbl">Known People · ' + lib.length + '</div>';
+    h += lib.length ? '<div class="pflist">' + lib.map(n => { const fs = f[n] || []; return '<div class="pfp">' + (fs[0] ? '<img src="' + Frigate.base() + '/clips/faces/' + encodeURIComponent(n) + '/' + encodeURIComponent(fs[0]) + '" alt="">' : '<i class="pfnone">' + ICON_SVG.person + '</i>') + '<span><b>' + esc(niceName(n)) + '</b><small>' + fs.length + (fs.length === 1 ? ' Photo' : ' Photos') + '</small></span></div>'; }).join('') + '</div>'
+      : '<div class="wtnote" style="margin:0">Nobody Yet. Pick A New Face Above And Give It A Name.</div>';
+  }
+  return h + '</div></div></div>';
+}
 function waitBanner() {
   if (!Wait.active()) return '';
   return '<div class="snzban wtban">' + I.box + '<div class="snzt"><b>Waiting For ' + esc(Wait.names()) + '</b><span>Until ' + hm(Wait.st.until * 1000) + '</span></div><button data-act="wtstop">Stop</button></div>';
@@ -2086,6 +2192,8 @@ function render() {
   if (S.modal === 'win') h += modalWin();
   if (S.modal === 'snooze') h += modalSnooze();
   if (S.modal === 'wait') h += modalWait();
+  if (S.modal === 'who') h += modalWho();
+  if (S.modal === 'people') h += modalPeople();
   const fo = document.getElementById('fsc'), fscTop = fo && S.focus ? fo.scrollTop : null;
   const keep = {}; ['thumbs'].forEach(id => { const n = document.getElementById(id); if (n) keep[id] = [n.scrollLeft, n.scrollTop]; });
   /* scrolled lists inside open menus and dialogs keep their place when a tap redraws the page */
@@ -2124,6 +2232,7 @@ function moreMenu() {
   return '<div class="rvscrim" data-act="moreclose"></div><div class="moredd" role="dialog" aria-label="More">' +
     '<div class="mrow"><span class="mlbl">Layout</span><div class="mseg">' + lay('list', 'List', I.rows) + lay('grid', 'Grid', I.grid4) + '</div></div>' +
     '<button class="mrow mbtn" data-act="snzopen">' + I.snooze + '<span class="mlbl">Snooze Notifications</span>' + (Snz.active() ? '<span class="msoon on">' + Snz.left() + '</span>' : '') + '</button>' +
+    '<button class="mrow mbtn" data-act="ppopen">' + ICON_SVG.person.replace('viewBox', 'width="20" height="20" viewBox') + '<span class="mlbl">People</span></button>' +
     '<button class="mrow mbtn" data-act="wtopen">' + I.box + '<span class="mlbl">Today&#39;s Waiting</span>' + (Wait.active() ? '<span class="msoon wt">' + esc(Wait.names()) + '</span>' : '') + '</button></div>';
 }
 function viewHome() {
@@ -2204,7 +2313,7 @@ function panel(c, col) {
   let body = '';
   if (S.tab === 'events') {
     body = (evs.length ? '<div class="thumbs" id="thumbs">' + evs.slice(0, 30).map(e =>
-      '<button class="thumb' + (t != null && t >= e.t - 3000 && t <= (e.end || e.t) + 3000 ? ' cur' : '') + '" data-act="seek" data-id="' + c.id + '" data-t="' + e.t + '"><img src="' + e.img + '" alt="" loading="lazy"><span>' + esc(e.label) + ' At ' + hm(e.t) + (dayStart(e.t) === dayStart(now()) ? '' : ' ' + dayLabel(e.t)) + '</span></button>').join('') + '</div>'
+      '<button class="thumb' + (t != null && t >= e.t - 3000 && t <= (e.end || e.t) + 3000 ? ' cur' : '') + '" data-act="seek" data-id="' + c.id + '" data-t="' + e.t + '"><img src="' + e.img + '" alt="" loading="lazy"><span>' + esc(lab(e)) + ' At ' + hm(e.t) + (dayStart(e.t) === dayStart(now()) ? '' : ' ' + dayLabel(e.t)) + '</span></button>').join('') + '</div>'
       : '<div class="empty" style="flex:1;display:flex;align-items:center">No alerts in this view.</div>') +
       '<button class="btn" data-act="modal" data-v="filter">Alert Settings</button>';
   } else if (S.tab === 'speed') {
@@ -2361,11 +2470,12 @@ function viewEvents() {
     h += '<div class="evwrap wide"><div class="evplayer" id="evplayer">';
     if (sel) {
       const sc = Data.cam(sel.cam);
-      h += '<article class="evcard big' + (sel.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(sel.label) + '</i>' + esc(sel.label) + ' At ' + hms(sel.t) + '</b><span>' + esc(sc ? sc.name : sel.cam) + '</span></div>' +
+      h += '<article class="evcard big' + (sel.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(sel)) + '</i>' + esc(lab(sel)) + ' At ' + hms(sel.t) + '</b><span>' + esc(sc ? sc.name : sel.cam) + '</span></div>' +
+        (sel.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(sel.id) + '">' + (sel.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Open Camera" data-act="focusat" data-id="' + esc(sel.cam) + '" data-t="' + sel.t + '">' + I.expand + '</button>' +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(sel.id) + '">' + I.dl + '</button>' +
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(sel.id) + '">' + (S.evPlay === sel.id ? I.pause : I.playO) + '</button></div>' +
-        '<div class="evmedia" id="evm-' + esc(sel.id) + '" data-act="evtap" data-v="' + esc(sel.id) + '" role="button" aria-label="Double Tap To Open ' + esc(sel.label) + ' At ' + hms(sel.t) + ' Full Screen">' + evMedia(sel) + '</div></article>';
+        '<div class="evmedia" id="evm-' + esc(sel.id) + '" data-act="evtap" data-v="' + esc(sel.id) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(sel)) + ' At ' + hms(sel.t) + ' Full Screen">' + evMedia(sel) + '</div></article>';
     } else h += '<div class="empty">No alerts on this day with the current filters.</div>';
     h += '</div><div class="evlist">';
   } else h += '<div class="evwrap"><div class="evlist">';
@@ -2376,15 +2486,16 @@ function viewEvents() {
       const cam = Data.cam(e.cam);
       if (wide) {
         h += '<article class="evrow' + (e.interesting ? '' : ' dim') + (sel && sel.id === e.id ? ' sel' : '') + '" data-act="evsel" data-v="' + esc(e.id) + '"><img src="' + e.img + '" alt="" loading="lazy">' +
-          '<div class="evt"><b><i class="lico">' + objIcon(e.label) + '</i>' + esc(e.label) + ' At ' + hms(e.t) + '</b><span>' + esc(cam ? cam.name : e.cam) + ' · ' + durLabel(e) + '</span></div>' +
+          '<div class="evt"><b><i class="lico">' + objIcon(ico(e)) + '</i>' + esc(lab(e)) + ' At ' + hms(e.t) + '</b><span>' + esc(cam ? cam.name : e.cam) + ' · ' + durLabel(e) + '</span></div>' +
           '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(e.id) + '">' + I.dl + '</button></article>';
         return;
       }
-      h += '<article class="evcard' + (e.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(e.label) + '</i>' + esc(e.label) + ' At ' + hms(e.t) + '</b><span>' + esc(cam ? cam.name : e.cam) + '</span></div>' +
+      h += '<article class="evcard' + (e.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(e)) + '</i>' + esc(lab(e)) + ' At ' + hms(e.t) + '</b><span>' + esc(cam ? cam.name : e.cam) + '</span></div>' +
+        (e.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(e.id) + '">' + I.dl + '</button>' +
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(e.id) + '">' + (S.evPlay === e.id ? I.pause : I.playO) + '</button>' +
 '</div>' +
-        '<div class="evmedia" id="evm-' + esc(e.id) + '" data-act="evtap" data-v="' + esc(e.id) + '" role="button" aria-label="Double Tap To Open ' + esc(e.label) + ' At ' + hms(e.t) + ' Full Screen">' + evMedia(e) + '</div></article>';
+        '<div class="evmedia" id="evm-' + esc(e.id) + '" data-act="evtap" data-v="' + esc(e.id) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(e)) + ' At ' + hms(e.t) + ' Full Screen">' + evMedia(e) + '</div></article>';
     });
   });
   const maxN = Math.max(1, ...Object.values(byHour).map(v => v.length));
@@ -2494,7 +2605,7 @@ function viewFocus() {
     evs.forEach(e => {
       const dl = dayStart(e.t) === dayStart(now()) ? 'Today' : dayStart(e.t) === dayStart(now() - DAY) ? 'Yesterday' : dayLabel(e.t);
       if (dl !== lastDay) { body += '<div class="fday-h">' + dl + '</div>'; lastDay = dl; }
-      body += '<button class="fitem' + (cur === e ? ' cur' : '') + '" data-act="fpick" data-t="' + e.t + '"><img src="' + e.img + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(e.label) + '</i>' + esc(e.label) + '</b><small>' + hm(e.t) + ' · ' + durLabel(e) + '</small></span></button>';
+      body += '<button class="fitem' + (cur === e ? ' cur' : '') + '" data-act="fpick" data-t="' + e.t + '"><img src="' + e.img + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e)) + '</i>' + esc(lab(e)) + '</b><small>' + hm(e.t) + ' · ' + durLabel(e) + '</small></span></button>';
     });
     body += '</div>';
   } else {
@@ -2520,7 +2631,7 @@ function viewFocus() {
       kinds.forEach(kd => {
         const cols = S.markStyle !== 'b' ? [0, 1, 2] : kd.e.interesting ? [0, 1] : [2];
         let ln = cols.find(c => !used[c]); if (ln == null) return; used[ln] = 1;
-        rows += '<button class="fmark ico' + (kd.e.interesting ? '' : ' dim') + '" style="top:' + (y - 9) + 'px;--ln:' + ln + '" data-act="fgrp" data-g="' + gi + '" data-k="' + esc(kd.k) + '" aria-label="' + esc(kd.e.label) + ' ' + hm(kd.e.t) + (kd.n > 1 ? ', ' + kd.n + ' Alerts' : '') + '">' + objIcon(kd.e.label) + (kd.n > 1 ? '<b class="segn"><i>' + kd.n + '</i></b>' : '') + '</button>';
+        rows += '<button class="fmark ico' + (kd.e.interesting ? '' : ' dim') + '" style="top:' + (y - 9) + 'px;--ln:' + ln + '" data-act="fgrp" data-g="' + gi + '" data-k="' + esc(kd.k) + '" aria-label="' + esc(lab(kd.e)) + ' ' + hm(kd.e.t) + (kd.n > 1 ? ', ' + kd.n + ' Alerts' : '') + '">' + objIcon(ico(kd.e)) + (kd.n > 1 ? '<b class="segn"><i>' + kd.n + '</i></b>' : '') + '</button>';
       });
       const e = g.items[0], key = String(e.t);
       if (n > 1 && S.focus.og === key) {
@@ -2532,7 +2643,7 @@ function viewFocus() {
         const names = [...new Set(g.items.map(x => x.label))];
         const title = names.slice(0, 2).join(', ') + (names.length > 2 ? ' +' + (names.length - 2) : '');
         const sub = n === 1 ? hm(e.t) + ' · ' + durLabel(e) : hm(e.t) + ' · ' + n + ' Alerts';
-        rows += '<button class="fev" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + e.img + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(e.label) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span></button>';
+        rows += '<button class="fev" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + e.img + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e)) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span></button>';
       }
     });
     body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px"><div class="frail"></div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + FTOP + 'px"></div>';
@@ -2578,7 +2689,7 @@ function viewFull(c, t, f) {
       list.forEach(e => {
         const dl = dayStart(e.t) === dayStart(now()) ? 'Today' : dayStart(e.t) === dayStart(now() - DAY) ? 'Yesterday' : dayLabel(e.t);
         if (dl !== lastDay) { side += '<div class="fpd">' + dl + '</div>'; lastDay = dl; }
-        side += '<button class="fpi' + (t != null && t >= e.t - 3000 && t <= (e.end || e.t) + 3000 ? ' cur' : '') + (e.interesting ? '' : ' un') + '" data-act="fseek" data-t="' + e.t + '"><img src="' + e.img + '" alt="" loading="lazy"><span><i class="lico">' + objIcon(e.label) + '</i>' + esc(e.label) + ' ' + hm(e.t) + '</span></button>';
+        side += '<button class="fpi' + (t != null && t >= e.t - 3000 && t <= (e.end || e.t) + 3000 ? ' cur' : '') + (e.interesting ? '' : ' un') + '" data-act="fseek" data-t="' + e.t + '"><img src="' + e.img + '" alt="" loading="lazy"><span><i class="lico">' + objIcon(ico(e)) + '</i>' + esc(lab(e)) + ' ' + hm(e.t) + '</span></button>';
       });
       side += '</div>';
     } else {
@@ -2607,11 +2718,11 @@ function fTrack(c) {
   let lastIc = -1e9; const icons = [];
   camEvents(c.id).filter(e => e.t <= end && (e.end || e.t) > end - FSPAN).sort((a, b) => b.t - a.t).forEach(e => {
     const y0 = Y(Math.max(e.end || e.t, e.t + 5000)), y1 = Math.max(Y(e.t), y0 + 3);
-    tr += '<button class="fseg' + (e.interesting ? '' : ' un') + '" data-act="fseek" data-t="' + e.t + '" aria-label="' + esc(e.label) + ' At ' + hm(e.t) + '" style="top:' + y0.toFixed(1) + 'px;height:' + (y1 - y0).toFixed(1) + 'px"></button>';
+    tr += '<button class="fseg' + (e.interesting ? '' : ' un') + '" data-act="fseek" data-t="' + e.t + '" aria-label="' + esc(lab(e)) + ' At ' + hm(e.t) + '" style="top:' + y0.toFixed(1) + 'px;height:' + (y1 - y0).toFixed(1) + 'px"></button>';
     const yc = (y0 + y1) / 2;
     if (yc - lastIc >= 18) { lastIc = yc; icons.push({ e, yc, n: 1 }); } else if (icons.length) icons[icons.length - 1].n++;   /* close ones add to the count */
   });
-  icons.forEach(g => { tr += '<span class="fico' + (g.e.interesting ? '' : ' un') + '" style="top:' + (g.yc - 7.5).toFixed(1) + 'px">' + objIcon(g.e.label) + (g.n > 1 ? '<b class="segn"><i>' + g.n + '</i></b>' : '') + '</span>'; });
+  icons.forEach(g => { tr += '<span class="fico' + (g.e.interesting ? '' : ' un') + '" style="top:' + (g.yc - 7.5).toFixed(1) + 'px">' + objIcon(ico(g.e)) + (g.n > 1 ? '<b class="segn"><i>' + g.n + '</i></b>' : '') + '</span>'; });
   return tr;
 }
 function fZoom(px) {
@@ -2802,7 +2913,7 @@ function rvAt(c, t) {
 function rvMark(box, c, t) {
   const e = rvAt(c, t), tg = box.querySelector('.tag');
   box.classList.toggle('hot', !!e && e.interesting); box.classList.toggle('uhot', !!e && !e.interesting);
-  if (tg) { tg.innerHTML = e ? objIcon(e.label) + '<span>' + esc(e.label) + '</span>' : ''; tg.hidden = !e; tg.classList.toggle('un', !!e && !e.interesting); tg.classList.remove('dim'); }
+  if (tg) { tg.innerHTML = e ? objIcon(ico(e)) + '<span>' + esc(lab(e)) + '</span>' : ''; tg.hidden = !e; tg.classList.toggle('un', !!e && !e.interesting); tg.classList.remove('dim'); }
 }
 function rvPass(e) {
   const f = S.rv.f; if (e.interesting ? !f.int : !f.unint) return false; if (!objOn(f, e.label)) return false;
@@ -2993,6 +3104,9 @@ const ICON_SVG = {
 };
 const ICON_OF = {"person": "person", "baby": "person", "face": "face", "cat": "cat", "dog": "dog", "bird": "bird", "bear": "bear", "raccoon": "fox", "fox": "fox", "squirrel": "squirrel", "rabbit": "rabbit", "rodent": "rodent", "skunk": "rodent", "possum": "rodent", "deer": "paw", "horse": "paw", "cow": "paw", "goat": "paw", "kangaroo": "paw", "sheep": "paw", "car": "car", "license_plate": "car", "truck": "truck", "bus": "truck", "garbage truck": "truck", "garbage_truck": "truck", "school_bus": "truck", "amazon": "van", "usps": "van", "ups": "van", "fedex": "van", "dhl": "van", "motorcycle": "bike", "bicycle": "bike", "package": "package", "backpack": "bag", "handbag": "bag", "suitcase": "bag", "umbrella": "bag", "laptop": "bag", "remote": "bag", "cell phone": "bag", "cell_phone": "bag", "waste_bin": "bag", "baby_stroller": "bag"};
 const objIcon = label => ICON_SVG[ICON_OF[String(label).toLowerCase()] || 'paw'];
+/* what an alert is called on screen: the object, plus the delivery company or the person's name when known */
+function lab(e) { return e.who ? e.label + ' · ' + e.who : e.label; }
+function ico(e) { return e.logo || e.label; }
 const OBJ_ICON = new Proxy({}, { get: (_, k) => objIcon(k) });
 function drawRvTrack(force) {
   const tr = document.getElementById('rvtrack'); if (!tr) return;
@@ -3070,7 +3184,7 @@ function rvListHtml(cams, end) {
     const dl = dayStart(e.t) === dayStart(now()) ? 'Today' : dayStart(e.t) === dayStart(now() - DAY) ? 'Yesterday' : dayLabel(e.t);
     if (dl !== lastDay) { h += '<div class="rvl-h">' + dl + '</div>'; lastDay = dl; }
     const c = Data.cam(e.cam), cur = t != null && t >= e.t - 3000 && t <= (e.end || e.t) + 3000;
-    h += '<button class="rvli' + (cur ? ' cur' : '') + (e.interesting ? '' : ' un') + '" data-act="rvlpick" data-t="' + e.t + '" data-id="' + e.cam + '"><img src="' + e.img + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(e.label) + '</i>' + esc(String(e.label).replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase())) + '</b><small>' + esc(c ? c.name : e.cam) + ' · ' + hm(e.t) + ' · ' + rvDur(e) + '</small></span></button>';
+    h += '<button class="rvli' + (cur ? ' cur' : '') + (e.interesting ? '' : ' un') + '" data-act="rvlpick" data-t="' + e.t + '" data-id="' + e.cam + '"><img src="' + e.img + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e)) + '</i>' + esc(lab(e).replace(/_/g, ' ')) + '</b><small>' + esc(c ? c.name : e.cam) + ' · ' + hm(e.t) + ' · ' + rvDur(e) + '</small></span></button>';
   });
   return h + '</div>';
 }
@@ -3096,7 +3210,7 @@ function viewReview() {
   cams.forEach(c => {
     const f = Data.frame(c, t);
     const e = rvAt(c, t);
-    h += '<div class="rvcam' + (e ? (e.interesting ? ' hot' : ' uhot') : '') + '" id="rv-' + c.id + '" data-act="rvopen" data-id="' + c.id + '"><img data-ld="1"' + (Data.source !== 'frigate' || t == null || RecMap.has(c.id, t) === true ? ' src="' + f.img + '"' : '') + ' alt=""><div class="nm">' + esc(c.name) + '</div><div class="tm" data-act="rvsync" data-id="' + c.id + '" role="button" aria-label="Show All Cameras At This Time" hidden></div><div class="tag' + (e && !e.interesting ? ' un' : '') + '" id="rvtag-' + c.id + '"' + (e ? '' : ' hidden') + '>' + (e ? objIcon(e.label) + '<span>' + esc(e.label) + '</span>' : '') + '</div></div>';
+    h += '<div class="rvcam' + (e ? (e.interesting ? ' hot' : ' uhot') : '') + '" id="rv-' + c.id + '" data-act="rvopen" data-id="' + c.id + '"><img data-ld="1"' + (Data.source !== 'frigate' || t == null || RecMap.has(c.id, t) === true ? ' src="' + f.img + '"' : '') + ' alt=""><div class="nm">' + esc(c.name) + '</div><div class="tm" data-act="rvsync" data-id="' + c.id + '" role="button" aria-label="Show All Cameras At This Time" hidden></div><div class="tag' + (e && !e.interesting ? ' un' : '') + '" id="rvtag-' + c.id + '"' + (e ? '' : ' hidden') + '>' + (e ? objIcon(ico(e)) + '<span>' + esc(lab(e)) + '</span>' : '') + '</div></div>';
   });
   rvEnd = end;
   RVV = rvVert();
@@ -3269,7 +3383,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.8.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.8.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3362,7 +3476,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 1.8.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 1.8.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -3409,6 +3523,43 @@ const ACT = {
       secs = (d.getTime() - Date.now()) / 1000;
     }
     if (await Snz.put({ until: Date.now() / 1000 + secs, mode: S.snzDur === 'c' ? 'c' : 't', cams })) { S.modal = null; render(); toast('Notifications Snoozed'); }
+  },
+  whoopen(d) {
+    const e = Data.events.find(x => x.id === d.v); if (!e) return;
+    S.whoId = e.id; S.whoName = e.dets.map(x => People.sub[x]).filter(Boolean).map(niceName)[0] || ''; S.modal = 'who'; render();
+    if (!People.faces) People.loadFaces().then(() => { if (S.modal === 'who') render(); });
+  },
+  whopick(d) { S.whoName = S.whoName === d.v ? '' : d.v; const i = document.getElementById('whonew'); if (i) i.value = ''; render(); },
+  whoteach() { S.whoTeach = S.whoTeach === false; render(); },
+  async whosave() {
+    const e = Data.events.find(x => x.id === S.whoId); if (!e || People.busy) return;
+    const typed = (document.getElementById('whonew') || {}).value || '', n = (typed.trim() || S.whoName || '').trim();
+    if (!n) { toast('Pick Or Type A Name'); return; }
+    People.busy = true; const r = await People.name(e, n, S.whoTeach !== false); People.busy = false;
+    if (!r.ok) { toast(r.msg || 'Could Not Save The Name'); return; }
+    whoOf(e); S.modal = null; render(); People.faces = null;
+    toast('Saved As ' + niceName(n) + (S.whoTeach !== false && People.faceOn ? (r.taught ? ' · Face Learned' : ' · No Clear Face To Learn') : ''));
+  },
+  async whoclear() {
+    const e = Data.events.find(x => x.id === S.whoId); if (!e || People.busy) return;
+    People.busy = true; const r = await People.name(e, '', false); People.busy = false;
+    if (!r.ok) { toast('Could Not Remove The Name'); return; }
+    whoOf(e); S.modal = null; render(); toast('Name Removed');
+  },
+  ppopen() { S.more = false; S.pfSel = null; S.modal = 'people'; render(); People.loadFaces().then(() => { if (S.modal === 'people') render(); }); },
+  pfsel(d) { S.pfSel = S.pfSel === d.v ? null : d.v; render(); },
+  async pfassign(d) {
+    const f = S.pfSel; if (!f || People.busy) return;
+    const n = (d.v || ((document.getElementById('pfnew') || {}).value || '')).trim(); if (!n) { toast('Type A Name'); return; }
+    People.busy = true; const r = await People.post('/api/faces/train/' + encodeURIComponent(People.key(n)) + '/classify', { training_file: f }); People.busy = false;
+    if (!r.ok) { toast(r.msg || 'Could Not Save'); return; }
+    S.pfSel = null; await People.loadFaces(); render(); toast('Saved As ' + niceName(n));
+  },
+  async pfdel() {
+    const f = S.pfSel; if (!f || People.busy) return;
+    People.busy = true; const r = await People.post('/api/faces/train/delete', { ids: [f] }); People.busy = false;
+    if (!r.ok) { toast('Could Not Delete'); return; }
+    S.pfSel = null; await People.loadFaces(); render(); toast('Deleted');
   },
   wtopen() {
     S.more = false; S.wtPick = {}; if (Wait.active()) Wait.st.cos.forEach(k => { S.wtPick[k] = true; });
@@ -4106,7 +4257,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.8.4';
+    const BUILD = '1.8.5';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
