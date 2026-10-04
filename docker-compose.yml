@@ -72,3 +72,13 @@ services:
     volumes:
       - ./furbo-data:/data
       - ./repo/furbo-go2rtc.yaml:/app/go2rtc.yaml:ro
+  # Xiaomi cameras (Mi Home): go2rtc's xiaomi source needs the host network (its P2P replies don't come back through
+  # Docker's bridge). Serves RTSP on 8574 for Frigate. Secrets from .env (XIAOMI_TOKEN, FRIGATE_CAM_PW).
+  xiaomi:
+    container_name: xiaomi
+    image: alexxit/go2rtc:latest
+    restart: unless-stopped
+    network_mode: host
+    env_file: .env
+    volumes:
+      - ./repo/xiaomi-go2rtc.yaml:/config/go2rtc.yaml:ro

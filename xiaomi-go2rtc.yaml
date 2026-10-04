@@ -1,0 +1,21 @@
+# Xiaomi cameras for Frigate. A separate go2rtc on the host network, because the Xiaomi P2P protocol (cs2 over UDP)
+# does not get the camera's replies back through Docker's bridge network, so Frigate's own go2rtc times out.
+# Frigate pulls the stream from here over RTSP: rtsp://xiaomi:{FRIGATE_CAM_PW}@192.168.1.77:8574/<name>
+# Secrets come from ~/frigate/.env on the mini PC (XIAOMI_TOKEN, FRIGATE_CAM_PW); this file holds none.
+
+api:
+  listen: "127.0.0.1:11984"   # loopback only, for checks from the mini PC
+
+rtsp:
+  listen: ":8574"             # Frigate already uses 8554, the Furbo bridge 8564
+  username: "xiaomi"
+  password: "${FRIGATE_CAM_PW}"
+
+webrtc:
+  listen: "127.0.0.1:8575"
+
+xiaomi:
+  "1814168282": "${XIAOMI_TOKEN}"
+
+streams:
+  litter_box: xiaomi://1814168282:us@192.168.1.84?did=1105958481&model=isa.camera.hlc7
