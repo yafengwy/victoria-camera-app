@@ -1402,7 +1402,10 @@ const Frigate = {
       id, name: (cfg.cameras[id].friendly_name || id.replace(/_/g, ' ')).replace(/\b\w/g, m => m.toUpperCase()),
       group: groupOf(id), img: this.base() + '/api/' + id + '/latest.webp?height=480',
       ar: (d => d && d.width && d.height ? d.width / d.height : 0)(cfg.cameras[id].detect),   /* picture shape, from Frigate's detect size */
-      zones: Object.keys(cfg.cameras[id].zones || {}).map(z => z.replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase()))
+      zones: Object.keys(cfg.cameras[id].zones || {}).map(z => z.replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase())),
+      /* detect and record streams run on different clocks: Frigate's per-camera Annotation Offset (ms, set in Frigate's
+         Explore → Tracking Details → Annotation Settings) lines the boxes up with the recorded video, here as in Frigate */
+      aoff: +(((cfg.cameras[id].detect || {}).annotation_offset) || 0)
     }));
     /* Victoria's order; cameras not listed keep Frigate's order after these */
     const ORDER = ['nest_doorbell', 'front_door', 'driveway', 'right_yard_front', 'right_yard_back', 'nest_backyard', 'left_yard', 'california_room',
@@ -1743,8 +1746,8 @@ const Box = {
     if (this.on) this.targets().forEach(g => {
       let ov = g.host.querySelector(':scope > .bbx'); if (!ov) { ov = document.createElement('div'); ov.className = 'bbx'; g.host.appendChild(ov); }
       seen.add(ov);
-      const ts = g.t / 1000, c = Data.cam(g.cam) || {};
-      const evs = Data.events.filter(e => e.cam === g.cam && g.t >= e.t - 1500 && g.t <= (e.end || e.t) + 2500);
+      const c = Data.cam(g.cam) || {}, tm = g.t - (c.aoff || 0), ts = tm / 1000;   /* video time → detect time */
+      const evs = Data.events.filter(e => e.cam === g.cam && tm >= e.t - 1500 && tm <= (e.end || e.t) + 2500);
       const boxes = []; evs.forEach(e => (e.dets || []).forEach(d => { const bc = this.get(d, e.label), b = this.at(bc, ts); if (b) boxes.push([b, bc.label || e.label]); }));
       /* where the picture actually sits in the box (cover crops, contain letterboxes) */
       const media = g.media || [...g.host.querySelectorAll('video.pbv, img')].find(m => m.offsetParent !== null && getComputedStyle(m).opacity !== '0') || g.host.querySelector('img');
