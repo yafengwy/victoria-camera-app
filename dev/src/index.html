@@ -282,7 +282,8 @@ img.rf{opacity:0}
 .fstep[disabled]{opacity:.35}
 .fullsteps{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:4;display:flex;align-items:center;gap:10px}
 .fullsteps .fstep{height:40px;min-width:56px;font-size:14px;background:rgba(0,0,0,.6)}
-.fullsteps .dk.wide{height:40px;padding:0 18px}
+.fullsteps .dk.wide{height:40px;min-width:56px;padding:0 14px;font-size:14px}
+.fullsteps .dk.wide[disabled]{opacity:.35}
 .livepill{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:5;height:52px;padding:0 24px;border-radius:26px;background:#B9CCFF;color:#13223F;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px;box-shadow:0 6px 16px rgba(0,0,0,.35)}
 /* Wide screens: video on the left, date bar + timeline/list on the right */
 @media (min-width:1000px) and (min-height:560px){
@@ -2951,8 +2952,8 @@ function viewFull(c, t, f) {
   }
   return '<div class="full' + (S.fui ? ' ui' : '') + (fullRot() ? ' rot' : '') + '" id="fullv"><div class="fvw" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
     '<div class="fulltm" id="fulltm">' + dtShort(shownT(c.id, c.id)) + '</div>' +
-    (S.fui ? '<div class="fullsteps"><button class="fstep" data-act="fstep" data-v="-10" aria-label="Back 10 Seconds">−10s</button><button class="dk sm wide" data-act="flive" aria-label="Go Live">Live</button>' +
-      '<button class="fstep" id="fullstepf" data-act="fstep" data-v="10" aria-label="Forward 10 Seconds"' + (t == null ? ' disabled' : '') + '>+10s</button></div>' : '') +
+    (S.fui ? '<div class="fullsteps"><button class="dk sm wide" data-act="fstep" data-v="-10" aria-label="Back 10 Seconds">−10s</button><button class="fstep" data-act="flive" aria-label="Go Live">Live</button>' +
+      '<button class="dk sm wide" id="fullstepf" data-act="fstep" data-v="10" aria-label="Forward 10 Seconds"' + (t == null ? ' disabled' : '') + '>+10s</button></div>' : '') +
     (S.fui ? '<div class="fuitop"><button class="dk" data-act="unfull" aria-label="Exit Full Screen">' + I.shrink + '</button><div style="flex:1"></div>' + (Data.source === 'frigate' ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') + '<div class="pillk" id="fullbadge">' + (t == null ? '<span class="dot"></span>Live' : hms(t)) + '</div></div>' : '') +
     '</div>' + side + '</div>';
 }
