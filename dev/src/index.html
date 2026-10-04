@@ -2622,7 +2622,7 @@ function viewHome() {
   return h + '</main>';
 }
 const sndC = id => Snd.btn('ic', id).replace('aria-pressed="' + Snd.on + '"', 'aria-pressed="' + (Snd.on && (Snd.cam || S.expanded) === id) + '"');
-const isTall = c => !!(c && c.ar && c.ar < 1.2);
+const isTall = c => !!(c && c.ar && c.ar < 1.6);   /* upright or squarer than the usual 16:9 (the Doorbell, 4:3) */
 /* width of the upright camera beside two rows of tiles: the tiles keep 16:9, the upright one keeps its own shape */
 function sizeTall() {
   document.querySelectorAll('.tallblock').forEach(b => {
@@ -3095,7 +3095,7 @@ function viewFocus() {
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
     '<button class="pillk" id="fbadge" data-act="fbadge" aria-label="Live. Tap to reconnect">' + (t == null ? (cs.enabled ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t)) + '</button></div>';
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
-    '<div class="fvid' + (c.ar && c.ar < 1.2 ? ' tall" style="--ar:' + c.ar.toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
+    '<div class="fvid' + (isTall(c) ? ' tall" style="--ar:' + c.ar.toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fctl" id="fctl">' + (S.fclip && S.fclip.cam === c.id ?
       '<button class="dk" data-act="fclipx" aria-label="Cancel Download">' + I.x + '</button><div class="fclipt"><b>Start</b> ' + (S.fclip.a ? hms(S.fclip.a) : '—') + '<br><b>End</b> ' + (S.fclip.b ? hms(S.fclip.b) : '—') + '</div>' +
       '<button class="dk fbk' + (S.fclip.a ? ' set' : '') + '" data-act="fclipmark" data-v="a" aria-label="Set Start Here">[</button><button class="dk fbk' + (S.fclip.b ? ' set' : '') + '" data-act="fclipmark" data-v="b" aria-label="Set End Here">]</button>' +

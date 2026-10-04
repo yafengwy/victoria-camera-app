@@ -1866,7 +1866,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.3.4 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.3.5 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2622,7 +2622,7 @@ function viewHome() {
   return h + '</main>';
 }
 const sndC = id => Snd.btn('ic', id).replace('aria-pressed="' + Snd.on + '"', 'aria-pressed="' + (Snd.on && (Snd.cam || S.expanded) === id) + '"');
-const isTall = c => !!(c && c.ar && c.ar < 1.2);
+const isTall = c => !!(c && c.ar && c.ar < 1.6);   /* upright or squarer than the usual 16:9 (the Doorbell, 4:3) */
 /* width of the upright camera beside two rows of tiles: the tiles keep 16:9, the upright one keeps its own shape */
 function sizeTall() {
   document.querySelectorAll('.tallblock').forEach(b => {
@@ -3095,7 +3095,7 @@ function viewFocus() {
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
     '<button class="pillk" id="fbadge" data-act="fbadge" aria-label="Live. Tap to reconnect">' + (t == null ? (cs.enabled ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t)) + '</button></div>';
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
-    '<div class="fvid' + (c.ar && c.ar < 1.2 ? ' tall" style="--ar:' + c.ar.toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
+    '<div class="fvid' + (isTall(c) ? ' tall" style="--ar:' + c.ar.toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fctl" id="fctl">' + (S.fclip && S.fclip.cam === c.id ?
       '<button class="dk" data-act="fclipx" aria-label="Cancel Download">' + I.x + '</button><div class="fclipt"><b>Start</b> ' + (S.fclip.a ? hms(S.fclip.a) : '—') + '<br><b>End</b> ' + (S.fclip.b ? hms(S.fclip.b) : '—') + '</div>' +
       '<button class="dk fbk' + (S.fclip.a ? ' set' : '') + '" data-act="fclipmark" data-v="a" aria-label="Set Start Here">[</button><button class="dk fbk' + (S.fclip.b ? ' set' : '') + '" data-act="fclipmark" data-v="b" aria-label="Set End Here">]</button>' +
@@ -3851,7 +3851,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.3.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.3.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3953,7 +3953,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.3.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.3.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -4813,7 +4813,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.3.4';
+    const BUILD = '2.3.5';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
