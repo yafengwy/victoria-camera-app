@@ -958,6 +958,10 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 /* ---- v65: a picture's time is a button: all cameras jump to it ---- */
 .rvcam .tm{pointer-events:auto;cursor:pointer}
 .rvcam .tm::before{content:"";position:absolute;inset:-8px -6px}
+
+/* ---- v66: in-app zoom in full screen (the page itself never zooms, so the timeline stays put) ---- */
+.full .fvw{touch-action:none;overflow:hidden}
+.full .fvw > :not(.fuitop){transform:translate(var(--zx,0px),var(--zy,0px)) scale(var(--zs,1));transform-origin:0 0}
 </style>
 
 <div id="app" class="app"></div>
@@ -1453,7 +1457,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.4.5 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.4.6 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2365,7 +2369,56 @@ function rotDrag(el) {
 }
 function fullLocalY(e, el) { const r = el.getBoundingClientRect(), fv = document.getElementById('fullv'); return fv && fv.classList.contains('rot') ? r.right - e.clientX : e.clientY - r.top; }
 function fuiKick() {}
+/* Full screen: pinch to zoom into the picture (and drag it around) inside the app. The browser's own page zoom moved
+   the whole page, so the timeline on the right slid off the screen; this zoom only enlarges the picture. */
+const FZ = {
+  s: 1, x: 0, y: 0, cam: null, moved: 0,
+  host() { return document.querySelector('#fullv .fvw'); },
+  apply() {
+    const w = this.host(); if (!w) return;
+    if (this.cam !== (S.focus && S.focus.cam)) { this.cam = S.focus && S.focus.cam; this.s = 1; this.x = 0; this.y = 0; }
+    w.style.setProperty('--zs', this.s); w.style.setProperty('--zx', this.x + 'px'); w.style.setProperty('--zy', this.y + 'px');
+    w.classList.toggle('zoomed', this.s > 1.01);
+  },
+  reset() { this.s = 1; this.x = 0; this.y = 0; this.apply(); },
+  local(w, cx, cy) { const r = w.getBoundingClientRect(); return w.closest('.rot') ? [cy - r.top, r.right - cx] : [cx - r.left, cy - r.top]; },
+  size(w) { return w.closest('.rot') ? [w.offsetWidth, w.offsetHeight] : [w.clientWidth, w.clientHeight]; },
+  fit(w) { const [W, H] = this.size(w); this.x = Math.min(0, Math.max(W - W * this.s, this.x)); this.y = Math.min(0, Math.max(H - H * this.s, this.y)); },
+  wire() {
+    const w = this.host(); if (!w || w._fz) { this.apply(); return; } w._fz = true; this.apply();
+    let g = null, lastTap = 0;
+    const mid = (t) => this.local(w, (t[0].clientX + t[1].clientX) / 2, (t[0].clientY + t[1].clientY) / 2);
+    const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY) || 1;
+    w.addEventListener('touchstart', e => {
+      const t = e.touches;
+      if (t.length === 2) g = { pinch: true, d0: dist(t), m0: mid(t), s0: this.s, x0: this.x, y0: this.y };
+      else if (t.length === 1 && this.s > 1.01) g = { pinch: false, p0: this.local(w, t[0].clientX, t[0].clientY), x0: this.x, y0: this.y, moved: false };
+      else g = null;
+    }, { passive: true });
+    w.addEventListener('touchmove', e => {
+      if (!g) return; const t = e.touches; e.preventDefault();
+      if (g.pinch && t.length === 2) {
+        const m = mid(t), s = clamp(g.s0 * dist(t) / g.d0, 1, 6), cx = (g.m0[0] - g.x0) / g.s0, cy = (g.m0[1] - g.y0) / g.s0;
+        this.s = s; this.x = m[0] - cx * s; this.y = m[1] - cy * s; this.fit(w); this.apply(); this.moved = Date.now(); g.moved = true;
+      } else if (!g.pinch && t.length === 1) {
+        const p = this.local(w, t[0].clientX, t[0].clientY), dx = p[0] - g.p0[0], dy = p[1] - g.p0[1];
+        if (!g.moved && Math.hypot(dx, dy) < 6) return;
+        g.moved = true; this.x = g.x0 + dx; this.y = g.y0 + dy; this.fit(w); this.apply(); this.moved = Date.now();
+      }
+    }, { passive: false });
+    w.addEventListener('touchend', e => {
+      if (g && g.pinch && e.touches.length === 1 && this.s > 1.01) { const t = e.touches[0]; g = { pinch: false, p0: this.local(w, t.clientX, t.clientY), x0: this.x, y0: this.y, moved: true }; return; }
+      if (e.touches.length) return;
+      const tapped = g && !g.moved; g = null;
+      if (this.s < 1.03) this.reset();
+      /* a double tap on a zoomed picture goes back to the whole picture */
+      if ((tapped || this.s > 1.01) && e.changedTouches.length === 1) { const n = Date.now(); if (n - lastTap < 320 && this.s > 1.01) { this.reset(); this.moved = n; } lastTap = n; }
+    }, { passive: true });
+  }
+};
+document.addEventListener('gesturestart', e => { if (S.full) e.preventDefault(); });   /* iPhone: no page zoom in full screen */
 function wireFull() {
+  FZ.wire();
   if (document.querySelector('.full.rot')) { rotDrag(document.getElementById('ftsc')); rotDrag(document.querySelector('.full .fpl')); }
   const sc = document.getElementById('ftsc'); if (!sc) return;
   fScrollTo(camT(S.focus.cam));
@@ -2829,7 +2882,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.4.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.4.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3045,8 +3098,8 @@ const ACT = {
   },
   unfocus() { S.focus = null; S.full = false; render(); },
   full() { S.full = true; S.fui = false; S.fpanel = false; render(); },
-  unfull() { S.full = false; S.autoFull = false; S.fpanel = false; clearTimeout(fuiTimer); render(); },
-  fuitap(d, e) { if (e && e.target.closest('.fuitop')) return; S.fui = !S.fui; if (!S.fui) S.fpanel = false; render(); },
+  unfull() { FZ.s = 1; FZ.x = 0; FZ.y = 0; S.full = false; S.autoFull = false; S.fpanel = false; clearTimeout(fuiTimer); render(); },
+  fuitap(d, e) { if (e && e.target.closest('.fuitop')) return; if (Date.now() - FZ.moved < 400) return; S.fui = !S.fui; if (!S.fui) S.fpanel = false; render(); },
   fkick() { fuiKick(); },
   fpanel() { S.fpanel = !S.fpanel; S.fui = true; render(); fuiKick(); },
   fseek(d) { S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true; if (S.fpanel) render(); else { paintFocus(); Playback.sync(); } fuiKick(); },
@@ -3282,7 +3335,7 @@ function wire() {
     el.addEventListener('pointerup', () => { y0 = null; }); el.addEventListener('pointercancel', () => { y0 = null; });
   };
   swipe(document.getElementById('fctl'), dy => dy > 45, () => { ACT.full(); });
-  swipe(document.querySelector('#fullv .fvw'), dy => dy < -60, () => { ACT.unfull(); });
+  swipe(document.querySelector('#fullv .fvw'), dy => dy < -60 && FZ.s <= 1.01 && Date.now() - FZ.moved > 400, () => { ACT.unfull(); });
   if (S.full) wireFull();
   if (S.expanded && document.getElementById('track')) refreshTrack();
   if (!document.getElementById('hovtip') || S.hov) { S.hov = null; const ht = document.getElementById('hovtip'); if (ht) ht.hidden = true; }
@@ -3505,7 +3558,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.4.5';
+    const BUILD = '1.4.6';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
