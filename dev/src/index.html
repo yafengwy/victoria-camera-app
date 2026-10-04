@@ -598,6 +598,14 @@ img.rf{opacity:0}
 .snzat input{font:inherit;font-size:16px;font-weight:800;border:0;background:var(--card);color:var(--head-fg);border-radius:8px;padding:6px 10px}
 .snzgo[disabled]{opacity:.5}
 .msoon.on{background:#FFF1E6;color:#8A4A1F}
+.wtban{background:#E8F1FF;border-color:#B7CFF5;color:#16345E}
+.wtban svg{color:#2F6BD8}
+.wtban button{background:#2F6BD8}
+:root[data-dark] .wtban{background:#14263F;border-color:#2A4A78;color:#CFE0FB}
+:root[data-dark] .wtban svg{color:#7FA9F0}
+.msoon.wt{background:#E8F1FF;color:#1F4E9A}
+:root[data-dark] .msoon.wt{background:#14263F;color:#CFE0FB}
+.wtnote{font-size:12px;color:var(--sub);margin:10px 2px 0;line-height:1.4}
 .moredd{position:fixed;right:8px;top:calc(env(safe-area-inset-top,0px) + 56px);z-index:41;width:min(320px,calc(100vw - 16px));background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.22);padding:6px}
 .mrow{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 10px;width:100%;border:0;background:none;color:var(--head-fg);font:inherit;text-align:left;border-radius:10px}
 .mrow + .mrow{border-top:1px solid var(--line);border-radius:0}
@@ -1263,11 +1271,14 @@ const Frigate = {
   async reviews(after) {
     const rows = await this.get('/api/review?limit=2000&after=' + after);
     return rows.map(r => {
-      const label = ((r.data && r.data.objects && r.data.objects[0]) || 'motion').replace(/^\w/, m => m.toUpperCase());
+      let label = ((r.data && r.data.objects && r.data.objects[0]) || 'motion').replace(/^\w/, m => m.toUpperCase());
       const det = r.data && r.data.detections && r.data.detections[0];
+      /* delivery logos Frigate+ found on a car (sub labels, or listed as objects): show the company instead of "Car" */
+      const subs = [...((r.data && r.data.sub_labels) || []), ...((r.data && r.data.objects) || [])].map(x => String(Array.isArray(x) ? x[0] : x).toLowerCase()).filter(x => WAIT_CO.some(c => c[0] === x));
+      if (subs.length) label = coName(subs[0]);
       return {
         id: r.id, cam: r.camera, t: r.start_time * 1000, end: (r.end_time || r.start_time) * 1000, label, dets: (r.data && r.data.detections) || [],
-        interesting: r.severity === 'alert',
+        sev: r.severity, subs, interesting: r.severity === 'alert' || Wait.hit(r.start_time * 1000, subs),
         zones: ((r.data && r.data.zones) || []).map(z => z.replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase())),
         img: Frigate.thumb(r, det),
         preview: this.base() + '/api/review/' + r.id + '/preview?format=mp4',
@@ -1818,6 +1829,74 @@ const Snz = {
   left() { const m = Math.max(0, Math.round((this.st.until * 1000 - Date.now()) / 60000)); return m >= 60 ? Math.floor(m / 60) + 'h ' + (m % 60) + 'm' : m + 'm'; },
   names() { const c = this.st.cams; if (c.includes('all')) return 'All Cameras'; const n = c.map(id => (Data.cam(id) || { name: id }).name); return n.length > 2 ? n.slice(0, 2).join(' · ') + ' +' + (n.length - 2) : n.join(' · '); }
 };
+/* Today's Waiting: expecting a delivery. Frigate+ tags a car with the company's logo (amazon, usps, ups, fedex, dhl) on
+   Front Door, Driveway, Garage1 and Garage2. Normally that car is Uninteresting; while waiting, a car carrying a picked
+   company becomes Interesting here, and Home Assistant sends a notification ("Camera Waiting Delivery" automation).
+   Kept in Home Assistant as input_text.camera_waiting: "FROM|UNTIL|ups,fedex" (seconds). Empty = not waiting.
+   Each phone also remembers past waits for 30 days, so those deliveries stay marked after the wait ends. */
+const WAIT_CO = [['amazon', 'Amazon'], ['usps', 'USPS'], ['ups', 'UPS'], ['fedex', 'FedEx'], ['dhl', 'DHL']];
+const coName = k => (WAIT_CO.find(c => c[0] === String(k).toLowerCase()) || [0, k])[1];
+const Wait = {
+  st: { from: 0, until: 0, cos: [] }, missing: false,
+  hist: (() => { try { return JSON.parse(localStorage.getItem('vhwait') || '[]'); } catch (e) { return []; } })(),
+  active() { return this.st.cos.length > 0 && this.st.until * 1000 > Date.now(); },
+  parse(v) { const p = String(v || '').split('|'); return p.length === 3 ? { from: +p[0] || 0, until: +p[1] || 0, cos: p[2].split(',').filter(Boolean) } : { from: 0, until: 0, cos: [] }; },
+  keep(st) {           /* remember this wait on this phone (30 days), merged with the same one if already kept */
+    if (!st.cos.length) return;
+    const h = this.hist.filter(w => w.until * 1000 > Date.now() - 30 * DAY && w.from !== st.from); h.push(st); this.hist = h;
+    try { localStorage.setItem('vhwait', JSON.stringify(h)); } catch (e) {}
+  },
+  /* a delivery car (subs = logo labels on the alert) during a wait for that company */
+  hit(t, subs) {
+    if (!subs || !subs.length) return false; const s = t / 1000;
+    return [this.st, ...this.hist].some(w => w.cos.length && s >= w.from - 60 && s <= w.until && subs.some(x => w.cos.includes(String(x).toLowerCase())));
+  },
+  apply() {           /* re-mark loaded alerts after the wait changed */
+    let ch = false;
+    (Data.events || []).forEach(e => { if (e.sev == null) return; const v = e.sev === 'alert' || this.hit(e.t, e.subs); if (v !== e.interesting) { e.interesting = v; ch = true; } });
+    return ch;
+  },
+  async get() {
+    if (Data.source !== 'frigate') return;
+    try {
+      const r = await fetch(Frigate.base() + '/ha/waiting', { credentials: 'include', cache: 'no-store' });
+      if (r.status === 404) { this.missing = true; return; } if (!r.ok) return;
+      this.missing = false;
+      if (Date.now() - (this.setAt || 0) < 5000) return;
+      const n = this.parse((await r.json()).state), was = JSON.stringify(this.st);
+      this.st = n; this.keep(n);
+      if (JSON.stringify(n) !== was) { this.apply(); if (!S.modal && (S.view === 'home' || S.view === 'events')) render(); }
+    } catch (e) {}
+  },
+  async put(st) {
+    const v = st.cos.length ? Math.round(st.from) + '|' + Math.round(st.until) + '|' + st.cos.join(',') : '';
+    this.setAt = Date.now();
+    try {
+      const r = await fetch(Frigate.base() + '/ha/snoozeset', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entity_id: 'input_text.camera_waiting', value: v }) });
+      if (!r.ok) { toast(r.status === 400 || r.status === 404 ? "Today's Waiting Is Not Set Up In Home Assistant Yet" : 'Could Not Reach Home Assistant'); return false; }
+      if (!st.cos.length && this.st.cos.length) this.keep({ from: this.st.from, until: Math.min(this.st.until, Date.now() / 1000), cos: this.st.cos });
+      this.st = st.cos.length ? st : { from: 0, until: 0, cos: [] }; this.keep(this.st); this.apply(); return true;
+    } catch (e) { toast('Could Not Reach Home Assistant'); return false; }
+  },
+  names() { return this.st.cos.map(coName).join(' · '); }
+};
+function waitBanner() {
+  if (!Wait.active()) return '';
+  return '<div class="snzban wtban">' + I.box + '<div class="snzt"><b>Waiting For ' + esc(Wait.names()) + '</b><span>Until ' + hm(Wait.st.until * 1000) + '</span></div><button data-act="wtstop">Stop</button></div>';
+}
+function modalWait() {
+  const pick = S.wtPick || {}, n = WAIT_CO.filter(c => pick[c[0]]).length, dur = S.wtDur || 'today';
+  return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm snzd" role="dialog" aria-label="Today&#39;s Waiting" data-stop="1">' +
+    '<div class="dhead">Today&#39;s Waiting<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
+    '<div class="lbl" style="margin-top:0">Expecting</div><div class="chips">' +
+    WAIT_CO.map(c => '<button class="chip sm" data-act="wtco" data-v="' + c[0] + '" aria-pressed="' + !!pick[c[0]] + '">' + c[1] + '</button>').join('') + '</div>' +
+    '<div class="lbl">Until</div><div class="snzdur">' +
+    [['today', 'End Of Today', '11:59 PM'], ['at', 'Until…', dur === 'at' ? S.wtAt : 'Pick Time']].map(o => '<button data-act="wtdur" data-v="' + o[0] + '" aria-pressed="' + (dur === o[0]) + '">' + o[1] + '<small>' + esc(o[2]) + '</small></button>').join('') + '</div>' +
+    (dur === 'at' ? '<label class="snzat">Wait Until<input type="time" id="wtat" value="' + S.wtAt + '"></label>' : '') +
+    '<div class="wtnote">A Truck Or Van With That Logo On Front Door, Driveway Or Garages Becomes Interesting And Notifies You.</div>' +
+    '<button class="btn solid snzgo" data-act="wtgo"' + (n ? '' : ' disabled') + '>' + (n ? 'Start Waiting' : 'Pick A Company') + '</button>' +
+    '</div></div></div>';
+}
 function snoozeBanner() {
   if (!Snz.active()) return '';
   const back = Snz.st.mode === 'c' ? 'Until Quiet For 10 Min' : 'Back On At ' + hm(Snz.st.until * 1000) + ' · ' + Snz.left() + ' Left';
@@ -2006,6 +2085,7 @@ function render() {
   if (S.modal === 'settings') h += modalSettings();
   if (S.modal === 'win') h += modalWin();
   if (S.modal === 'snooze') h += modalSnooze();
+  if (S.modal === 'wait') h += modalWait();
   const fo = document.getElementById('fsc'), fscTop = fo && S.focus ? fo.scrollTop : null;
   const keep = {}; ['thumbs'].forEach(id => { const n = document.getElementById(id); if (n) keep[id] = [n.scrollLeft, n.scrollTop]; });
   /* scrolled lists inside open menus and dialogs keep their place when a tap redraws the page */
@@ -2044,7 +2124,7 @@ function moreMenu() {
   return '<div class="rvscrim" data-act="moreclose"></div><div class="moredd" role="dialog" aria-label="More">' +
     '<div class="mrow"><span class="mlbl">Layout</span><div class="mseg">' + lay('list', 'List', I.rows) + lay('grid', 'Grid', I.grid4) + '</div></div>' +
     '<button class="mrow mbtn" data-act="snzopen">' + I.snooze + '<span class="mlbl">Snooze Notifications</span>' + (Snz.active() ? '<span class="msoon on">' + Snz.left() + '</span>' : '') + '</button>' +
-    '<button class="mrow mbtn" data-act="soon">' + I.box + '<span class="mlbl">Today&#39;s Waiting</span><span class="msoon">Soon</span></button></div>';
+    '<button class="mrow mbtn" data-act="wtopen">' + I.box + '<span class="mlbl">Today&#39;s Waiting</span>' + (Wait.active() ? '<span class="msoon wt">' + esc(Wait.names()) + '</span>' : '') + '</button></div>';
 }
 function viewHome() {
   const groups = [];
@@ -2054,7 +2134,7 @@ function viewHome() {
     '<button class="ic" data-act="more" aria-label="More" aria-expanded="' + !!S.more + '">' + I.extras + '</button>' +
     '<button class="ic" data-act="go" data-v="events" aria-label="All Alerts">' + I.bell + '</button>' +
     '<button class="ic" data-act="go" data-v="review" aria-label="Review All Cameras">' + I.review + '</button>' +
-    '<button class="ic" data-act="modal" data-v="settings" aria-label="Settings">' + I.gear + '</button></div></header>' + (S.more ? moreMenu() : '') + '<main class="main">' + snoozeBanner();
+    '<button class="ic" data-act="modal" data-v="settings" aria-label="Settings">' + I.gear + '</button></div></header>' + (S.more ? moreMenu() : '') + '<main class="main">' + snoozeBanner() + waitBanner();
   groups.forEach(g => {
     /* cameras that are off go to the end of their group; the rest keep their order */
     const cams = Data.cams.filter(c => c.group === g).sort((a, b) => (Ctl.on(b.id) ? 1 : 0) - (Ctl.on(a.id) ? 1 : 0));
@@ -3330,6 +3410,23 @@ const ACT = {
     }
     if (await Snz.put({ until: Date.now() / 1000 + secs, mode: S.snzDur === 'c' ? 'c' : 't', cams })) { S.modal = null; render(); toast('Notifications Snoozed'); }
   },
+  wtopen() {
+    S.more = false; S.wtPick = {}; if (Wait.active()) Wait.st.cos.forEach(k => { S.wtPick[k] = true; });
+    S.wtDur = S.wtDur || 'today'; S.modal = 'wait'; render(); if (Wait.missing) toast("Today's Waiting Is Not Set Up In Home Assistant Yet");
+  },
+  wtco(d) { S.wtPick[d.v] = !S.wtPick[d.v]; render(); },
+  wtdur(d) { S.wtDur = d.v; if (d.v === 'at' && !S.wtAt) { const t = new Date(Date.now() + 3 * 3600e3); S.wtAt = pad(t.getHours()) + ':00'; } render(); },
+  async wtgo() {
+    const cos = WAIT_CO.map(c => c[0]).filter(k => S.wtPick[k]); if (!cos.length) return;
+    const end = new Date();
+    if (S.wtDur === 'at') {           /* a clock time: today, or tomorrow if that time has already passed */
+      const [hh, mm] = (S.wtAt || '').split(':').map(Number); if (isNaN(hh)) return;
+      end.setHours(hh, mm || 0, 0, 0); if (end.getTime() <= Date.now() + 60000) end.setDate(end.getDate() + 1);
+    } else end.setHours(23, 59, 0, 0);
+    const from = Wait.active() ? Wait.st.from : Date.now() / 1000;
+    if (await Wait.put({ from, until: end.getTime() / 1000, cos })) { S.modal = null; render(); toast('Waiting For ' + cos.map(coName).join(' · ')); }
+  },
+  async wtstop() { if (await Wait.put({ from: 0, until: 0, cos: [] })) { render(); toast('Stopped Waiting'); } },
   async snzresume() { if (await Snz.put({ until: 0, mode: 't', cams: [] })) { render(); toast('Notifications Back On'); } },
   layout() { S.layout = S.layout === 'list' ? 'grid' : 'list'; store.set('layout', S.layout); render(); },
   group(d) { S.open[d.v] = S.open[d.v] === false; store.set('open', S.open); render(); },
@@ -4002,9 +4099,9 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   if (Data.source === 'frigate') {
     Motion.seed(); Diag.run();
     setInterval(() => Motion.ensure(), 3000); setInterval(() => Live.watch(), 2000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) { Motion.ensure(); Frigate.refresh(); HA.get(); Snz.get(); } });
-    window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); HA.get(); setInterval(() => HA.get(), 10000); if (store.get('boxes', false)) Box.set(true); if (!Playback.native()) Playback.hls().catch(() => {}); Snz.get(); setInterval(() => Snz.get(), 15000);
-    setInterval(() => { if (S.view === 'home' && !S.modal && (Snz.active() || document.querySelector('.snzban'))) render(); }, 60000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { Motion.ensure(); Frigate.refresh(); HA.get(); Snz.get(); Wait.get(); } });
+    window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); HA.get(); setInterval(() => HA.get(), 10000); if (store.get('boxes', false)) Box.set(true); if (!Playback.native()) Playback.hls().catch(() => {}); Snz.get(); setInterval(() => Snz.get(), 15000); Wait.get(); setInterval(() => Wait.get(), 15000);
+    setInterval(() => { if (S.view === 'home' && !S.modal && (Snz.active() || Wait.active() || document.querySelector('.snzban'))) render(); }, 60000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
   openLink(); window.addEventListener('hashchange', openLink);

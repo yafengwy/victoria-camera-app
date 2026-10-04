@@ -53,9 +53,12 @@ Read this first when picking the app up in a new conversation. No secrets live i
 - Wide grids (3+ per row): panel is 2 columns wide; cameras pair up (1–2 → columns 1–2, 3–4 → 3–4, last odd one → last two) (`.grid.dense`, `panel(c, col)`). Panel spacing compacted in v71 CSS block.
 
 ## Open items
+- Driveway Enter Line: car false alerts from headlights reflecting on a window (3-5 s). First watch with the Frigate+ model; if it continues, draw a car-only Object Mask over that window (needs a screenshot of a false alert with its box).
 - iPhone Duo cover screen: the phone arrives in November; nothing to do before then. (She also uses a Galaxy Z Flip.)
 - Xiaomi / Aqara cameras: waiting for model numbers.
 - Offered: change the "No Recording" subtitle to "Not Saved By Frigate" on tiles that do have an alert.
 - Review layouts (Grid uses the same order too): only Big and Grid (Alerts On Top merged into Big). Big by screen: wide (side timeline) big 2x2 on the left, 4-5 columns; phones and upright tablets big across the top, 2 (phone) / 3 (tablet) per row below. Order: picture first, Interesting, Uninteresting, rest, then No Recording. Adjust per device when she reports a new width.
 - Review alert list (bell, S.rv.list, rvListHtml/rvlpick): replaces the timeline; phone bottom 38vh list, wide 340px right column; follows the alert filter.
 - Settings → Version (tap to open) → "Frigate Log · Last 2 Hrs" Copy: fetches /api/logs/frigate and copies restarts, camera reconnects, recording lines and errors from the last 2 hours (local times). Use it when an alert has no recording. Frigate clears this log when its container is rebuilt.
+- Today's Waiting (1.8.3): More menu → pick Amazon/USPS/UPS/FedEx/DHL and an end time. Stored in HA input_text.camera_waiting as "FROM|UNTIL|ups,fedex" (read via /ha/waiting, set via /ha/snoozeset). The app marks a car whose Frigate+ logo sub label matches as Interesting (label shows the company); each phone keeps past waits 30 days. HA automation "Camera Waiting Delivery" (MQTT frigate/reviews) sends the notification.
+- Frigate+ (bought 2026-10-04): model yolov9s 320x320 base 2026.2 (plus://19e725aa90b9063fdce57fdcd7132ee5), PLUS_API_KEY in .env.
