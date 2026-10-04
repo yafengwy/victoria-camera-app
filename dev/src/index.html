@@ -609,7 +609,10 @@ img.rf{opacity:0}
 #objl1[hidden],#objl2[hidden],#objl1 > [hidden],#objl2 > [hidden],#objl3 > [hidden]{display:none !important}
 .objchips{display:flex;flex-wrap:wrap;gap:6px;padding:6px 2px}
 .objchips .chip{font-size:12px;padding:6px 10px;min-height:0;border-radius:10px}
-.objchips .chip[aria-pressed="true"]{background:var(--strong);color:var(--strong-fg);border-color:var(--strong);box-shadow:none}
+.objchips .chip.oany[aria-pressed="true"],.objchips .chip.ogrp[aria-pressed="true"]{background:var(--strong);color:var(--strong-fg);border-color:var(--strong);box-shadow:none}
+.objchips .chip.oone{border:1.5px solid transparent}
+.objchips .chip.oone[aria-pressed="true"]{background:transparent;border-color:var(--strong);color:var(--strong);box-shadow:none}
+.objchips .objbr{flex-basis:100%;height:0}
 .objchips .chip.ogrp,.objchips .chip.oany{font-weight:800}
 .objchips [hidden]{display:none !important}
 .objgrp{display:flex;gap:6px;flex-wrap:wrap;padding:4px 2px 6px}
@@ -1202,19 +1205,20 @@ const I = {
 const OBJECTS = ['Person', 'Car', 'Cat', 'Dog', 'Package'];
 /* The object list in the filters: with Frigate, every object any camera is set to recognize, plus any label that
    actually shows up in the alerts (so nothing can slip past a filter unseen) */
-/* Victoria's order: these first, then the other animals, then Garbage Truck and Waste Bin, then the rest A–Z */
-const OBJ_FIRST = ['Person', 'Car', 'Cat', 'Dog', 'Amazon', 'UPS', 'FedEx', 'USPS', 'DHL'];
-const OBJ_THEN = ['garbage_truck', 'waste_bin'];
-const ANIMALS = ['cat', 'dog', 'raccoon', 'rabbit', 'squirrel', 'fox', 'deer', 'bear', 'skunk', 'possum', 'rodent', 'horse', 'cow', 'goat', 'kangaroo'];
+/* Victoria's order, in sets that each start a new row: people / car / package; delivery companies; animals;
+   outdoor vehicles and things; indoor things; anything else A–Z */
+const OBJ_SETS = [
+  ['person', 'car', 'package'],
+  ['amazon', 'fedex', 'ups', 'usps', 'dhl'],
+  ['cat', 'dog', 'fox', 'raccoon', 'rabbit', 'squirrel', 'deer', 'bear', 'skunk', 'possum', 'rodent', 'horse', 'cow', 'goat', 'kangaroo'],
+  ['garbage_truck', 'waste_bin', 'school_bus', 'bicycle', 'motorcycle', 'baby_stroller', 'bus', 'truck', 'boat', 'umbrella', 'bbq_grill', 'robot_lawnmower'],
+  ['cell phone', 'cell_phone', 'laptop', 'remote', 'suitcase', 'backpack', 'handbag']
+];
+const ANIMALS = OBJ_SETS[2];
 /* quick picks above the list: every animal, every delivery company */
 const OBJ_GROUPS = [['animals', 'All Animals', o => ANIMALS.includes(String(o).toLowerCase())], ['carriers', 'All Carriers', o => isLogo(o)]];
-function objTier(o) {
-  const i = OBJ_FIRST.indexOf(o); if (i >= 0) return i;
-  const l = String(o).toLowerCase();
-  if (ANIMALS.includes(l)) return 100;
-  const j = OBJ_THEN.indexOf(l); if (j >= 0) return 200 + j;
-  return 300;
-}
+function objSet(o) { const l = String(o).toLowerCase(); const k = OBJ_SETS.findIndex(st => st.includes(l)); return k < 0 ? OBJ_SETS.length : k; }
+function objTier(o) { const l = String(o).toLowerCase(), k = objSet(o); return k * 100 + (k < OBJ_SETS.length ? OBJ_SETS[k].indexOf(l) : 0); }
 /* tapping a group: from "everything" it picks just that group; otherwise it adds the group, or takes it away when all of it is on */
 function objGroup(f, key) {
   const g = OBJ_GROUPS.find(x => x[0] === key); if (!g) return;
@@ -1231,9 +1235,10 @@ function objGroup(f, key) {
 function objChips(f, act, grpAct, anyAct) {
   const list = OBJS(), all = list.every(o => objOn(f, o));
   const b = (cls, a, v, on, label) => '<button class="chip sm' + cls + '" data-act="' + a + '" data-v="' + esc(v) + '" aria-pressed="' + on + '">' + esc(label) + '</button>';
+  let last = -1;
   return '<div class="objchips">' + b(' oany', anyAct, '*', all, 'Any Object') +
     OBJ_GROUPS.filter(g => list.some(g[2])).map(g => b(' ogrp', grpAct, g[0], !all && list.filter(g[2]).every(o => objOn(f, o)), g[1])).join('') +
-    list.map(o => b('', act, o, !all && objOn(f, o), objName(o))).join('') + '</div>';
+    list.map(o => { const k = objSet(o), br = k !== last ? '<i class="objbr"></i>' : ''; last = k; return br + b(' oone', act, o, !all && objOn(f, o), objName(o)); }).join('') + '</div>';
 }
 function objGroupChips(f, act) {
   const list = OBJS(), all = list.every(o => objOn(f, o));
@@ -1548,6 +1553,7 @@ document.addEventListener('input', ev => {
   (S.objQs = S.objQs || {})[t.dataset.objq] = t.value;
   const q = t.value.trim().toLowerCase(), box = document.getElementById(t.dataset.objq); if (!box) return;
   if (box.hidden) { box.hidden = false; if (t.dataset.open) S[t.dataset.open] = true; }
+  box.querySelectorAll('.objbr').forEach(b => { b.hidden = !!q; });
   box.querySelectorAll('[data-v]').forEach(b => { if (b.closest('.objgrp') || b.classList.contains('ogrp') || b.classList.contains('oany')) return; b.hidden = !!q && (b.dataset.v === '*' || !b.textContent.toLowerCase().includes(q)); });
 });
 document.addEventListener('focusin', ev => {
