@@ -707,11 +707,12 @@ img.rf{opacity:0}
 .fts .hovline.v{background:repeating-linear-gradient(90deg,#fff 0 4px,transparent 4px 7px)}
 
 /* ---- v41: vertical timelines start at the top: playhead 24px from the top, older time below ---- */
-.rvdock.v .rvhs .sp:first-child,.ftsc .sp:first-child{flex:0 0 24px}
-.rvdock.v .rvhs .sp:last-child,.ftsc .sp:last-child{flex:0 0 100%}
-.rvdock.v .hline,.fline2{top:24px}
-.rvdock.v .hbub,.fbub{top:24px}
-.rvdock.v .hzoom{top:46px}
+/* (v72: the Review page's vertical timeline keeps its playhead in the middle again, so alerts above and below it can
+   both be reached; only the camera full view keeps it near the top) */
+.ftsc .sp:first-child{flex:0 0 24px}
+.ftsc .sp:last-child{flex:0 0 100%}
+.fline2{top:24px}
+.fbub{top:24px}
 .fzoom{top:46px}
 /* ---- v43: wide screens use the same top icons as the phone; the side strip is only for the iPhone Duo cover screen ---- */
 @media (min-width:1000px){
@@ -1573,7 +1574,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.6.8 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.6.9 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2777,7 +2778,7 @@ function rvFSummary() {
    right, newest at the top, so the camera grid keeps the full height. Portrait: horizontal strip at the bottom. */
 const VTOP = 24;   /* vertical timelines: the playhead sits near the top (newest = Live at the top), like Frigate */
 /* Review layouts: big (one big picture + small), top (cameras with an alert side by side on top), grid (N per row) */
-function rvLay() { return S.rv.lay !== 'grid' && !rvVert() && rvCams().length > 3 ? S.rv.lay : 'grid'; }
+function rvLay() { return S.rv.lay !== 'grid' && rvCams().length > 3 ? S.rv.lay : 'grid'; }   /* wide screens too (the side timeline) */
 function rvBig() { return rvLay() === 'big'; }
 const RV_LAYS = { big: 'Big', top: 'Alerts On Top', grid: 'Grid' };
 /* Big layout: the camera with an alert at the line gets the big picture (2/3 wide), the next two sit beside it,
@@ -3079,7 +3080,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.6.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.6.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3648,7 +3649,7 @@ function wire() {
   const trk = document.getElementById('track');
   if (trk && S.expanded) hoverPreview(trk, S.expanded, e => { const r = trk.getBoundingClientRect(); const p = clamp((e.clientX - r.left) / r.width, 0, 1); return S.winEnd - S.win + p * S.win; }, () => paintPanel());
   const rvs = document.getElementById('rvsc');
-  if (rvs) hoverPreview(rvs, 'rv', e => { const r = rvs.getBoundingClientRect(); const px = rvPx(); if (RVV) { const y = rvs.scrollTop + (e.clientY - r.top) - VTOP; return y < 0 ? null : rvEnd - y / px * MIN; } const x = rvs.scrollLeft + (e.clientX - r.left) - rvs.clientWidth / 2; return x > rvTW() ? null : rvEnd - (rvTW() - x) / px * MIN; }, paintReview, RVV ? 'v' : 'h');
+  if (rvs) hoverPreview(rvs, 'rv', e => { const r = rvs.getBoundingClientRect(); const px = rvPx(); if (RVV) { const y = rvs.scrollTop + (e.clientY - r.top) - rvs.clientHeight / 2; return y < 0 ? null : rvEnd - y / px * MIN; } const x = rvs.scrollLeft + (e.clientX - r.left) - rvs.clientWidth / 2; return x > rvTW() ? null : rvEnd - (rvTW() - x) / px * MIN; }, paintReview, RVV ? 'v' : 'h');
   const fts = document.getElementById('ftsc');
   if (fts) hoverPreview(fts, 'full', e => { const r = fts.getBoundingClientRect(); const y = fts.scrollTop + (e.clientY - r.top) - VTOP; return y < 0 ? null : focusEnd() - y / FFPX * MIN; }, paintFocus, 'v');
   /* horizontal strips: mouse wheel scrolls sideways, mouse can drag, thin scrollbar on desktop */
@@ -3659,7 +3660,7 @@ function wire() {
     if (e.target.closest('button')) return;
     const r = rvs.getBoundingClientRect(), px = rvPx();
     let t;
-    if (RVV) { const y = rvs.scrollTop + (e.clientY - r.top) - VTOP; t = y < 0 ? null : rvEnd - y / px * MIN; }
+    if (RVV) { const y = rvs.scrollTop + (e.clientY - r.top) - rvs.clientHeight / 2; t = y < 0 ? null : rvEnd - y / px * MIN; }
     else { const x = rvs.scrollLeft + (e.clientX - r.left) - rvs.clientWidth / 2; t = x > rvTW() ? null : rvEnd - (rvTW() - x) / px * MIN; }
     S.hov = null; const ht = document.getElementById('hovtip'); if (ht) ht.hidden = true; const ln = rvs.parentElement.querySelector('.hovline'); if (ln) ln.hidden = true;
     /* fingers are not precise. A tap within ~24 px of an object icon goes to the start of the first alert that icon
@@ -3870,7 +3871,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.6.8';
+    const BUILD = '1.6.9';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
