@@ -1834,7 +1834,7 @@ const Snz = {
    company becomes Interesting here, and Home Assistant sends a notification ("Camera Waiting Delivery" automation).
    Kept in Home Assistant as input_text.camera_waiting: "FROM|UNTIL|ups,fedex" (seconds). Empty = not waiting.
    Each phone also remembers past waits for 30 days, so those deliveries stay marked after the wait ends. */
-const WAIT_CO = [['amazon', 'Amazon'], ['usps', 'USPS'], ['ups', 'UPS'], ['fedex', 'FedEx'], ['dhl', 'DHL']];
+const WAIT_CO = [['amazon', 'Amazon'], ['fedex', 'FedEx'], ['ups', 'UPS'], ['usps', 'USPS'], ['dhl', 'DHL']];
 const coName = k => (WAIT_CO.find(c => c[0] === String(k).toLowerCase()) || [0, k])[1];
 const Wait = {
   st: { from: 0, until: 0, cos: [] }, missing: false,
