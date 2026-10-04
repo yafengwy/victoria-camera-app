@@ -328,6 +328,7 @@ img.rf{opacity:0}
 :is(.rvcam,.frame,.fvid):has(> img[data-ld="1"],> img.rf)::after{content:"Loading…";position:absolute;right:8px;bottom:8px;z-index:3;font-size:11px;font-weight:700;color:#fff;background:rgba(0,0,0,.55);padding:3px 8px;border-radius:999px}
 .rvsevrow{display:flex}.rvsevrow .check{flex:1}
 .rvcams.big3 .rvcam.feat{grid-column:span 2;grid-row:span 2;aspect-ratio:auto}
+.rvcams.big3.fixh .rvcam{aspect-ratio:auto;height:auto;min-height:0}
 .rvcams.big3.narrow .rvcam.feat{grid-row:span 1;aspect-ratio:16/9}
 .rvcams.big3 .rvcam.feat .nm{font-size:13px;padding:4px 10px}
 .rvcams.big3 .rvcam.nr{opacity:.5}
@@ -1574,7 +1575,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.7.4 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.7.5 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2828,6 +2829,15 @@ function rvLayout(t) {
   const side = hits.map(x => x.c.id).filter(id => id !== S.rv.feat);
   /* narrow phone: the big picture takes the full width, everything else 2 per row */
   const narrow = box.clientWidth < 520; box.classList.toggle('narrow', narrow); box.style.setProperty('--cols', narrow ? 2 : rvBigCols());
+  /* fixed row height (one 16:9 tile) so the big picture is exactly 2 tiles high: left to itself, Safari on the iPad
+     sized the rows from the picture inside and stretched the big tile far down the screen */
+  box.classList.toggle('fixh', !narrow);
+  if (!narrow) {
+    const cs = getComputedStyle(box), gap = parseFloat(cs.columnGap) || 8, k = rvBigCols();
+    const inner = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const rowH = ((inner - gap * (k - 1)) / k * 9 / 16).toFixed(1) + 'px';
+    if (box.style.gridAutoRows !== rowH) box.style.gridAutoRows = rowH;
+  } else if (box.style.gridAutoRows) box.style.gridAutoRows = '';
   cams.forEach((c, i) => {
     const n = document.getElementById('rv-' + c.id); if (!n) return;
     const f = c.id === S.rv.feat;
@@ -3111,7 +3121,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.7.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.7.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3902,7 +3912,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.7.4';
+    const BUILD = '1.7.5';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);

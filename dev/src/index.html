@@ -328,6 +328,7 @@ img.rf{opacity:0}
 :is(.rvcam,.frame,.fvid):has(> img[data-ld="1"],> img.rf)::after{content:"Loading…";position:absolute;right:8px;bottom:8px;z-index:3;font-size:11px;font-weight:700;color:#fff;background:rgba(0,0,0,.55);padding:3px 8px;border-radius:999px}
 .rvsevrow{display:flex}.rvsevrow .check{flex:1}
 .rvcams.big3 .rvcam.feat{grid-column:span 2;grid-row:span 2;aspect-ratio:auto}
+.rvcams.big3.fixh .rvcam{aspect-ratio:auto;height:auto;min-height:0}
 .rvcams.big3.narrow .rvcam.feat{grid-row:span 1;aspect-ratio:16/9}
 .rvcams.big3 .rvcam.feat .nm{font-size:13px;padding:4px 10px}
 .rvcams.big3 .rvcam.nr{opacity:.5}
@@ -2828,6 +2829,15 @@ function rvLayout(t) {
   const side = hits.map(x => x.c.id).filter(id => id !== S.rv.feat);
   /* narrow phone: the big picture takes the full width, everything else 2 per row */
   const narrow = box.clientWidth < 520; box.classList.toggle('narrow', narrow); box.style.setProperty('--cols', narrow ? 2 : rvBigCols());
+  /* fixed row height (one 16:9 tile) so the big picture is exactly 2 tiles high: left to itself, Safari on the iPad
+     sized the rows from the picture inside and stretched the big tile far down the screen */
+  box.classList.toggle('fixh', !narrow);
+  if (!narrow) {
+    const cs = getComputedStyle(box), gap = parseFloat(cs.columnGap) || 8, k = rvBigCols();
+    const inner = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const rowH = ((inner - gap * (k - 1)) / k * 9 / 16).toFixed(1) + 'px';
+    if (box.style.gridAutoRows !== rowH) box.style.gridAutoRows = rowH;
+  } else if (box.style.gridAutoRows) box.style.gridAutoRows = '';
   cams.forEach((c, i) => {
     const n = document.getElementById('rv-' + c.id); if (!n) return;
     const f = c.id === S.rv.feat;
