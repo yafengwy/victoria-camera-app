@@ -434,9 +434,9 @@ img.rf{opacity:0}
 .ghead{width:100%;justify-content:space-between;color:var(--head-fg)}
 .grid.compact .chead{display:none}
 .grid.compact .cam{border-radius:10px;background:#1E2226}
-.ctm{position:absolute;left:6px;top:6px;padding:2px 6px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;z-index:2;pointer-events:none}
+.ctm{position:absolute;left:6px;top:6px;padding:2px 6px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:9px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap;z-index:2;pointer-events:none}
 .grid.compact .tag{top:28px!important}
-.fov .pillk.ftm{flex:0 0 auto;font-variant-numeric:tabular-nums;white-space:nowrap}
+.fov .pillk.ftm{flex:0 0 auto;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:10px;font-weight:400}
 .cnm{position:absolute;left:0;bottom:0;max-width:72%;padding:3px 8px 3px 8px;border-radius:0 8px 0 0;background:rgba(18,22,24,.66);color:#fff;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:2;pointer-events:none}
 .grid.compact .tag{bottom:auto;top:6px;left:6px;font-size:11px;padding:2px 7px}
 .topicons .ic{width:38px}
@@ -973,7 +973,7 @@ input,select,textarea{font-size:16px}
 /* Small cards (3, 4 or 5 per row): the labels shrink with the card */
 .grid.compact .frame{container-type:inline-size;container-name:cam}
 @container cam (max-width:200px){
-  .grid.compact .frame .ctm{font-size:8.5px;padding:1px 3px;left:3px;top:5px;letter-spacing:-.02em}
+  .grid.compact .frame .ctm{padding:1px 4px;left:4px;top:5px}
   .grid.compact .tag{top:22px!important}
   .grid.compact .frame .badge{height:20px;font-size:10px;padding:0 6px;gap:4px;top:4px;right:4px;border-radius:10px}
   .grid.compact .frame .badge .dot{width:6px;height:6px}
@@ -984,7 +984,7 @@ input,select,textarea{font-size:16px}
   .grid.compact .frame .offv .btn{height:20px;padding:0 8px;font-size:10px;margin-top:2px}
 }
 @container cam (max-width:130px){
-  .grid.compact .frame .ctm{font-size:7px;padding:1px 3px;left:3px;top:4px}
+  .grid.compact .frame .ctm{font-size:8px;padding:1px 3px;left:3px;top:4px}
   .grid.compact .frame .badge{height:16px;font-size:9px;padding:0 5px;gap:3px;top:3px;right:3px}
   .grid.compact .frame .badge .dot{width:5px;height:5px}
   .grid.compact .frame .cnm{font-size:9px;padding:1px 5px;max-width:86%}
@@ -1766,7 +1766,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.1.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.1.3 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2447,7 +2447,7 @@ function camCard(c) {
     '<div class="frame"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(Live.cardSrc(c.id), t != null) + Playback.holder(c.id) + (S.layout === 'grid' ? '<div class="cnm">' + esc(c.name) + '</div>' : '') +
     '<button class="hit" data-act="tap" data-id="' + c.id + '" aria-label="Show playback for ' + esc(c.name) + '"></button>' +
     (off ? '<div class="offv" id="off-' + c.id + '" data-act="tap" data-id="' + c.id + '"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>' : '') +
-    badgeHtml(c.id, t, f) + '<div class="ctm" id="ctm-' + c.id + '">' + fmtDT(shownT(c.id, Live.cardSrc(c.id))) + '</div><div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="tag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div></article>';
+    badgeHtml(c.id, t, f) + '<div class="ctm" id="ctm-' + c.id + '">' + hms(shownT(c.id, Live.cardSrc(c.id))) + '</div><div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="tag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div></article>';
 }
 /* The moment the picture on screen is from: the playback time; live video = now while the picture is moving,
    and when it stops (Still) the moment it last moved; a still snapshot = when that snapshot was taken. */
@@ -2463,7 +2463,7 @@ function shownT(id, src) {
   return m ? +m[1] * 10000 : now();
 }
 function paintTimes() {
-  if (S.view === 'home') Data.cams.forEach(c => { const n = document.getElementById('ctm-' + c.id); if (n) { const v = fmtDT(shownT(c.id, Live.cardSrc(c.id))); if (n.textContent !== v) n.textContent = v; } });
+  if (S.view === 'home') Data.cams.forEach(c => { const n = document.getElementById('ctm-' + c.id); if (n) { const v = hms(shownT(c.id, Live.cardSrc(c.id))); if (n.textContent !== v) n.textContent = v; } });
   const f = document.getElementById('ftm'); if (f && S.focus) { const v = fmtDT(shownT(S.focus.cam, S.focus.cam)); if (f.textContent !== v) f.textContent = v; }
 }
 setInterval(paintTimes, 500);
@@ -3624,7 +3624,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.1.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.1.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3659,6 +3659,7 @@ const SaveBar = {
 async function fetchWithBar(url, text, from, est) {
   SaveBar.creep(text, from, 60, est);
   const r = await fetch(url, { credentials: 'include', signal: SaveBar.ac.signal }); if (!r.ok) throw new Error(String(r.status));
+  if (/text\/html/.test(r.headers.get('content-type') || '')) throw new Error('not a video');
   clearInterval(SaveBar.tm);
   const total = +r.headers.get('content-length') || 0, parts = []; let got = 0;
   if (r.body && r.body.getReader) {
@@ -3685,10 +3686,18 @@ function deliver(blob, name) {
   const u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(u), 60000); SaveBar.end(); toast('Video Saved');
 }
-async function saveClip(url, name, durS) {
+/* Downloads come with the date and time burned into the top-left corner (made on the mini PC, which takes a moment);
+   if that fails, the plain video is saved instead. */
+function stampUrl(cam, aS, bS) { return Frigate.base() + '/stamp/' + cam + '/' + aS + '/' + bS + '/' + (-new Date(aS * 1000).getTimezoneOffset() * 60) + '/clip.mp4'; }
+async function saveClip(url, name, durS, cam, aS, bS) {
   if (Data.source !== 'frigate') { toast('Downloads Work Once The App Runs On The Mini PC'); return; }
   if (SaveBar.busy) return; SaveBar.busy = true; SaveBar.ac = new AbortController();
-  try { deliver(await fetchWithBar(url, 'Preparing Video', 0, 1500 + (durS || 30) * 40), name); }
+  const d = durS || 30;
+  try {
+    let blob = null;
+    if (cam) { try { blob = await fetchWithBar(stampUrl(cam, aS, bS), 'Adding Date And Time', 0, 4000 + d * 500); } catch (e) { if (e && e.name === 'AbortError') throw e; Dbg.log('stamped download failed, plain video', cam, e && e.message); } }
+    deliver(blob || await fetchWithBar(url, 'Preparing Video', 0, 1500 + d * 40), name);
+  }
   catch (e) { const ab = e && e.name === 'AbortError'; SaveBar.end(); if (!ab) toast('Could Not Get The Video'); }
 }
 function toast(msg) {
@@ -3717,7 +3726,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.1.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.1.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -3862,7 +3871,8 @@ const ACT = {
   },
   evdl(d) {
     const e = Data.events.find(x => x.id === d.v); if (!e) return;
-    saveClip(e.clip, (Data.cam(e.cam) ? Data.cam(e.cam).name : e.cam) + ' ' + e.label + ' ' + fileTime(e.t) + '.mp4', ((e.end || e.t + 20000) - e.t) / 1000 + 3);
+    const aS = Math.floor(e.t / 1000) - 1, bS = Math.ceil((e.end || e.t + 20000) / 1000) + 2;
+    saveClip(e.clip, (Data.cam(e.cam) ? Data.cam(e.cam).name : e.cam) + ' ' + e.label + ' ' + fileTime(e.t) + '.mp4', bS - aS, e.cam, aS, bS);
   },
   /* wide screens: pick an alert in the list to play it in the big player */
   evsel(d) {
@@ -3930,7 +3940,7 @@ const ACT = {
     const cl = S.clip;
     if (!cl || cl.cam !== S.expanded || !cl.a || !cl.b) { toast('Set The Start [ And End ] First'); return; }
     const cam = Data.cam(cl.cam), nm = (cam ? cam.name : cl.cam) + ' ' + fileTime(cl.a);
-    saveClip(Frigate.base() + '/api/' + cl.cam + '/start/' + Math.floor(cl.a / 1000) + '/end/' + Math.ceil(cl.b / 1000) + '/clip.mp4', nm + '.mp4', (cl.b - cl.a) / 1000);
+    saveClip(Frigate.base() + '/api/' + cl.cam + '/start/' + Math.floor(cl.a / 1000) + '/end/' + Math.ceil(cl.b / 1000) + '/clip.mp4', nm + '.mp4', (cl.b - cl.a) / 1000, cl.cam, Math.floor(cl.a / 1000), Math.ceil(cl.b / 1000));
   },
   clip() { toast(Data.source === 'frigate' ? 'Clip export starts on the mini PC' : 'Clip saved (demo)'); },
   date(d, e) {
@@ -4011,7 +4021,7 @@ const ACT = {
   fclipdl() {
     const c = S.fclip; if (!c) return; if (!c.a || !c.b) { toast(c.a ? 'Move To The End And Tap ]' : 'Move To The Start And Tap ['); return; }
     const cam = Data.cam(c.cam);
-    saveClip(Frigate.base() + '/api/' + c.cam + '/start/' + Math.floor(c.a / 1000) + '/end/' + Math.ceil(c.b / 1000) + '/clip.mp4', (cam ? cam.name : c.cam) + ' ' + fileTime(c.a) + '.mp4', (c.b - c.a) / 1000);
+    saveClip(Frigate.base() + '/api/' + c.cam + '/start/' + Math.floor(c.a / 1000) + '/end/' + Math.ceil(c.b / 1000) + '/clip.mp4', (cam ? cam.name : c.cam) + ' ' + fileTime(c.a) + '.mp4', (c.b - c.a) / 1000, c.cam, Math.floor(c.a / 1000), Math.ceil(c.b / 1000));
   },
   full() { S.full = true; S.fui = false; S.fpanel = false; render(); },
   unfull() { FZ.s = 1; FZ.x = 0; FZ.y = 0; S.full = false; S.autoFull = false; S.fpanel = false; clearTimeout(fuiTimer); render(); },
@@ -4538,7 +4548,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.1.2';
+    const BUILD = '2.1.3';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
