@@ -1574,7 +1574,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.7.1 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.7.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1747,21 +1747,21 @@ function setImg(img, src) {
   if (img.dataset.busy === '1') { img.dataset.next = src; return; }
   img.dataset.busy = '1';
   const done = () => { img.dataset.busy = ''; const n = img.dataset.next; img.dataset.next = ''; if (n && n !== img.getAttribute('src')) setImg(img, n); };
-  const cur = img.getAttribute('src') || '', have = img.naturalWidth && !/^data:/.test(cur);
+  const cur = img.getAttribute('src') || '', thumb = img.dataset.thumb === '1', have = (img.naturalWidth || thumb) && !/^data:/.test(cur);
   if (have && !/^data:/.test(src)) {
     /* a picture is already showing: fetch the next one out of sight and swap it in once it has arrived,
        so the tile never goes blank or says Loading while it waits (a miss keeps the last picture and its time) */
     const sec = u => { const m = /\/recordings\/([\d.]+)\/snapshot/.exec(u); return m ? +m[1] : null; }, a0 = sec(cur), a1 = sec(src);
-    const far = a0 == null || a1 == null || Math.abs(a1 - a0) > 10;   /* a jump: the old picture is from another moment */
+    const far = !thumb && (a0 == null || a1 == null || Math.abs(a1 - a0) > 10);   /* a jump: the old picture is from another moment (an alert's small picture is from this moment) */
     if (far) img.dataset.ld = '1';                                   /* dim it and say Loading until the new one arrives */
     const pre = new Image(); let fin = false;
     const end = ok => { if (fin) return; fin = true; if (img.dataset.busy !== '1') return done();
-      if ((img.getAttribute('src') || '') !== cur) { if (/^data:/.test(img.getAttribute('src') || '')) img.dataset.ld = ''; return done(); }   /* meanwhile set to No Recording: leave it */ if (ok || far) { img.onload = done; img.onerror = done; img.src = src; } else done(); };
+      if ((img.getAttribute('src') || '') !== cur) { if (/^data:/.test(img.getAttribute('src') || '')) img.dataset.ld = ''; return done(); }   /* meanwhile set to No Recording: leave it */ if (ok || far) { img.onload = done; img.onerror = done; img.dataset.thumb = ''; img.src = src; } else done(); };
     pre.onload = () => end(true); pre.onerror = () => end(false); pre.src = src;
     setTimeout(() => end(false), 6000);
     return;
   }
-  img.onload = done; img.onerror = done; img.dataset.ld = '1'; img.src = src;
+  img.onload = done; img.onerror = done; img.dataset.ld = '1'; img.dataset.thumb = ''; img.src = src;
   setTimeout(() => { if (img.dataset.busy === '1' && img.getAttribute('src') === src) done(); }, 6000);   /* never stay stuck on a picture that does not answer */
 }
 
@@ -2999,14 +2999,21 @@ function paintReview() {
     if (Data.source === 'frigate') {
       const tt = ht !== undefined ? ht : t; let cov = tt == null ? true : RecMap.has(c.id, tt);
       if (cov === false && alertTry(c.id, rvAt(c, tt))) cov = true;    /* an alert here means Frigate saw it: still ask for the picture (a miss shows No Recording) */
-      if (cov === false) { img.dataset.next = ''; img.dataset.ld = ''; if (img.getAttribute('src') !== NOREC) img.src = NOREC; }
+      if (cov === false) { img.dataset.next = ''; img.dataset.ld = ''; img.dataset.thumb = ''; if (img.getAttribute('src') !== NOREC) img.src = NOREC; }
       else if (cov === true) {
         const big = c.id === S.rv.feat && rvLay() !== 'grid', nowMs = Date.now();
         /* only ask Frigate for pictures that can be seen: each one costs it a video decode, and on a small screen most
            tiles are scrolled away. Scrolling brings them in (paintReview runs on scroll). */
         const r = box.getBoundingClientRect(); if (r.bottom < -40 || r.top > innerHeight + 40) { rvMark(box, c, ht !== undefined ? ht : t); return; }
         if (S.playing && ht === undefined && !big && img.naturalWidth && nowMs - (+img.dataset.at || 0) < 3000) { /* save Frigate's work: small pictures refresh every 3 s while playing */ }
-        else { img.dataset.at = nowMs; setImg(img, fi.img); }
+        else {
+          img.dataset.at = nowMs;
+          /* an alert here but nothing (or No Recording) showing yet: put the alert's own small picture up at once — it is
+             stored, so it arrives fast — while the exact frame for that second is fetched behind it */
+          const ev = tt != null && rvAt(c, tt), cur0 = img.getAttribute('src') || '';
+          if (ev && ev.img && (!cur0 || /^data:/.test(cur0)) && img.dataset.busy !== '1') { img.dataset.thumb = '1'; img.dataset.ld = ''; img.src = ev.img; }
+          setImg(img, fi.img);
+        }
       }
       else if (!img.naturalWidth || img.getAttribute('src') === NOREC) img.dataset.ld = '1';     /* still finding out */
     } else if (img.getAttribute('src') !== fi.img) img.src = fi.img;
@@ -3092,7 +3099,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.7.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.7.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3883,7 +3890,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.7.1';
+    const BUILD = '1.7.2';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);

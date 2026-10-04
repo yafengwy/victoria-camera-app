@@ -1,0 +1,14 @@
+const { chromium } = require('playwright');
+(async () => { const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' }); const pg = await b.newPage({ viewport: { width: 412, height: 900 } });
+await pg.route(/jsdelivr/, r => r.fulfill({ path: '../skins/node_modules/hls.js/dist/hls.min.js', contentType: 'text/javascript' }));
+await pg.route(/recordings\/[\d.]+\/snapshot/, async r => { await new Promise(x => setTimeout(x, 1500)); r.fulfill({ path: 'front_s.jpg', contentType: 'image/jpeg' }); });
+const errs=[]; pg.on('pageerror',e=>errs.push(e.message));
+await pg.goto('http://localhost:8765/'); await pg.waitForTimeout(2000);
+const r0 = await pg.evaluate(async () => { S.view = 'review'; S.rv.lay = 'grid'; render(); await new Promise(r => setTimeout(r, 400));
+  const e = Data.events.find(e => e.cam === 'front_door'); e.img = '/front_s.jpg?thumb=1'; S.rv.t = e.t + 2000; S.playing = false;
+  const img = document.querySelector('#rv-front_door img'); img.setAttribute('src', NOREC); img.dataset.busy = ''; img.dataset.next = '';
+  paintReview(); await new Promise(r => setTimeout(r, 300));
+  const a = { src: img.getAttribute('src'), thumb: img.dataset.thumb, ld: img.dataset.ld };
+  await new Promise(r => setTimeout(r, 2500));
+  return [a, { src: img.getAttribute('src').slice(0, 60), thumb: img.dataset.thumb, ld: img.dataset.ld }]; });
+console.log(JSON.stringify(r0), errs); await b.close(); })();
