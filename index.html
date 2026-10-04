@@ -1508,7 +1508,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.4.9 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.4.10 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2502,14 +2502,17 @@ function wireFull() {
   zone.addEventListener('touchend', e => { if (e.touches.length < 2) pz = null; });
   zone.addEventListener('touchcancel', () => { pz = null; });
   zone.addEventListener('wheel', e => { const k = wheelKind(e); if (k === 'pad') return; e.preventDefault(); fZoom(FFPX * Math.exp(-e.deltaY * (k === 'pinch' ? 0.02 : 0.002))); }, { passive: false });
+  sc.addEventListener('touchstart', e => { sc._t0 = e.touches[0] ? [e.touches[0].clientX, e.touches[0].clientY] : null; sc._mv = e.touches.length > 1; }, { passive: true });
+  sc.addEventListener('touchmove', e => { const t = e.touches[0]; if (e.touches.length > 1 || (sc._t0 && t && Math.hypot(t.clientX - sc._t0[0], t.clientY - sc._t0[1]) > 8)) sc._mv = true; }, { passive: true });
   sc.addEventListener('scroll', () => {
-    if (S.fLock) return;
+    if (S.fLock) return; sc._scrolled = Date.now();
     const y = sc.scrollTop + fFullY() - VTOP;
     S.camTime[S.focus.cam] = (y < 3 && !S.focus.dayEnd) ? null : focusEnd() - y / FFPX * MIN;
     paintFocus();
   }, { passive: true });
   sc.addEventListener('click', e => {           /* tap an empty spot on the rail: go to that time */
     if (e.target.closest('button')) return;
+    if (sc._mv || Date.now() - (sc._scrolled || 0) < 350) { sc._mv = false; return; }   /* the end of a drag is not a tap */
     const tr = document.getElementById('ftrack'); if (!tr) return;
     const y = fullLocalY(e, tr), t = focusEnd() - y / FFPX * MIN;
     /* fingers are not precise: a tap within ~40 px of an alert mark means that alert */
@@ -2949,7 +2952,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.4.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.4.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3541,8 +3544,12 @@ function wire() {
   dragScroll(document.getElementById('fsc'), true);
   const sc = document.getElementById('fsc');
   if (sc) {
+    /* a drag of the timeline must never count as a tap when the finger lifts (it jumped to the nearest alert) */
+    sc.addEventListener('touchstart', e => { sc._t0 = e.touches[0] ? [e.touches[0].clientX, e.touches[0].clientY] : null; sc._mv = e.touches.length > 1; }, { passive: true });
+    sc.addEventListener('touchmove', e => { const t = e.touches[0]; if (e.touches.length > 1 || (sc._t0 && t && Math.hypot(t.clientX - sc._t0[0], t.clientY - sc._t0[1]) > 8)) sc._mv = true; }, { passive: true });
     sc.addEventListener('click', e => {
       if (e.target.closest('button')) return;
+      if (sc._mv || Date.now() - (sc._scrolled || 0) < 350) { sc._mv = false; return; }
       const fin = sc.querySelector('.fin'); if (!fin) return;
       const y = e.clientY - fin.getBoundingClientRect().top, t = focusEnd() - (y - FTOP) / FPX * MIN;
       const gi = (S.focus.groups || []).findIndex(g => Math.abs(g.y - y) < 36);
@@ -3551,7 +3558,7 @@ function wire() {
     });
     sc.addEventListener('scroll', () => {
       if (S.focus.progTop != null && Math.abs(sc.scrollTop - S.focus.progTop) < 2) { S.focus.progTop = null; return; }
-      S.focus.progTop = null;
+      S.focus.progTop = null; sc._scrolled = Date.now();
       const ly = S.focus.lineY == null ? FTOP : S.focus.lineY, y = sc.scrollTop + ly;
       S.camTime[S.focus.cam] = (!S.focus.dayEnd && y < FTOP + 2) ? null : focusEnd() - (y - FTOP) / FPX * MIN;
       paintFocus();
@@ -3722,7 +3729,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.4.9';
+    const BUILD = '1.4.10';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
