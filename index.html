@@ -1004,6 +1004,15 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .evrow .evt b{display:block;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
 .evrow .evt span{display:block;font-size:12px;font-weight:600;opacity:.75;margin-top:3px}
 .evrow .ic{color:var(--ev-fg);width:38px;height:38px;flex-shrink:0}
+
+/* ---- v70: open camera (list layout): date, boxes, Live and sound sit in the camera's title row ---- */
+.chctl{display:flex;align-items:center;gap:2px;margin-left:auto}
+.chctl .ic{width:38px;height:38px}
+.chctl .ic svg{width:20px;height:20px}
+.chctl .bxh[aria-pressed="true"]{color:var(--strong-fg);background:var(--strong);border-radius:19px}
+.chlive{height:30px;padding:0 12px;margin:0 4px;border-radius:15px;background:var(--strong);color:var(--strong-fg);font-size:12px;font-weight:800}
+.chead .chctl + .sndb{margin-left:0}
+.pctl.solo{justify-content:center}
 </style>
 
 <div id="app" class="app"></div>
@@ -1524,7 +1533,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.5.7 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.5.8 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2011,6 +2020,9 @@ function camCard(c) {
   const tall = c.ar && c.ar < 1.2;
   return '<article class="cam' + (c.id === S.expanded ? ' on' : '') + (off ? ' off' : '') + (tall ? ' tall' : '') + '" id="cam-' + c.id + '"' + (tall ? ' style="--ar:' + c.ar.toFixed(4) + '"' : '') + '>' +
     '<div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button>' + (Snz.has(c.id) ? '<span class="snzb">' + I.snooze + (Snz.st.mode === 'c' ? 'Clear' : Snz.left()) + '</span>' : '') +
+    (S.layout === 'list' && c.id === S.expanded ? '<div class="chctl"><button class="ic" data-act="date" aria-label="Pick Date">' + I.cal + '</button>' +
+      (Data.source === 'frigate' ? '<button class="ic bxh" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
+      '<button class="chlive" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button></div>' : '') +
     (S.layout === 'list' ? Snd.btn('ic', c.id).replace('aria-pressed="' + Snd.on + '"', 'aria-pressed="' + (Snd.on && (Snd.cam || S.expanded) === c.id) + '"') : '') +
     '</div>' +
     '<div class="frame"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(Live.cardSrc(c.id), t != null) + Playback.holder(c.id) + (S.layout === 'grid' ? '<div class="cnm">' + esc(c.name) + '</div>' : '') +
@@ -2060,11 +2072,12 @@ function panel(c) {
       '<div class="cliptxt">' + (cl.a ? 'Start ' + hms(cl.a) : 'Start —') + ' · ' + (cl.b ? 'End ' + hms(cl.b) : 'End —') + '</div>';
   }
   return '<div class="panel" id="panel">' +
-    '<div class="pctl"><div class="pctl2"><button class="round" data-act="date" aria-label="Pick Date">' + I.cal + '</button>' + (Data.source === 'frigate' ? '<button class="round bxr" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('round') + '</div>' +
+    (S.layout === 'list' ? '<div class="pctl solo">' :
+    '<div class="pctl"><div class="pctl2"><button class="round" data-act="date" aria-label="Pick Date">' + I.cal + '</button>' + (Data.source === 'frigate' ? '<button class="round bxr" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('round') + '</div>') +
     '<div class="trio"><button data-act="step" data-v="-1" aria-label="Previous Event">' + I.prev + '</button>' +
     '<button data-act="playpause" aria-label="' + (S.playing ? 'Pause' : 'Play') + '">' + (S.playing ? I.pause : I.play) + '</button>' +
     '<button data-act="step" data-v="1" aria-label="Next Event">' + I.next + '</button></div>' +
-    '<button class="round" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button></div>' +
+    (S.layout === 'list' ? '' : '<button class="round" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button>') + '</div>' +
     '<div class="tl"><div class="tlrow"><span id="tlstart">' + hm(start) + ' ' + dayLabel(start) + '</span><button class="pill" id="winpill" data-act="modal" data-v="win" aria-label="Change Timeline Length">' + winLabel(S.win) + '</button><span id="tlend">' + (S.winEnd >= now() - 2000 ? 'Now' : hm(S.winEnd)) + '</span></div>' +
     '<div class="track' + (S.markStyle === 'b' ? ' lanes' : '') + '" id="track" role="slider" aria-label="Playback Time" aria-valuetext="' + (live ? 'Live' : hms(t)) + '" tabindex="0">' + clipBand(c.id, start) + segs +
     '<div class="head-mk" id="playhead" style="left:' + (S.pos * 100).toFixed(2) + '%"></div></div>' +
@@ -2098,7 +2111,7 @@ function paintPanel() {
   const t = camT(id), live = t == null, hv = S.hov && S.hov.id === id ? S.hov : null;
   const ph = document.getElementById('playhead'); if (ph) ph.style.left = ((hv ? hv.p : S.pos) * 100).toFixed(2) + '%';
   const ro = document.getElementById('readout'); if (ro) ro.textContent = hv ? dayLabel(hv.t) + ' ' + hms(hv.t) : live ? 'Live · Drag To Go Back' : dayLabel(t) + ' ' + hms(t);
-  const lb = document.getElementById('livebtn'); if (lb) lb.className = 'round';
+  const lb = document.getElementById('livebtn'); if (lb && !lb.classList.contains('chlive')) lb.className = 'round';
   const tr = document.getElementById('track'); if (tr) tr.setAttribute('aria-valuetext', live ? 'Live' : hms(t));
   paintCam(id);
 }
@@ -3004,7 +3017,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.5.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.5.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3786,7 +3799,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.5.7';
+    const BUILD = '1.5.8';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
