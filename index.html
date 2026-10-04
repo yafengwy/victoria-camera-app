@@ -1419,7 +1419,14 @@ const Frigate = {
   base() { return S.server.replace(/\/+$/, ''); },
   async get(p) { const r = await fetch(this.base() + p, { credentials: 'include' }); if (!r.ok) throw new Error(r.status); return r.json(); },
   async load() {
+    const t0 = Date.now();
+    /* the week's alerts and the people's names are asked for right away, in parallel with the camera list; the
+       cameras show as soon as the list is in, the alerts join when they arrive (Data.evReady) */
+    const subsP = People.loadSubs(), revP = this.get('/api/review?limit=2000&after=' + Math.floor((now() - 7 * DAY) / 1000));
+    Data.evReady = Promise.all([subsP, revP]).then(([, rows]) => { Data.events = this.mapReviews(rows); Dbg.log('start alerts ready', Data.events.length, (Date.now() - t0) + 'ms'); })
+      .catch(e => Dbg.log('start alerts failed', e && e.message));
     const cfg = await this.get('/api/config');
+    Dbg.log('start config ready', (Date.now() - t0) + 'ms');
     const groups = cfg.camera_groups || {};
     const groupOf = id => { for (const g in groups) if ((groups[g].cameras || []).includes(id)) return g; return 'Cameras'; };
     this.streams = {}; Object.keys((cfg.go2rtc && cfg.go2rtc.streams) || {}).forEach(k => { this.streams[k] = 1; });
@@ -1447,11 +1454,9 @@ const Frigate = {
       'nest_master_bedroom', 'fishtofu_furbo', 'riceball_furbo'];
     const rank = c => { const i = ORDER.indexOf(c.id); return i < 0 ? ORDER.length + Data.cams.indexOf(c) : i; };
     Data.cams = Data.cams.slice().sort((a, b) => rank(a) - rank(b));
-    await People.loadSubs();
-    Data.events = await this.reviews(Math.floor((now() - 7 * DAY) / 1000));
   },
-  async reviews(after) {
-    const rows = await this.get('/api/review?limit=2000&after=' + after);
+  async reviews(after) { return this.mapReviews(await this.get('/api/review?limit=2000&after=' + after)); },
+  mapReviews(rows) {
     return rows.map(r => {
       /* Frigate calls a person it recognized "person-verified": treat it as a person */
       const objs = ((r.data && r.data.objects) || []).map(o => String(o).replace(/-verified$/, '')), sl = ((r.data && r.data.sub_labels) || []).map(x => String(Array.isArray(x) ? x[0] : x));
@@ -1804,7 +1809,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.2.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.2.3 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2166,7 +2171,10 @@ function modalPeople() {
   if (!People.faceOn) h += '<div class="wtnote" style="margin:0">Face Recognition Is Off · Turn It On In Frigate: Settings, Enrichments, Face Recognition.</div>';
   else if (!f) h += '<div class="wtnote" style="margin:0">Loading…</div>';
   else {
-    h += '<div class="lbl" style="margin-top:0">New Faces · ' + tr.length + '</div>';
+    h += '<div class="lbl" style="margin-top:0">Known People · ' + lib.length + '</div>';
+    h += lib.length ? '<div class="pflist">' + lib.map(n => { const fs = f[n] || []; return '<div class="pfp">' + (fs[0] ? '<img src="' + Frigate.base() + '/clips/faces/' + encodeURIComponent(n) + '/' + encodeURIComponent(fs[0]) + '" alt="">' : '<i class="pfnone">' + ICON_SVG.person + '</i>') + '<span><b>' + esc(niceName(n)) + '</b><small>' + fs.length + (fs.length === 1 ? ' Photo' : ' Photos') + '</small></span></div>'; }).join('') + '</div>'
+      : '<div class="wtnote" style="margin:0">Nobody Yet. Pick A New Face Below And Give It A Name.</div>';
+    h += '<div class="lbl">New Faces · ' + tr.length + '</div>';
     if (!tr.length) h += '<div class="wtnote" style="margin:0">No New Faces Yet. Faces Show Up Here After The Cameras See Them.</div>';
     else h += '<div class="pfgrid">' + tr.map(x => '<button class="pf' + (sel === x.f ? ' on' : '') + '" data-act="pfsel" data-v="' + esc(x.f) + '"><img src="' + Frigate.base() + '/clips/faces/train/' + encodeURIComponent(x.f) + '" alt="" loading="lazy"><span>' + (x.guess === 'unknown' ? 'Unknown' : esc(niceName(x.guess)) + ' ' + Math.round(x.score * 100) + '%') + '</span><small>' + (x.ts ? hm(x.ts * 1000) + (dayStart(x.ts * 1000) === dayStart(now()) ? '' : ' ' + dayLabel(x.ts * 1000)) : '') + '</small></button>').join('') + '</div>';
     if (sel) {
@@ -2174,9 +2182,6 @@ function modalPeople() {
         '<div class="pfnew"><input id="pfnew" class="field" type="text" placeholder="New Name" autocomplete="off"><button class="btn solid" data-act="pfassign" data-v="">Add</button></div>' +
         '<button class="btn" data-act="pfdel">Not Useful · Delete</button></div>';
     }
-    h += '<div class="lbl">Known People · ' + lib.length + '</div>';
-    h += lib.length ? '<div class="pflist">' + lib.map(n => { const fs = f[n] || []; return '<div class="pfp">' + (fs[0] ? '<img src="' + Frigate.base() + '/clips/faces/' + encodeURIComponent(n) + '/' + encodeURIComponent(fs[0]) + '" alt="">' : '<i class="pfnone">' + ICON_SVG.person + '</i>') + '<span><b>' + esc(niceName(n)) + '</b><small>' + fs.length + (fs.length === 1 ? ' Photo' : ' Photos') + '</small></span></div>'; }).join('') + '</div>'
-      : '<div class="wtnote" style="margin:0">Nobody Yet. Pick A New Face Above And Give It A Name.</div>';
   }
   return h + '</div></div></div>';
 }
@@ -3727,7 +3732,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.2.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.2.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3829,7 +3834,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.2.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.2.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -4657,12 +4662,14 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   } const was = COVER; detectCover(); const n = cols() * 10 + rvCols() + (COVER ? 100 : 0) + (rvVert() ? 1000 : 0) + (rvCompact() ? 10000 : 0) + (evWide() ? 100000 : 0) + (rvOneRow() ? 1000000 : 0); if (S.view === 'review') { S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); } if (n !== lastCols || was !== COVER) { lastCols = n; render(); } }, 150); });
 
 (async function start() {
+  const t0 = Date.now();
   await Data.load(); lastCols = cols() * 10 + rvCols();
   /* Browsers open one websocket handshake at a time per site, so open the motion feed before the live videos queue theirs */
-  if (Data.source === 'frigate') { Motion.connect(); await new Promise(ok => { const t0 = Date.now(), w = setInterval(() => { if (Motion.up || Date.now() - t0 > 3000) { clearInterval(w); ok(); } }, 50); }); }
-  render();
+  if (Data.source === 'frigate') { Motion.connect(); await new Promise(ok => { const t1 = Date.now(), w = setInterval(() => { if (Motion.up || Date.now() - t1 > 1500) { clearInterval(w); ok(); } }, 50); }); }
+  render(); Dbg.log('start first screen', (Date.now() - t0) + 'ms', 'motion ' + (Motion.up ? 'up' : 'not yet'));
+  if (Data.evReady) Data.evReady.then(() => { if (Data.source === 'frigate') Motion.seed(); if (!S.dragging && !S.modal) render(); else if (S.expanded) refreshTrack(); });
   if (Data.source === 'frigate') {
-    Motion.seed(); Diag.run();
+    Diag.run();
     setInterval(() => Motion.ensure(), 3000); setInterval(() => Live.watch(), 2000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) { Motion.ensure(); Frigate.refresh(); HA.get(); Snz.get(); Wait.get(); } });
     window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); HA.get(); setInterval(() => HA.get(), 10000); if (store.get('boxes', false)) Box.set(true); if (!Playback.native()) Playback.hls().catch(() => {}); Snz.get(); setInterval(() => Snz.get(), 15000); Wait.get(); setInterval(() => Wait.get(), 15000);
@@ -4671,7 +4678,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.2.2';
+    const BUILD = '2.2.3';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
