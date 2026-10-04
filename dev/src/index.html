@@ -1959,7 +1959,7 @@ function modalWho() {
     '<div class="dhead">Who Is This?<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
     /* the person's own snapshot (cropped to them), at the size Frigate's face recognition works with: what you see here
        is what it would learn from, so a blurry face here means "don't teach" */
-    '<img class="whoimg crop" src="' + (pd ? Frigate.base() + '/api/events/' + encodeURIComponent(pd) + '/snapshot.jpg?crop=1&height=480' : e.img) + '" alt="" onerror="this.onerror=null;this.src=\'' + e.img + '\'">' +
+    '<img class="whoimg crop" src="' + (pd ? Frigate.base() + '/api/events/' + encodeURIComponent(pd) + '/snapshot.jpg?crop=1&bbox=0&timestamp=0&height=480' : e.img) + '" alt="" onerror="this.onerror=null;this.src=\'' + e.img + '\'">' +
     (names.length ? '<div class="lbl" style="margin-top:6px">People</div><div class="chips">' + names.map(n => '<button class="chip sm" data-act="whopick" data-v="' + esc(n) + '" aria-pressed="' + (cur === n) + '">' + esc(n) + '</button>').join('') + '</div>' : '') +
     '<div class="lbl">' + (names.length ? 'Or A New Name' : 'Name') + '</div><input id="whonew" class="field" type="text" placeholder="E.g. UPS Driver" autocomplete="off" value="' + (names.includes(cur) ? '' : esc(cur)) + '">' +
     (People.faceOn ? '<button class="check" role="checkbox" aria-checked="' + (S.whoTeach === true) + '" data-act="whoteach"><span class="box">' + (S.whoTeach === true ? I.check : '') + '</span>Teach Face Recognition</button>' : '') +
