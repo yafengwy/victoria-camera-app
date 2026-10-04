@@ -2622,7 +2622,9 @@ function viewHome() {
   return h + '</main>';
 }
 const sndC = id => Snd.btn('ic', id).replace('aria-pressed="' + Snd.on + '"', 'aria-pressed="' + (Snd.on && (Snd.cam || S.expanded) === id) + '"');
-const isTall = c => !!(c && c.ar && c.ar < 1.6);   /* upright or squarer than the usual 16:9 (the Doorbell, 4:3) */
+/* cameras laid out by their own picture shape: upright ones, and the Doorbell (4:3). Other cameras keep the usual
+   16:9 cards even when Frigate looks at them through a 4:3 sub stream (their detect size is not their picture shape). */
+const isTall = c => !!(c && c.ar && (c.ar < 1.2 || (c.id === 'nest_doorbell' && c.ar < 1.6)));
 /* width of the upright camera beside two rows of tiles: the tiles keep 16:9, the upright one keeps its own shape */
 function sizeTall() {
   document.querySelectorAll('.tallblock').forEach(b => {
