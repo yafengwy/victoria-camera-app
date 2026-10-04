@@ -75,6 +75,11 @@ img.rf{opacity:0}
 .grid .cam.span2{grid-row:span 2;align-self:stretch;min-height:0}
 .cam.span2 .frame img,.cam.span2 .frame .lvh,.cam.span2 .frame .lvc,.cam.span2 .frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .grid:has(.span2){container-type:inline-size}
+.tallblock{grid-column:1/-1;display:flex;gap:inherit;align-items:stretch;min-width:0}
+.tallblock > .cam{flex:0 0 var(--dw,25%);min-width:0}
+.tallblock > .cam .frame{flex:1 1 0;height:0;aspect-ratio:auto;width:100%;margin:0}
+.tallblock > .cam .frame img,.tallblock > .cam .frame .lvh,.tallblock > .cam .frame .lvc,.tallblock > .cam .frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.tallblock > .tbgrid{flex:1 1 0;min-width:0}
 .cam.span2 .frame{flex:1 1 0;height:0;overflow:hidden;aspect-ratio:auto;width:100%;margin:0;min-height:calc((100cqw - (var(--cols) - 1) * 10px) / var(--cols) * 1.125 + 10px)}
 .grid:not(.compact) .cam.span2 .frame{min-height:calc((100cqw - (var(--cols) - 1) * 10px) / var(--cols) * 1.125 + 54px)}
 .frame img{width:100%;height:100%;object-fit:cover;display:block;user-select:none;-webkit-user-drag:none}
@@ -1834,7 +1839,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.2.10 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.3.1 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2457,7 +2462,7 @@ function render() {
     paintReview();
   }
   requestAnimationFrame(rvHint);
-  objQRestore(); popPlace();
+  objQRestore(); popPlace(); sizeTall();
 }
 /* keep what was typed in an object picker across redraws (ticking an object redraws the list) */
 function objQRestore() {
@@ -2555,12 +2560,19 @@ function viewHome() {
       if (n <= 2) { for (let i = 0; i < cams.length;) {
         if (isTall(cams[i]) && cams[i + 1] && !isTall(cams[i + 1])) { rows.push({ pair: true, cams: [cams[i], cams[i + 1]] }); i += 2; continue; }
         const r = []; while (i < cams.length && r.length < n && !(r.length && isTall(cams[i]))) r.push(cams[i++]); rows.push({ cams: r }); } }
-      else for (let i = 0; i < cams.length; i += n) rows.push({ cams: cams.slice(i, i + n) });
+      else {
+        /* 3 or more per row: an upright camera first in its group is as tall as two rows and as wide as its own
+           picture, with the next cameras in two rows beside it (sizes set by sizeTall after drawing) */
+        let i0 = 0;
+        if (isTall(cams[0]) && cams.length > 1) { rows.push({ block: true, cams: cams.slice(0, 1 + 2 * (n - 1)) }); i0 = 1 + 2 * (n - 1); }
+        for (let i = i0; i < cams.length; i += n) rows.push({ cams: cams.slice(i, i + n) });
+      }
       rows.forEach(row => {
         const k = row.cams.findIndex(c => c.id === S.expanded);
-        if (row.pair) h += '<div class="pairrow">' + row.cams.map(c => camCard(c, isTall(c) ? c.ar : 16 / 9)).join('') + '</div>';
+        if (row.block) h += '<div class="tallblock" style="--tcols:' + (n - 1) + ';--ar:' + row.cams[0].ar.toFixed(4) + '">' + camCard(row.cams[0]) + '<div class="grid tbgrid' + (S.layout === 'grid' ? ' compact' : '') + '" style="--cols:' + (n - 1) + '">' + row.cams.slice(1).map(c => camCard(c)).join('') + '</div></div>';
+        else if (row.pair) h += '<div class="pairrow">' + row.cams.map(c => camCard(c, isTall(c) ? c.ar : 16 / 9)).join('') + '</div>';
         else row.cams.forEach(c => { h += camCard(c, 0, n >= 3 && isTall(c)); });
-        if (k >= 0) h += panel(Data.cam(S.expanded), half ? Math.min(Math.floor(k / 2) * 2 + 1, n - 1) : 0);   /* cameras pair up: 1–2 → columns 1–2, 3–4 → 3–4 */
+        if (k >= 0) h += panel(Data.cam(S.expanded), half && !row.block ? Math.min(Math.floor(k / 2) * 2 + 1, n - 1) : 0);   /* cameras pair up: 1–2 → columns 1–2, 3–4 → 3–4 */
       });
       h += '</div>';
     }
@@ -2572,6 +2584,18 @@ function viewHome() {
 }
 const sndC = id => Snd.btn('ic', id).replace('aria-pressed="' + Snd.on + '"', 'aria-pressed="' + (Snd.on && (Snd.cam || S.expanded) === id) + '"');
 const isTall = c => !!(c && c.ar && c.ar < 1.2);
+/* width of the upright camera beside two rows of tiles: the tiles keep 16:9, the upright one keeps its own shape */
+function sizeTall() {
+  document.querySelectorAll('.tallblock').forEach(b => {
+    const W = b.clientWidth, m = +getComputedStyle(b).getPropertyValue('--tcols') || 1, ar = +getComputedStyle(b).getPropertyValue('--ar') || 0.75;
+    const g = parseFloat(getComputedStyle(b).columnGap) || 10, head = b.querySelector('.tbgrid.compact') ? 0 : 44;
+    /* W = d + g + m·c + (m−1)·g, height H = 2·(c·9/16 + head) + g, d = ar·(H − head) */
+    const c = (W - m * g - ar * (g + head)) / (m + ar * 9 / 8);
+    const d = ar * (2 * (c * 9 / 16 + head) + g - head);
+    b.style.setProperty('--dw', Math.max(60, Math.round(d)) + 'px');
+  });
+}
+window.addEventListener('resize', () => requestAnimationFrame(sizeTall));
 function camCard(c, fr, span2) {
   const t = camT(c.id), f = Data.frame(c, t), off = !Ctl.on(c.id);
   const tall = isTall(c);
@@ -3787,7 +3811,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.2.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.3.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3889,7 +3913,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.2.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.3.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -4749,7 +4773,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.2.10';
+    const BUILD = '2.3.1';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
