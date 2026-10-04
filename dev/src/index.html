@@ -606,6 +606,13 @@ img.rf{opacity:0}
 .msoon.wt{background:#E8F1FF;color:#1F4E9A}
 :root[data-dark] .msoon.wt{background:#14263F;color:#CFE0FB}
 .wtnote{font-size:12px;color:var(--sub);margin:10px 2px 0;line-height:1.4}
+#objl1[hidden],#objl1 > [hidden],#objl2 > [hidden],#objl3 > [hidden]{display:none !important}
+.objqbox{display:flex;align-items:center;padding:0 0 0 12px;gap:4px}
+.objq{flex:1;min-width:0;border:0;background:transparent;color:var(--head-fg);font:inherit;font-size:15px;padding:10px 0;outline:none}
+.objq::placeholder{color:var(--head-fg);opacity:.85}
+.objq.in{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:10px;background:var(--card);padding:8px 10px;margin:2px 0 6px;font-size:14px}
+.objq.in::placeholder{color:var(--sub);opacity:1}
+.objqdd{flex:none;border:0;background:none;color:var(--head-fg);width:40px;height:40px;display:flex;align-items:center;justify-content:center}
 .delgo{background:#C0392B !important;color:#fff !important}
 .whob{flex:none;border:0;background:var(--track);color:var(--head-fg);font:inherit;font-size:12px;font-weight:800;padding:5px 10px;border-radius:999px;margin-right:2px}
 .whoimg{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:10px;background:#000}
@@ -1181,9 +1188,14 @@ const I = {
 const OBJECTS = ['Person', 'Car', 'Cat', 'Dog', 'Package'];
 /* The object list in the filters: with Frigate, every object any camera is set to recognize, plus any label that
    actually shows up in the alerts (so nothing can slip past a filter unseen) */
-const OBJ_FIRST = ['Person', 'Cat', 'Dog', 'Car'];
+const OBJ_FIRST = ['Person', 'Cat', 'Dog', 'Car', 'Amazon', 'FedEx', 'UPS', 'USPS', 'DHL'];
+/* object names on screen: "garbage_truck" → "Garbage Truck" (the value itself stays as Frigate writes it) */
+const objName = o => String(o).replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase());
+/* an alert counts for an object filter by its object, or by the delivery company on that car */
+const objHit = (f, e) => objOn(f, e.label) || (!!e.logo && objOn(f, coName(e.logo)));
 function OBJS() {
   const set = new Set(Data.source === 'frigate' && Data.objs && Data.objs.length ? Data.objs : OBJECTS);
+  if (Data.source === 'frigate' && Data.logos) WAIT_CO.forEach(c => set.add(c[1]));   /* delivery companies, picked on their own */
   (Data.events || []).forEach(e => { if (e.label && e.label !== 'Motion') set.add(e.label); });
   [S.filt, S.rv && S.rv.f].forEach(f => { if (f) Object.keys(f.objs || {}).forEach(k => { if (f.objs[k]) set.add(k); }); });   /* keep showing what was picked */
   return [...set].sort((a, b) => { const ia = OBJ_FIRST.indexOf(a), ib = OBJ_FIRST.indexOf(b); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || a.localeCompare(b); });
@@ -1274,6 +1286,7 @@ const Frigate = {
       Object.values((cc.live && cc.live.streams) || {}).forEach(k => { this.streams[k] = 1; });
       st.enabled = cc.enabled !== false; st.alerts = !(cc.review && cc.review.alerts && cc.review.alerts.enabled === false); });
     const cap = l => String(l).replace(/^\w/, m => m.toUpperCase());
+    Data.logos = [].concat(((cfg.objects || {}).track) || [], ...Object.values(cfg.cameras).map(cc => ((cc.objects || {}).track) || [])).some(l => isLogo(l));
     Data.objs = [...new Set([].concat(((cfg.objects || {}).track) || [], ...Object.values(cfg.cameras).map(cc => ((cc.objects || {}).track) || [])).filter(l => !isAttr(l)).map(cap))];
     People.faceOn = !!(cfg.face_recognition && cfg.face_recognition.enabled);
     /* cameras that look for faces (face in their object list): only there can a picture teach face recognition */
@@ -1477,6 +1490,18 @@ document.addEventListener('error', ev => {
   const fb = Frigate.fb[n.getAttribute(a)]; if (fb) { n.setAttribute(a, fb); return; }
   if (a === 'src') { if (/\/recordings\/[\d.]+\/snapshot/.test(n.getAttribute('src') || '')) n.classList.add('rf'); recFail(n, n.getAttribute('src') || ''); }
 }, true);
+/* object pickers you can type into: show only the objects whose name contains what was typed */
+document.addEventListener('input', ev => {
+  const t = ev.target; if (!t.dataset || !t.dataset.objq) return;
+  (S.objQs = S.objQs || {})[t.dataset.objq] = t.value;
+  const q = t.value.trim().toLowerCase(), box = document.getElementById(t.dataset.objq); if (!box) return;
+  if (box.hidden) { box.hidden = false; if (t.dataset.open) S[t.dataset.open] = true; }
+  box.querySelectorAll('[data-v]').forEach(b => { b.hidden = !!q && (b.dataset.v === '*' || !b.textContent.toLowerCase().includes(q)); });
+});
+document.addEventListener('focusin', ev => {
+  const t = ev.target; if (!t.dataset || !t.dataset.objq || !t.dataset.open) return;
+  const box = document.getElementById(t.dataset.objq); if (box && box.hidden) { box.hidden = false; S[t.dataset.open] = true; const b = t.parentNode.querySelector('.objqdd'); if (b) { b.innerHTML = I.up; b.setAttribute('aria-expanded', 'true'); } }
+});
 /* never show the browser's broken-picture "?" while a picture is being retried */
 document.addEventListener('load', ev => { const n = ev.target; if (n && n.tagName === 'IMG') { n.classList.remove('rf'); if (n.dataset.ld) n.dataset.ld = ''; rvTm(n); } }, true);
 /* Review: each picture says which second it really shows (pictures arrive at different speeds per camera) */
@@ -2123,7 +2148,7 @@ const S = {
 function passes(e) {
   const f = S.filt;
   if (e.interesting ? !f.int : !f.unint) return false;
-  if (!objOn(f, e.label)) return false;
+  if (!objHit(f, e)) return false;
   if (f.off[e.cam]) return false;
   return true;
 }
@@ -2237,6 +2262,11 @@ function render() {
     paintReview();
   }
   requestAnimationFrame(rvHint);
+  objQRestore();
+}
+/* keep what was typed in an object picker across redraws (ticking an object redraws the list) */
+function objQRestore() {
+  document.querySelectorAll('[data-objq]').forEach(t => { const q = (S.objQs || {})[t.dataset.objq]; if (q) { t.value = q; t.dispatchEvent(new Event('input', { bubbles: true })); } });
 }
 function rail() {
   const b = (v, icon, label) => '<button class="ic" data-act="go" data-v="' + v + '" aria-label="' + label + '"' + (S.view === v ? ' aria-current="page"' : '') + '>' + icon + '</button>';
@@ -2559,7 +2589,7 @@ function filterPanel() {
   const f = S.filt;
   const objsOn = OBJS().filter(o => objOn(f, o)), allObj = objsOn.length === OBJS().length;
   const camsOn = Data.cams.filter(c => !f.off[c.id]);
-  const objSum = allObj ? 'Any Object' : objsOn.length ? objsOn.join(', ') : 'No Objects';
+  const objSum = allObj ? 'Any Object' : objsOn.length ? objsOn.map(objName).join(', ') : 'No Objects';
   const grpOn = [...new Set(Data.cams.map(c => c.group))].find(g => { const gc = Data.cams.filter(c => c.group === g); return gc.length === camsOn.length && gc.every(c => camsOn.includes(c)); });
   const camSum = camsOn.length === Data.cams.length ? 'All Cameras' : grpOn ? grpOn + ' Only' : camsOn.length ? camsOn.length + (camsOn.length === 1 ? ' Camera' : ' Cameras') : 'No Cameras';
   let h = '<div class="fpanel2"><div class="frow">' +
@@ -2567,8 +2597,8 @@ function filterPanel() {
     '<button class="dd2" data-act="ddcam" aria-expanded="' + S.ddCam + '"><span>' + esc(camSum) + '</span>' + (S.ddCam ? I.up : I.down) + '</button>' +
     '<button class="ddreset" data-act="filtreset" aria-label="Reset Filters">' + I.reset + '</button></div>';
   if (S.ddObj) {
-    h += '<div class="ddl"><button class="mrow" data-act="anyobj">' + mini(allObj) + 'Any Recognized Object</button>' +
-      OBJS().map(o => '<button class="mrow" data-act="obj" data-v="' + o + '">' + mini(!allObj && objOn(f, o)) + o + '</button>').join('') + '</div>';
+    h += '<div class="ddl" id="objl2"><input class="objq in" type="text" data-objq="objl2" placeholder="Type To Find" autocomplete="off" autocorrect="off" spellcheck="false"><button class="mrow" data-act="anyobj">' + mini(allObj) + 'Any Recognized Object</button>' +
+      OBJS().map(o => '<button class="mrow" data-act="obj" data-v="' + esc(o) + '">' + mini(!allObj && objOn(f, o)) + esc(objName(o)) + '</button>').join('') + '</div>';
   }
   if (S.ddCam) {
     const groups = [...new Set(Data.cams.map(c => c.group))];
@@ -2943,7 +2973,7 @@ function rvMark(box, c, t) {
   if (tg) { tg.innerHTML = e ? objIcon(ico(e)) + '<span>' + esc(lab(e)) + '</span>' : ''; tg.hidden = !e; tg.classList.toggle('un', !!e && !e.interesting); tg.classList.remove('dim'); }
 }
 function rvPass(e) {
-  const f = S.rv.f; if (e.interesting ? !f.int : !f.unint) return false; if (!objOn(f, e.label)) return false;
+  const f = S.rv.f; if (e.interesting ? !f.int : !f.unint) return false; if (!objHit(f, e)) return false;
   return true;
 }
 function rvDropdown() {
@@ -2961,8 +2991,8 @@ function rvDropdown() {
   } else if (S.rv.fopen) {
     const f = S.rv.f, all = OBJS().every(o => objOn(f, o));
     h += '<div class="rvddh">Alert Level</div><div class="rvsevrow">' + ck(f.int, 'rvsev', 'int', 'Interesting') + ck(f.unint, 'rvsev', 'unint', 'Uninteresting') + '</div>' +
-      '<div class="rvddh">Objects</div>' + ck(all, 'rvobj', '*', 'Any Recognized Object', 'strong') +
-      OBJS().map(o => ck(!all && objOn(f, o), 'rvobj', o, o)).join('');
+      '<div class="rvddh">Objects</div><div id="objl3"><input class="objq in" type="text" data-objq="objl3" placeholder="Type To Find" autocomplete="off" autocorrect="off" spellcheck="false">' + ck(all, 'rvobj', '*', 'Any Recognized Object', 'strong') +
+      OBJS().map(o => ck(!all && objOn(f, o), 'rvobj', o, objName(o))).join('') + '</div>';
   } else {
     const sel = S.rv.sel, on = id => sel != null && sel.includes(id);
     const groups = [...new Set(Data.cams.map(c => c.group))];
@@ -3010,7 +3040,7 @@ function rvBarCompact(st) {
 function rvFDefault() { const f = S.rv.f; return f.int && !f.unint && OBJS().every(o => objOn(f, o)); }
 function rvFSummary() {
   const f = S.rv.f, on = OBJS().filter(o => objOn(f, o));
-  const objs = on.length === OBJS().length ? 'Any Object' : on.length ? on.join(', ') : 'No Object';
+  const objs = on.length === OBJS().length ? 'Any Object' : on.length ? on.map(objName).join(', ') : 'No Object';
   return objs + (f.int && f.unint ? ' · All' : f.unint ? ' · Uninteresting' : f.int ? '' : ' · None');
 }
 /* Wide landscape screens (Duo inner screen turned sideways, tablets, desktop): the timeline becomes a vertical rail on the
@@ -3380,13 +3410,13 @@ function rvScrollTo(t) { const sc = document.getElementById('rvsc'); if (!sc) re
 function modalFilter() {
   const f = S.filt, all = OBJS().every(o => objOn(f, o));
   const picked = OBJS().filter(o => objOn(f, o));
-  const summary = all ? 'All Objects' : picked.length ? picked.join(', ') : 'Select Objects';
+  const summary = all ? 'All Objects' : picked.length ? picked.map(objName).join(', ') : 'Select Objects';
   return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm" role="dialog" aria-label="Alert Settings" data-stop="1">' +
     '<div class="dhead">Alert Settings<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
     '<div class="lbl" style="margin-top:0">Show Me</div>' + checkRow('int', 'Interesting Alerts', f.int) + checkRow('unint', 'Uninteresting Alerts', f.unint) +
     '<div class="lbl">That Involve</div>' +
-    '<button class="dd" data-act="objdd" aria-expanded="' + S.objOpen + '">' + esc(summary) + (S.objOpen ? I.up : I.down) + '</button>' +
-    (S.objOpen ? '<div class="ddlist">' + OBJS().map(o => '<button class="check" role="checkbox" aria-checked="' + (!all && objOn(f, o)) + '" data-act="obj" data-v="' + o + '"><span class="box">' + (!all && objOn(f, o) ? I.check : '') + '</span>' + o + '</button>').join('') + '</div>' : '') +
+    '<div class="dd objqbox"><input class="objq" type="text" data-objq="objl1" data-open="objOpen" placeholder="' + esc(summary) + '" autocomplete="off" autocorrect="off" spellcheck="false"><button class="objqdd" data-act="objdd" aria-label="Show Objects" aria-expanded="' + S.objOpen + '">' + (S.objOpen ? I.up : I.down) + '</button></div>' +
+    '<div class="ddlist" id="objl1"' + (S.objOpen ? '' : ' hidden') + '>' + OBJS().map(o => '<button class="check" role="checkbox" aria-checked="' + (!all && objOn(f, o)) + '" data-act="obj" data-v="' + esc(o) + '"><span class="box">' + (!all && objOn(f, o) ? I.check : '') + '</span>' + esc(objName(o)) + '</button>').join('') + '</div>' +
     '<button class="check" role="checkbox" aria-checked="' + all + '" data-act="anyobj"><span class="box">' + (all ? I.check : '') + '</span>Any Recognized Object</button>' +
 
     '<button class="btn solid" style="align-self:flex-end" data-act="close">Save</button></div></div></div>';
