@@ -205,6 +205,9 @@ img.rf{opacity:0}
 .full .fov{top:calc(12px + env(safe-area-inset-top,0px))}
 .full .fbot{position:absolute;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom,0px));text-align:center;font-size:12px;font-weight:600;color:#B8C0C7}
 .hidden-date{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px}
+.dtwrap{position:relative;display:inline-flex;flex:none}
+.dtover{display:none}
+@media (pointer:coarse){.dtover{display:block;position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:16px;border:0;padding:0;margin:0;-webkit-appearance:none;appearance:none;background:transparent;color:transparent;z-index:2}}
 
 /* ---- v2: compact playback panel ---- */
 .pctl{padding:6px 12px}
@@ -2399,7 +2402,7 @@ function camCard(c) {
     '<div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button>' + (Snz.has(c.id) ? '<span class="snzb">' + I.snooze + (Snz.st.mode === 'c' ? 'Clear' : Snz.left()) + '</span>' : '') +
     (S.layout === 'list' && c.id === S.expanded ? '<div class="chctl">' +
       (Data.source === 'frigate' && !off ? '<button class="ic" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
-      '<button class="ic" data-act="date" aria-label="Pick Date">' + I.cal + '</button>' +
+      dtOver('<button class="ic" data-act="date" aria-label="Pick Date">' + I.cal + '</button>', 'home') +
       (Data.source === 'frigate' ? '<button class="ic bxh" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
       sndC(c.id) + '<button class="chlive" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button></div>'
       : S.layout === 'list' ? sndC(c.id) : '') +
@@ -2461,7 +2464,7 @@ function panel(c, col) {
       (Data.source === 'frigate' && Ctl.on(c.id) ? '<button class="round o-pw" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
       Snd.btn('round o-sn') + '</span><span class="pg gr">' +
       (Data.source === 'frigate' ? '<button class="round bxr o-bx" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
-      '<button class="round o-dt" data-act="date" aria-label="Pick Date">' + I.cal + '</button>' +
+      dtOver('<button class="round o-dt" data-act="date" aria-label="Pick Date">' + I.cal + '</button>', 'home') +
       '<button class="round o-lv" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button></span>') + '</div>' +
     '<div class="tl"><div class="tlrow"><span id="tlstart">' + hm(start) + ' ' + dayLabel(start) + '</span><button class="pill" id="winpill" data-act="modal" data-v="win" aria-label="Change Timeline Length">' + winLabel(S.win) + '</button><span id="tlend">' + (S.winEnd >= now() - 2000 ? 'Now' : hm(S.winEnd)) + '</span></div>' +
     '<div class="track' + (S.markStyle === 'b' ? ' lanes' : '') + '" id="track" role="slider" aria-label="Playback Time" aria-valuetext="' + (live ? 'Live' : hms(t)) + '" tabindex="0">' + clipBand(c.id, start) + segs +
@@ -3082,12 +3085,13 @@ function rvBarCompact(st) {
   const ib = (act, on, label, icon, extra) => '<button class="chip sm rvib" data-act="' + act + '" aria-pressed="' + on + '" aria-label="' + label + '" title="' + label + '">' + icon + (extra || '') + '</button>';
   const n = S.rv.sel == null ? '' : '<span class="rvibn">' + S.rv.sel.length + '</span>';
   return '<div class="rvtop c1" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
+    '<button class="chip sm rvib" data-act="rvreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
     ib('rvpick', st !== 'all' || S.rv.pick, 'Cameras', I.camsel, n) +
     ib('rvfopen', S.rv.fopen || !rvFDefault(), 'Alert Types On Timeline', I.filter) +
     ib('rvlist', !!S.rv.list, S.rv.list ? 'Show Timeline' : 'Show Alert List', S.rv.list ? I.tline : I.bellO.replace(/22/g, '18')) +
     (Data.source === 'frigate' ? ib('boxes', Box.on, 'Show Object Boxes', I.boxes) : '') +
-    ib('rvcolsopen', !!S.rv.colsOpen, 'Layout', I.grid4.replace(/22/g, '18')) +
-    '<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button></div>';
+    dtOver('<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button>', 'rv') +
+    ib('rvcolsopen', !!S.rv.colsOpen, 'Layout', I.grid4.replace(/22/g, '18')) + '</div>';
 }
 function rvFDefault() { const f = S.rv.f; return f.int && !f.unint && OBJS().every(o => objOn(f, o)); }
 function rvFSummary() {
@@ -3303,10 +3307,11 @@ function viewReview() {
   const st = rvGroupState();
   const RVC = rvCompact();
   let h = RVC ? rvBarCompact(st) : '<div class="rvtop" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
+    '<button class="chip sm rvib" data-act="rvreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
     '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + (S.rv.fopen ? I.up : I.down).replace(/22/g, '14') + '</button>' +
     '<button class="chip sm" data-act="rvcolsopen" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvLay() === 'big' ? 'Big' : rvLay() === 'top' ? 'Top' : rvCols()) + '</button>' +
     '<button class="ic' + (S.rv.list ? ' on' : '') + '" data-act="rvlist" aria-pressed="' + !!S.rv.list + '" aria-label="' + (S.rv.list ? 'Show Timeline' : 'Show Alert List') + '">' + (S.rv.list ? I.tline : I.bellO) + '</button>' +
-    '<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button></div><div class="rvchips">' +
+    dtOver('<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button>', 'rv') + '</div><div class="rvchips">' +
     (Data.source === 'frigate' ? '<button class="chip sm bxchip" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
     '<button class="chip sm" data-act="rvgroup" data-v="all" aria-pressed="' + (st === 'all') + '">All Cameras</button>' +
     groups.map(g => '<button class="chip sm" data-act="rvgroup" data-v="' + esc(g) + '" aria-pressed="' + (st === g) + '">' + esc(g) + ' Only</button>').join('') +
@@ -3800,12 +3805,7 @@ const ACT = {
     saveClip(Frigate.base() + '/api/' + cl.cam + '/start/' + Math.floor(cl.a / 1000) + '/end/' + Math.ceil(cl.b / 1000) + '/clip.mp4', nm + '.mp4', (cl.b - cl.a) / 1000);
   },
   clip() { toast(Data.source === 'frigate' ? 'Clip export starts on the mini PC' : 'Clip saved (demo)'); },
-  date(d) {
-    if (d.v === 'rv') { openDateTime(S.rv.t, v => { S.rv.t = v >= now() - 1000 ? null : Math.max(rvEnd - RSPAN, v); S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); paintReview(); }); return; }
-    openDateTime(S.expanded ? camT(S.expanded) : null, v => {
-      if (S.expanded) { if (v >= now() - 1000) { S.camTime[S.expanded] = null; S.winEnd = now(); S.pos = 1; } else { S.winEnd = Math.min(now(), v + S.win / 2); seek(S.expanded, v); S.pos = (v - (S.winEnd - S.win)) / S.win; } }
-      render();
-    }); },
+  date(d) { openDateTime(dtCur(d.v === 'rv' ? 'rv' : 'home'), dtGo(d.v === 'rv' ? 'rv' : 'home')); },
   chk(d) {
     if (d.v === 'demo') { S.demo = !S.demo; render(); return; }
     S.filt[d.v] = !S.filt[d.v]; saveFilt(); render();
@@ -3912,6 +3912,8 @@ const ACT = {
   anyobj() { S.filt.objs = {}; saveFilt(); render(); },
   rvgroup(d) { S.rv.sel = d.v === 'all' ? null : Data.cams.filter(c => c.group === d.v).map(c => c.id); render(); },
   rvpick() { S.rv.pick = !S.rv.pick; S.rv.fopen = false; S.rv.colsOpen = false; render(); },
+  /* one tap back to the defaults: All Cameras, Any Object, Interesting only */
+  rvreset() { S.rv.sel = null; S.rv.f.objs = {}; S.rv.f.int = true; S.rv.f.unint = false; store.set('rvf', S.rv.f); S.rv.fopen = S.rv.pick = S.rv.colsOpen = false; S.objQs = {}; render(); toast('Filters Reset'); },
   rvcamall() { S.rv.sel = null; render(); },
   rvdclose() { S.rv.fopen = false; S.rv.pick = false; S.rv.colsOpen = false; S.rv.zopen = null; render(); },
   rvcam(d) {
@@ -3978,6 +3980,24 @@ function openFocus(id) {
   fShow(camT(id));
 }
 /* Date + time (hours and minutes; seconds start at :00). Up to 7 days back. */
+/* what a picked date and time does: Review jumps all cameras there; the open camera seeks there */
+function dtCur(kind) { return kind === 'rv' ? S.rv.t : S.expanded ? camT(S.expanded) : null; }
+function dtGo(kind) {
+  if (kind === 'rv') return v => { S.rv.t = v >= now() - 1000 ? null : Math.max(rvEnd - RSPAN, v); S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); paintReview(); };
+  return v => {
+    if (S.expanded) { if (v >= now() - 1000) { S.camTime[S.expanded] = null; S.winEnd = now(); S.pos = 1; } else { S.winEnd = Math.min(now(), v + S.win / 2); seek(S.expanded, v); S.pos = (v - (S.winEnd - S.win)) / S.win; } }
+    render();
+  };
+}
+const dtIso = t => { const d = new Date(t); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+const dtParse = val => { const [dd, tt] = val.split('T'); const [y, m, day] = dd.split('-').map(Number); const [hh, mm] = (tt || '0:0').split(':').map(Number); return Math.min(now(), new Date(y, m - 1, day, hh, mm, 0, 0).getTime()); };
+/* iPhone opens a date picker only when the finger lands on the date box itself (a picker opened from code is ignored
+   there), so on touch screens an invisible date box sits right on top of the calendar button */
+function dtOver(btn, kind) {
+  return '<span class="dtwrap">' + btn + '<input class="dtover" type="datetime-local" step="60" data-dt="' + kind + '" aria-label="Pick Date And Time"></span>';
+}
+document.addEventListener('focusin', ev => { const t = ev.target; if (!t.dataset || !t.dataset.dt) return; t.max = dtIso(now()); t.min = dtIso(now() - 7 * DAY); t.value = dtIso(dtCur(t.dataset.dt) == null ? now() : dtCur(t.dataset.dt)); });
+document.addEventListener('change', ev => { const t = ev.target; if (!t.dataset || !t.dataset.dt || !t.value) return; dtGo(t.dataset.dt)(dtParse(t.value)); });
 function openDateTime(cur, cb) {
   const inp = document.getElementById('dtpick');
   const iso = t => { const d = new Date(t); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
