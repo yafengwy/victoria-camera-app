@@ -1442,6 +1442,7 @@ document.addEventListener('load', ev => { const n = ev.target; if (n && n.tagNam
 /* Review: each picture says which second it really shows (pictures arrive at different speeds per camera) */
 function rvTm(img) {
   const tm = img.parentNode && img.parentNode.classList && img.parentNode.classList.contains('rvcam') ? img.parentNode.querySelector('.tm') : null; if (!tm) return;
+  if (img.dataset.nrt === '1') { tm.textContent = 'No Recording'; tm.hidden = false; return; }
   const m = /\/recordings\/([\d.]+)\/snapshot/.exec(img.getAttribute('src') || '');
   if (m) { tm.textContent = hms(+m[1] * 1000); tm.hidden = false; } else tm.hidden = true;
 }
@@ -1460,7 +1461,7 @@ function recFail(n, src) {
   if (recResult[base]) { delete recResult[base]; if ((recTries[base] = (recTries[base] || 0) + 1) > 2) { recResult[base] = LOADFAIL; n.setAttribute('src', LOADFAIL); return; } }
   if (recBusy[base]) return; recBusy[base] = 1;
   const cam = m[1], sec = +m[2], key = cam + ':' + Math.floor(sec);
-  const apply = v => { recResult[base] = v; delete recBusy[base]; document.querySelectorAll('img').forEach(i => { const s2 = i.getAttribute('src') || ''; if (s2 === base || s2.startsWith(base + '&retry=')) i.setAttribute('src', v); }); if (v === NOREC && S.view === 'review') rvLayout(S.hov && S.hov.id === 'rv' ? S.hov.t : S.rv.t); };
+  const apply = v => { recResult[base] = v; delete recBusy[base]; document.querySelectorAll('img').forEach(i => { const s2 = i.getAttribute('src') || ''; if (s2 === base || s2.startsWith(base + '&retry=')) i.setAttribute('src', v); }); if (v === NOREC && S.view === 'review') paintReview(); };
   (async () => {
     /* first ask whether this second was recorded at all (one cheap question); a gap needs no retry */
     const ask = recAsk[key] || (recAsk[key] = Promise.race([new Promise(ok => setTimeout(() => ok(true), 6000)), Frigate.get('/api/' + cam + '/recordings?after=' + (sec - 2) + '&before=' + (sec + 2)).then(r => r.length > 0).catch(() => true)]));
@@ -2825,13 +2826,19 @@ function rvRank(c, t, rest, i) {
   if (r >= 0) return (np ? 500 : -50) + r;
   return np ? 1000 + i : i;
 }
+/* the camera of an alert picked in the bell list, while the line is still inside that alert (null otherwise) */
+function rvLp(t, cams) {
+  const lp = S.rv.lp; if (!lp) return null;
+  if (t != null && t >= lp.a && t <= lp.b && cams.some(c => c.id === lp.id)) return lp.id;
+  S.rv.lp = null; return null;
+}
 function rvLayout(t) {
   const box = document.querySelector('.rvcams'); if (!box) return;
   if (!(box.classList.contains('big3') || box.classList.contains('top24'))) {   /* Grid: same order as Big, no big picture */
-    const cams = rvCams(), all = rvHits(cams, t).map(x => x.c.id);
+    const cams = rvCams(), all = rvHits(cams, t).map(x => x.c.id), lp = rvLp(t, cams);
     cams.forEach((c, i) => {
       const n = document.getElementById('rv-' + c.id); if (!n) return;
-      n.classList.remove('feat'); n.style.order = rvRank(c, t, all, i);
+      n.classList.remove('feat'); n.style.order = c.id === lp ? -100 : rvRank(c, t, all, i);
       const img = n.querySelector('img'); n.classList.toggle('nr', !!img && img.getAttribute('src') === NOREC);
     });
     return;
@@ -2852,8 +2859,9 @@ function rvLayout(t) {
     return;
   }
   const cams = rvCams(), hits = rvHits(cams, t);
-  const top = hits[0] && !hits[0].np ? hits[0].c.id : null;
-  if (top && top !== S.rv.autoFeat) { S.rv.feat = top; }             /* a new alert under the line takes the big picture */
+  const top = hits[0] && !hits[0].np ? hits[0].c.id : null, lp = rvLp(t, cams);
+  if (lp) S.rv.feat = lp;                                            /* an alert picked in the list keeps the big picture */
+  else if (top && top !== S.rv.autoFeat) { S.rv.feat = top; }       /* a new alert under the line takes the big picture */
   S.rv.autoFeat = top || null;
   if (!S.rv.feat || !cams.some(c => c.id === S.rv.feat)) S.rv.feat = cams[0] && cams[0].id;
   const side = hits.map(x => x.c.id).filter(id => id !== S.rv.feat);
@@ -3072,7 +3080,7 @@ function paintReview() {
     if (Data.source === 'frigate') {
       const tt = ht !== undefined ? ht : t; let cov = tt == null ? true : RecMap.has(c.id, tt);
       if (cov === false && alertTry(c.id, rvAt(c, tt))) cov = true;    /* an alert here means Frigate saw it: still ask for the picture (a miss shows No Recording) */
-      if (cov === false) { img.dataset.next = ''; img.dataset.ld = ''; img.dataset.thumb = ''; if (img.getAttribute('src') !== NOREC) img.src = NOREC; }
+      if (cov === false) { img.dataset.next = ''; img.dataset.ld = ''; img.dataset.thumb = ''; rvNoRec(img, c, tt); }
       else if (cov === true) {
         const big = c.id === S.rv.feat && rvLay() !== 'grid', nowMs = Date.now();
         /* only ask Frigate for pictures that can be seen: each one costs it a video decode, and on a small screen most
@@ -3080,7 +3088,7 @@ function paintReview() {
         const r = box.getBoundingClientRect(); if (r.bottom < -40 || r.top > innerHeight + 40) { rvMark(box, c, ht !== undefined ? ht : t); return; }
         if (S.playing && ht === undefined && !big && img.naturalWidth && nowMs - (+img.dataset.at || 0) < 3000) { /* save Frigate's work: small pictures refresh every 3 s while playing */ }
         else {
-          img.dataset.at = nowMs;
+          img.dataset.at = nowMs; img.dataset.nrt = '';
           /* an alert here but nothing (or No Recording) showing yet: put the alert's own small picture up at once — it is
              stored, so it arrives fast — while the exact frame for that second is fetched behind it */
           const ev = tt != null && rvAt(c, tt), cur0 = img.getAttribute('src') || '';
@@ -3088,7 +3096,8 @@ function paintReview() {
           setImg(img, fi.img);
         }
       }
-      else if (!img.naturalWidth || img.getAttribute('src') === NOREC) img.dataset.ld = '1';     /* still finding out */
+      else if (img.getAttribute('src') === NOREC) rvNoRec(img, c, tt);
+      else if (!img.naturalWidth) img.dataset.ld = '1';     /* still finding out */
     } else if (img.getAttribute('src') !== fi.img) img.src = fi.img;
     rvMark(box, c, ht !== undefined ? ht : t);
   });
@@ -3096,6 +3105,13 @@ function paintReview() {
   rvLayout(ht !== undefined ? ht : t);
   rvHint();
   if (S.rv.list && t != null) document.querySelectorAll('#rvlist .rvli').forEach(n => { const e0 = +n.dataset.t, ev = Data.events.find(x => x.t === e0 && x.cam === n.dataset.id); n.classList.toggle('cur', !!ev && t >= ev.t - 3000 && t <= (ev.end || ev.t) + 3000); });
+}
+/* Frigate kept no video at this moment. If an alert is here (e.g. Garage1 dropped the recording), show the alert's own
+   picture marked "No Recording" instead of the grey "Nothing Moved Here Then", which would be wrong */
+function rvNoRec(img, c, t) {
+  const ev = t != null && rvAt(c, t);
+  if (ev && ev.img) { img.dataset.nrt = '1'; if (img.getAttribute('src') !== ev.img) img.src = ev.img; else rvTm(img); return; }
+  img.dataset.nrt = ''; if (img.getAttribute('src') !== NOREC) img.src = NOREC; rvTm(img);
 }
 /* A camera with an alert at the chosen time may be scrolled out of sight: a small pill above the timeline names it,
    and tapping it brings that camera into view */
@@ -3489,6 +3505,8 @@ const ACT = {
   rvlist() { S.rv.list = !S.rv.list; store.set('rvlist', S.rv.list); S.rv.fopen = S.rv.pick = S.rv.colsOpen = false; render(); requestAnimationFrame(() => { const c = document.querySelector('#rvlist .rvli.cur'); if (c) c.scrollIntoView({ block: 'center' }); }); },
   rvlpick(d, e) {   /* an alert in the list: every camera goes to that moment, the alert's camera comes first */
     S.rv.t = +d.t - 1000; S.playing = true; S.rv.feat = d.id; S.rv.autoFeat = null;
+    /* the picked alert's camera stays first (big picture) while the line is inside that alert, even with no recording */
+    const pe = Data.events.find(x => x.cam === d.id && x.t === +d.t); S.rv.lp = { id: d.id, a: +d.t - 3000, b: (pe && pe.end || +d.t) + 3000 };
     document.querySelectorAll('#rvlist .rvli.cur').forEach(n => n.classList.remove('cur'));
     const b = e && e.target.closest('.rvli'); if (b) b.classList.add('cur');
     const pp = document.querySelector('.rvctl [data-act="playpause"]'); if (pp) pp.innerHTML = I.pause;
@@ -3543,7 +3561,7 @@ const ACT = {
     const t = Date.now();
     if (rvTapLast.id === d.id && t - rvTapLast.at < 350) { rvTapLast = { id: null, at: 0 }; S.camTime[d.id] = S.rv.t; openFocus(d.id); return; }
     rvTapLast = { id: d.id, at: t };
-    if (rvLay() !== 'grid' && S.rv.feat !== d.id) { S.rv.feat = d.id; rvLayout(S.hov && S.hov.id === 'rv' ? S.hov.t : S.rv.t); }   /* a small picture tapped: make it the big one */
+    if (rvLay() !== 'grid' && S.rv.feat !== d.id) { S.rv.feat = d.id; S.rv.lp = null; rvLayout(S.hov && S.hov.id === 'rv' ? S.hov.t : S.rv.t); }   /* a small picture tapped: make it the big one */
   },
   rvlive() { S.rv.t = null; rvScrollTo(null); paintReview(); },
   fgrp(d) {     /* tap a group's card or icon: play its newest alert (of that kind, for an icon); a group of several opens into a strip */
