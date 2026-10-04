@@ -436,6 +436,7 @@ img.rf{opacity:0}
 .grid.compact .cam{border-radius:10px;background:#1E2226}
 .ctm{position:absolute;left:6px;top:6px;padding:2px 6px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:9px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap;z-index:2;pointer-events:none}
 .grid.compact .tag{top:28px!important}
+.fulltm{position:absolute;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));padding:3px 8px;border-radius:6px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap;z-index:3;pointer-events:none}
 .fov .pillk.ftm{flex:0 0 auto;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:10px;font-weight:400}
 .cnm{position:absolute;left:0;bottom:0;max-width:72%;padding:3px 8px 3px 8px;border-radius:0 8px 0 0;background:rgba(18,22,24,.66);color:#fff;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:2;pointer-events:none}
 .grid.compact .tag{bottom:auto;top:6px;left:6px;font-size:11px;padding:2px 7px}
@@ -1074,7 +1075,7 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 
 /* ---- v66: in-app zoom in full screen (the page itself never zooms, so the timeline stays put) ---- */
 .full .fvw{touch-action:none;overflow:hidden}
-.full .fvw > :not(.fuitop){transform:translate(var(--zx,0px),var(--zy,0px)) scale(var(--zs,1));transform-origin:0 0}
+.full .fvw > :not(.fuitop):not(.fulltm){transform:translate(var(--zx,0px),var(--zy,0px)) scale(var(--zs,1));transform-origin:0 0}
 
 /* ---- v67: save video: ready bar (phones), camera view clip range ---- */
 .savebar{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:90;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;border-radius:28px;background:#1B1F23;color:#fff;font-size:14px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.3);white-space:nowrap}
@@ -2462,9 +2463,11 @@ function shownT(id, src) {
   const img = document.getElementById(src === id && S.focus && S.focus.cam === id ? 'fimg' : 'img-' + id), m = img && /[?&]ts=(\d+)/.exec(img.getAttribute('src') || '');
   return m ? +m[1] * 10000 : now();
 }
+/* today: time only; another day: date and time */
+const dtShort = t => dayStart(t) === dayStart(now()) ? hms(t) : fmtDT(t);
 function paintTimes() {
   if (S.view === 'home') Data.cams.forEach(c => { const n = document.getElementById('ctm-' + c.id); if (n) { const v = hms(shownT(c.id, Live.cardSrc(c.id))); if (n.textContent !== v) n.textContent = v; } });
-  const f = document.getElementById('ftm'); if (f && S.focus) { const v = fmtDT(shownT(S.focus.cam, S.focus.cam)); if (f.textContent !== v) f.textContent = v; }
+  ['ftm', 'fulltm'].forEach(k => { const f = document.getElementById(k); if (f && S.focus) { const v = dtShort(shownT(S.focus.cam, S.focus.cam)); if (f.textContent !== v) f.textContent = v; } });
 }
 setInterval(paintTimes, 500);
 function agoShort(ms) { const s = Math.max(0, Math.floor(ms / 1000)); if (s < 60) return s + 's'; const m = Math.floor(s / 60); if (m < 60) return m + 'm'; const h = Math.floor(m / 60); return h < 24 ? h + 'h' : Math.floor(h / 24) + 'd'; }
@@ -2879,7 +2882,7 @@ function viewFocus() {
     body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px"><div class="frail"></div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + FTOP + 'px"></div>';
   }
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
-  const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk fname">' + esc(c.name) + '</div><div class="pillk ftm" id="ftm">' + fmtDT(shownT(c.id, c.id)) + '</div><div style="flex:1"></div>' +
+  const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk fname">' + esc(c.name) + '</div><div class="pillk ftm" id="ftm">' + dtShort(shownT(c.id, c.id)) + '</div><div style="flex:1"></div>' +
     (frig && cs.enabled ? '<button class="dk ctl" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
     '<button class="pillk" id="fbadge" data-act="fbadge" aria-label="Live. Tap to reconnect">' + (t == null ? (cs.enabled ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t)) + '</button></div>';
@@ -2930,6 +2933,7 @@ function viewFull(c, t, f) {
       (S.fpanel ? '' : '<div class="fsb zdesk2"><button class="dk sm" data-act="fzoombtn" data-v="out" aria-label="Show Longer Time">−</button><button class="dk sm" data-act="fzoombtn" data-v="in" aria-label="Show Shorter Time">+</button></div>') + '</aside>';
   }
   return '<div class="full' + (S.fui ? ' ui' : '') + (fullRot() ? ' rot' : '') + '" id="fullv"><div class="fvw" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
+    '<div class="fulltm" id="fulltm">' + dtShort(shownT(c.id, c.id)) + '</div>' +
     (S.fui ? '<div class="fuitop"><button class="dk" data-act="unfull" aria-label="Exit Full Screen">' + I.shrink + '</button><div style="flex:1"></div>' + (Data.source === 'frigate' ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') + '<div class="pillk" id="fullbadge">' + (t == null ? '<span class="dot"></span>Live' : hms(t)) + '</div></div>' : '') +
     '</div>' + side + '</div>';
 }
