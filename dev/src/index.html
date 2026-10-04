@@ -608,6 +608,7 @@ img.rf{opacity:0}
 .wtnote{font-size:12px;color:var(--sub);margin:10px 2px 0;line-height:1.4}
 .whob{flex:none;border:0;background:var(--track);color:var(--head-fg);font:inherit;font-size:12px;font-weight:800;padding:5px 10px;border-radius:999px;margin-right:2px}
 .whoimg{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:10px;background:#000}
+.whoimg.crop{aspect-ratio:auto;max-height:46vh;object-fit:contain}
 .pfgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:6px}
 .pf{display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:3px;border:2px solid transparent;border-radius:12px;background:var(--track);color:var(--head-fg);font:inherit;text-align:center}
 .pf.on{border-color:#E8762B}
@@ -1953,10 +1954,13 @@ const Wait = {
 };
 function modalWho() {
   const e = Data.events.find(x => x.id === S.whoId); if (!e) return '';
-  const names = People.known(), cur = S.whoName || '';
+  const names = People.known(), cur = S.whoName || '', pd = e.dets.find(d => People.person[d]) || '';
   return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm snzd" role="dialog" aria-label="Who Is This" data-stop="1">' +
     '<div class="dhead">Who Is This?<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
-    '<img class="whoimg" src="' + e.img + '" alt="">' +
+    /* the person's own snapshot (cropped to them), at the size Frigate's face recognition works with: what you see here
+       is what it would learn from, so a blurry face here means "don't teach" */
+    '<img class="whoimg crop" src="' + (pd ? Frigate.base() + '/api/events/' + encodeURIComponent(pd) + '/snapshot.jpg?crop=1&height=480' : e.img) + '" alt="" onerror="this.onerror=null;this.src=\'' + e.img + '\'">' +
+    (pd ? '<div class="wtnote" style="margin:2px 2px 0">This Is The Picture Face Recognition Would Learn From.</div>' : '') +
     (names.length ? '<div class="lbl" style="margin-top:6px">People</div><div class="chips">' + names.map(n => '<button class="chip sm" data-act="whopick" data-v="' + esc(n) + '" aria-pressed="' + (cur === n) + '">' + esc(n) + '</button>').join('') + '</div>' : '') +
     '<div class="lbl">' + (names.length ? 'Or A New Name' : 'Name') + '</div><input id="whonew" class="field" type="text" placeholder="E.g. UPS Driver" autocomplete="off" value="' + (names.includes(cur) ? '' : esc(cur)) + '">' +
     (People.faceOn ? '<button class="check" role="checkbox" aria-checked="' + (S.whoTeach === true) + '" data-act="whoteach"><span class="box">' + (S.whoTeach === true ? I.check : '') + '</span>Teach Face Recognition</button>' : '') +
