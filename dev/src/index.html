@@ -1441,7 +1441,7 @@ function recFail(n, src) {
   if (recResult[base]) { delete recResult[base]; if ((recTries[base] = (recTries[base] || 0) + 1) > 2) { recResult[base] = LOADFAIL; n.setAttribute('src', LOADFAIL); return; } }
   if (recBusy[base]) return; recBusy[base] = 1;
   const cam = m[1], sec = +m[2], key = cam + ':' + Math.floor(sec);
-  const apply = v => { recResult[base] = v; delete recBusy[base]; document.querySelectorAll('img').forEach(i => { const s2 = i.getAttribute('src') || ''; if (s2 === base || s2.startsWith(base + '&retry=')) i.setAttribute('src', v); }); };
+  const apply = v => { recResult[base] = v; delete recBusy[base]; document.querySelectorAll('img').forEach(i => { const s2 = i.getAttribute('src') || ''; if (s2 === base || s2.startsWith(base + '&retry=')) i.setAttribute('src', v); }); if (v === NOREC && S.view === 'review') rvLayout(S.hov && S.hov.id === 'rv' ? S.hov.t : S.rv.t); };
   (async () => {
     /* first ask whether this second was recorded at all (one cheap question); a gap needs no retry */
     const ask = recAsk[key] || (recAsk[key] = Promise.race([new Promise(ok => setTimeout(() => ok(true), 6000)), Frigate.get('/api/' + cam + '/recordings?after=' + (sec - 2) + '&before=' + (sec + 2)).then(r => r.length > 0).catch(() => true)]));
@@ -2783,17 +2783,26 @@ function rvBig() { return rvLay() === 'big'; }
 const RV_LAYS = { big: 'Big', top: 'Alerts On Top', grid: 'Grid' };
 /* Big layout: the camera with an alert at the line gets the big picture (2/3 wide), the next two sit beside it,
    the rest follow 3 per row. Tiles are only reordered (CSS order), never redrawn, so dragging stays smooth. */
+/* order of the cameras below the alerts at the line: other alerts (Interesting first, then Uninteresting), then
+   cameras that have a picture at that time, then those with No Recording; each group keeps the usual camera order */
+function rvRank(c, n, t, rest, i) {
+  const r = rest.indexOf(c.id); if (r >= 0) return -50 + r;
+  const img = n.querySelector('img');
+  const none = (img && img.getAttribute('src') === NOREC) || (Data.source === 'frigate' && t != null && RecMap.has(c.id, t) === false);
+  return none ? 1000 + i : i;
+}
 function rvLayout(t) {
   const box = document.querySelector('.rvcams'); if (!box || !(box.classList.contains('big3') || box.classList.contains('top24'))) return;
   if (box.classList.contains('top24')) {      /* alerts side by side on top: 1 → 3/4 wide, 2 → halves, 3+ → thirds; the rest 4 per row */
     const cams = rvCams(), hits = cams.map(c => ({ c, e: rvAt(c, t) })).filter(x => x.e).sort((a, b) => (b.e.interesting - a.e.interesting) || (b.e.t - a.e.t));
     /* a narrow phone (e.g. Galaxy Z Flip) fits at most 2 per row */
     const narrow = box.clientWidth < 520, top = hits.map(x => x.c.id).slice(0, narrow ? 4 : 3), span = narrow ? 12 : top.length === 1 ? 18 : top.length === 2 ? 12 : 8;
+    const rest = hits.map(x => x.c.id).filter(id => !top.includes(id));
     cams.forEach((c, i) => {
       const n = document.getElementById('rv-' + c.id); if (!n) return;
       const k = top.indexOf(c.id);
       n.classList.toggle('feat', k >= 0);
-      n.style.order = k >= 0 ? -100 + k : i;
+      n.style.order = k >= 0 ? -100 + k : rvRank(c, n, t, rest, i);
       n.style.gridColumn = k >= 0 ? (top.length === 1 ? (narrow ? '1 / span 24' : '4 / span 18') : 'span ' + span) : (narrow ? 'span 12' : 'span 6');
       const img = n.querySelector('img'); n.classList.toggle('nr', !!img && img.getAttribute('src') === NOREC);
     });
@@ -2811,7 +2820,7 @@ function rvLayout(t) {
     const n = document.getElementById('rv-' + c.id); if (!n) return;
     const f = c.id === S.rv.feat, si = side.indexOf(c.id);
     n.classList.toggle('feat', f);
-    n.style.order = f ? -100 : si >= 0 ? -50 + si : i;
+    n.style.order = f ? -100 : si >= 0 ? -50 + si : rvRank(c, n, t, [], i);
     const img = n.querySelector('img'); n.classList.toggle('nr', !!img && img.getAttribute('src') === NOREC);
   });
 }
