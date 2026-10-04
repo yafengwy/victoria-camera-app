@@ -86,7 +86,7 @@ img.rf{opacity:0}
 .fbside .frame img,.fbside .frame video{object-position:right center}
 /* the Doorbell always shows its whole picture: Nest sometimes sends a slightly different shape, which used to crop
    the sides now and then */
-.cam.tall .frame img,.cam.tall .frame video,.cam.span2 .frame img,.cam.span2 .frame video{object-fit:contain!important;background:#000}
+
 .fbside .badge{font-size:10px;padding:0 7px}
 .fbside .ctm{display:none}
 .fbside .cnm{max-width:94%;font-size:11px}
@@ -2490,6 +2490,10 @@ function render() {
   }
   requestAnimationFrame(rvHint);
   objQRestore(); popPlace(); sizeTall();
+  /* log the real picture size of upright cameras (Nest sends different shapes at times) */
+  Data.cams.filter(isTall).forEach(c => { const card = document.getElementById('cam-' + c.id); if (!card) return; card.querySelectorAll('video,img').forEach(m => { if (m._szlog) return; m._szlog = 1;
+    const log = () => { const w = m.videoWidth || m.naturalWidth, h = m.videoHeight || m.naturalHeight; const k = w + 'x' + h; if (w && m._sz !== k) { m._sz = k; Dbg.log('picture size', c.id, m.tagName.toLowerCase(), k); } };
+    m.addEventListener(m.tagName === 'VIDEO' ? 'resize' : 'load', log); m.addEventListener('loadedmetadata', log); }); });
 }
 /* keep what was typed in an object picker across redraws (ticking an object redraws the list) */
 function objQRestore() {
