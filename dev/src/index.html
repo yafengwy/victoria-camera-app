@@ -2807,7 +2807,16 @@ function rvRank(c, t, rest, i) {
   return np ? 1000 + i : i;
 }
 function rvLayout(t) {
-  const box = document.querySelector('.rvcams'); if (!box || !(box.classList.contains('big3') || box.classList.contains('top24'))) return;
+  const box = document.querySelector('.rvcams'); if (!box) return;
+  if (!(box.classList.contains('big3') || box.classList.contains('top24'))) {   /* Grid: same order as Big, no big picture */
+    const cams = rvCams(), all = rvHits(cams, t).map(x => x.c.id);
+    cams.forEach((c, i) => {
+      const n = document.getElementById('rv-' + c.id); if (!n) return;
+      n.classList.remove('feat'); n.style.order = rvRank(c, t, all, i);
+      const img = n.querySelector('img'); n.classList.toggle('nr', !!img && img.getAttribute('src') === NOREC);
+    });
+    return;
+  }
   if (box.classList.contains('top24')) {      /* alerts side by side on top: 1 → 3/4 wide, 2 → halves, 3+ → thirds; the rest 4 per row */
     const cams = rvCams(), hits = rvHits(cams, t);
     /* a narrow phone (e.g. Galaxy Z Flip) fits at most 2 per row; only alerts that have a picture go on top */
