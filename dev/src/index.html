@@ -3628,6 +3628,11 @@ const RecMap = {
       .catch(() => { if (this.w[cam] === w) delete this.w[cam]; });
   }
 };
+/* While the timeline is moving, the pictures are not asked for (each one makes Frigate decode the recording, 4K on
+   several cameras, which took 3–4 s): a camera with an alert at that moment shows the alert's stored picture at once,
+   the others keep what they show. Once the timeline stops for a moment, the exact frames for that second are fetched. */
+function rvMovingNow() { const rv = document.getElementById('rvsc'); return !!(rv && rv._touch) || Date.now() - (S.rvMoving || 0) < 240; }
+function rvSettle() { const rv = document.getElementById('rvsc'); if (rv && rv._touch) return; S.rvMoving = 0; if (S.view === 'review') paintReview(); }
 function paintReview() {
   const t = S.rv.t, ht = S.hov && S.hov.id === 'rv' ? S.hov.t : undefined;
   rvCams().slice().sort((a, b) => (b.id === S.rv.feat) - (a.id === S.rv.feat)).forEach(c => {   /* the big picture is asked for first */
@@ -3645,6 +3650,11 @@ function paintReview() {
         /* only ask Frigate for pictures that can be seen: each one costs it a video decode, and on a small screen most
            tiles are scrolled away. Scrolling brings them in (paintReview runs on scroll). */
         const r = box.getBoundingClientRect(); if (r.bottom < -40 || r.top > innerHeight + 40) { rvMark(box, c, ht !== undefined ? ht : t); return; }
+        if (ht === undefined && tt != null && rvMovingNow()) {
+          const ev = rvAt(c, tt);
+          if (ev && ev.img && img.getAttribute('src') !== ev.img && img.dataset.busy !== '1') { img.dataset.thumb = '1'; img.dataset.ld = ''; img.dataset.nrt = ''; img.src = ev.img; }
+          rvMark(box, c, tt); return;
+        }
         if (S.playing && ht === undefined && !big && img.naturalWidth && nowMs - (+img.dataset.at || 0) < 3000) { /* save Frigate's work: small pictures refresh every 3 s while playing */ }
         else {
           img.dataset.at = nowMs; img.dataset.nrt = '';
@@ -4440,11 +4450,12 @@ function wire() {
     rv.addEventListener('scroll', () => {
       if (S.rvLock) return;
       S.rv.t = rvT(RVV ? rv.scrollTop : rv.scrollLeft);
-      drawRvTrack(false); paintReview();
+      S.rvMoving = Date.now(); drawRvTrack(false); paintReview();
       clearTimeout(rv._snap); rv._snap = setTimeout(rvSnap, 450);
+      clearTimeout(rv._settle); rv._settle = setTimeout(rvSettle, 260);
     }, { passive: true });
     rv.addEventListener('touchstart', () => { rv._touch = true; clearTimeout(rv._snap); }, { passive: true });
-    rv.addEventListener('touchend', () => { rv._touch = false; clearTimeout(rv._snap); rv._snap = setTimeout(rvSnap, 450); }, { passive: true });
+    rv.addEventListener('touchend', () => { rv._touch = false; clearTimeout(rv._snap); rv._snap = setTimeout(rvSnap, 450); clearTimeout(rv._settle); rv._settle = setTimeout(rvSettle, 260); }, { passive: true });
   }
   if (rv) {
     let wl = null;

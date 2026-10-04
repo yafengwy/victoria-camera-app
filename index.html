@@ -1819,7 +1819,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.2.6 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.2.7 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -3628,6 +3628,11 @@ const RecMap = {
       .catch(() => { if (this.w[cam] === w) delete this.w[cam]; });
   }
 };
+/* While the timeline is moving, the pictures are not asked for (each one makes Frigate decode the recording, 4K on
+   several cameras, which took 3–4 s): a camera with an alert at that moment shows the alert's stored picture at once,
+   the others keep what they show. Once the timeline stops for a moment, the exact frames for that second are fetched. */
+function rvMovingNow() { const rv = document.getElementById('rvsc'); return !!(rv && rv._touch) || Date.now() - (S.rvMoving || 0) < 240; }
+function rvSettle() { const rv = document.getElementById('rvsc'); if (rv && rv._touch) return; S.rvMoving = 0; if (S.view === 'review') paintReview(); }
 function paintReview() {
   const t = S.rv.t, ht = S.hov && S.hov.id === 'rv' ? S.hov.t : undefined;
   rvCams().slice().sort((a, b) => (b.id === S.rv.feat) - (a.id === S.rv.feat)).forEach(c => {   /* the big picture is asked for first */
@@ -3645,6 +3650,11 @@ function paintReview() {
         /* only ask Frigate for pictures that can be seen: each one costs it a video decode, and on a small screen most
            tiles are scrolled away. Scrolling brings them in (paintReview runs on scroll). */
         const r = box.getBoundingClientRect(); if (r.bottom < -40 || r.top > innerHeight + 40) { rvMark(box, c, ht !== undefined ? ht : t); return; }
+        if (ht === undefined && tt != null && rvMovingNow()) {
+          const ev = rvAt(c, tt);
+          if (ev && ev.img && img.getAttribute('src') !== ev.img && img.dataset.busy !== '1') { img.dataset.thumb = '1'; img.dataset.ld = ''; img.dataset.nrt = ''; img.src = ev.img; }
+          rvMark(box, c, tt); return;
+        }
         if (S.playing && ht === undefined && !big && img.naturalWidth && nowMs - (+img.dataset.at || 0) < 3000) { /* save Frigate's work: small pictures refresh every 3 s while playing */ }
         else {
           img.dataset.at = nowMs; img.dataset.nrt = '';
@@ -3747,7 +3757,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.2.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.2.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3849,7 +3859,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.2.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.2.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -4440,11 +4450,12 @@ function wire() {
     rv.addEventListener('scroll', () => {
       if (S.rvLock) return;
       S.rv.t = rvT(RVV ? rv.scrollTop : rv.scrollLeft);
-      drawRvTrack(false); paintReview();
+      S.rvMoving = Date.now(); drawRvTrack(false); paintReview();
       clearTimeout(rv._snap); rv._snap = setTimeout(rvSnap, 450);
+      clearTimeout(rv._settle); rv._settle = setTimeout(rvSettle, 260);
     }, { passive: true });
     rv.addEventListener('touchstart', () => { rv._touch = true; clearTimeout(rv._snap); }, { passive: true });
-    rv.addEventListener('touchend', () => { rv._touch = false; clearTimeout(rv._snap); rv._snap = setTimeout(rvSnap, 450); }, { passive: true });
+    rv.addEventListener('touchend', () => { rv._touch = false; clearTimeout(rv._snap); rv._snap = setTimeout(rvSnap, 450); clearTimeout(rv._settle); rv._settle = setTimeout(rvSettle, 260); }, { passive: true });
   }
   if (rv) {
     let wl = null;
@@ -4708,7 +4719,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.2.6';
+    const BUILD = '2.2.7';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
