@@ -606,6 +606,7 @@ img.rf{opacity:0}
 .msoon.wt{background:#E8F1FF;color:#1F4E9A}
 :root[data-dark] .msoon.wt{background:#14263F;color:#CFE0FB}
 .wtnote{font-size:12px;color:var(--sub);margin:10px 2px 0;line-height:1.4}
+.delgo{background:#C0392B !important;color:#fff !important}
 .whob{flex:none;border:0;background:var(--track);color:var(--head-fg);font:inherit;font-size:12px;font-weight:800;padding:5px 10px;border-radius:999px;margin-right:2px}
 .whoimg{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:10px;background:#000}
 .whoimg.crop{aspect-ratio:auto;max-height:46vh;object-fit:contain}
@@ -1159,6 +1160,7 @@ const I = {
   playO: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M7 4v16l13-8z"/></svg>',
   speed: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 16a8 8 0 1 1 16 0"/><path d="m12 16 4-5"/></svg>',
   clip: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M10 12v5l4-2.5z"/></svg>',
+  trash: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>',
   dl: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4"/><path d="M4 17v3h16v-3"/></svg>',
   share: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l5 5-5 5"/><path d="M20 10H10a6 6 0 0 0-6 6v2"/></svg>',
   check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 5 5 9-10"/></svg>',
@@ -1631,7 +1633,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.9.1 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.9.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1959,6 +1961,17 @@ const Wait = {
   },
   names() { return this.st.cos.map(coName).join(' · '); }
 };
+function modalDel() {
+  const e = Data.events.find(x => x.id === S.delId); if (!e) return '';
+  const c = Data.cam(e.cam);
+  return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm snzd" role="dialog" aria-label="Delete Alert" data-stop="1">' +
+    '<div class="dhead">Delete This Alert?<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
+    '<img class="whoimg" src="' + e.img + '" alt="">' +
+    '<div class="wtnote" style="margin:6px 2px 0">' + esc(lab(e)) + ' · ' + esc(c ? c.name : e.cam) + ' · ' + hms(e.t) + '<br>Deletes The Alert, Its Pictures And The Video Of This Time On This Camera From Frigate. This Can&#39;t Be Undone.</div>' +
+    '<button class="btn solid snzgo delgo" data-act="evdel">Delete</button>' +
+    '<button class="btn snzgo" style="margin-top:6px" data-act="close">Cancel</button>' +
+    '</div></div></div>';
+}
 function modalWho() {
   const e = Data.events.find(x => x.id === S.whoId); if (!e) return '';
   const names = People.known(), cur = S.whoName || '', pd = e.dets.find(d => People.person[d]) || '';
@@ -2203,6 +2216,7 @@ function render() {
   if (S.modal === 'snooze') h += modalSnooze();
   if (S.modal === 'wait') h += modalWait();
   if (S.modal === 'who') h += modalWho();
+  if (S.modal === 'del') h += modalDel();
   if (S.modal === 'people') h += modalPeople();
   const fo = document.getElementById('fsc'), fscTop = fo && S.focus ? fo.scrollTop : null;
   const keep = {}; ['thumbs'].forEach(id => { const n = document.getElementById(id); if (n) keep[id] = [n.scrollLeft, n.scrollTop]; });
@@ -2484,6 +2498,7 @@ function viewEvents() {
         (sel.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(sel.id) + '">' + (sel.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Open Camera" data-act="focusat" data-id="' + esc(sel.cam) + '" data-t="' + sel.t + '">' + I.expand + '</button>' +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(sel.id) + '">' + I.dl + '</button>' +
+        (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(sel.id) + '">' + I.trash + '</button>' : '') +
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(sel.id) + '">' + (S.evPlay === sel.id ? I.pause : I.playO) + '</button></div>' +
         '<div class="evmedia" id="evm-' + esc(sel.id) + '" data-act="evtap" data-v="' + esc(sel.id) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(sel)) + ' At ' + hms(sel.t) + ' Full Screen">' + evMedia(sel) + '</div></article>';
     } else h += '<div class="empty">No alerts on this day with the current filters.</div>';
@@ -2503,6 +2518,7 @@ function viewEvents() {
       h += '<article class="evcard' + (e.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(e)) + '</i>' + esc(lab(e)) + ' At ' + hms(e.t) + '</b><span>' + esc(cam ? cam.name : e.cam) + '</span></div>' +
         (e.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(e.id) + '">' + I.dl + '</button>' +
+        (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(e.id) + '">' + I.trash + '</button>' : '') +
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(e.id) + '">' + (S.evPlay === e.id ? I.pause : I.playO) + '</button>' +
 '</div>' +
         '<div class="evmedia" id="evm-' + esc(e.id) + '" data-act="evtap" data-v="' + esc(e.id) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(e)) + ' At ' + hms(e.t) + ' Full Screen">' + evMedia(e) + '</div></article>';
@@ -3393,7 +3409,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.9.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.9.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3486,7 +3502,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 1.9.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 1.9.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -3533,6 +3549,20 @@ const ACT = {
       secs = (d.getTime() - Date.now()) / 1000;
     }
     if (await Snz.put({ until: Date.now() / 1000 + secs, mode: S.snzDur === 'c' ? 'c' : 't', cams })) { S.modal = null; render(); toast('Notifications Snoozed'); }
+  },
+  evdelask(d) { S.delId = d.v; S.modal = 'del'; render(); },
+  async evdel() {
+    const e = Data.events.find(x => x.id === S.delId); if (!e || S.delBusy) return;
+    S.delBusy = true; const h = { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '1' };
+    try {
+      /* the objects first (their snapshots and crops), then the alert itself, which also removes that camera's video of it */
+      if (e.dets.length) await fetch(Frigate.base() + '/api/events/', { method: 'DELETE', credentials: 'include', headers: h, body: JSON.stringify({ event_ids: e.dets }) });
+      const r = await fetch(Frigate.base() + '/api/reviews/delete', { method: 'POST', credentials: 'include', headers: h, body: JSON.stringify({ ids: [e.id] }) });
+      if (!r.ok) throw new Error(r.status);
+      if (S.evPlay === e.id) evStop();
+      Data.events = Data.events.filter(x => x.id !== e.id); S.modal = null; S.delId = null; render(); toast('Alert Deleted');
+    } catch (x) { toast('Could Not Delete'); }
+    S.delBusy = false;
   },
   whoopen(d) {
     const e = Data.events.find(x => x.id === d.v); if (!e) return;
@@ -4268,7 +4298,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.9.1';
+    const BUILD = '1.9.2';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
