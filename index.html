@@ -1007,10 +1007,11 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 
 /* ---- v70: open camera (list layout): date, boxes, Live and sound sit in the camera's title row ---- */
 .chctl{display:flex;align-items:center;gap:2px;margin-left:auto}
-.chctl .ic{width:38px;height:38px}
+.chctl .ic{width:36px;height:38px}
+@media (max-width:380px){.chctl .ic{width:32px}.chlive{padding:0 9px}}
 .chctl .ic svg{width:20px;height:20px}
 .chctl .bxh[aria-pressed="true"]{color:var(--strong-fg);background:var(--strong);border-radius:19px}
-.chlive{height:30px;padding:0 12px;margin:0 4px;border-radius:15px;background:var(--strong);color:var(--strong-fg);font-size:12px;font-weight:800}
+.chlive{height:30px;padding:0 12px;margin:0 4px 0 2px;border-radius:15px;background:var(--strong);color:var(--strong-fg);font-size:12px;font-weight:800}
 .chead .chctl + .sndb{margin-left:0}
 .pctl.solo{justify-content:center}
 </style>
@@ -1533,7 +1534,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.5.8 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.5.9 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2015,15 +2016,18 @@ function viewHome() {
   h += '<section class="modes" aria-label="Mode">' + modes.map(m => '<button class="mode" data-act="mode" data-v="' + m[0] + '" aria-pressed="' + (S.mode === m[0]) + '"><span>' + m[2] + '</span>' + m[1] + '</button>').join('') + '</section>';
   return h + '</main>';
 }
+const sndC = id => Snd.btn('ic', id).replace('aria-pressed="' + Snd.on + '"', 'aria-pressed="' + (Snd.on && (Snd.cam || S.expanded) === id) + '"');
 function camCard(c) {
   const t = camT(c.id), f = Data.frame(c, t), off = !Ctl.on(c.id);
   const tall = c.ar && c.ar < 1.2;
   return '<article class="cam' + (c.id === S.expanded ? ' on' : '') + (off ? ' off' : '') + (tall ? ' tall' : '') + '" id="cam-' + c.id + '"' + (tall ? ' style="--ar:' + c.ar.toFixed(4) + '"' : '') + '>' +
     '<div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button>' + (Snz.has(c.id) ? '<span class="snzb">' + I.snooze + (Snz.st.mode === 'c' ? 'Clear' : Snz.left()) + '</span>' : '') +
-    (S.layout === 'list' && c.id === S.expanded ? '<div class="chctl"><button class="ic" data-act="date" aria-label="Pick Date">' + I.cal + '</button>' +
+    (S.layout === 'list' && c.id === S.expanded ? '<div class="chctl">' +
+      (Data.source === 'frigate' && !off ? '<button class="ic" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
+      '<button class="ic" data-act="date" aria-label="Pick Date">' + I.cal + '</button>' +
       (Data.source === 'frigate' ? '<button class="ic bxh" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
-      '<button class="chlive" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button></div>' : '') +
-    (S.layout === 'list' ? Snd.btn('ic', c.id).replace('aria-pressed="' + Snd.on + '"', 'aria-pressed="' + (Snd.on && (Snd.cam || S.expanded) === c.id) + '"') : '') +
+      sndC(c.id) + '<button class="chlive" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button></div>'
+      : S.layout === 'list' ? sndC(c.id) : '') +
     '</div>' +
     '<div class="frame"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(Live.cardSrc(c.id), t != null) + Playback.holder(c.id) + (S.layout === 'grid' ? '<div class="cnm">' + esc(c.name) + '</div>' : '') +
     '<button class="hit" data-act="tap" data-id="' + c.id + '" aria-label="Show playback for ' + esc(c.name) + '"></button>' +
@@ -2376,8 +2380,8 @@ function viewFocus() {
   }
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
   const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk fname">' + esc(c.name) + '</div><div style="flex:1"></div>' +
-    Snd.btn('dk') + (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
     (frig && cs.enabled ? '<button class="dk ctl" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
+    (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
     '<button class="pillk" id="fbadge" data-act="fbadge" aria-label="Live. Tap to reconnect">' + (t == null ? (cs.enabled ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t)) + '</button></div>';
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
     '<div class="fvid' + (c.ar && c.ar < 1.2 ? ' tall" style="--ar:' + c.ar.toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
@@ -2426,7 +2430,7 @@ function viewFull(c, t, f) {
       (S.fpanel ? '' : '<div class="fsb zdesk2"><button class="dk sm" data-act="fzoombtn" data-v="out" aria-label="Show Longer Time">−</button><button class="dk sm" data-act="fzoombtn" data-v="in" aria-label="Show Shorter Time">+</button></div>') + '</aside>';
   }
   return '<div class="full' + (S.fui ? ' ui' : '') + (fullRot() ? ' rot' : '') + '" id="fullv"><div class="fvw" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
-    (S.fui ? '<div class="fuitop"><button class="dk" data-act="unfull" aria-label="Exit Full Screen">' + I.shrink + '</button><div style="flex:1"></div>' + Snd.btn('dk') + (Data.source === 'frigate' ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '<div class="pillk" id="fullbadge">' + (t == null ? '<span class="dot"></span>Live' : hms(t)) + '</div></div>' : '') +
+    (S.fui ? '<div class="fuitop"><button class="dk" data-act="unfull" aria-label="Exit Full Screen">' + I.shrink + '</button><div style="flex:1"></div>' + (Data.source === 'frigate' ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') + '<div class="pillk" id="fullbadge">' + (t == null ? '<span class="dot"></span>Live' : hms(t)) + '</div></div>' : '') +
     '</div>' + side + '</div>';
 }
 function fTrack(c) {
@@ -3017,7 +3021,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.5.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.5.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3799,7 +3803,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.5.8';
+    const BUILD = '1.5.9';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
