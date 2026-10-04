@@ -1508,7 +1508,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.5.3 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.5.4 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1599,7 +1599,8 @@ const Playback = {
       v.addEventListener('error', () => Dbg.log('video', id, 'error', v.error ? v.error.code + ' ' + (v.error.message || '') : ''));
       v.addEventListener('timeupdate', () => {
         if (!p.on || !p.win || S.dragging || v.paused || p.prep) return;
-        if (S.focus && S.focus.cam === id && fScrubbing()) return;
+        /* a new spot is loading: the old video still plays for a moment, and its position must not pull the time back */
+        if (p.loading || (S.focus && S.focus.cam === id && fScrubbing())) return;
         const t = this.wall(p, v.currentTime);
         /* the user just jumped somewhere else (tapped an alert or Live): this update is from the old position, ignore it */
         if (S.camTime[id] !== p.expect && (S.camTime[id] == null || Math.abs(t - S.camTime[id]) > 2500)) return;
@@ -1652,7 +1653,7 @@ const Playback = {
         if (p.on) { p.on = false; this.paintVis(id); }
         if (this.native()) {            /* iPhone: seek while playing (a paused video there does not load), show it once it moves */
           Dbg.log('seek+play', id, hms(t), 'vt ' + vt.toFixed(1)); p.v.currentTime = vt; p.v.playbackRate = S.speed || 1; p.v.play().catch(e => Dbg.log('play refused', id, e && e.name));
-          p.v.addEventListener('playing', () => { if (camT(id) != null && S.playing) { p.on = true; p.lastSet = camT(id); this.paintVis(id); } }, { once: true });
+          p.v.addEventListener('playing', () => { if (camT(id) != null && S.playing && !p.loading) { p.on = true; p.lastSet = camT(id); this.paintVis(id); } }, { once: true });
           continue;
         }
         p.v.pause(); p.v.currentTime = vt; this.prep(p, id); continue;
@@ -1661,7 +1662,7 @@ const Playback = {
       /* iPhone only loads more video once it is told to play, so after the first picture is ready, play */
       if (p.v.paused) { if (p.v.readyState < 2 && !p.kick) { this.prep(p, id); continue; } p.kick = false; const t1 = performance.now(); p.v.play().then(() => Dbg.log('play ok', id, Math.round(performance.now() - t1) + 'ms')).catch(e => Dbg.log('play refused', id, e && e.name)); }
       if (!p.on && !p.v.paused && p.v.readyState >= 2) { p.on = true; p.lastSet = t; this.paintVis(id); }
-      else if (!p.on) p.v.addEventListener('playing', () => { if (camT(id) != null && S.playing && !p.prep) { p.on = true; this.paintVis(id); } }, { once: true });
+      else if (!p.on) p.v.addEventListener('playing', () => { if (camT(id) != null && S.playing && !p.prep && !p.loading) { p.on = true; this.paintVis(id); } }, { once: true });
     }
     Snd.apply();
   }
@@ -2032,8 +2033,7 @@ function panel(c) {
     body = '<div class="cliprow">' +
       '<button class="cbtn' + (cl.a ? ' on' : '') + '" data-act="clipmark" data-v="a" aria-label="Set Clip Start">[</button>' +
       '<button class="cbtn' + (cl.b ? ' on' : '') + '" data-act="clipmark" data-v="b" aria-label="Set Clip End">]</button>' +
-      '<button class="cbtn dark" data-act="clipsave" data-v="dl" aria-label="Download Clip">' + I.dl + '</button>' +
-      '<button class="cbtn dark" data-act="clipsave" data-v="tl" aria-label="Save Timelapse">' + I.tlapse + '</button></div>' +
+      '<button class="cbtn dark" data-act="clipsave" data-v="dl" aria-label="Download Clip">' + I.dl + '</button></div>' +
       '<div class="cliptxt">' + (cl.a ? 'Start ' + hms(cl.a) : 'Start —') + ' · ' + (cl.b ? 'End ' + hms(cl.b) : 'End —') + '</div>';
   }
   return '<div class="panel" id="panel">' +
@@ -2958,7 +2958,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.5.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.5.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3006,7 +3006,7 @@ function deliver(blob, name) {
   if (phone && navigator.canShare && navigator.canShare({ files: [file] })) {
     clearInterval(SaveBar.tm); const b = SaveBar.el(); b.hidden = false;
     /* the share sheet needs a fresh tap */
-    b.innerHTML = '<span class="sbr">Video Ready</span><button class="sv">' + I.dl + 'Save</button><button class="sx" aria-label="Close">' + I.x + '</button>';
+    b.innerHTML = '<span class="sbr">Video Ready · ' + (blob.size >= 1048576 ? Math.round(blob.size / 1048576) + ' MB' : Math.max(1, Math.round(blob.size / 1024)) + ' KB') + '</span><button class="sv">' + I.dl + 'Save</button><button class="sx" aria-label="Close">' + I.x + '</button>';
     b.querySelector('.sx').onclick = () => SaveBar.end();
     b.querySelector('.sv').onclick = async () => {
       SaveBar.end(); Dbg.log('save share', name, Math.round(blob.size / 1024) + 'KB');
@@ -3023,28 +3023,6 @@ async function saveClip(url, name, durS) {
   if (SaveBar.busy) return; SaveBar.busy = true; SaveBar.ac = new AbortController();
   try { deliver(await fetchWithBar(url, 'Preparing Video', 0, 1500 + (durS || 30) * 40), name); }
   catch (e) { const ab = e && e.name === 'AbortError'; SaveBar.end(); if (!ab) toast('Could Not Get The Video'); }
-}
-/* Timelapse: Frigate makes a sped-up copy (25x) as an export, the app waits for it, downloads it, then removes it */
-async function saveTimelapse(cam, a, b, name) {
-  if (Data.source !== 'frigate') { toast('Timelapse Works Once The App Runs On The Mini PC'); return; }
-  if (SaveBar.busy) return; SaveBar.busy = true; SaveBar.ac = new AbortController();
-  let id = null;
-  try {
-    SaveBar.creep('Making Timelapse', 0, 55, 3000 + (b - a) / 1000 * 15);
-    const r = await fetch(Frigate.base() + '/api/export/' + cam + '/start/' + Math.floor(a / 1000) + '/end/' + Math.ceil(b / 1000), { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playback: 'timelapse_25x', name: name.replace(/\.mp4$/, '') }), signal: SaveBar.ac.signal });
-    const j = await r.json().catch(() => ({})); if (!r.ok || j.success === false) throw new Error('export');
-    id = j.export_id || null; let ex = null;
-    for (let k = 0; k < 300 && !ex; k++) {
-      await new Promise(ok => setTimeout(ok, 2000)); if (!SaveBar.busy) return;
-      const list = await (await fetch(Frigate.base() + '/api/exports', { credentials: 'include', signal: SaveBar.ac.signal })).json();
-      const it = (list || []).find(x => id ? x.id === id : x.camera === cam && x.name === name.replace(/\.mp4$/, ''));
-      if (it) { id = it.id; if (!it.in_progress && it.video_path) ex = it; }
-    }
-    if (!ex) throw new Error('timeout');
-    const blob = await fetchWithBar(Frigate.base() + '/exports/' + ex.video_path.split('/').pop(), 'Making Timelapse', 58, 800);
-    fetch(Frigate.base() + '/api/export/' + id, { method: 'DELETE', credentials: 'include' }).catch(() => {});
-    deliver(blob, name);
-  } catch (e) { const ab = e && e.name === 'AbortError'; SaveBar.end(); if (!ab) toast('Could Not Make The Timelapse'); }
 }
 function toast(msg) {
   let n = document.getElementById('toast');
@@ -3188,8 +3166,7 @@ const ACT = {
     const cl = S.clip;
     if (!cl || cl.cam !== S.expanded || !cl.a || !cl.b) { toast('Set The Start [ And End ] First'); return; }
     const cam = Data.cam(cl.cam), nm = (cam ? cam.name : cl.cam) + ' ' + fileTime(cl.a);
-    if (d.v === 'tl') saveTimelapse(cl.cam, cl.a, cl.b, nm + ' Timelapse.mp4');
-    else saveClip(Frigate.base() + '/api/' + cl.cam + '/start/' + Math.floor(cl.a / 1000) + '/end/' + Math.ceil(cl.b / 1000) + '/clip.mp4', nm + '.mp4', (cl.b - cl.a) / 1000);
+    saveClip(Frigate.base() + '/api/' + cl.cam + '/start/' + Math.floor(cl.a / 1000) + '/end/' + Math.ceil(cl.b / 1000) + '/clip.mp4', nm + '.mp4', (cl.b - cl.a) / 1000);
   },
   clip() { toast(Data.source === 'frigate' ? 'Clip export starts on the mini PC' : 'Clip saved (demo)'); },
   date(d) {
@@ -3745,7 +3722,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.5.3';
+    const BUILD = '1.5.4';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
