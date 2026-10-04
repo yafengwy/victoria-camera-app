@@ -332,14 +332,14 @@ img.rf{opacity:0}
 /* Review alert list (bell): phones — a list across the bottom instead of the timeline; wide — a wider right column */
 .rvdock.l .rvlist{height:38vh;overflow-y:auto;padding:6px 10px 4px;display:flex;flex-direction:column;gap:6px;overscroll-behavior:contain}
 .rvcams.l{padding-bottom:calc(38vh + 70px + env(safe-area-inset-bottom,0px))}
-.rvdock.v.l{width:340px}
+.rvdock.v.l{width:270px}
 .rvdock.v.l .rvlist{position:absolute;inset:0;height:auto;padding:8px 10px 90px}
-.rvcams.v.l{padding-bottom:calc(76px + env(safe-area-inset-bottom,0px));padding-right:348px}
-.rvdock.v.l .rvctl{right:calc(340px + (100vw - 340px) / 2)}
-@media (min-width:1000px){.rvdock.v.l .rvctl{right:calc(340px + (100vw - 398px) / 2)}}
+.rvcams.v.l{padding-bottom:calc(76px + env(safe-area-inset-bottom,0px));padding-right:278px}
+.rvdock.v.l .rvctl{right:calc(270px + (100vw - 270px) / 2)}
+@media (min-width:1000px){.rvdock.v.l .rvctl{right:calc(270px + (100vw - 328px) / 2)}}
 .rvl-h{font-size:12px;font-weight:800;color:var(--sub);padding:6px 2px 0;letter-spacing:.02em}
 .rvli{display:flex;align-items:center;gap:10px;padding:5px;border-radius:12px;background:var(--chip);text-align:left;width:100%;flex-shrink:0}
-.rvli img{width:84px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;background:#1E2226}
+.rvli img{width:76px;height:44px;object-fit:cover;border-radius:8px;flex-shrink:0;background:#1E2226}
 .rvli b{display:flex;align-items:center;gap:5px;font-size:14px;font-weight:700;color:var(--text)}
 .rvli b .lico{color:var(--hot);display:inline-flex}
 .rvli b .lico svg{width:15px;height:15px}
@@ -2974,6 +2974,7 @@ function rvListEvents(cams, end) {
   const ids = cams.map(c => c.id);
   return Data.events.filter(e => ids.includes(e.cam) && e.t > end - RSPAN && e.t <= end && rvPass(e)).sort((a, b) => b.t - a.t).slice(0, 300);
 }
+const rvDur = e => { const d = Math.max(1, Math.round(((e.end || e.t) - e.t) / 1000)); return d >= 60 ? Math.floor(d / 60) + 'm ' + (d % 60) + 's' : d + 's'; };   /* short, for the narrow list */
 function rvListHtml(cams, end) {
   const evs = rvListEvents(cams, end), t = S.rv.t;
   let h = '<div class="rvlist" id="rvlist">' + (evs.length ? '' : '<div class="rvl-h">No alerts match your filters.</div>'), lastDay = null;
@@ -2981,7 +2982,7 @@ function rvListHtml(cams, end) {
     const dl = dayStart(e.t) === dayStart(now()) ? 'Today' : dayStart(e.t) === dayStart(now() - DAY) ? 'Yesterday' : dayLabel(e.t);
     if (dl !== lastDay) { h += '<div class="rvl-h">' + dl + '</div>'; lastDay = dl; }
     const c = Data.cam(e.cam), cur = t != null && t >= e.t - 3000 && t <= (e.end || e.t) + 3000;
-    h += '<button class="rvli' + (cur ? ' cur' : '') + (e.interesting ? '' : ' un') + '" data-act="rvlpick" data-t="' + e.t + '" data-id="' + e.cam + '"><img src="' + e.img + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(e.label) + '</i>' + esc(String(e.label).replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase())) + '</b><small>' + esc(c ? c.name : e.cam) + ' · ' + hm(e.t) + ' · ' + durLabel(e) + '</small></span></button>';
+    h += '<button class="rvli' + (cur ? ' cur' : '') + (e.interesting ? '' : ' un') + '" data-act="rvlpick" data-t="' + e.t + '" data-id="' + e.cam + '"><img src="' + e.img + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(e.label) + '</i>' + esc(String(e.label).replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase())) + '</b><small>' + esc(c ? c.name : e.cam) + ' · ' + hm(e.t) + ' · ' + rvDur(e) + '</small></span></button>';
   });
   return h + '</div>';
 }
