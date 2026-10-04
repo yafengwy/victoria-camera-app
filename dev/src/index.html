@@ -316,6 +316,9 @@ img.rf{opacity:0}
 .rvbar{height:56px;display:flex;align-items:center;gap:6px;padding:0 8px}
 .rvtitle{flex:1;font-size:18px;font-weight:800;color:var(--head-fg)}
 .rvchips{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 10px}
+.rvtop.one .rvbar .rvtitle{flex:0 0 auto;margin-right:10px}
+.rvtop.one .rvsp{flex:1}
+.rvtop.one .rvbar .chip{flex-shrink:0}
 .rvwrap{display:flex;align-items:flex-start}
 .rvcams{flex:1;min-width:0;padding:10px 8px 120px 10px;display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:8px;align-content:start}
 .rvhint{position:fixed;z-index:40;transform:translateX(-50%);padding:7px 14px;border-radius:999px;border:0;background:var(--hot,#E8692C);color:#fff;font:inherit;font-size:13px;font-weight:800;box-shadow:0 4px 14px rgba(0,0,0,.25);white-space:nowrap}
@@ -1260,12 +1263,12 @@ function objChips(f, act, grpAct, anyAct) {
 }
 /* cameras the same way: All Cameras and each group "Only" on top (filled), then each group's cameras on its own row
    (picked = outlined). on(id) says whether a camera is picked; state is 'all', a group name, or 'custom' */
-function camChips(on, state, quickAct, camAct, idAttr) {
+function camChips(on, state, quickAct, camAct, idAttr, noQuick) {
   const groups = [...new Set(Data.cams.map(c => c.group))];
   const b = (cls, a, attr, v, pressed, label) => '<button class="chip sm' + cls + '" data-act="' + a + '" ' + attr + '="' + esc(v) + '" aria-pressed="' + pressed + '">' + esc(label) + '</button>';
-  return '<div class="objchips">' + b(' oany', quickAct, 'data-v', quickAct === 'allcams' ? '1' : 'all', state === 'all', 'All Cameras') +
-    groups.map(g => b(' ogrp', quickAct, 'data-v', quickAct === 'allcams' ? 'g:' + g : g, state === g, g + ' Only')).join('') +
-    groups.map(g => '<i class="objbr"></i>' + Data.cams.filter(c => c.group === g).map(c => b(' oone', camAct, idAttr, c.id, state !== 'all' && on(c.id), c.name)).join('')).join('') + '</div>';
+  return '<div class="objchips">' + (noQuick ? '' : b(' oany', quickAct, 'data-v', quickAct === 'allcams' ? '1' : 'all', state === 'all', 'All Cameras') +
+    groups.map(g => b(' ogrp', quickAct, 'data-v', quickAct === 'allcams' ? 'g:' + g : g, state === g, g + ' Only')).join('')) +
+    groups.map((g, i) => (noQuick && !i ? '' : '<i class="objbr"></i>') + Data.cams.filter(c => c.group === g).map(c => b(' oone', camAct, idAttr, c.id, state !== 'all' && on(c.id), c.name)).join('')).join('') + '</div>';
 }
 function objGroupChips(f, act) {
   const list = OBJS(), all = list.every(o => objOn(f, o));
@@ -2697,9 +2700,16 @@ function evDropdown() {
    pointing at that button (like the iPhone date picker). Bottom-anchored, so typing to filter keeps the arrow put. */
 function popPlace() {
   const dd = document.querySelector('.rvdd'); if (!dd) return;
-  if (!COVER) { dd.classList.remove('pop'); dd.style.cssText = ''; return; }
   const a = dd.dataset.anchor || (S.rv.pick ? 'rvpick' : S.rv.fopen ? 'rvfopen' : S.rv.colsOpen ? 'rvcolsopen' : '');
-  const [act, v] = a.split(':'), btn = document.querySelector('[data-act="' + act + '"]' + (v ? '[data-v="' + v + '"]' : '') + '.rvib'); if (!btn) return;
+  const [act, v] = a.split(':'), btn = document.querySelector('[data-act="' + act + '"]' + (v ? '[data-v="' + v + '"]' : '')); if (!btn) return;
+  if (!COVER) {
+    dd.classList.remove('pop'); dd.style.cssText = '';
+    const p = dd.offsetParent; if (!p) return;
+    const pr = p.getBoundingClientRect(), r = btn.getBoundingClientRect(), w = dd.offsetWidth;
+    const left = Math.max(8, Math.min(r.left - pr.left, window.innerWidth - pr.left - w - 8));
+    dd.style.left = left + 'px'; dd.style.right = 'auto'; dd.style.top = (r.bottom - pr.top + 6) + 'px';
+    return;
+  }
   const r = btn.getBoundingClientRect(), cy = r.top + r.height / 2, H = window.innerHeight, sa = safeArea();
   const bot = Math.min(H - sa.b - 8, cy + 44), top = sa.t + 8;
   dd.classList.add('pop');
@@ -3110,7 +3120,7 @@ function rvDropdown() {
     const sel = S.rv.sel, on = id => sel != null && sel.includes(id);
     const groups = [...new Set(Data.cams.map(c => c.group))];
     const st = sel == null ? 'all' : groups.find(g => { const ids = Data.cams.filter(c => c.group === g).map(c => c.id); return ids.length === sel.length && ids.every(i => sel.includes(i)); }) || 'custom';
-    h += camChips(on, st, 'rvgroup', 'rvcam', 'data-v');
+    h += camChips(on, st, 'rvgroup', 'rvcam', 'data-v', !COVER && !rvCompact());   /* the bar already has All Cameras / Outside Only / Inside Only */
   }
   return h + '</div></div>';
 }
@@ -3130,6 +3140,7 @@ function rvRefine(t0, label) {
       S.rv.t = tt; S.rvLock = true; drawRvTrack(false); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); paintReview();
     });
 }
+function rvOneRow() { return window.innerWidth >= 900; }
 function rvCompact() { return window.innerHeight < 640 || window.innerWidth < 420; }
 function rvBarCompact(st) {
   const ib = (act, on, label, icon, extra) => '<button class="chip sm rvib" data-act="' + act + '" aria-pressed="' + on + '" aria-label="' + label + '" title="' + label + '">' + icon + (extra || '') + '</button>';
@@ -3356,16 +3367,18 @@ function viewReview() {
   const groups = [...new Set(Data.cams.map(c => c.group))];
   const st = rvGroupState();
   const RVC = rvCompact();
-  let h = RVC ? rvBarCompact(st) : '<div class="rvtop" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
+  const camRow = (Data.source === 'frigate' ? '<button class="chip sm bxchip" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
+    '<button class="chip sm" data-act="rvgroup" data-v="all" aria-pressed="' + (st === 'all') + '">All Cameras</button>' +
+    groups.map(g => '<button class="chip sm" data-act="rvgroup" data-v="' + esc(g) + '" aria-pressed="' + (st === g) + '">' + esc(g) + ' Only</button>').join('') +
+    '<button class="chip sm" data-act="rvpick" aria-pressed="' + (st === 'custom' || S.rv.pick) + '">Choose' + (S.rv.pick ? I.up : I.down).replace(/22/g, '14') + '</button>';
+  const ONE = !RVC && rvOneRow();   /* computer: everything in one row — cameras on the left, the rest on the right */
+  let h = RVC ? rvBarCompact(st) : '<div class="rvtop' + (ONE ? ' one' : '') + '" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
+    (ONE ? camRow + '<span class="rvsp"></span>' : '') +
     '<button class="chip sm rvib" data-act="rvreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
     '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + (S.rv.fopen ? I.up : I.down).replace(/22/g, '14') + '</button>' +
     '<button class="chip sm" data-act="rvcolsopen" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvLay() === 'big' ? 'Big' : rvLay() === 'top' ? 'Top' : rvCols()) + '</button>' +
     '<button class="ic' + (S.rv.list ? ' on' : '') + '" data-act="rvlist" aria-pressed="' + !!S.rv.list + '" aria-label="' + (S.rv.list ? 'Show Timeline' : 'Show Alert List') + '">' + (S.rv.list ? I.tline : I.bellO) + '</button>' +
-    dtOver('<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button>', 'rv') + '</div><div class="rvchips">' +
-    (Data.source === 'frigate' ? '<button class="chip sm bxchip" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
-    '<button class="chip sm" data-act="rvgroup" data-v="all" aria-pressed="' + (st === 'all') + '">All Cameras</button>' +
-    groups.map(g => '<button class="chip sm" data-act="rvgroup" data-v="' + esc(g) + '" aria-pressed="' + (st === g) + '">' + esc(g) + ' Only</button>').join('') +
-    '<button class="chip sm" data-act="rvpick" aria-pressed="' + (st === 'custom' || S.rv.pick) + '">Choose' + (S.rv.pick ? I.up : I.down).replace(/22/g, '14') + '</button></div>';
+    dtOver('<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button>', 'rv') + '</div>' + (ONE ? '' : '<div class="rvchips">' + camRow + '</div>');
   if (S.rv.fopen || S.rv.pick || S.rv.colsOpen) h += rvDropdown();
   const nc = rvCols();
   const L = rvLay();
@@ -4437,7 +4450,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
     if (isLand() && !S.full) { S.full = true; S.autoFull = true; S.fui = false; S.fpanel = false; render(); }
     else if (!isLand() && S.full && S.autoFull) { S.full = false; S.autoFull = false; S.fpanel = false; render(); }
     else if (S.full) { const fv = document.getElementById('fullv'); if (fv && fv.classList.contains('rot') !== fullRot()) render(); }
-  } const was = COVER; detectCover(); const n = cols() * 10 + rvCols() + (COVER ? 100 : 0) + (rvVert() ? 1000 : 0) + (rvCompact() ? 10000 : 0) + (evWide() ? 100000 : 0); if (S.view === 'review') { S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); } if (n !== lastCols || was !== COVER) { lastCols = n; render(); } }, 150); });
+  } const was = COVER; detectCover(); const n = cols() * 10 + rvCols() + (COVER ? 100 : 0) + (rvVert() ? 1000 : 0) + (rvCompact() ? 10000 : 0) + (evWide() ? 100000 : 0) + (rvOneRow() ? 1000000 : 0); if (S.view === 'review') { S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); } if (n !== lastCols || was !== COVER) { lastCols = n; render(); } }, 150); });
 
 (async function start() {
   await Data.load(); lastCols = cols() * 10 + rvCols();
