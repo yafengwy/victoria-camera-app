@@ -968,10 +968,26 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .savebar[hidden]{display:none}
 .savebar .sv{display:flex;align-items:center;gap:6px;height:38px;padding:0 14px;border-radius:19px;background:#fff;color:#111;font-weight:800}
 .savebar .sv svg{width:18px;height:18px}
-.savebar .sx{width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:#AEB6BE}
+.savebar .sx{width:34px;height:34px;display:flex;align-items:center;justify-content:center;color:#AEB6BE;flex-shrink:0}
+.savebar:has(.sbp){width:min(340px,calc(100vw - 32px));white-space:normal}
+.savebar .sbt{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px}
+.savebar .sbn{font-variant-numeric:tabular-nums;color:#AEB6BE}
+.savebar .sbp{height:6px;border-radius:3px;background:rgba(255,255,255,.18);overflow:hidden}
+.savebar .sbp i{display:block;height:100%;width:0;background:#7FA7FF;border-radius:3px;transition:width .2s}
+.savebar:has(.sbp) > .sbt,.savebar:has(.sbp) > .sbp{grid-column:1}
+.savebar:has(.sbp){display:grid;grid-template-columns:1fr auto;column-gap:10px;align-items:center;padding:10px 8px 10px 16px;border-radius:16px}
+.savebar:has(.sbp) .sx{grid-column:2;grid-row:1 / span 2}
 .fclipt{flex:1;min-width:0;font-size:12px;line-height:1.35;color:var(--dark-fg,#fff);font-variant-numeric:tabular-nums}
 .fclipt b{display:inline-block;width:36px;color:var(--dark-sub,#AEB6BE);font-weight:700}
 .fctl .dk.solid{background:#fff;color:#111}
+
+/* ---- v68: camera view download range ---- */
+.fctl .dk.fbk{font-size:20px;font-weight:800;color:#FF8A3D;flex-shrink:0}
+.fctl .dk.fbk.set{background:#FF8A3D;color:#1A0E05}
+.fcmk{position:absolute;left:42px;width:40px;height:3px;margin-top:-1.5px;border-radius:2px;background:#FF8A3D;z-index:3;pointer-events:none}
+.fcmk span{position:absolute;left:-2px;top:5px;font-size:9px;font-weight:800;color:#FF8A3D;letter-spacing:.02em}
+.fcmk.e span{top:-14px}
+.fcband{position:absolute;left:52px;width:24px;background:rgba(255,138,61,.35);border-radius:3px;z-index:2;pointer-events:none}
 </style>
 
 <div id="app" class="app"></div>
@@ -1492,7 +1508,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.4.8 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.4.9 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2215,6 +2231,16 @@ function checkRow(k, label, on) {
 /* ===== Focus view (double tap) ===== */
 const FPX = 2; /* pixels per minute on the vertical timeline */
 const FTOP = 24;
+/* the download range on the camera view timeline: an orange band with a short line at Start and End */
+function fclipMarks(id) {
+  const c = S.fclip; if (!c || c.cam !== id) return '';
+  const Y = t => FTOP + (focusEnd() - t) / MIN * FPX;
+  let h = '';
+  if (c.a && c.b) h += '<div class="fcband" style="top:' + Y(c.b).toFixed(1) + 'px;height:' + Math.max(2, Y(c.a) - Y(c.b)).toFixed(1) + 'px"></div>';
+  if (c.a) h += '<div class="fcmk" style="top:' + Y(c.a).toFixed(1) + 'px"><span>Start</span></div>';
+  if (c.b) h += '<div class="fcmk e" style="top:' + Y(c.b).toFixed(1) + 'px"><span>End</span></div>';
+  return h;
+}
 function focusEnd() { return S.focus.dayEnd || now(); }
 function focusSpan() { return S.focus.dayEnd ? DAY : (now() - dayStart(now()) + HOUR); }
 function fLineY(t) { return t == null ? FTOP : FTOP + (focusEnd() - t) / MIN * FPX; }
@@ -2283,7 +2309,7 @@ function viewFocus() {
         rows += '<button class="fev" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + e.img + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(e.label) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span></button>';
       }
     });
-    body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px"><div class="frail"></div>' + rows + '</div></div><div class="fline" id="fpline" style="top:' + FTOP + 'px"></div>';
+    body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px"><div class="frail"></div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + FTOP + 'px"></div>';
   }
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
   const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk fname">' + esc(c.name) + '</div><div style="flex:1"></div>' +
@@ -2293,8 +2319,9 @@ function viewFocus() {
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
     '<div class="fvid' + (c.ar && c.ar < 1.2 ? ' tall" style="--ar:' + c.ar.toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fctl" id="fctl">' + (S.fclip && S.fclip.cam === c.id ?
-      '<button class="dk" data-act="fclipx" aria-label="Cancel Download">' + I.x + '</button><div class="fclipt"><b>Start</b> ' + hms(S.fclip.a) + '<br><b>End</b> ' + hms(S.fclip.b) + '</div>' +
-      '<button class="fday" data-act="fclipend">Set End</button><button class="dk solid" data-act="fclipdl" aria-label="Download">' + I.dl + '</button></div>' :
+      '<button class="dk" data-act="fclipx" aria-label="Cancel Download">' + I.x + '</button><div class="fclipt"><b>Start</b> ' + (S.fclip.a ? hms(S.fclip.a) : '—') + '<br><b>End</b> ' + (S.fclip.b ? hms(S.fclip.b) : '—') + '</div>' +
+      '<button class="dk fbk' + (S.fclip.a ? ' set' : '') + '" data-act="fclipmark" data-v="a" aria-label="Set Start Here">[</button><button class="dk fbk' + (S.fclip.b ? ' set' : '') + '" data-act="fclipmark" data-v="b" aria-label="Set End Here">]</button>' +
+      '<button class="dk solid" data-act="fclipdl" aria-label="Download"' + (S.fclip.a && S.fclip.b ? '' : ' style="opacity:.45"') + '>' + I.dl + '</button></div>' :
     '<button class="fday" data-act="fdate">' + I.cal + (S.focus.dayEnd ? dayLabel(S.focus.dayEnd - 1) : 'Today') + '</button><div style="flex:1"></div>' +
     (Data.source === 'frigate' ? '<button class="dk" data-act="fclip" aria-label="Download Video">' + I.dl + '</button>' : '') +
     (S.flist ? '<button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button>' : '') +
@@ -2922,7 +2949,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.4.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.4.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -2938,25 +2965,72 @@ let toastTimer;
    the file simply downloads. (Opening the clip link directly left the home-screen app on a page with no way back.) */
 const pad2 = n => String(n).padStart(2, '0');
 function fileTime(ms) { const d = new Date(ms); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + ' ' + pad2(d.getHours()) + '.' + pad2(d.getMinutes()) + '.' + pad2(d.getSeconds()); }
-async function saveClip(url, name) {
-  if (Data.source !== 'frigate') { toast('Downloads Work Once The App Runs On The Mini PC'); return; }
-  toast('Preparing Video…');
-  let blob;
-  try { const r = await fetch(url, { credentials: 'include' }); if (!r.ok) throw new Error(String(r.status)); blob = await r.blob(); if (!blob.size) throw new Error('empty'); }
-  catch (e) { toast('Could Not Get The Video'); return; }
-  const file = new File([blob], name, { type: 'video/mp4' });
-  const phone = /iPhone|iPad|Android/.test(navigator.userAgent);
+/* One save at a time, with a 0–100 % bar: first the mini PC prepares the video (time estimated from its length), then
+   the phone downloads it (real progress). Extra taps while saving are ignored; ✕ cancels. */
+const SaveBar = {
+  busy: false, ac: null, tm: 0,
+  el() { let b = document.getElementById('savebar'); if (!b) { b = document.createElement('div'); b.id = 'savebar'; b.className = 'savebar'; document.body.appendChild(b); } return b; },
+  show(text, pct) {
+    const b = this.el(); b.hidden = false; const tn = document.getElementById('toast'); if (tn) tn.hidden = true;
+    if (!b.querySelector('.sbp')) { b.innerHTML = '<div class="sbt"><span class="sbl"></span><span class="sbn"></span></div><div class="sbp"><i></i></div><button class="sx" aria-label="Cancel">' + I.x + '</button>'; b.querySelector('.sx').onclick = () => this.cancel(); }
+    b.querySelector('.sbl').textContent = text; b.querySelector('.sbn').textContent = Math.round(pct) + '%'; b.querySelector('.sbp i').style.width = pct.toFixed(1) + '%';
+  },
+  cancel() { if (this.ac) this.ac.abort(); this.end(); },
+  end() { clearInterval(this.tm); this.busy = false; this.ac = null; const b = document.getElementById('savebar'); if (b) { b.hidden = true; b.innerHTML = ''; } },
+  /* slow climb toward `to` while waiting on the mini PC, about `est` ms to get most of the way */
+  creep(text, from, to, est) { const t0 = Date.now(); clearInterval(this.tm); this.tm = setInterval(() => { this.show(text, from + (to - from) * (1 - Math.exp(-(Date.now() - t0) / est))); }, 200); this.show(text, from); }
+};
+async function fetchWithBar(url, text, from, est) {
+  SaveBar.creep(text, from, 60, est);
+  const r = await fetch(url, { credentials: 'include', signal: SaveBar.ac.signal }); if (!r.ok) throw new Error(String(r.status));
+  clearInterval(SaveBar.tm);
+  const total = +r.headers.get('content-length') || 0, parts = []; let got = 0;
+  if (r.body && r.body.getReader) {
+    const rd = r.body.getReader();
+    for (;;) { const { done, value } = await rd.read(); if (done) break; parts.push(value); got += value.length; SaveBar.show('Downloading', total ? 60 + 40 * got / total : Math.min(95, 60 + got / 400000)); }
+  } else parts.push(new Uint8Array(await r.arrayBuffer()));
+  const blob = new Blob(parts, { type: 'video/mp4' }); if (!blob.size) throw new Error('empty'); return blob;
+}
+function deliver(blob, name) {
+  const file = new File([blob], name, { type: 'video/mp4' }), phone = /iPhone|iPad|Android/.test(navigator.userAgent);
   if (phone && navigator.canShare && navigator.canShare({ files: [file] })) {
-    let bar = document.getElementById('savebar');
-    if (!bar) { bar = document.createElement('div'); bar.id = 'savebar'; bar.className = 'savebar'; document.body.appendChild(bar); }
-    bar.innerHTML = '<span>Video Ready</span><button class="sv">' + I.dl + 'Save</button><button class="sx" aria-label="Close">' + I.x + '</button>';
-    bar.hidden = false; const tn = document.getElementById('toast'); if (tn) tn.hidden = true;
-    bar.querySelector('.sx').onclick = () => { bar.hidden = true; };
-    bar.querySelector('.sv').onclick = async () => { bar.hidden = true; try { await navigator.share({ files: [file] }); } catch (e) { if (!e || e.name !== 'AbortError') toast('Could Not Open Save'); } };
-    return;
+    clearInterval(SaveBar.tm); const b = SaveBar.el(); b.hidden = false;
+    /* the share sheet needs a fresh tap */
+    b.innerHTML = '<span class="sbr">Video Ready</span><button class="sv">' + I.dl + 'Save</button><button class="sx" aria-label="Close">' + I.x + '</button>';
+    b.querySelector('.sx').onclick = () => SaveBar.end();
+    b.querySelector('.sv').onclick = async () => { SaveBar.end(); try { await navigator.share({ files: [file] }); } catch (e) { if (!e || e.name !== 'AbortError') toast('Could Not Open Save'); } };
+    SaveBar.busy = false; return;
   }
   const u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(u), 60000); toast('Video Saved');
+  setTimeout(() => URL.revokeObjectURL(u), 60000); SaveBar.end(); toast('Video Saved');
+}
+async function saveClip(url, name, durS) {
+  if (Data.source !== 'frigate') { toast('Downloads Work Once The App Runs On The Mini PC'); return; }
+  if (SaveBar.busy) return; SaveBar.busy = true; SaveBar.ac = new AbortController();
+  try { deliver(await fetchWithBar(url, 'Preparing Video', 0, 1500 + (durS || 30) * 40), name); }
+  catch (e) { const ab = e && e.name === 'AbortError'; SaveBar.end(); if (!ab) toast('Could Not Get The Video'); }
+}
+/* Timelapse: Frigate makes a sped-up copy (25x) as an export, the app waits for it, downloads it, then removes it */
+async function saveTimelapse(cam, a, b, name) {
+  if (Data.source !== 'frigate') { toast('Timelapse Works Once The App Runs On The Mini PC'); return; }
+  if (SaveBar.busy) return; SaveBar.busy = true; SaveBar.ac = new AbortController();
+  let id = null;
+  try {
+    SaveBar.creep('Making Timelapse', 0, 55, 3000 + (b - a) / 1000 * 15);
+    const r = await fetch(Frigate.base() + '/api/export/' + cam + '/start/' + Math.floor(a / 1000) + '/end/' + Math.ceil(b / 1000), { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playback: 'timelapse_25x', name: name.replace(/\.mp4$/, '') }), signal: SaveBar.ac.signal });
+    const j = await r.json().catch(() => ({})); if (!r.ok || j.success === false) throw new Error('export');
+    id = j.export_id || null; let ex = null;
+    for (let k = 0; k < 300 && !ex; k++) {
+      await new Promise(ok => setTimeout(ok, 2000)); if (!SaveBar.busy) return;
+      const list = await (await fetch(Frigate.base() + '/api/exports', { credentials: 'include', signal: SaveBar.ac.signal })).json();
+      const it = (list || []).find(x => id ? x.id === id : x.camera === cam && x.name === name.replace(/\.mp4$/, ''));
+      if (it) { id = it.id; if (!it.in_progress && it.video_path) ex = it; }
+    }
+    if (!ex) throw new Error('timeout');
+    const blob = await fetchWithBar(Frigate.base() + '/exports/' + ex.video_path.split('/').pop(), 'Making Timelapse', 58, 800);
+    fetch(Frigate.base() + '/api/export/' + id, { method: 'DELETE', credentials: 'include' }).catch(() => {});
+    deliver(blob, name);
+  } catch (e) { const ab = e && e.name === 'AbortError'; SaveBar.end(); if (!ab) toast('Could Not Make The Timelapse'); }
 }
 function toast(msg) {
   let n = document.getElementById('toast');
@@ -3042,7 +3116,7 @@ const ACT = {
   },
   evdl(d) {
     const e = Data.events.find(x => x.id === d.v); if (!e) return;
-    saveClip(e.clip, (Data.cam(e.cam) ? Data.cam(e.cam).name : e.cam) + ' ' + e.label + ' ' + fileTime(e.t) + '.mp4');
+    saveClip(e.clip, (Data.cam(e.cam) ? Data.cam(e.cam).name : e.cam) + ' ' + e.label + ' ' + fileTime(e.t) + '.mp4', ((e.end || e.t + 20000) - e.t) / 1000 + 3);
   },
   evplay(d, ev) {
     if (ev && ev.target && ev.target.tagName === 'VIDEO' && ev.target.controls) return;
@@ -3098,8 +3172,10 @@ const ACT = {
   },
   clipsave(d) {
     const cl = S.clip;
-    if (!cl || cl.cam !== S.expanded || !cl.a || !cl.b) { toast('Set the clip start [ and end ] first'); return; }
-    toast((d.v === 'tl' ? 'Timelapse' : 'Clip') + ' ' + hms(cl.a) + ' – ' + hms(cl.b) + (Data.source === 'frigate' ? ' is exporting' : ' saved (demo)'));
+    if (!cl || cl.cam !== S.expanded || !cl.a || !cl.b) { toast('Set The Start [ And End ] First'); return; }
+    const cam = Data.cam(cl.cam), nm = (cam ? cam.name : cl.cam) + ' ' + fileTime(cl.a);
+    if (d.v === 'tl') saveTimelapse(cl.cam, cl.a, cl.b, nm + ' Timelapse.mp4');
+    else saveClip(Frigate.base() + '/api/' + cl.cam + '/start/' + Math.floor(cl.a / 1000) + '/end/' + Math.ceil(cl.b / 1000) + '/clip.mp4', nm + '.mp4', (cl.b - cl.a) / 1000);
   },
   clip() { toast(Data.source === 'frigate' ? 'Clip export starts on the mini PC' : 'Clip saved (demo)'); },
   date(d) {
@@ -3162,22 +3238,22 @@ const ACT = {
   unfocus() { S.focus = null; S.full = false; S.fclip = null; render(); },
   /* camera view download: start = the second being watched (Live: the last 30 s); end defaults to 30 s later and
      can be set by moving to the end and tapping Set End */
-  fclip() {
-    const cam = S.focus.cam, t = camT(cam);
-    S.fclip = t == null ? { cam, a: now() - 30000, b: now() } : { cam, a: Math.floor(t / 1000) * 1000, b: Math.min(now(), Math.floor(t / 1000) * 1000 + 30000) };
-    render();
-  },
+  /* the download button starts a clip at the second being watched; [ and ] move the start / end to the second being
+     watched now (move the timeline first); both show as orange marks on the timeline */
+  fclip() { const cam = S.focus.cam, t = camT(cam); S.fclip = { cam, a: Math.floor((t == null ? now() : t) / 1000) * 1000, b: null }; render(); },
   fclipx() { S.fclip = null; render(); },
-  fclipend() {
-    const c = S.fclip; if (!c) return; const t = camT(c.cam), e = Math.ceil((t == null ? now() : t) / 1000) * 1000;
-    if (e <= c.a) { c.b = c.a; c.a = e; } else c.b = e;
-    if (c.b - c.a < 2000) c.b = c.a + 2000;
-    if (c.b - c.a > 30 * MIN) { toast('Up To 30 Minutes · End Moved'); c.b = c.a + 30 * MIN; }
+  fclipmark(d) {
+    const c = S.fclip; if (!c) return; const t = camT(c.cam), v = Math.round((t == null ? now() : t) / 1000) * 1000;
+    c[d.v] = v;
+    if (c.a && c.b && c.b < c.a) { const x = c.a; c.a = c.b; c.b = x; }
+    if (c.a && c.b && c.b - c.a < 2000) c.b = c.a + 2000;
+    if (c.a && c.b && c.b - c.a > 30 * MIN) { toast('Up To 30 Minutes · End Moved'); c.b = c.a + 30 * MIN; }
     render();
   },
   fclipdl() {
-    const c = S.fclip; if (!c) return; const cam = Data.cam(c.cam);
-    saveClip(Frigate.base() + '/api/' + c.cam + '/start/' + Math.floor(c.a / 1000) + '/end/' + Math.ceil(c.b / 1000) + '/clip.mp4', (cam ? cam.name : c.cam) + ' ' + fileTime(c.a) + '.mp4');
+    const c = S.fclip; if (!c) return; if (!c.a || !c.b) { toast(c.a ? 'Move To The End And Tap ]' : 'Move To The Start And Tap ['); return; }
+    const cam = Data.cam(c.cam);
+    saveClip(Frigate.base() + '/api/' + c.cam + '/start/' + Math.floor(c.a / 1000) + '/end/' + Math.ceil(c.b / 1000) + '/clip.mp4', (cam ? cam.name : c.cam) + ' ' + fileTime(c.a) + '.mp4', (c.b - c.a) / 1000);
   },
   full() { S.full = true; S.fui = false; S.fpanel = false; render(); },
   unfull() { FZ.s = 1; FZ.x = 0; FZ.y = 0; S.full = false; S.autoFull = false; S.fpanel = false; clearTimeout(fuiTimer); render(); },
@@ -3646,7 +3722,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.4.8';
+    const BUILD = '1.4.9';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
