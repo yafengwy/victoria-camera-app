@@ -317,6 +317,7 @@ img.rf{opacity:0}
 .rvtitle{flex:1;font-size:18px;font-weight:800;color:var(--head-fg)}
 .rvchips{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 10px}
 .rvtop.one .rvbar .rvtitle{flex:0 0 auto;margin-right:10px}
+.rvtop.one .chip.rvf{max-width:220px}
 .rvtop.one .rvsp{flex:1}
 .rvtop.one .rvbar .chip{flex-shrink:0}
 .rvwrap{display:flex;align-items:flex-start}
@@ -3120,7 +3121,7 @@ function rvDropdown() {
     const sel = S.rv.sel, on = id => sel != null && sel.includes(id);
     const groups = [...new Set(Data.cams.map(c => c.group))];
     const st = sel == null ? 'all' : groups.find(g => { const ids = Data.cams.filter(c => c.group === g).map(c => c.id); return ids.length === sel.length && ids.every(i => sel.includes(i)); }) || 'custom';
-    h += camChips(on, st, 'rvgroup', 'rvcam', 'data-v', !COVER && !rvCompact());   /* the bar already has All Cameras / Outside Only / Inside Only */
+    h += camChips(on, st, 'rvgroup', 'rvcam', 'data-v', !COVER && !rvCompact() && !rvOneRow());   /* two-row bar already has All Cameras / Outside Only / Inside Only */
   }
   return h + '</div></div>';
 }
@@ -3141,6 +3142,21 @@ function rvRefine(t0, label) {
     });
 }
 function rvOneRow() { return window.innerWidth >= 900; }
+/* computer: one row. Left: Reset, Cameras, Objects (each opens right under itself), Boxes, Date.
+   Right end: Alert List / Timeline, then Layout. */
+function rvBarOne(st) {
+  const sel = S.rv.sel, camLab = st === 'all' ? 'All Cameras' : st !== 'custom' ? st + ' Only' : sel.length + (sel.length === 1 ? ' Camera' : ' Cameras');
+  const dd = on => (on ? I.up : I.down).replace(/22/g, '14');
+  return '<div class="rvtop one" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
+    '<button class="chip sm rvib" data-act="rvreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
+    '<button class="chip sm rvf" data-act="rvpick" aria-pressed="' + (st !== 'all' || S.rv.pick) + '" aria-label="Cameras"><span>' + esc(camLab) + '</span>' + dd(S.rv.pick) + '</button>' +
+    '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + dd(S.rv.fopen) + '</button>' +
+    (Data.source === 'frigate' ? '<button class="chip sm bxchip" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
+    dtOver('<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button>', 'rv') +
+    '<span class="rvsp"></span>' +
+    '<button class="ic' + (S.rv.list ? ' on' : '') + '" data-act="rvlist" aria-pressed="' + !!S.rv.list + '" aria-label="' + (S.rv.list ? 'Show Timeline' : 'Show Alert List') + '">' + (S.rv.list ? I.tline : I.bellO) + '</button>' +
+    '<button class="chip sm" data-act="rvcolsopen" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvLay() === 'big' ? 'Big' : rvCols()) + '</button></div>';
+}
 function rvCompact() { return window.innerHeight < 640 || window.innerWidth < 420; }
 function rvBarCompact(st) {
   const ib = (act, on, label, icon, extra) => '<button class="chip sm rvib" data-act="' + act + '" aria-pressed="' + on + '" aria-label="' + label + '" title="' + label + '">' + icon + (extra || '') + '</button>';
@@ -3371,9 +3387,8 @@ function viewReview() {
     '<button class="chip sm" data-act="rvgroup" data-v="all" aria-pressed="' + (st === 'all') + '">All Cameras</button>' +
     groups.map(g => '<button class="chip sm" data-act="rvgroup" data-v="' + esc(g) + '" aria-pressed="' + (st === g) + '">' + esc(g) + ' Only</button>').join('') +
     '<button class="chip sm" data-act="rvpick" aria-pressed="' + (st === 'custom' || S.rv.pick) + '">Choose' + (S.rv.pick ? I.up : I.down).replace(/22/g, '14') + '</button>';
-  const ONE = !RVC && rvOneRow();   /* computer: everything in one row — cameras on the left, the rest on the right */
-  let h = RVC ? rvBarCompact(st) : '<div class="rvtop' + (ONE ? ' one' : '') + '" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
-    (ONE ? camRow + '<span class="rvsp"></span>' : '') +
+  const ONE = !RVC && rvOneRow();
+  let h = RVC ? rvBarCompact(st) : ONE ? rvBarOne(st) : '<div class="rvtop" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
     '<button class="chip sm rvib" data-act="rvreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
     '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + (S.rv.fopen ? I.up : I.down).replace(/22/g, '14') + '</button>' +
     '<button class="chip sm" data-act="rvcolsopen" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvLay() === 'big' ? 'Big' : rvLay() === 'top' ? 'Top' : rvCols()) + '</button>' +
@@ -3868,7 +3883,10 @@ const ACT = {
     saveClip(Frigate.base() + '/api/' + cl.cam + '/start/' + Math.floor(cl.a / 1000) + '/end/' + Math.ceil(cl.b / 1000) + '/clip.mp4', nm + '.mp4', (cl.b - cl.a) / 1000);
   },
   clip() { toast(Data.source === 'frigate' ? 'Clip export starts on the mini PC' : 'Clip saved (demo)'); },
-  date(d) { openDateTime(dtCur(d.v === 'rv' ? 'rv' : 'home'), dtGo(d.v === 'rv' ? 'rv' : 'home')); },
+  date(d, e) {
+    const b = e && e.target && e.target.closest && e.target.closest('[data-act]'), inp = document.getElementById('dtpick');
+    if (b && inp) { const r = b.getBoundingClientRect(); Object.assign(inp.style, { position: 'fixed', left: r.left + 'px', top: (r.bottom - 1) + 'px', width: r.width + 'px', height: '1px' }); }
+    openDateTime(dtCur(d.v === 'rv' ? 'rv' : 'home'), dtGo(d.v === 'rv' ? 'rv' : 'home')); },
   chk(d) {
     if (d.v === 'demo') { S.demo = !S.demo; render(); return; }
     S.filt[d.v] = !S.filt[d.v]; saveFilt(); render();
