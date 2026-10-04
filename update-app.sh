@@ -38,6 +38,10 @@ if [ -f "$D/.recreate-app" ]; then (cd "$D" && docker compose up -d --force-recr
 if [ -s "$G/clipwait.py" ] && ! cmp -s "$G/clipwait.py" "$D/.applied-clipwait"; then
   docker restart clipwait >/dev/null && cp "$G/clipwait.py" "$D/.applied-clipwait"
 fi
+# The Xiaomi go2rtc reads its config from the repo copy; restart it when the config changes
+if [ -s "$G/xiaomi-go2rtc.yaml" ] && ! cmp -s "$G/xiaomi-go2rtc.yaml" "$D/.applied-xiaomi"; then
+  docker restart xiaomi >/dev/null && cp "$G/xiaomi-go2rtc.yaml" "$D/.applied-xiaomi" && echo "$(date "+%m-%d %H:%M") xiaomi restart" >&2
+fi
 # Connection check the app shows in Settings (Frigate version, and whether a websocket handshake to /ws answers,
 # directly on Frigate and through the app's web server)
 {
