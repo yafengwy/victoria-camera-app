@@ -1574,7 +1574,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.6.10 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.7.1 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2712,9 +2712,9 @@ function rvDropdown() {
   const ck = (on, act, v, label, cls) => '<button class="check' + (cls ? ' ' + cls : '') + '" role="checkbox" aria-checked="' + on + '" data-act="' + act + '" data-v="' + esc(v) + '"><span class="box">' + (on ? I.check : '') + '</span>' + esc(label) + '</button>';
   let h = '<div class="rvscrim" data-act="rvdclose"></div><div class="rvdd' + (S.rv.pick ? ' low' : '') + (S.rv.colsOpen ? ' narrow' : '') + '" role="dialog" aria-label="' + (S.rv.fopen ? 'Alert Types' : S.rv.colsOpen ? 'Layout' : 'Cameras') + '">';
   if (S.rv.colsOpen) {
-    const mx = window.innerWidth >= 1000 ? 5 : 4, L = S.rv.lay;
+    const mx = window.innerWidth >= 1000 ? 5 : 4, L = S.rv.lay === 'top' && rvVert() ? 'big' : S.rv.lay;
     h += '<div class="rvddh">Layout</div>' +
-      ['big', 'top', 'grid'].map(k => '<button class="check" role="radio" aria-checked="' + (L === k) + '" data-act="rvlay" data-v="' + k + '"><span class="box rdo">' + (L === k ? I.check : '') + '</span>' + RV_LAYS[k] + '</button>').join('');
+      (rvVert() ? ['big', 'grid'] : ['big', 'top', 'grid']).map(k => '<button class="check" role="radio" aria-checked="' + (L === k) + '" data-act="rvlay" data-v="' + k + '"><span class="box rdo">' + (L === k ? I.check : '') + '</span>' + RV_LAYS[k] + '</button>').join('');
     if (L === 'grid') {
       h += '<div class="rvddh">Per Row</div><div class="rvperrow">';
       for (let n = 1; n <= mx; n++) h += '<button data-act="rvcols" data-v="' + n + '" aria-pressed="' + (rvCols() === n) + '">' + n + '</button>';
@@ -2778,7 +2778,10 @@ function rvFSummary() {
    right, newest at the top, so the camera grid keeps the full height. Portrait: horizontal strip at the bottom. */
 const VTOP = 24;   /* vertical timelines: the playhead sits near the top (newest = Live at the top), like Frigate */
 /* Review layouts: big (one big picture + small), top (cameras with an alert side by side on top), grid (N per row) */
-function rvLay() { return S.rv.lay !== 'grid' && rvCams().length > 3 ? S.rv.lay : 'grid'; }   /* wide screens too (the side timeline) */
+/* wide screens (side timeline): no Alerts On Top (one picture would fill the screen) — it shows as Big there */
+function rvLay() { return S.rv.lay !== 'grid' && rvCams().length > 3 ? (S.rv.lay === 'top' && rvVert() ? 'big' : S.rv.lay) : 'grid'; }
+/* Big on a wide screen: 4–5 columns with the big picture 2×2, so many cameras stay in view; phones keep 3 */
+function rvBigCols() { return rvVert() ? (window.innerWidth >= 1300 ? 5 : 4) : 3; }
 function rvBig() { return rvLay() === 'big'; }
 const RV_LAYS = { big: 'Big', top: 'Alerts On Top', grid: 'Grid' };
 /* Big layout: the camera with an alert at the line gets the big picture (2/3 wide), the next two sit beside it,
@@ -2815,7 +2818,7 @@ function rvLayout(t) {
   if (!S.rv.feat || !cams.some(c => c.id === S.rv.feat)) S.rv.feat = cams[0] && cams[0].id;
   const side = hits.map(x => x.c.id).filter(id => id !== S.rv.feat);
   /* narrow phone: the big picture takes the full width, everything else 2 per row */
-  const narrow = box.clientWidth < 520; box.classList.toggle('narrow', narrow); box.style.setProperty('--cols', narrow ? 2 : 3);
+  const narrow = box.clientWidth < 520; box.classList.toggle('narrow', narrow); box.style.setProperty('--cols', narrow ? 2 : rvBigCols());
   cams.forEach((c, i) => {
     const n = document.getElementById('rv-' + c.id); if (!n) return;
     const f = c.id === S.rv.feat, si = side.indexOf(c.id);
@@ -2929,7 +2932,7 @@ function viewReview() {
   if (S.rv.fopen || S.rv.pick || S.rv.colsOpen) h += rvDropdown();
   const nc = rvCols();
   const L = rvLay();
-  h += '</div><div class="rvcams c' + (L === 'big' ? '3 big3' : L === 'top' ? '4 top24' : nc) + (rvVert() ? ' v' : '') + '" style="--cols:' + (L === 'big' ? 3 : L === 'top' ? 24 : nc) + '">';
+  h += '</div><div class="rvcams c' + (L === 'big' ? rvBigCols() + ' big3' : L === 'top' ? '4 top24' : nc) + (rvVert() ? ' v' : '') + '" style="--cols:' + (L === 'big' ? rvBigCols() : L === 'top' ? 24 : nc) + '">';
   if (!cams.length) h += '<div class="empty">Choose at least one camera.</div>';
   cams.forEach(c => {
     const f = Data.frame(c, t);
@@ -3089,7 +3092,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.6.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.7.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3880,7 +3883,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.6.10';
+    const BUILD = '1.7.1';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
