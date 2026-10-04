@@ -1015,10 +1015,18 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .chlive{height:30px;padding:0 12px;margin:0 4px 0 2px;border-radius:15px;background:var(--strong);color:var(--strong-fg);font-size:12px;font-weight:800}
 .chead .chctl + .sndb{margin-left:0}
 .pctl.solo{justify-content:center}
-.pctl.g3{justify-content:flex-start;gap:8px}
+.pctl.g3{justify-content:flex-start;gap:6px}
 .pctl.g3 .psp{flex:1 1 0;min-width:0}
-.pctl.g3 .pctl2{flex:1 1 0;justify-content:flex-end;gap:6px}
-@media (max-width:440px){.pctl.g3 .pctl2{gap:4px}.pctl.g3 .pctl2 .round{width:36px;height:36px}}
+.pctl.g3 .pl{order:1}.pctl.g3 .trio{order:2}.pctl.g3 .pr{order:3}
+.pctl.g3 .o-pw{order:4}.pctl.g3 .o-dt{order:5}.pctl.g3 .o-bx{order:6}.pctl.g3 .o-sn{order:7}.pctl.g3 .o-lv{order:8}
+.pctl.g3 .pg{display:contents}
+@media (max-width:600px){
+  .pctl.g3 .psp{display:none}
+  .pctl.g3 .pg{display:flex;flex:1 1 0;gap:6px;min-width:0}
+  .pctl.g3 .gl{order:1}.pctl.g3 .trio{order:2}.pctl.g3 .gr{order:3;justify-content:flex-end}
+  .pctl.g3 .o-pw,.pctl.g3 .o-bx{order:1}.pctl.g3 .o-sn,.pctl.g3 .o-dt{order:2}.pctl.g3 .o-lv{order:3}
+  .pctl.g3 .round{width:38px;height:38px}
+}
 </style>
 
 <div id="app" class="app"></div>
@@ -1539,7 +1547,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.6.3 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.6.4 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2084,17 +2092,18 @@ function panel(c, col) {
       '<div class="cliptxt">' + (cl.a ? 'Start ' + hms(cl.a) : 'Start —') + ' · ' + (cl.b ? 'End ' + hms(cl.b) : 'End —') + '</div>';
   }
   return '<div class="panel' + (col ? ' half' : '') + '" id="panel"' + (col ? ' style="grid-column:' + col + ' / span 2"' : '') + '>' +
-    (S.layout === 'list' ? '<div class="pctl solo">' : '<div class="pctl g3"><span class="psp"></span>') +
+    (S.layout === 'list' ? '<div class="pctl solo">' : '<div class="pctl g3"><span class="psp pl"></span>') +
     '<div class="trio">' +
     '<button data-act="playpause" aria-label="' + (S.playing ? 'Pause' : 'Play') + '">' + (S.playing ? I.pause : I.play) + '</button>' +
     '</div>' +
     /* grid cards have no title row, so their controls sit at the panel's right, in the same order as every other
-       page's top right: Power, Date, Boxes, Sound, Live */
-    (S.layout === 'list' ? '' : '<div class="pctl2">' +
-      (Data.source === 'frigate' && Ctl.on(c.id) ? '<button class="round" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
-      '<button class="round" data-act="date" aria-label="Pick Date">' + I.cal + '</button>' +
-      (Data.source === 'frigate' ? '<button class="round bxr" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
-      Snd.btn('round') + '<button class="round" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button></div>') + '</div>' +
+       page's top right: Power, Date, Boxes, Sound, Live; on narrow phones Power, Sound | Play | Boxes, Date, Live (CSS order) */
+    (S.layout === 'list' ? '' : '<span class="psp pr"></span><span class="pg gl">' +
+      (Data.source === 'frigate' && Ctl.on(c.id) ? '<button class="round o-pw" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
+      Snd.btn('round o-sn') + '</span><span class="pg gr">' +
+      (Data.source === 'frigate' ? '<button class="round bxr o-bx" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
+      '<button class="round o-dt" data-act="date" aria-label="Pick Date">' + I.cal + '</button>' +
+      '<button class="round o-lv" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button></span>') + '</div>' +
     '<div class="tl"><div class="tlrow"><span id="tlstart">' + hm(start) + ' ' + dayLabel(start) + '</span><button class="pill" id="winpill" data-act="modal" data-v="win" aria-label="Change Timeline Length">' + winLabel(S.win) + '</button><span id="tlend">' + (S.winEnd >= now() - 2000 ? 'Now' : hm(S.winEnd)) + '</span></div>' +
     '<div class="track' + (S.markStyle === 'b' ? ' lanes' : '') + '" id="track" role="slider" aria-label="Playback Time" aria-valuetext="' + (live ? 'Live' : hms(t)) + '" tabindex="0">' + clipBand(c.id, start) + segs +
     '<div class="head-mk" id="playhead" style="left:' + (S.pos * 100).toFixed(2) + '%"></div></div>' +
@@ -2128,7 +2137,7 @@ function paintPanel() {
   const t = camT(id), live = t == null, hv = S.hov && S.hov.id === id ? S.hov : null;
   const ph = document.getElementById('playhead'); if (ph) ph.style.left = ((hv ? hv.p : S.pos) * 100).toFixed(2) + '%';
   const ro = document.getElementById('readout'); if (ro) ro.textContent = hv ? dayLabel(hv.t) + ' ' + hms(hv.t) : live ? 'Live · Drag To Go Back' : dayLabel(t) + ' ' + hms(t);
-  const lb = document.getElementById('livebtn'); if (lb && !lb.classList.contains('chlive')) lb.className = 'round';
+  const lb = document.getElementById('livebtn'); if (lb && !lb.classList.contains('chlive')) lb.className = 'round o-lv';
   const tr = document.getElementById('track'); if (tr) tr.setAttribute('aria-valuetext', live ? 'Live' : hms(t));
   paintCam(id);
 }
@@ -3034,7 +3043,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.6.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.6.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3816,7 +3825,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.6.3';
+    const BUILD = '1.6.4';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
