@@ -988,6 +988,22 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .fcmk span{position:absolute;left:-2px;top:5px;font-size:9px;font-weight:800;color:#FF8A3D;letter-spacing:.02em}
 .fcmk.e span{top:-14px}
 .fcband{position:absolute;left:52px;width:24px;background:rgba(255,138,61,.35);border-radius:3px;z-index:2;pointer-events:none}
+
+/* ---- v69: Alerts on wide screens: big player on the left, compact list on the right ---- */
+.evwrap.wide{max-width:1500px;gap:14px;padding:12px 12px 0 16px;align-items:flex-start}
+.evwrap.wide .evplayer{flex:1.8;min-width:0;position:sticky;top:calc(var(--evtop,124px) + 10px)}
+.evwrap.wide .evplayer .evcard{border-radius:14px}
+.evwrap.wide .evplayer .evh{padding:8px 4px 8px 14px}
+.evwrap.wide .evlist{flex:1;max-width:470px;padding:0 0 40px;gap:8px}
+.evrow{display:flex;align-items:center;gap:12px;padding:8px;border-radius:12px;background:var(--ev);color:var(--ev-fg);cursor:pointer;border:2px solid transparent}
+.evrow.dim{background:var(--track)}
+.evrow.sel{border-color:var(--strong)}
+.evrow:hover{filter:brightness(.97)}
+.evrow img{width:150px;aspect-ratio:16/9;object-fit:cover;border-radius:8px;flex-shrink:0;display:block}
+.evrow .evt{display:block;flex:1;min-width:0;white-space:normal}
+.evrow .evt b{display:block;font-size:14px;font-weight:800;font-variant-numeric:tabular-nums}
+.evrow .evt span{display:block;font-size:12px;font-weight:600;opacity:.75;margin-top:3px}
+.evrow .ic{color:var(--ev-fg);width:38px;height:38px;flex-shrink:0}
 </style>
 
 <div id="app" class="app"></div>
@@ -1508,7 +1524,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.5.6 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.5.7 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2147,6 +2163,7 @@ function wireEvPreviews() {
   evIO = new IntersectionObserver(es => es.forEach(x => { const v = x.target; if (x.isIntersecting) { if (!v.src) v.src = v.dataset.src; v.play().catch(() => {}); } else v.pause(); }), { threshold: 0.4 });
   vids.forEach(v => evIO.observe(v));
 }
+function evWide() { return window.innerWidth >= 1000; }
 function viewEvents() {
   const f = S.filt, today = dayStart(now());
   const visible = Data.events.filter(passes);
@@ -2160,12 +2177,33 @@ function viewEvents() {
   h += '<div class="days">' + days.map(d => '<button class="day" data-act="day" data-v="' + d.i + '" aria-pressed="' + (S.evDay === d.i) + '">' + dayLabel(d.d0) + '<b>' + d.n + '</b></button>').join('') + '</div></div>';
   const byHour = {};
   list.forEach(e => { const hr = new Date(e.t).getHours(); (byHour[hr] = byHour[hr] || []).push(e); });
-  h += '<div class="evwrap"><div class="evlist">';
-  if (!list.length) h += '<div class="empty">No alerts on this day with the current filters.</div>';
+  /* wide screens (computer): the chosen alert plays big on the left, the day's alerts are a compact list on the right */
+  const wide = evWide();
+  let sel = null;
+  if (wide) {
+    sel = list.find(e => e.id === S.evSel) || list[0] || null; S.evSel = sel ? sel.id : null;
+    h += '<div class="evwrap wide"><div class="evplayer" id="evplayer">';
+    if (sel) {
+      const sc = Data.cam(sel.cam);
+      h += '<article class="evcard big' + (sel.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(sel.label) + '</i>' + esc(sel.label) + ' At ' + hms(sel.t) + '</b><span>' + esc(sc ? sc.name : sel.cam) + '</span></div>' +
+        '<button class="ic" aria-label="Open Camera" data-act="focusat" data-id="' + esc(sel.cam) + '" data-t="' + sel.t + '">' + I.expand + '</button>' +
+        '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(sel.id) + '">' + I.dl + '</button>' +
+        '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(sel.id) + '">' + (S.evPlay === sel.id ? I.pause : I.playO) + '</button></div>' +
+        '<div class="evmedia" id="evm-' + esc(sel.id) + '" data-act="evtap" data-v="' + esc(sel.id) + '" role="button" aria-label="Double Tap To Open ' + esc(sel.label) + ' At ' + hms(sel.t) + ' Full Screen">' + evMedia(sel) + '</div></article>';
+    } else h += '<div class="empty">No alerts on this day with the current filters.</div>';
+    h += '</div><div class="evlist">';
+  } else h += '<div class="evwrap"><div class="evlist">';
+  if (!list.length && !wide) h += '<div class="empty">No alerts on this day with the current filters.</div>';
   Object.keys(byHour).map(Number).sort((a, b) => b - a).forEach(hr => {
     h += '<div class="hourh" id="hour-' + hr + '"></div>';
     byHour[hr].forEach(e => {
       const cam = Data.cam(e.cam);
+      if (wide) {
+        h += '<article class="evrow' + (e.interesting ? '' : ' dim') + (sel && sel.id === e.id ? ' sel' : '') + '" data-act="evsel" data-v="' + esc(e.id) + '"><img src="' + e.img + '" alt="" loading="lazy">' +
+          '<div class="evt"><b><i class="lico">' + objIcon(e.label) + '</i>' + esc(e.label) + ' At ' + hms(e.t) + '</b><span>' + esc(cam ? cam.name : e.cam) + ' · ' + durLabel(e) + '</span></div>' +
+          '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(e.id) + '">' + I.dl + '</button></article>';
+        return;
+      }
       h += '<article class="evcard' + (e.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(e.label) + '</i>' + esc(e.label) + ' At ' + hms(e.t) + '</b><span>' + esc(cam ? cam.name : e.cam) + '</span></div>' +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(e.id) + '">' + I.dl + '</button>' +
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(e.id) + '">' + (S.evPlay === e.id ? I.pause : I.playO) + '</button>' +
@@ -2966,7 +3004,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.5.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.5.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3117,6 +3155,12 @@ const ACT = {
   evdl(d) {
     const e = Data.events.find(x => x.id === d.v); if (!e) return;
     saveClip(e.clip, (Data.cam(e.cam) ? Data.cam(e.cam).name : e.cam) + ' ' + e.label + ' ' + fileTime(e.t) + '.mp4', ((e.end || e.t + 20000) - e.t) / 1000 + 3);
+  },
+  /* wide screens: pick an alert in the list to play it in the big player */
+  evsel(d) {
+    if (S.evSel === d.v) return;
+    evStop(); S.evSel = d.v; render();
+    ACT.evplay({ v: d.v });
   },
   evplay(d, ev) {
     if (ev && ev.target && ev.target.tagName === 'VIDEO' && ev.target.controls) return;
@@ -3725,7 +3769,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
     if (isLand() && !S.full) { S.full = true; S.autoFull = true; S.fui = false; S.fpanel = false; render(); }
     else if (!isLand() && S.full && S.autoFull) { S.full = false; S.autoFull = false; S.fpanel = false; render(); }
     else if (S.full) { const fv = document.getElementById('fullv'); if (fv && fv.classList.contains('rot') !== fullRot()) render(); }
-  } const was = COVER; detectCover(); const n = cols() * 10 + rvCols() + (COVER ? 100 : 0) + (rvVert() ? 1000 : 0) + (rvCompact() ? 10000 : 0); if (S.view === 'review') { S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); } if (n !== lastCols || was !== COVER) { lastCols = n; render(); } }, 150); });
+  } const was = COVER; detectCover(); const n = cols() * 10 + rvCols() + (COVER ? 100 : 0) + (rvVert() ? 1000 : 0) + (rvCompact() ? 10000 : 0) + (evWide() ? 100000 : 0); if (S.view === 'review') { S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); } if (n !== lastCols || was !== COVER) { lastCols = n; render(); } }, 150); });
 
 (async function start() {
   await Data.load(); lastCols = cols() * 10 + rvCols();
@@ -3742,7 +3786,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.5.6';
+    const BUILD = '1.5.7';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
