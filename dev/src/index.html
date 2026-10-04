@@ -539,8 +539,13 @@ img.rf{opacity:0}
 :root[data-cover] .rail .ic[aria-current="page"]{background:var(--chip)}
 :root[data-cover] .rail .rlogo{display:none}
 :root[data-cover]:not([data-view="home"]) .rail{display:none}
-:root[data-cover]:not([data-view="home"]) .app{padding-right:0}
-:root[data-cover]:not([data-view="home"]) .rvdock{right:0}
+/* cover screen, Review and Alerts: the page's own buttons move into the side strip (back / close at the top) */
+:root[data-cover] .rvtop{border-bottom:0}
+:root[data-cover] .rvtop,:root[data-cover] .evtop{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transform:none!important;filter:none!important}
+:root[data-cover] .rvtop .rvbar,:root[data-cover] .evtop .evbar{position:fixed;top:0;bottom:0;right:0;left:auto;height:auto;width:var(--strip);flex-direction:column;justify-content:flex-end;align-items:center;gap:6px;padding:max(8px,env(safe-area-inset-top,0px)) 0 calc(10px + env(safe-area-inset-bottom,0px));background:var(--card);border-left:1px solid var(--line);z-index:36;box-sizing:border-box}
+:root[data-cover] .rvtop .rvbar .rvtitle,:root[data-cover] .evtop .evbar > span{display:none}
+:root[data-cover] .rvtop .rvbar > [data-act="go"],:root[data-cover] .evtop .evbar > [data-act="go"]{order:-1;margin-bottom:auto}
+:root[data-cover] .rvtop .rvbar .rvib{margin:0}
 :root[data-cover] .rvdock{left:0;right:var(--strip)}
 /* ---- v28: vertical review rail on wide landscape screens ---- */
 .rvdock.v{left:auto;right:0;top:var(--rvtop,110px);bottom:0;width:104px;border-top:0;border-left:1px solid var(--line);padding:0}
