@@ -1508,7 +1508,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.5.4 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.5.5 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1602,6 +1602,13 @@ const Playback = {
         /* a new spot is loading: the old video still plays for a moment, and its position must not pull the time back */
         if (p.loading || (S.focus && S.focus.cam === id && fScrubbing())) return;
         const t = this.wall(p, v.currentTime);
+        /* for a few seconds after the timeline was dragged, the video may only confirm where the user went, never pull
+           the time somewhere else (an older video position kept snapping the timeline back on the iPhone) */
+        if (S.focus && S.focus.cam === id && S.camTime[id] != null && Math.abs(t - S.camTime[id]) > 2500 && fUserAgo() < 4000) {
+          if (p.dbgPull !== Math.round(t / 10000)) { p.dbgPull = Math.round(t / 10000); Dbg.log('ignored video time', id, hms(t), 'user at', hms(S.camTime[id])); }
+          return;
+        }
+        if (S.camTime[id] != null && Math.abs(t - S.camTime[id]) > 5000 && S.camTime[id] === p.expect) Dbg.log('video moved time', id, hms(S.camTime[id]), '→', hms(t));
         /* the user just jumped somewhere else (tapped an alert or Live): this update is from the old position, ignore it */
         if (S.camTime[id] !== p.expect && (S.camTime[id] == null || Math.abs(t - S.camTime[id]) > 2500)) return;
         p.lastSet = t; p.expect = t;
@@ -2252,6 +2259,7 @@ function fShow(t) { const sc = document.getElementById('fsc'); if (!sc) return; 
    tapping an alert or an empty spot moves the line there instead of moving the list. */
 /* the finger is on (or just left) a camera-view timeline: the playing video must not move the time or the list then,
    or the timeline jumps back to where the video is while it is being dragged */
+function fUserAgo() { let m = Infinity; ['fsc', 'ftsc'].forEach(i => { const n = document.getElementById(i); if (n) m = Math.min(m, n._touch ? 0 : Date.now() - (n._scrolled || 0)); }); return m; }
 function fScrubbing() { return ['fsc', 'ftsc'].some(i => { const n = document.getElementById(i); return n && (n._touch || Date.now() - (n._scrolled || 0) < 700); }); }
 function fPaintLine() {
   const sc = document.getElementById('fsc'), ln = document.getElementById('fpline'); if (!sc || !ln || !S.focus) return;
@@ -2958,7 +2966,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.5.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.5.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3722,7 +3730,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.5.4';
+    const BUILD = '1.5.5';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
