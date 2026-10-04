@@ -206,7 +206,7 @@ img.rf{opacity:0}
 .full .fbot{position:absolute;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom,0px));text-align:center;font-size:12px;font-weight:600;color:#B8C0C7}
 .hidden-date{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px}
 .dtwrap{position:relative;display:inline-flex;flex:none}
-.dtover{display:none}
+.dtover{display:block;position:absolute;inset:0;width:100%;height:100%;opacity:0;pointer-events:none;border:0;padding:0;margin:0;z-index:-1}
 @media (pointer:coarse){.dtover{display:block;position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:16px;border:0;padding:0;margin:0;-webkit-appearance:none;appearance:none;background:transparent;color:transparent;z-index:2}}
 
 /* ---- v2: compact playback panel ---- */
@@ -318,6 +318,12 @@ img.rf{opacity:0}
 .rvchips{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 10px}
 .rvtop.one .rvbar .rvtitle{flex:0 0 auto;margin-right:10px}
 .rvtop.one .chip.rvf{max-width:220px}
+.rvend{display:flex;align-items:center;gap:6px}
+/* side timeline: the two buttons sit centered right above it */
+.rvend.v{width:104px;margin-right:-8px;justify-content:center;gap:2px;flex:none}
+.rvend.v.l{width:270px}
+.rvend.v .ic{width:36px;min-width:36px}
+.rvend.v .chip{padding:0 9px;margin:0}
 .rvtop.one .rvsp{flex:1}
 .rvtop.one .rvbar .chip{flex-shrink:0}
 .rvwrap{display:flex;align-items:flex-start}
@@ -3153,9 +3159,9 @@ function rvBarOne(st) {
     '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + dd(S.rv.fopen) + '</button>' +
     (Data.source === 'frigate' ? '<button class="chip sm bxchip" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
     dtOver('<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button>', 'rv') +
-    '<span class="rvsp"></span>' +
+    '<span class="rvsp"></span><span class="rvend' + (rvVert() ? (S.rv.list ? ' v l' : ' v') : '') + '">' +
     '<button class="ic' + (S.rv.list ? ' on' : '') + '" data-act="rvlist" aria-pressed="' + !!S.rv.list + '" aria-label="' + (S.rv.list ? 'Show Timeline' : 'Show Alert List') + '">' + (S.rv.list ? I.tline : I.bellO) + '</button>' +
-    '<button class="chip sm" data-act="rvcolsopen" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvLay() === 'big' ? 'Big' : rvCols()) + '</button></div>';
+    '<button class="chip sm" data-act="rvcolsopen" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvLay() === 'big' ? 'Big' : rvCols()) + '</button></span></div>';
 }
 function rvCompact() { return window.innerHeight < 640 || window.innerWidth < 420; }
 function rvBarCompact(st) {
@@ -3885,6 +3891,9 @@ const ACT = {
   clip() { toast(Data.source === 'frigate' ? 'Clip export starts on the mini PC' : 'Clip saved (demo)'); },
   date(d, e) {
     const b = e && e.target && e.target.closest && e.target.closest('[data-act]'), inp = document.getElementById('dtpick');
+    /* computer: open the picker of the hidden date box that sits right on this button, so it drops down under it */
+    const ov = b && b.parentElement && b.parentElement.querySelector('.dtover');
+    if (ov && ov.showPicker) { const k = ov.dataset.dt; ov.max = dtIso(now()); ov.min = dtIso(now() - 7 * DAY); ov.value = dtIso(dtCur(k) == null ? now() : dtCur(k)); try { ov.showPicker(); return; } catch (x) { } }
     if (b && inp) { const r = b.getBoundingClientRect(); Object.assign(inp.style, { position: 'fixed', left: r.left + 'px', top: (r.bottom - 1) + 'px', width: r.width + 'px', height: '1px' }); }
     openDateTime(dtCur(d.v === 'rv' ? 'rv' : 'home'), dtGo(d.v === 'rv' ? 'rv' : 'home')); },
   chk(d) {
