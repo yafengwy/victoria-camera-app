@@ -58,3 +58,4 @@ Read this first when picking the app up in a new conversation. No secrets live i
 - Prep Kitchen WiFi question.
 - Offered: change the "No Recording" subtitle to "Not Saved By Frigate" on tiles that do have an alert.
 - Review layouts (Grid uses the same order too): only Big and Grid (Alerts On Top merged into Big). Big by screen: wide (side timeline) big 2x2 on the left, 4-5 columns; phones and upright tablets big across the top, 2 (phone) / 3 (tablet) per row below. Order: picture first, Interesting, Uninteresting, rest, then No Recording. Adjust per device when she reports a new width.
+- Review alert list (bell, S.rv.list, rvListHtml/rvlpick): replaces the timeline; phone bottom 38vh list, wide 340px right column; follows the alert filter.

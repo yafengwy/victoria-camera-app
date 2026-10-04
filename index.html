@@ -329,6 +329,24 @@ img.rf{opacity:0}
 .rvsevrow{display:flex}.rvsevrow .check{flex:1}
 .rvcams.big3 .rvcam.feat{grid-column:span 2;grid-row:span 2;aspect-ratio:auto}
 .rvcams.big3.fixh .rvcam{aspect-ratio:auto;height:auto;min-height:0}
+/* Review alert list (bell): phones — a list across the bottom instead of the timeline; wide — a wider right column */
+.rvdock.l .rvlist{height:38vh;overflow-y:auto;padding:6px 10px 4px;display:flex;flex-direction:column;gap:6px;overscroll-behavior:contain}
+.rvcams.l{padding-bottom:calc(38vh + 70px + env(safe-area-inset-bottom,0px))}
+.rvdock.v.l{width:340px}
+.rvdock.v.l .rvlist{position:absolute;inset:0;height:auto;padding:8px 10px 90px}
+.rvcams.v.l{padding-bottom:calc(76px + env(safe-area-inset-bottom,0px));padding-right:348px}
+.rvdock.v.l .rvctl{right:calc(340px + (100vw - 340px) / 2)}
+@media (min-width:1000px){.rvdock.v.l .rvctl{right:calc(340px + (100vw - 398px) / 2)}}
+.rvl-h{font-size:12px;font-weight:800;color:var(--sub);padding:6px 2px 0;letter-spacing:.02em}
+.rvli{display:flex;align-items:center;gap:10px;padding:5px;border-radius:12px;background:var(--chip);text-align:left;width:100%;flex-shrink:0}
+.rvli img{width:84px;height:48px;object-fit:cover;border-radius:8px;flex-shrink:0;background:#1E2226}
+.rvli b{display:flex;align-items:center;gap:5px;font-size:14px;font-weight:700;color:var(--text)}
+.rvli b .lico{color:var(--hot);display:inline-flex}
+.rvli b .lico svg{width:15px;height:15px}
+.rvli.un b .lico{color:var(--sub)}
+.rvli small{display:block;font-size:12px;color:var(--sub);margin-top:2px;font-variant-numeric:tabular-nums}
+.rvli.cur{box-shadow:inset 0 0 0 2px var(--hot)}
+.rvdock.l .rvz{display:none}
 .rvcams.big3.narrow .rvcam.feat{grid-column:1/-1;grid-row:span 1;aspect-ratio:16/9}
 .rvcams.big3 .rvcam.feat .nm{font-size:13px;padding:4px 10px}
 .rvcams.big3 .rvcam.nr{opacity:.5}
@@ -1575,7 +1593,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.7.8 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.7.9 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1889,7 +1907,7 @@ const S = {
   winEnd: now(), pos: 1, win: store.get('win', 30 * MIN), playing: true, speed: 1, tab: 'events',
   filt: store.get('filt3', { int: true, unint: false, objs: { Person: true, Car: true, Cat: true, Dog: true, Package: true }, off: {}, zones: {} }),
   ddObj: false, ddCam: false, zoneOpen: null,
-  objOpen: false, rv: { sel: null, pick: false, t: null, cols: store.get('rvcols', 0), lay: store.get('rvlay', store.get('rvbig', true) ? 'big' : 'grid'), feat: null, autoFeat: null, span: store.get('rvspan', 2 * HOUR), f: store.get('rvf', { int: true, unint: false, objs: {} }), zones: store.get('rvzones', {}), fopen: false, zopen: null, colsOpen: false }, flist: false,
+  objOpen: false, rv: { sel: null, pick: false, t: null, cols: store.get('rvcols', 0), lay: store.get('rvlay', store.get('rvbig', true) ? 'big' : 'grid'), feat: null, autoFeat: null, span: store.get('rvspan', 2 * HOUR), f: store.get('rvf', { int: true, unint: false, objs: {} }), zones: store.get('rvzones', {}), fopen: false, zopen: null, colsOpen: false, list: store.get('rvlist', false) }, flist: false,
   evDay: 0, filtersOpen: false, modal: null, focus: null, full: false, dragging: false
 };
 function passes(e) {
@@ -2767,6 +2785,7 @@ function rvBarCompact(st) {
     ib('rvfopen', S.rv.fopen || !rvFDefault(), 'Alert Types On Timeline', I.filter) +
     ib('rvcolsopen', !!S.rv.colsOpen, 'Layout', I.grid4.replace(/22/g, '18')) +
     (Data.source === 'frigate' ? ib('boxes', Box.on, 'Show Object Boxes', I.boxes) : '') +
+    ib('rvlist', !!S.rv.list, S.rv.list ? 'Show Timeline' : 'Show Alert List', S.rv.list ? I.tline : I.bellO.replace(/22/g, '18')) +
     '<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button></div>';
 }
 function rvFDefault() { const f = S.rv.f; return f.int && !f.unint && OBJS().every(o => objOn(f, o)); }
@@ -2949,6 +2968,23 @@ function rvZoom(span) {
   const zl = document.getElementById('rvzl'); if (zl) zl.textContent = rvzLabel(span);
   const z = document.getElementById('rvzoom'); if (z) { z.textContent = winLabel(span); z.hidden = false; clearTimeout(rvZoom.tm); rvZoom.tm = setTimeout(() => { z.hidden = true; }, 1200); }
 }
+/* Alert list instead of the timeline (the bell on the Review page, like the camera view's): every alert of the chosen
+   cameras that passes the alert filter (Interesting, plus Uninteresting when chosen), newest first, by day */
+function rvListEvents(cams, end) {
+  const ids = cams.map(c => c.id);
+  return Data.events.filter(e => ids.includes(e.cam) && e.t > end - RSPAN && e.t <= end && rvPass(e)).sort((a, b) => b.t - a.t).slice(0, 300);
+}
+function rvListHtml(cams, end) {
+  const evs = rvListEvents(cams, end), t = S.rv.t;
+  let h = '<div class="rvlist" id="rvlist">' + (evs.length ? '' : '<div class="rvl-h">No alerts match your filters.</div>'), lastDay = null;
+  evs.forEach(e => {
+    const dl = dayStart(e.t) === dayStart(now()) ? 'Today' : dayStart(e.t) === dayStart(now() - DAY) ? 'Yesterday' : dayLabel(e.t);
+    if (dl !== lastDay) { h += '<div class="rvl-h">' + dl + '</div>'; lastDay = dl; }
+    const c = Data.cam(e.cam), cur = t != null && t >= e.t - 3000 && t <= (e.end || e.t) + 3000;
+    h += '<button class="rvli' + (cur ? ' cur' : '') + (e.interesting ? '' : ' un') + '" data-act="rvlpick" data-t="' + e.t + '" data-id="' + e.cam + '"><img src="' + e.img + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(e.label) + '</i>' + esc(String(e.label).replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase())) + '</b><small>' + esc(c ? c.name : e.cam) + ' · ' + hm(e.t) + ' · ' + durLabel(e) + '</small></span></button>';
+  });
+  return h + '</div>';
+}
 function viewReview() {
   const cams = rvCams(), t = S.rv.t, end = now();
   const groups = [...new Set(Data.cams.map(c => c.group))];
@@ -2957,6 +2993,7 @@ function viewReview() {
   let h = RVC ? rvBarCompact(st) : '<div class="rvtop" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
     '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + (S.rv.fopen ? I.up : I.down).replace(/22/g, '14') + '</button>' +
     '<button class="chip sm" data-act="rvcolsopen" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvLay() === 'big' ? 'Big' : rvLay() === 'top' ? 'Top' : rvCols()) + '</button>' +
+    '<button class="ic' + (S.rv.list ? ' on' : '') + '" data-act="rvlist" aria-pressed="' + !!S.rv.list + '" aria-label="' + (S.rv.list ? 'Show Timeline' : 'Show Alert List') + '">' + (S.rv.list ? I.tline : I.bellO) + '</button>' +
     '<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button></div><div class="rvchips">' +
     (Data.source === 'frigate' ? '<button class="chip sm bxchip" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
     '<button class="chip sm" data-act="rvgroup" data-v="all" aria-pressed="' + (st === 'all') + '">All Cameras</button>' +
@@ -2965,7 +3002,7 @@ function viewReview() {
   if (S.rv.fopen || S.rv.pick || S.rv.colsOpen) h += rvDropdown();
   const nc = rvCols();
   const L = rvLay();
-  h += '</div><div class="rvcams c' + (L === 'big' ? rvBigCols() + ' big3' : L === 'top' ? '4 top24' : nc) + (rvVert() ? ' v' : '') + '" style="--cols:' + (L === 'big' ? rvBigCols() : L === 'top' ? 24 : nc) + '">';
+  h += '</div><div class="rvcams c' + (L === 'big' ? rvBigCols() + ' big3' : L === 'top' ? '4 top24' : nc) + (rvVert() ? ' v' : '') + (S.rv.list ? ' l' : '') + '" style="--cols:' + (L === 'big' ? rvBigCols() : L === 'top' ? 24 : nc) + '">';
   if (!cams.length) h += '<div class="empty">Choose at least one camera.</div>';
   cams.forEach(c => {
     const f = Data.frame(c, t);
@@ -2974,7 +3011,8 @@ function viewReview() {
   });
   rvEnd = end;
   RVV = rvVert();
-  h += '</div><div class="rvdock' + (RVV ? ' v' : '') + '"><div class="rvh" id="rvh"><div class="rvhs" id="rvsc"><div class="sp"></div><div class="rvtrack" id="rvtrack">';
+  if (S.rv.list) h += '</div><div class="rvdock l' + (RVV ? ' v' : '') + '">' + rvListHtml(cams, end) + '<div style="display:none">';
+  else h += '</div><div class="rvdock' + (RVV ? ' v' : '') + '"><div class="rvh" id="rvh"><div class="rvhs" id="rvsc"><div class="sp"></div><div class="rvtrack" id="rvtrack">';
   /* activity per minute for the selected cameras; drawn lazily around the playhead by drawRvTrack() */
   const ids = cams.map(c => c.id);
   rvBk = new Map(); rvHasCams = ids.length > 0;
@@ -2982,7 +3020,8 @@ function viewReview() {
     const sel = rvPass(e);
     for (let m = Math.floor(e.t / MIN); m <= Math.floor((e.end || e.t) / MIN); m++) { const b = rvBk.get(m) || { n: 0, hot: false, other: 0, lab: {}, first: {}, hl: {} }; if (sel) { b.n++; b.hot = b.hot || e.interesting; if (e.interesting) b.hl[e.label] = 1; b.lab[e.label] = (b.lab[e.label] || 0) + 1; if (!(b.first[e.label] <= e.t)) b.first[e.label] = e.t; } else b.other++; rvBk.set(m, b); }
   });
-  h += '</div><div class="sp"></div></div><div class="hline"></div><div class="hbub" id="rvbub">' + (t == null ? 'Live' : hms(t)) + '</div><div class="hzoom" id="rvzoom" hidden></div></div>';
+  if (S.rv.list) h += '</div>';
+  else h += '</div><div class="sp"></div></div><div class="hline"></div><div class="hbub" id="rvbub">' + (t == null ? 'Live' : hms(t)) + '</div><div class="hzoom" id="rvzoom" hidden></div></div>';
   h += '<div class="rvctl"><button data-act="rvstep" data-v="-10" aria-label="Back 10 Seconds">' + I.back10 + '</button>' +
     '<button class="pp" data-act="playpause" aria-label="' + (S.playing ? 'Pause' : 'Play') + '">' + (S.playing ? I.pause : I.play) + '</button>' +
     '<button data-act="rvstep" data-v="10" aria-label="Forward 10 Seconds">' + I.fwd10 + '</button>' +
@@ -3055,6 +3094,7 @@ function paintReview() {
   const b = document.getElementById('rvbub'); if (b) b.textContent = ht !== undefined ? hms(ht) : t == null ? 'Live' : hms(t);
   rvLayout(ht !== undefined ? ht : t);
   rvHint();
+  if (S.rv.list && t != null) document.querySelectorAll('#rvlist .rvli').forEach(n => { const e0 = +n.dataset.t, ev = Data.events.find(x => x.t === e0 && x.cam === n.dataset.id); n.classList.toggle('cur', !!ev && t >= ev.t - 3000 && t <= (ev.end || ev.t) + 3000); });
 }
 /* A camera with an alert at the chosen time may be scrolled out of sight: a small pill above the timeline names it,
    and tapping it brings that camera into view */
@@ -3132,7 +3172,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.7.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.7.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3445,6 +3485,14 @@ const ACT = {
   fbadge() { const id = S.focus && S.focus.cam; if (!id) return; if (camT(id) != null) { ACT.flive(); return; } if (!Ctl.on(id)) return; Live.restart(id); toast('Reconnecting'); },
   flive() { S.camTime[S.focus.cam] = null; S.focus.dayEnd = null; S.focus.lineY = FTOP; render(); const sc = document.getElementById('fsc'); if (sc) { fSetScroll(sc, 0); fPaintLine(); } const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
   flist() { S.flist = !S.flist; render(); fShow(camT(S.focus.cam)); },
+  rvlist() { S.rv.list = !S.rv.list; store.set('rvlist', S.rv.list); S.rv.fopen = S.rv.pick = S.rv.colsOpen = false; render(); requestAnimationFrame(() => { const c = document.querySelector('#rvlist .rvli.cur'); if (c) c.scrollIntoView({ block: 'center' }); }); },
+  rvlpick(d, e) {   /* an alert in the list: every camera goes to that moment, the alert's camera comes first */
+    S.rv.t = +d.t - 1000; S.playing = true; S.rv.feat = d.id; S.rv.autoFeat = null;
+    document.querySelectorAll('#rvlist .rvli.cur').forEach(n => n.classList.remove('cur'));
+    const b = e && e.target.closest('.rvli'); if (b) b.classList.add('cur');
+    const pp = document.querySelector('.rvctl [data-act="playpause"]'); if (pp) pp.innerHTML = I.pause;
+    paintReview();
+  },
   fpick(d, e) { S.camTime[S.focus.cam] = +d.t - 1000; document.querySelectorAll('.fitem.cur').forEach(n => n.classList.remove('cur')); const b = e.target.closest('.fitem'); if (b) b.classList.add('cur'); paintFocus(); },
   setwin(d) { setWin(+d.v); S.modal = null; render(); },
   objdd() { S.objOpen = !S.objOpen; render(); },
@@ -3923,7 +3971,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.7.8';
+    const BUILD = '1.7.9';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
