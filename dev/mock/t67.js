@@ -1,0 +1,22 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' }); const pg = await b.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  await pg.route(/jsdelivr/, r => r.fulfill({ path: '../skins/node_modules/hls.js/dist/hls.min.js', contentType: 'text/javascript' }));
+  const errs = []; pg.on('pageerror', e => errs.push(e.message));
+  await pg.goto('http://localhost:8765/'); await pg.waitForTimeout(2000);
+  const out = [];
+  const st = () => pg.evaluate(() => [document.querySelectorAll('.sndb').length, [...document.querySelectorAll('.sndb')].map(b => b.getAttribute('aria-pressed')).join(','), [...document.querySelectorAll('video.pbv, .lvh video')].filter(v => !v.muted).length]);
+  out.push(['home', await st()]);
+  await pg.evaluate(() => { S.focus = { cam: 'front_door' }; S.camTime.front_door = now() - 120000; S.playing = true; render(); Playback.sync(); });
+  await pg.waitForTimeout(2500);
+  out.push(['focus', await st()]);
+  await pg.click('.focus .sndb'); await pg.waitForTimeout(500);
+  out.push(['focus on', await st()]);
+  await pg.evaluate(() => { S.full = true; S.fui = true; render(); }); await pg.waitForTimeout(500);
+  out.push(['full', await st()]);
+  await pg.evaluate(() => { S.full = false; S.focus = null; render(); }); await pg.waitForTimeout(300);
+  out.push(['back home', await st()]);
+  console.log(JSON.stringify(out), errs);
+  await pg.evaluate(() => { S.focus = { cam: 'front_door' }; render(); }); await pg.waitForTimeout(400);
+  await pg.screenshot({ path: 'snd.png' }); await b.close();
+})();
