@@ -1027,6 +1027,32 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
   .pctl.g3 .o-pw,.pctl.g3 .o-bx{order:1}.pctl.g3 .o-sn,.pctl.g3 .o-dt{order:2}.pctl.g3 .o-lv{order:3}
   .pctl.g3 .round{width:38px;height:38px}
 }
+/* v71: tighter camera panel in every theme, so the picture keeps the room: smaller buttons, less space above and
+   below each row (buttons, timeline, Alerts/Speed/Clip, Alert Settings); the three tab bodies keep one shared height */
+.pctl{padding:3px 10px}
+.round,.pctl.g3 .round{width:32px;height:32px;border-radius:16px}
+.round svg{width:16px;height:16px}
+.trio{padding:2px}
+.trio button{width:30px;height:30px;border-radius:15px}
+.trio svg{width:14px;height:14px}
+.tl{padding:4px 12px 6px;gap:3px}
+.tabs button{height:28px}
+.tabbody{height:126px;padding:5px 10px;gap:4px}
+.panel .btn{height:24px;padding:0 12px;font-size:12px}
+@media (hover:hover) and (pointer:fine){.tabbody{height:132px}}
+/* v71: tighter camera panel in every theme, so the picture keeps the room: smaller buttons, less space above and
+   below each row (buttons, timeline, Alerts/Speed/Clip, Alert Settings); the three tab bodies keep one shared height */
+.pctl{padding:3px 10px}
+.round,.pctl.g3 .round{width:32px;height:32px;border-radius:16px}
+.round svg{width:16px;height:16px}
+.trio{padding:2px}
+.trio button{width:30px;height:30px;border-radius:15px}
+.trio svg{width:14px;height:14px}
+.tl{padding:4px 12px 6px;gap:3px}
+.tabs button{height:28px}
+.tabbody{height:126px;padding:5px 10px;gap:4px}
+.panel .btn{height:24px;padding:0 12px;font-size:12px}
+@media (hover:hover) and (pointer:fine){.tabbody{height:132px}}
 </style>
 
 <div id="app" class="app"></div>
@@ -2022,7 +2048,7 @@ function viewHome() {
       for (let i = 0; i < cams.length; i += n) {
         const row = cams.slice(i, i + n), k = row.findIndex(c => c.id === S.expanded);
         row.forEach(c => { h += camCard(c); });
-        if (k >= 0) h += panel(Data.cam(S.expanded), half ? Math.min(k + 1, n - 1) : 0);
+        if (k >= 0) h += panel(Data.cam(S.expanded), half ? Math.min(Math.floor(k / 2) * 2 + 1, n - 1) : 0);   /* cameras pair up: 1–2 → columns 1–2, 3–4 → 3–4 */
       }
       h += '</div>';
     }
