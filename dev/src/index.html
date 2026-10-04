@@ -72,9 +72,10 @@ img.rf{opacity:0}
 .pairrow > .cam.tall .frame{aspect-ratio:var(--ar);width:100%;margin:0}
 .pairrow > .cam.tall .frame .badge{top:34px!important}
 /* 3 or more per row: two rows tall, picture fills the card */
-.grid .cam.span2{grid-row:span 2}
+.grid .cam.span2{grid-row:span 2;align-self:stretch;min-height:0}
+.cam.span2 .frame img,.cam.span2 .frame .lvh,.cam.span2 .frame .lvc,.cam.span2 .frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .grid:has(.span2){container-type:inline-size}
-.cam.span2 .frame{flex:1;aspect-ratio:auto;width:100%;margin:0;min-height:calc((100cqw - (var(--cols) - 1) * 10px) / var(--cols) * 1.125 + 10px)}
+.cam.span2 .frame{flex:1 1 0;height:0;overflow:hidden;aspect-ratio:auto;width:100%;margin:0;min-height:calc((100cqw - (var(--cols) - 1) * 10px) / var(--cols) * 1.125 + 10px)}
 .grid:not(.compact) .cam.span2 .frame{min-height:calc((100cqw - (var(--cols) - 1) * 10px) / var(--cols) * 1.125 + 54px)}
 .frame img{width:100%;height:100%;object-fit:cover;display:block;user-select:none;-webkit-user-drag:none}
 .frame .hit{position:absolute;inset:0;width:100%;height:100%}
