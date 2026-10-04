@@ -1,0 +1,13 @@
+const { chromium } = require('playwright');
+(async () => { const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' }); const pg = await b.newPage({ viewport: { width: 412, height: 900 } });
+const errs=[]; pg.on('pageerror',e=>errs.push(e.message));
+await pg.goto('file://' + process.cwd() + '/../camapp/preview.html'); await pg.waitForTimeout(1500);
+const r = await pg.evaluate(async () => { S.view = 'review'; S.rv.filt = null;
+  const T = Math.floor((now() - 40 * MIN) / MIN) * MIN + 5000;
+  Data.events = Data.events.filter(e => Math.abs(e.t - T) > 10 * MIN);
+  for (let i = 0; i < 3; i++) Data.events.push({ id: 'c' + i, cam: 'driveway', t: T + i * 1000, end: T + 60000, label: 'car', interesting: false, img: '' });
+  Data.events.push({ id: 'k1', cam: 'front_door', t: T + 20000, end: T + 40000, label: 'cat', interesting: true, img: '' });
+  Data.events.push({ id: 'p1', cam: 'right_yard', t: T + 90000, end: T + 100000, label: 'person', interesting: false, img: '' });
+  S.rv.t = T; render(); await new Promise(r => setTimeout(r, 400)); drawRvTrack(true);
+  return [...document.querySelectorAll('#rvtrack .hico')].map(n => ({ l: n.dataset.l, hot: n.classList.contains('hot'), dt: Math.round((+n.dataset.t - T) / 1000) })).filter(x => Math.abs(x.dt) < 600); });
+console.log(JSON.stringify(r), errs); await b.close(); })();
