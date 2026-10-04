@@ -53,9 +53,8 @@ Read this first when picking the app up in a new conversation. No secrets live i
 - Wide grids (3+ per row): panel is 2 columns wide; cameras pair up (1–2 → columns 1–2, 3–4 → 3–4, last odd one → last two) (`.grid.dense`, `panel(c, col)`). Panel spacing compacted in v71 CSS block.
 
 ## Open items
-- iPhone Duo cover screen: she has not received the phone yet; screenshots pending. (She also uses a Galaxy Z Flip.)
+- iPhone Duo cover screen: the phone arrives in November; nothing to do before then. (She also uses a Galaxy Z Flip.)
 - Xiaomi / Aqara cameras: waiting for model numbers.
-- Prep Kitchen WiFi question.
 - Offered: change the "No Recording" subtitle to "Not Saved By Frigate" on tiles that do have an alert.
 - Review layouts (Grid uses the same order too): only Big and Grid (Alerts On Top merged into Big). Big by screen: wide (side timeline) big 2x2 on the left, 4-5 columns; phones and upright tablets big across the top, 2 (phone) / 3 (tablet) per row below. Order: picture first, Interesting, Uninteresting, rest, then No Recording. Adjust per device when she reports a new width.
 - Review alert list (bell, S.rv.list, rvListHtml/rvlpick): replaces the timeline; phone bottom 38vh list, wide 340px right column; follows the alert filter.
