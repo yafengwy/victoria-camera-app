@@ -714,6 +714,11 @@ input,select,textarea{font-size:16px}
 .pf small{font-size:10px;color:var(--sub)}
 .pfbar{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:12px;background:var(--track);margin-top:6px}
 .pfbar .chips{display:flex;flex-wrap:wrap;gap:8px}
+.lbl.pfhead{display:flex;align-items:center;gap:10px}
+.pfdall{margin-left:auto;height:28px;padding:0 12px;border-radius:14px;background:transparent;box-shadow:inset 0 0 0 1.5px #C0392B;color:#C0392B;font-size:12px;font-weight:700;text-transform:none;letter-spacing:0}
+.pfconf b{font-size:15px;color:var(--head-fg)} .pfconf span{font-size:13px;color:var(--sub)}
+.pfcb{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+.btn.pfred{background:#C0392B;color:#fff}
 .pfbar .chip.pfname{height:38px;padding:0 16px 0 6px;border-radius:19px;background:var(--card);color:var(--head-fg);box-shadow:inset 0 0 0 1.5px var(--line);font-size:16px;font-weight:700;display:inline-flex;align-items:center;gap:8px}
 .pfbar .chip.pfname img,.pfbar .chip.pfname i{width:28px;height:28px;border-radius:14px;object-fit:cover;display:inline-flex;align-items:center;justify-content:center}
 .pfbar .btn[data-act="pfdel"]{font-size:13px;height:34px;padding:0 14px;align-self:center}
@@ -1814,7 +1819,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.2.5 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.2.6 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2064,7 +2069,9 @@ const People = {
       rows.forEach(r => { if (r.label !== 'person') return; this.person[r.id] = 1; const n = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label; if (n && !isLogo(n) && String(n).toLowerCase() !== 'unknown') this.sub[r.id] = n; });
     } catch (e) {}
   },
-  async loadFaces() { try { this.faces = await Frigate.get('/api/faces'); } catch (e) { this.faces = {}; } },
+  /* always a fresh list (a cached answer kept showing faces that were already deleted) */
+  async loadFaces() { try { this.faces = await Frigate.get('/api/faces?_=' + Date.now()); } catch (e) { this.faces = {}; } },
+  dropTrain(ids) { if (this.faces && this.faces.train) this.faces.train = this.faces.train.filter(x => !ids.includes(x)); },
   known() {
     const set = new Set(Object.keys(this.faces || {}).filter(n => n !== 'train').map(niceName));
     Object.values(this.sub).forEach(n => set.add(niceName(n)));
@@ -2179,7 +2186,9 @@ function modalPeople() {
     h += '<div class="lbl" style="margin-top:0">Known People · ' + lib.length + '</div>';
     h += lib.length ? '<div class="pflist">' + lib.map(n => { const fs = f[n] || []; return '<div class="pfp">' + (fs[0] ? '<img src="' + Frigate.base() + '/clips/faces/' + encodeURIComponent(n) + '/' + encodeURIComponent(fs[0]) + '" alt="">' : '<i class="pfnone">' + ICON_SVG.person + '</i>') + '<span><b>' + esc(niceName(n)) + '</b><small>' + fs.length + (fs.length === 1 ? ' Photo' : ' Photos') + '</small></span></div>'; }).join('') + '</div>'
       : '<div class="wtnote" style="margin:0">Nobody Yet. Pick A New Face Below And Give It A Name.</div>';
-    h += '<div class="lbl">New Faces · ' + tr.length + '</div>';
+    h += '<div class="lbl pfhead">New Faces · ' + tr.length + (tr.length ? '<button class="pfdall" data-act="pfdallask">Delete All</button>' : '') + '</div>';
+    if (S.pfDelAll && tr.length) h += '<div class="pfbar pfconf"><b>Delete All ' + People.train().length + ' New Faces?</b><span>They Are Not Saved To Anyone. This Can&#39;t Be Undone.</span>' +
+      '<div class="pfcb"><button class="btn" data-act="pfdallno">Cancel</button><button class="btn solid pfred" data-act="pfdall">Delete All</button></div></div>';
     if (!tr.length) h += '<div class="wtnote" style="margin:0">No New Faces Yet. Faces Show Up Here After The Cameras See Them.</div>';
     else h += '<div class="pfgrid">' + tr.map(x => '<button class="pf' + (sel === x.f ? ' on' : '') + '" data-act="pfsel" data-v="' + esc(x.f) + '"><img src="' + Frigate.base() + '/clips/faces/train/' + encodeURIComponent(x.f) + '" alt="" loading="lazy"><span>' + (x.guess === 'unknown' ? 'Unknown' : esc(niceName(x.guess)) + ' ' + Math.round(x.score * 100) + '%') + '</span><small>' + (x.ts ? hm(x.ts * 1000) + (dayStart(x.ts * 1000) === dayStart(now()) ? '' : ' ' + dayLabel(x.ts * 1000)) : '') + '</small></button>').join('') + '</div>';
     if (sel) {
@@ -3738,7 +3747,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.2.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.2.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3840,7 +3849,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.2.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.2.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -3947,8 +3956,21 @@ const ACT = {
   async pfdel() {
     const f = S.pfSel; if (!f || People.busy) return;
     People.busy = true; const r = await People.post('/api/faces/train/delete', { ids: [f] }); People.busy = false;
+    Dbg.log('face delete', f, r.ok, r.msg);
     if (!r.ok) { toast('Could Not Delete'); return; }
-    S.pfSel = null; await People.loadFaces(); render(); toast('Deleted');
+    S.pfSel = null; People.dropTrain([f]); render(); toast('Deleted');
+    await People.loadFaces(); People.dropTrain([f]); render();
+  },
+  pfdallask() { S.pfDelAll = true; S.pfSel = null; render(); },
+  pfdallno() { S.pfDelAll = false; render(); },
+  async pfdall() {
+    if (People.busy) return; const ids = ((People.faces && People.faces.train) || []).slice(); if (!ids.length) { S.pfDelAll = false; render(); return; }
+    People.busy = true; toast('Deleting ' + ids.length + ' Faces…'); const r = await People.post('/api/faces/train/delete', { ids }); People.busy = false;
+    Dbg.log('face delete all', ids.length, r.ok, r.msg);
+    S.pfDelAll = false;
+    if (!r.ok) { toast('Could Not Delete'); render(); return; }
+    People.dropTrain(ids); render(); toast('Deleted ' + ids.length + ' Faces');
+    await People.loadFaces(); People.dropTrain(ids); render();
   },
   wtopen() {
     S.more = false; S.wtPick = {}; if (Wait.active()) Wait.st.cos.forEach(k => { S.wtPick[k] = true; });
@@ -4686,7 +4708,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.2.5';
+    const BUILD = '2.2.6';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
