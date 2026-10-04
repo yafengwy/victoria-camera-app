@@ -620,7 +620,8 @@ img.rf{opacity:0}
 .objgrp .chip[aria-pressed="true"]{background:var(--strong);color:var(--strong-fg);border-color:var(--strong);box-shadow:none}
 .objgrp .chip[aria-pressed="true"]{background:var(--strong);color:var(--strong-fg);border-color:var(--strong);box-shadow:none}
 .objqbox2{display:flex;align-items:center;padding:0 0 0 12px}
-.objqbox2 .objq{font-size:16px;font-weight:inherit;padding:0}
+.objqbox2 .objq{font-size:13px;font-weight:700;padding:0;color:var(--text)}
+.objqbox2 .objq::placeholder{color:var(--text);opacity:1}
 .objqbox{display:flex;align-items:center;padding:0 0 0 12px;gap:4px}
 html,body{overflow-x:hidden;max-width:100vw;overscroll-behavior-x:none;touch-action:manipulation}
 input,select,textarea{font-size:16px}
@@ -1240,6 +1241,15 @@ function objChips(f, act, grpAct, anyAct) {
     OBJ_GROUPS.filter(g => list.some(g[2])).map(g => b(' ogrp', grpAct, g[0], !all && list.filter(g[2]).every(o => objOn(f, o)), g[1])).join('') +
     list.map(o => { const k = objSet(o), br = k !== last ? '<i class="objbr"></i>' : ''; last = k; return br + b(' oone', act, o, !all && objOn(f, o), objName(o)); }).join('') + '</div>';
 }
+/* cameras the same way: All Cameras and each group "Only" on top (filled), then each group's cameras on its own row
+   (picked = outlined). on(id) says whether a camera is picked; state is 'all', a group name, or 'custom' */
+function camChips(on, state, quickAct, camAct, idAttr) {
+  const groups = [...new Set(Data.cams.map(c => c.group))];
+  const b = (cls, a, attr, v, pressed, label) => '<button class="chip sm' + cls + '" data-act="' + a + '" ' + attr + '="' + esc(v) + '" aria-pressed="' + pressed + '">' + esc(label) + '</button>';
+  return '<div class="objchips">' + b(' oany', quickAct, 'data-v', quickAct === 'allcams' ? '1' : 'all', state === 'all', 'All Cameras') +
+    groups.map(g => b(' ogrp', quickAct, 'data-v', quickAct === 'allcams' ? 'g:' + g : g, state === g, g + ' Only')).join('') +
+    groups.map(g => '<i class="objbr"></i>' + Data.cams.filter(c => c.group === g).map(c => b(' oone', camAct, idAttr, c.id, state !== 'all' && on(c.id), c.name)).join('')).join('') + '</div>';
+}
 function objGroupChips(f, act) {
   const list = OBJS(), all = list.every(o => objOn(f, o));
   return '<div class="objgrp">' + OBJ_GROUPS.filter(g => list.some(g[2])).map(g => { const on = !all && list.filter(g[2]).every(o => objOn(f, o));
@@ -1717,7 +1727,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.9.10 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.10.1 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2656,14 +2666,8 @@ function filterPanel() {
     '<button class="ddreset" data-act="filtreset" aria-label="Reset Filters">' + I.reset + '</button></div>';
   h += '<div class="ddl" id="objl2"' + (S.ddObj ? '' : ' hidden') + '>' + objChips(f, 'obj', 'objgrp', 'anyobj') + '</div>';
   if (S.ddCam) {
-    const groups = [...new Set(Data.cams.map(c => c.group))];
-    h += '<div class="ddl"><div class="mrow head camquick"><button class="lnk" data-act="allcams" data-v="1">All</button>' +
-      groups.map(g => '<button class="lnk" data-act="allcams" data-v="g:' + esc(g) + '">' + esc(g) + ' Only</button>').join('') +
-      '<button class="lnk" data-act="allcams" data-v="0">None</button></div>';
-    Data.cams.forEach(c => {
-      h += '<div class="crow"><button class="mrow" style="flex:1" data-act="camf" data-id="' + c.id + '">' + mini(camsOn.length < Data.cams.length && !f.off[c.id]) + esc(c.name) + '</button></div>';
-    });
-    h += '</div>';
+    const st = camsOn.length === Data.cams.length ? 'all' : grpOn || 'custom';
+    h += '<div class="ddl">' + camChips(id => !f.off[id], st, 'allcams', 'camf', 'data-id') + '</div>';
   }
   h += '<div class="frow"><button class="mrow tight" data-act="chk" data-v="int">' + mini(f.int) + 'Interesting</button>' +
     '<button class="mrow tight" data-act="chk" data-v="unint">' + mini(f.unint) + 'Uninteresting</button></div></div>';
@@ -3052,16 +3056,8 @@ function rvDropdown() {
   } else {
     const sel = S.rv.sel, on = id => sel != null && sel.includes(id);
     const groups = [...new Set(Data.cams.map(c => c.group))];
-    if (rvCompact()) {
-      const st = sel == null ? 'all' : groups.find(g => { const ids = Data.cams.filter(c => c.group === g).map(c => c.id); return ids.length === sel.length && ids.every(i => sel.includes(i)); }) || 'custom';
-      h += '<div class="rvquick">' + [['all', 'All Cameras']].concat(groups.map(g => [g, g + ' Only'])).map(([v, l]) => '<button class="chip sm" data-act="rvgroup" data-v="' + esc(v) + '" aria-pressed="' + (st === v) + '">' + esc(l) + '</button>').join('') + '</div>';
-    } else h += ck(sel == null, 'rvcamall', '*', 'All Cameras', 'strong');
-    groups.forEach(g => {
-      h += '<div class="rvddh">' + esc(g) + '</div>';
-      Data.cams.filter(c => c.group === g).forEach(c => {
-        h += '<div class="rvcrow">' + ck(on(c.id), 'rvcam', c.id, c.name) + '</div>';
-      });
-    });
+    const st = sel == null ? 'all' : groups.find(g => { const ids = Data.cams.filter(c => c.group === g).map(c => c.id); return ids.length === sel.length && ids.every(i => sel.includes(i)); }) || 'custom';
+    h += camChips(on, st, 'rvgroup', 'rvcam', 'data-v');
   }
   return h + '</div>';
 }
@@ -3495,7 +3491,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.9.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.10.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3588,7 +3584,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 1.9.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 1.10.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -4386,7 +4382,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.9.10';
+    const BUILD = '1.10.1';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
