@@ -545,7 +545,13 @@ img.rf{opacity:0}
 :root[data-cover] .rvtop .rvbar,:root[data-cover] .evtop .evbar{position:fixed;top:0;bottom:0;right:0;left:auto;height:auto;width:var(--strip);flex-direction:column;justify-content:flex-end;align-items:center;gap:6px;padding:max(8px,env(safe-area-inset-top,0px)) 0 calc(10px + env(safe-area-inset-bottom,0px));background:var(--card);border-left:1px solid var(--line);z-index:36;box-sizing:border-box}
 :root[data-cover] .rvtop .rvbar .rvtitle,:root[data-cover] .evtop .evbar > span{display:none}
 :root[data-cover] .rvtop .rvbar > [data-act="go"],:root[data-cover] .evtop .evbar > [data-act="go"]{order:-1;margin-bottom:auto}
-:root[data-cover] .rvtop .rvbar .rvib{margin:0}
+:root[data-cover] .rvtop .rvbar .rvib,:root[data-cover] .evtop .evbar .rvib{margin:0}
+:root[data-cover] .evtop .evbar .bxbtn2{width:34px;height:30px}
+/* popover beside the strip, pointing at its button */
+.rvdd.pop{position:fixed;top:auto!important;left:auto!important;right:calc(var(--strip) + 12px)!important;width:min(300px,calc(100vw - var(--strip) - 24px));overflow:visible;padding:0;border-radius:14px}
+.rvdd.pop{display:flex;flex-direction:column}
+.rvdd.pop::after{content:"";position:absolute;right:-8px;bottom:var(--arr,20px);width:16px;height:16px;background:inherit;border-right:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(45deg);border-radius:0 3px 0 0}
+.rvdd.pop .popin{overflow-y:auto;padding:6px 4px 8px;min-height:0;flex:1 1 auto;border-radius:14px}
 :root[data-cover] .rvdock{left:0;right:var(--strip)}
 /* ---- v28: vertical review rail on wide landscape screens ---- */
 .rvdock.v{left:auto;right:0;top:var(--rvtop,110px);bottom:0;width:104px;border-top:0;border-left:1px solid var(--line);padding:0}
@@ -2342,7 +2348,7 @@ function render() {
     paintReview();
   }
   requestAnimationFrame(rvHint);
-  objQRestore();
+  objQRestore(); popPlace();
 }
 /* keep what was typed in an object picker across redraws (ticking an object redraws the list) */
 function objQRestore() {
@@ -2591,9 +2597,10 @@ function viewEvents() {
   for (let i = 0; i < 7; i++) { const d0 = today - i * DAY; days.push({ i, d0, n: visible.filter(e => e.t >= d0 && e.t < d0 + DAY).length }); }
   const d0 = days[S.evDay].d0;
   const list = visible.filter(e => e.t >= d0 && e.t < d0 + DAY);
-  let h = '<div class="evtop"><div class="evbar"><span style="flex:1">Alerts</span>' + (Data.source === 'frigate' ? '<button class="ic bxbtn2" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '<button class="ic" style="color:var(--head-fg)" data-act="go" data-v="home" aria-label="Close">' + I.x + '</button></div>' +
-    '<button class="fbtn" data-act="filters" aria-expanded="' + S.filtersOpen + '"><span>Filters</span><span class="fcount">' + visible.length + ' In 7 Days</span><span style="color:var(--sub);display:flex">' + (S.filtersOpen ? I.up : I.down) + '</span></button>';
-  if (S.filtersOpen) h += filterPanel();
+  let h = '<div class="evtop"><div class="evbar"><span style="flex:1">Alerts</span>' + (COVER ? evStrip() : '') + (Data.source === 'frigate' ? '<button class="ic bxbtn2" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '<button class="ic" style="color:var(--head-fg)" data-act="go" data-v="home" aria-label="Close">' + I.x + '</button></div>';
+  if (!COVER) h += '<button class="fbtn" data-act="filters" aria-expanded="' + S.filtersOpen + '"><span>Filters</span><span class="fcount">' + visible.length + ' In 7 Days</span><span style="color:var(--sub);display:flex">' + (S.filtersOpen ? I.up : I.down) + '</span></button>';
+  if (!COVER && S.filtersOpen) h += filterPanel();
+  if (COVER && S.evPop) h += evDropdown();
   h += '<div class="days">' + days.map(d => '<button class="day" data-act="day" data-v="' + d.i + '" aria-pressed="' + (S.evDay === d.i) + '">' + dayLabel(d.d0) + '<b>' + d.n + '</b></button>').join('') + '</div></div>';
   const byHour = {};
   list.forEach(e => { const hr = new Date(e.t).getHours(); (byHour[hr] = byHour[hr] || []).push(e); });
@@ -2665,6 +2672,40 @@ function modalWin() {
     '<div class="note" style="margin-top:6px">Tip: Pinch The Timeline With Two Fingers To Zoom.</div></div></div></div>';
 }
 function mini(on) { return '<span class="mbox">' + (on ? I.check : '') + '</span>'; }
+/* cover screen: the Alerts filters are icon buttons in the side strip (like Review), each opening a popover beside it */
+function evStrip() {
+  const f = S.filt, ib = (act, v, on, label, icon, extra) => '<button class="chip sm rvib" data-act="' + act + '" data-v="' + v + '" aria-pressed="' + on + '" aria-label="' + label + '" title="' + label + '">' + icon + (extra || '') + '</button>';
+  const off = Data.cams.filter(c => f.off[c.id]).length, objAll = OBJS().every(o => objOn(f, o));
+  return '<button class="chip sm rvib" data-act="filtreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
+    ib('evpop', 'cam', S.evPop === 'cam' || off > 0, 'Cameras', I.camsel, off ? '<span class="rvibn">' + (Data.cams.length - off) + '</span>' : '') +
+    ib('evpop', 'obj', S.evPop === 'obj' || !objAll || !f.int || f.unint, 'Objects', I.filter);
+}
+function evDropdown() {
+  const f = S.filt, ck = (on, v, label) => '<button class="check" role="checkbox" aria-checked="' + on + '" data-act="chk" data-v="' + v + '"><span class="box">' + (on ? I.check : '') + '</span>' + label + '</button>';
+  let h = '<div class="rvscrim" data-act="evpclose"></div><div class="rvdd" data-anchor="evpop:' + S.evPop + '" role="dialog" aria-label="' + (S.evPop === 'cam' ? 'Cameras' : 'Objects') + '"><div class="popin">';
+  if (S.evPop === 'cam') {
+    const camsOn = Data.cams.filter(c => !f.off[c.id]);
+    const grpOn = [...new Set(Data.cams.map(c => c.group))].find(g => { const gc = Data.cams.filter(c => c.group === g); return gc.length === camsOn.length && gc.every(c => camsOn.includes(c)); });
+    h += camChips(id => !f.off[id], camsOn.length === Data.cams.length ? 'all' : grpOn || 'custom', 'allcams', 'camf', 'data-id');
+  } else {
+    h += '<div class="rvddh">Alert Level</div><div class="rvsevrow">' + ck(f.int, 'int', 'Interesting') + ck(f.unint, 'unint', 'Uninteresting') + '</div>' +
+      '<input class="objq in" type="text" data-objq="objl4" placeholder="Objects · Type To Find" autocomplete="off" autocorrect="off" spellcheck="false"><div id="objl4">' + objChips(f, 'obj', 'objgrp', 'anyobj') + '</div>';
+  }
+  return h + '</div></div>';
+}
+/* cover screen: a popover sits left of the strip, its bottom near the button that opened it, with a small arrow
+   pointing at that button (like the iPhone date picker). Bottom-anchored, so typing to filter keeps the arrow put. */
+function popPlace() {
+  const dd = document.querySelector('.rvdd'); if (!dd) return;
+  if (!COVER) { dd.classList.remove('pop'); dd.style.cssText = ''; return; }
+  const a = dd.dataset.anchor || (S.rv.pick ? 'rvpick' : S.rv.fopen ? 'rvfopen' : S.rv.colsOpen ? 'rvcolsopen' : '');
+  const [act, v] = a.split(':'), btn = document.querySelector('[data-act="' + act + '"]' + (v ? '[data-v="' + v + '"]' : '') + '.rvib'); if (!btn) return;
+  const r = btn.getBoundingClientRect(), cy = r.top + r.height / 2, H = window.innerHeight, sa = safeArea();
+  const bot = Math.min(H - sa.b - 8, cy + 44), top = sa.t + 8;
+  dd.classList.add('pop');
+  dd.style.bottom = (H - bot) + 'px'; dd.style.maxHeight = (bot - top) + 'px';
+  dd.style.setProperty('--arr', Math.max(10, bot - cy - 9) + 'px');
+}
 function filterPanel() {
   const f = S.filt;
   const objsOn = OBJS().filter(o => objOn(f, o)), allObj = objsOn.length === OBJS().length;
@@ -3051,7 +3092,7 @@ function rvPass(e) {
 }
 function rvDropdown() {
   const ck = (on, act, v, label, cls) => '<button class="check' + (cls ? ' ' + cls : '') + '" role="checkbox" aria-checked="' + on + '" data-act="' + act + '" data-v="' + esc(v) + '"><span class="box">' + (on ? I.check : '') + '</span>' + esc(label) + '</button>';
-  let h = '<div class="rvscrim" data-act="rvdclose"></div><div class="rvdd' + (S.rv.pick ? ' low' : '') + (S.rv.colsOpen ? ' narrow' : '') + '" role="dialog" aria-label="' + (S.rv.fopen ? 'Alert Types' : S.rv.colsOpen ? 'Layout' : 'Cameras') + '">';
+  let h = '<div class="rvscrim" data-act="rvdclose"></div><div class="rvdd' + (S.rv.pick ? ' low' : '') + (S.rv.colsOpen ? ' narrow' : '') + '" role="dialog" aria-label="' + (S.rv.fopen ? 'Alert Types' : S.rv.colsOpen ? 'Layout' : 'Cameras') + '"><div class="popin">';
   if (S.rv.colsOpen) {
     const mx = window.innerWidth >= 1000 ? 5 : 4, L = S.rv.lay === 'top' ? 'big' : S.rv.lay;
     h += '<div class="rvddh">Layout</div>' +
@@ -3071,7 +3112,7 @@ function rvDropdown() {
     const st = sel == null ? 'all' : groups.find(g => { const ids = Data.cams.filter(c => c.group === g).map(c => c.id); return ids.length === sel.length && ids.every(i => sel.includes(i)); }) || 'custom';
     h += camChips(on, st, 'rvgroup', 'rvcam', 'data-v');
   }
-  return h + '</div>';
+  return h + '</div></div>';
 }
 /* small screens (short windows, Duo cover, narrow phones): one header row of icon buttons */
 /* A review item can start well before its object shows up (it opens on the first activity, say a car, and a person
@@ -3582,7 +3623,7 @@ function toast(msg) {
 /* ===== Actions ===== */
 let tapTimer = null, lastTap = { id: null, at: 0 };
 const ACT = {
-  go(d) { S.view = d.v; S.modal = null; S.more = false; render(); window.scrollTo(0, 0); },
+  go(d) { S.view = d.v; S.modal = null; S.more = false; S.evPop = null; render(); window.scrollTo(0, 0); },
   copylog() {
     const txt = Dbg.text();
     const fallback = () => { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('Log Copied'); } catch (e) { toast('Copy Failed'); } ta.remove(); };
@@ -3840,6 +3881,8 @@ const ACT = {
     saveFilt(); render();
   },
   filters() { S.filtersOpen = !S.filtersOpen; render(); },
+  evpop(d) { S.evPop = S.evPop === d.v ? null : d.v; render(); },
+  evpclose() { S.evPop = null; render(); },
   day(d) { S.evDay = +d.v; render(); window.scrollTo(0, 0); },
   hour(d) {
     const el = document.getElementById('hr-' + d.v);
