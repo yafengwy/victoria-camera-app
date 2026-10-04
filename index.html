@@ -1007,6 +1007,8 @@ const I = {
   down: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
   back: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
   x: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  soundOff: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m16 9 6 6M22 9l-6 6"/></svg>',
+  soundOn: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>',
   sound: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/></svg>',
   expand: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>',
   more: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>',
@@ -1371,6 +1373,29 @@ const NOREC = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www
 /* Object boxes while an alert plays (off by default, toggled from the box button). Frigate keeps, per tracked object,
    its box at key moments (timeline) and the path of its bottom-centre as it moves (path_data), both relative to the frame;
    the box size comes from the nearest key moments and its position follows the path. */
+/* Sound: everything starts muted. The speaker button (camera view, full screen, the open camera on the home page)
+   turns sound on for the video shown there; all other videos stay muted. If the phone refuses to play a video with
+   sound by itself (no tap just before), it plays muted and the button goes back to muted. */
+const Snd = {
+  on: false, cam: null,
+  btn(cls, id) { return Data.source === 'frigate' ? '<button class="' + cls + ' sndb" data-act="sound"' + (id ? ' data-id="' + id + '"' : '') + ' aria-pressed="' + this.on + '" aria-label="' + (this.on ? 'Mute' : 'Turn Sound On') + '">' + (this.on ? I.soundOn : I.soundOff) + '</button>' : ''; },
+  host() {
+    if (S.full) return document.querySelector('#fullv .fvw');
+    if (S.focus) return document.querySelector('.focus .fvid');
+    const id = this.cam || S.expanded; const n = id && document.getElementById('img-' + id); return n ? n.parentNode : null;
+  },
+  apply() {
+    const h = this.on ? this.host() : null;
+    document.querySelectorAll('video.pbv, .lvh video').forEach(v => { const m = !(h && h.contains(v)); if (v.muted !== m) v.muted = m; });
+    document.querySelectorAll('.sndb').forEach(b => { const on = this.on && (!b.dataset.id || (this.cam || S.expanded) === b.dataset.id); b.setAttribute('aria-pressed', on); b.setAttribute('aria-label', on ? 'Mute' : 'Turn Sound On'); b.innerHTML = on ? I.soundOn : I.soundOff; });
+  },
+  off() { if (!this.on) return; this.on = false; this.apply(); toast('Sound Off · Tap The Speaker To Turn It On'); },
+  /* a video that may later play with sound: if the phone refuses, play it muted instead */
+  guard(v) {
+    if (v._sg) return; v._sg = true;
+    v.play = function () { return HTMLMediaElement.prototype.play.call(this).catch(e => { if (!this.muted && e && e.name === 'NotAllowedError') { this.muted = true; Snd.off(); return HTMLMediaElement.prototype.play.call(this); } throw e; }); };
+  }
+};
 const Box = {
   on: false, cache: {}, timer: null,
   get(det, label) {
@@ -1457,7 +1482,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.4.6 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.4.7 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1541,7 +1566,7 @@ const Playback = {
   el(id) {
     let p = this.st[id];
     if (!p) {
-      const v = document.createElement('video'); v.className = 'pbv'; v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto';
+      const v = document.createElement('video'); v.className = 'pbv'; v.muted = true; Snd.guard(v); v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto';
       p = this.st[id] = { v, win: null, loading: false, on: false, ext: 0, lastSet: null };
       ['loadstart', 'loadedmetadata', 'canplay', 'playing', 'waiting', 'stalled', 'pause', 'seeked'].forEach(k => v.addEventListener(k, () => (p.win || p.loading) && Dbg.log('video', id, k, 'at ' + v.currentTime.toFixed(1), 'ready ' + v.readyState)));
       v.addEventListener('canplay', () => { if (v.paused && !p.loading && !p.prep && p.win && S.playing && this.cams()[id]) setTimeout(() => { if (v.paused && !p.prep) this.sync(); }, 300); });
@@ -1611,6 +1636,7 @@ const Playback = {
       if (!p.on && !p.v.paused && p.v.readyState >= 2) { p.on = true; p.lastSet = t; this.paintVis(id); }
       else if (!p.on) p.v.addEventListener('playing', () => { if (camT(id) != null && S.playing && !p.prep) { p.on = true; this.paintVis(id); } }, { once: true });
     }
+    Snd.apply();
   }
 };
 /* Snapshot images: one request in flight per <img>; newer requests replace the queued one (keeps scrubbing responsive) */
@@ -1870,7 +1896,7 @@ function render() {
   syncHist();
   document.querySelectorAll('.fov .fname').forEach(n => { let fs = 12; while (n.scrollWidth > n.clientWidth + 1 && fs > 8) { fs -= 0.5; n.style.fontSize = fs + 'px'; } });
   Live.mount(); Playback.mount();
-  wire();
+  wire(); Snd.apply();
   if (S.view === 'review') {
     const top = document.getElementById('rvtop'); if (top) app.style.setProperty('--rvtop', top.getBoundingClientRect().bottom + 'px');
     S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; });
@@ -1934,7 +1960,7 @@ function camCard(c) {
   const tall = c.ar && c.ar < 1.2;
   return '<article class="cam' + (c.id === S.expanded ? ' on' : '') + (off ? ' off' : '') + (tall ? ' tall' : '') + '" id="cam-' + c.id + '"' + (tall ? ' style="--ar:' + c.ar.toFixed(4) + '"' : '') + '>' +
     '<div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button>' + (Snz.has(c.id) ? '<span class="snzb">' + I.snooze + (Snz.st.mode === 'c' ? 'Clear' : Snz.left()) + '</span>' : '') +
-    (S.layout === 'list' ? '<button class="ic" aria-label="Sound" data-act="toast" data-v="Sound turns on with live video on the mini PC">' + I.sound + '</button>' : '') +
+    (S.layout === 'list' ? Snd.btn('ic', c.id).replace('aria-pressed="' + Snd.on + '"', 'aria-pressed="' + (Snd.on && (Snd.cam || S.expanded) === c.id) + '"') : '') +
     '</div>' +
     '<div class="frame"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(Live.cardSrc(c.id), t != null) + Playback.holder(c.id) + (S.layout === 'grid' ? '<div class="cnm">' + esc(c.name) + '</div>' : '') +
     '<button class="hit" data-act="tap" data-id="' + c.id + '" aria-label="Show playback for ' + esc(c.name) + '"></button>' +
@@ -1984,7 +2010,7 @@ function panel(c) {
       '<div class="cliptxt">' + (cl.a ? 'Start ' + hms(cl.a) : 'Start —') + ' · ' + (cl.b ? 'End ' + hms(cl.b) : 'End —') + '</div>';
   }
   return '<div class="panel" id="panel">' +
-    '<div class="pctl"><div class="pctl2"><button class="round" data-act="date" aria-label="Pick Date">' + I.cal + '</button>' + (Data.source === 'frigate' ? '<button class="round bxr" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '</div>' +
+    '<div class="pctl"><div class="pctl2"><button class="round" data-act="date" aria-label="Pick Date">' + I.cal + '</button>' + (Data.source === 'frigate' ? '<button class="round bxr" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('round') + '</div>' +
     '<div class="trio"><button data-act="step" data-v="-1" aria-label="Previous Event">' + I.prev + '</button>' +
     '<button data-act="playpause" aria-label="' + (S.playing ? 'Pause' : 'Play') + '">' + (S.playing ? I.pause : I.play) + '</button>' +
     '<button data-act="step" data-v="1" aria-label="Next Event">' + I.next + '</button></div>' +
@@ -2251,7 +2277,7 @@ function viewFocus() {
   }
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
   const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk fname">' + esc(c.name) + '</div><div style="flex:1"></div>' +
-    (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
+    Snd.btn('dk') + (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
     (frig && cs.enabled ? '<button class="dk ctl" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
     '<button class="pillk" id="fbadge" data-act="fbadge" aria-label="Live. Tap to reconnect">' + (t == null ? (cs.enabled ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t)) + '</button></div>';
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
@@ -2296,7 +2322,7 @@ function viewFull(c, t, f) {
       (S.fpanel ? '' : '<div class="fsb zdesk2"><button class="dk sm" data-act="fzoombtn" data-v="out" aria-label="Show Longer Time">−</button><button class="dk sm" data-act="fzoombtn" data-v="in" aria-label="Show Shorter Time">+</button></div>') + '</aside>';
   }
   return '<div class="full' + (S.fui ? ' ui' : '') + (fullRot() ? ' rot' : '') + '" id="fullv"><div class="fvw" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
-    (S.fui ? '<div class="fuitop"><button class="dk" data-act="unfull" aria-label="Exit Full Screen">' + I.shrink + '</button><div style="flex:1"></div>' + (Data.source === 'frigate' ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '<div class="pillk" id="fullbadge">' + (t == null ? '<span class="dot"></span>Live' : hms(t)) + '</div></div>' : '') +
+    (S.fui ? '<div class="fuitop"><button class="dk" data-act="unfull" aria-label="Exit Full Screen">' + I.shrink + '</button><div style="flex:1"></div>' + Snd.btn('dk') + (Data.source === 'frigate' ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '<div class="pillk" id="fullbadge">' + (t == null ? '<span class="dot"></span>Live' : hms(t)) + '</div></div>' : '') +
     '</div>' + side + '</div>';
 }
 function fTrack(c) {
@@ -2882,7 +2908,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.4.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.4.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3099,6 +3125,12 @@ const ACT = {
   unfocus() { S.focus = null; S.full = false; render(); },
   full() { S.full = true; S.fui = false; S.fpanel = false; render(); },
   unfull() { FZ.s = 1; FZ.x = 0; FZ.y = 0; S.full = false; S.autoFull = false; S.fpanel = false; clearTimeout(fuiTimer); render(); },
+  sound(d) {
+    if (d.id && !S.full && !S.focus) { if (Snd.on && (Snd.cam || S.expanded) !== d.id) { Snd.cam = d.id; } else { Snd.on = !Snd.on; Snd.cam = d.id; } }
+    else { Snd.on = !Snd.on; Snd.cam = null; }
+    Snd.apply();
+    const h = Snd.on && Snd.host(); if (h) h.querySelectorAll('video').forEach(v => { if (v.paused && v.readyState >= 2 && (v.classList.contains('pbv') ? S.playing && camT(v.closest('[data-pb]') ? v.closest('[data-pb]').dataset.pb : '') != null : true)) v.play().catch(() => {}); });
+  },
   fuitap(d, e) { if (e && e.target.closest('.fuitop')) return; if (Date.now() - FZ.moved < 400) return; S.fui = !S.fui; if (!S.fui) S.fpanel = false; render(); },
   fkick() { fuiKick(); },
   fpanel() { S.fpanel = !S.fpanel; S.fui = true; render(); fuiKick(); },
@@ -3558,7 +3590,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.4.6';
+    const BUILD = '1.4.7';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
@@ -4272,7 +4304,8 @@ class LiveCam extends VideoRTC {
   }
   oninit() {
     super.oninit();
-    this.video.controls = false; this.video.muted = true; this.video.autoplay = true;
+    this.video.controls = false; this.video.muted = true; this.video.autoplay = true; Snd.guard(this.video);
+    this.video.addEventListener('playing', () => Snd.apply());
     this.video.setAttribute('playsinline', ''); this.video.disablePictureInPicture = true;
     /* the video stays invisible until it really plays, so the still picture underneath shows instead of the
        phone's big play button (Low Power Mode) or a crossed-out icon (camera not sending) */
