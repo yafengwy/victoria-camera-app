@@ -1765,7 +1765,7 @@ const Box = {
       const ar = (media && media.videoWidth ? media.videoWidth / media.videoHeight : 0) || c.ar || (media && media.naturalWidth ? media.naturalWidth / media.naturalHeight : 0) || 16 / 9;
       const fit = media ? getComputedStyle(media).objectFit : 'cover', wide = W / H > ar;
       const dw = (fit === 'contain') === wide ? H * ar : W, dh = dw / ar, ox = (W - dw) / 2, oy = (H - dh) / 2;
-      ov.innerHTML = boxes.map(([b, lab]) => '<i style="left:' + (ox + b[0] * dw).toFixed(1) + 'px;top:' + (oy + b[1] * dh).toFixed(1) + 'px;width:' + (b[2] * dw).toFixed(1) + 'px;height:' + (b[3] * dh).toFixed(1) + 'px"><b>' + esc(String(lab).replace(/^\w/, m => m.toUpperCase())) + '</b></i>').join('');
+      ov.innerHTML = boxes.map(([b, lab]) => '<i style="left:' + (ox + b[0] * dw).toFixed(1) + 'px;top:' + (oy + b[1] * dh).toFixed(1) + 'px;width:' + (b[2] * dw).toFixed(1) + 'px;height:' + (b[3] * dh).toFixed(1) + 'px"><b>' + esc(objName(lab)) + '</b></i>').join('');
     });
     document.querySelectorAll('.bbx').forEach(n => { if (!seen.has(n)) n.innerHTML = ''; });
   },
@@ -2566,7 +2566,7 @@ function paintCam(id) {
   setTag(tag, f);
 }
 /* On-picture object tag: Interesting = solid orange pill, Uninteresting = dark see-through pill */
-const tagInner = f => objIcon(f.tag) + '<span>' + esc(f.tag) + '</span>';
+const tagInner = f => objIcon(f.tag) + '<span>' + esc(objName(f.tag)) + '</span>';
 function setTag(n, f) { if (!n) return; n.innerHTML = f.tag ? tagInner(f) : ''; n.hidden = !f.tag; n.classList.toggle('un', !!f.tag && !f.hot); }
 function paintPanel() {
   const id = S.expanded; if (!id) return;
@@ -2889,7 +2889,7 @@ function viewFocus() {
           return '<button class="fsi' + (on ? ' cur' : '') + '" data-act="fjump" data-t="' + x.t + '" aria-label="' + esc(x.label) + ' ' + hm(x.t) + '"><img src="' + x.img + '" alt="" loading="lazy"><span><i class="lico">' + objIcon(x.label) + '</i>' + hm(x.t) + '</span></button>';
         }).join('') + '</div>';
       } else {
-        const names = [...new Set(g.items.map(x => x.label))];
+        const names = [...new Set(g.items.map(x => objName(x.label)))];
         const title = names.slice(0, 2).join(', ') + (names.length > 2 ? ' +' + (names.length - 2) : '');
         const sub = n === 1 ? hm(e.t) + ' · ' + durLabel(e) : hm(e.t) + ' · ' + n + ' Alerts';
         rows += '<button class="fev" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + e.img + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e)) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span></button>';
@@ -3370,7 +3370,7 @@ const ICON_SVG = {
 const ICON_OF = {"person": "person", "baby": "person", "face": "face", "cat": "cat", "dog": "dog", "bird": "bird", "bear": "bear", "raccoon": "fox", "fox": "fox", "squirrel": "squirrel", "rabbit": "rabbit", "rodent": "rodent", "skunk": "rodent", "possum": "rodent", "deer": "paw", "horse": "paw", "cow": "paw", "goat": "paw", "kangaroo": "paw", "sheep": "paw", "car": "car", "license_plate": "car", "truck": "truck", "bus": "truck", "garbage truck": "truck", "garbage_truck": "truck", "school_bus": "truck", "amazon": "van", "usps": "van", "ups": "van", "fedex": "van", "dhl": "van", "motorcycle": "bike", "bicycle": "bike", "package": "package", "backpack": "bag", "handbag": "bag", "suitcase": "bag", "umbrella": "bag", "laptop": "bag", "remote": "bag", "cell phone": "bag", "cell_phone": "bag", "waste_bin": "bag", "baby_stroller": "bag"};
 const objIcon = label => ICON_SVG[ICON_OF[String(label).toLowerCase()] || 'paw'];
 /* what an alert is called on screen: the object, plus the delivery company or the person's name when known */
-function lab(e) { return e.who || e.label; }   /* a known name or delivery company replaces the object name */
+function lab(e) { return e.who || objName(e.label); }   /* 'Waste_bin' shows as 'Waste Bin' */   /* a known name or delivery company replaces the object name */
 function ico(e) { return e.logo || e.label; }
 const OBJ_ICON = new Proxy({}, { get: (_, k) => objIcon(k) });
 function drawRvTrack(force) {
@@ -3592,7 +3592,7 @@ function rvHint() {
   });
   if (!out.length) { n.hidden = true; return; }
   out.sort((a, b) => b.hot - a.hot);
-  const f = out[0], lab = f.e ? f.e.label.charAt(0).toUpperCase() + f.e.label.slice(1) : '';
+  const f = out[0], lab = f.e ? objName(f.e.label) : '';
   n.dataset.id = f.c.id; n.classList.toggle('un', !f.hot);
   n.innerHTML = (f.down ? '↓ ' : '↑ ') + esc(f.c.name) + (lab ? ' · ' + esc(lab) : '') + (out.length > 1 ? ' · +' + (out.length - 1) : '');
   n.style.bottom = (dr && !dock.classList.contains('v') ? innerHeight - dr.top + 42 : 16) + 'px';
@@ -3897,7 +3897,7 @@ const ACT = {
   evdl(d) {
     const e = Data.events.find(x => x.id === d.v); if (!e) return;
     const aS = Math.floor(e.t / 1000) - 1, bS = Math.ceil((e.end || e.t + 20000) / 1000) + 2;
-    saveClip(e.clip, (Data.cam(e.cam) ? Data.cam(e.cam).name : e.cam) + ' ' + e.label + ' ' + fileTime(e.t) + '.mp4', bS - aS, e.cam, aS, bS);
+    saveClip(e.clip, (Data.cam(e.cam) ? Data.cam(e.cam).name : e.cam) + ' ' + objName(e.label) + ' ' + fileTime(e.t) + '.mp4', bS - aS, e.cam, aS, bS);
   },
   /* wide screens: pick an alert in the list to play it in the big player */
   evsel(d) {
