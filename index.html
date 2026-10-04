@@ -713,6 +713,10 @@ input,select,textarea{font-size:16px}
 .pf span{font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pf small{font-size:10px;color:var(--sub)}
 .pfbar{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:12px;background:var(--track);margin-top:6px}
+.pfbar .chips{display:flex;flex-wrap:wrap;gap:8px}
+.pfbar .chip.pfname{height:38px;padding:0 16px 0 6px;border-radius:19px;background:var(--card);color:var(--head-fg);box-shadow:inset 0 0 0 1.5px var(--line);font-size:14px;font-weight:700;display:inline-flex;align-items:center;gap:8px}
+.pfbar .chip.pfname img,.pfbar .chip.pfname i{width:28px;height:28px;border-radius:14px;object-fit:cover;display:inline-flex;align-items:center;justify-content:center}
+.pfbar .chip.pfname:active{background:var(--accent,#233A6E);color:#fff}
 .pfnew{display:flex;gap:6px}
 .pfnew .field{flex:1;min-width:0}
 .pfnew .btn{margin:0;flex:none}
@@ -1809,7 +1813,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.2.3 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.2.4 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2178,7 +2182,8 @@ function modalPeople() {
     if (!tr.length) h += '<div class="wtnote" style="margin:0">No New Faces Yet. Faces Show Up Here After The Cameras See Them.</div>';
     else h += '<div class="pfgrid">' + tr.map(x => '<button class="pf' + (sel === x.f ? ' on' : '') + '" data-act="pfsel" data-v="' + esc(x.f) + '"><img src="' + Frigate.base() + '/clips/faces/train/' + encodeURIComponent(x.f) + '" alt="" loading="lazy"><span>' + (x.guess === 'unknown' ? 'Unknown' : esc(niceName(x.guess)) + ' ' + Math.round(x.score * 100) + '%') + '</span><small>' + (x.ts ? hm(x.ts * 1000) + (dayStart(x.ts * 1000) === dayStart(now()) ? '' : ' ' + dayLabel(x.ts * 1000)) : '') + '</small></button>').join('') + '</div>';
     if (sel) {
-      h += '<div class="pfbar"><div class="lbl" style="margin-top:0">This Is</div>' + (names.length ? '<div class="chips">' + names.map(n => '<button class="chip sm" data-act="pfassign" data-v="' + esc(n) + '">' + esc(n) + '</button>').join('') + '</div>' : '') +
+      h += '<div class="pfbar"><div class="lbl" style="margin-top:0">This Is</div>' + (names.length ? '<div class="chips">' + names.map(n => { const k = Object.keys(f).find(x => niceName(x) === n), ph = k && (f[k] || [])[0];
+          return '<button class="chip pfname" data-act="pfassign" data-v="' + esc(n) + '">' + (ph ? '<img src="' + Frigate.base() + '/clips/faces/' + encodeURIComponent(k) + '/' + encodeURIComponent(ph) + '" alt="">' : '<i>' + ICON_SVG.person + '</i>') + esc(n) + '</button>'; }).join('') + '</div>' : '') +
         '<div class="pfnew"><input id="pfnew" class="field" type="text" placeholder="New Name" autocomplete="off"><button class="btn solid" data-act="pfassign" data-v="">Add</button></div>' +
         '<button class="btn" data-act="pfdel">Not Useful · Delete</button></div>';
     }
@@ -3732,7 +3737,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.2.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.2.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3834,7 +3839,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.2.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.2.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -3932,7 +3937,9 @@ const ACT = {
   async pfassign(d) {
     const f = S.pfSel; if (!f || People.busy) return;
     const n = (d.v || ((document.getElementById('pfnew') || {}).value || '')).trim(); if (!n) { toast('Type A Name'); return; }
-    People.busy = true; const r = await People.post('/api/faces/train/' + encodeURIComponent(People.key(n)) + '/classify', { training_file: f }); People.busy = false;
+    People.busy = true; toast('Saving As ' + niceName(n) + '…'); Dbg.log('face assign', f, '→', People.key(n));
+    const r = await People.post('/api/faces/train/' + encodeURIComponent(People.key(n)) + '/classify', { training_file: f }); People.busy = false;
+    Dbg.log('face assign answer', r.ok, r.msg);
     if (!r.ok) { toast(r.msg || 'Could Not Save'); return; }
     S.pfSel = null; await People.loadFaces(); render(); toast('Saved As ' + niceName(n));
   },
@@ -4678,7 +4685,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.2.3';
+    const BUILD = '2.2.4';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
