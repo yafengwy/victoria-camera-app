@@ -21,7 +21,7 @@ Read this first when picking the app up in a new conversation. No secrets live i
   - It needs `front_s.jpg` (any jpg) and a `vod9/` HLS fMP4 folder (`index.m3u8` + segments). Make one with an ffmpeg testsrc.
   - Tests `t*.js` use Playwright with `executablePath: '/opt/pw-browsers/chromium'`; run with `NODE_PATH=<node_modules>`.
   - Regression set: t38 t40 t42 t53 t56 t61 t66 t67 t69 t70 t72 t73 t74 t76 t77.
-- `update-app.sh`: cron on the mini PC every minute. It pulls this repo and copies the app files, nginx, Caddy, compose and clipwait. It also runs `backup-config.sh` (daily Frigate config backup; inactive until `~/frigate/backup-token` exists).
+- `update-app.sh`: cron on the mini PC every minute. It pulls this repo and copies the app files, nginx, Caddy, compose and clipwait. It also runs `backup-config.sh` (daily Frigate config backup to private repo yafengwy/frigate-config-backup; working since 2026-10-03, token expires 2027-10-03).
 - `app-nginx.conf`, `Caddyfile`, `docker-compose.yml`, `clipwait.py`, `furbo-go2rtc.yaml`: server side.
 - Secrets exist only on the mini PC: `~/frigate/.env`, `caddy.env`, `ha-auth.conf`, `furbo-auth.conf`, `furbo-data/options.json`, `backup-token`.
 
@@ -53,5 +53,4 @@ Read this first when picking the app up in a new conversation. No secrets live i
 - Duo (Galaxy Z Flip cover screen): screenshots pending.
 - Xiaomi / Aqara cameras: waiting for model numbers.
 - Prep Kitchen WiFi question.
-- Backup: she still has to create the private repo `yafengwy/frigate-config-backup` and a fine-grained token saved in `~/frigate/backup-token`.
 - Offered: change the "No Recording" subtitle to "Not Saved By Frigate" on tiles that do have an alert.
