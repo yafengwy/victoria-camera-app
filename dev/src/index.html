@@ -82,6 +82,11 @@ img.rf{opacity:0}
 .fbside > .cam .frame{flex:1 1 0;height:0;aspect-ratio:auto}
 .fblock .frame img,.fblock .frame .lvh,.fblock .frame .lvc,.fblock .frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .fbside .frame{--bt:5px;--bh:22px}
+/* the two beside the Doorbell keep the right edge of their picture */
+.fbside .frame img,.fbside .frame video{object-position:right center}
+/* the Doorbell always shows its whole picture: Nest sometimes sends a slightly different shape, which used to crop
+   the sides now and then */
+.cam.tall .frame img,.cam.tall .frame video,.cam.span2 .frame img,.cam.span2 .frame video{object-fit:contain!important;background:#000}
 .fbside .badge{font-size:10px;padding:0 7px}
 .fbside .ctm{display:none}
 .fbside .cnm{max-width:94%;font-size:11px}
