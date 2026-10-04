@@ -2194,7 +2194,17 @@ function snapAlert(clientX, mouse) {
   if (!best) return false;
   seek(S.expanded, best.t - 1000); S.playing = true; refreshTrack(); paintPanel(); Playback.sync();
   const pp = document.querySelector('.ppgroup [data-act="playpause"],[data-act="playpause"]'); if (pp) pp.innerHTML = I.pause;
+  thumbTo(best.t);
   return true;
+}
+/* tapping an alert icon on the timeline slides the thumbnails below to that alert and marks it */
+function thumbTo(t) {
+  const row = document.getElementById('thumbs'); if (!row) return;
+  const b = row.querySelector('.thumb[data-t="' + t + '"]');
+  row.querySelectorAll('.thumb.cur').forEach(n => n.classList.remove('cur'));
+  if (!b) return;
+  b.classList.add('cur');
+  row.scrollTo({ left: Math.max(0, b.offsetLeft - row.offsetLeft - (row.clientWidth - b.offsetWidth) / 2), behavior: 'smooth' });
 }
 function refreshTrack() {
   const tr = document.getElementById('track'); if (!tr || !S.expanded) return;
@@ -3564,8 +3574,13 @@ function wire() {
     zone.addEventListener('pointerup', end); zone.addEventListener('pointercancel', end);
     zone.addEventListener('wheel', e => {
       const k = wheelKind(e);
+      /* one swipe = one burst of wheel events (incl. the trackpad's coasting tail). Its direction is decided by its
+         first events and kept: a sideways swipe never changes the length, even when some of its events lean vertical */
+      const tn = performance.now(), g = zone._g;
+      if (!g || tn - g.at > 250) zone._g = { at: tn, dir: Math.abs(e.deltaX) > Math.abs(e.deltaY) ? 'h' : 'v' }; else g.at = tn;
+      if (zone._g.dir === 'h' && k !== 'pinch') return;
       if (k === 'pad') {           /* Magic Mouse one-finger (or trackpad two-finger) up/down swipe over the timeline = change its length; sideways does nothing */
-        if (!e.target.closest('#track') || Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;
+        if (!e.target.closest('#track') || Math.abs(e.deltaY) < 2 * Math.abs(e.deltaX)) return;
         e.preventDefault();
         if (!zone._wl || snapLen(Math.exp(zone._wl)) !== S.win) zone._wl = Math.log(S.win);
         zone._wl = clamp(zone._wl + e.deltaY * 0.012, Math.log(MIN), Math.log(WMAX)); zoomTo(Math.exp(zone._wl));

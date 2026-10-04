@@ -1573,7 +1573,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.6.5 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.6.6 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2194,7 +2194,17 @@ function snapAlert(clientX, mouse) {
   if (!best) return false;
   seek(S.expanded, best.t - 1000); S.playing = true; refreshTrack(); paintPanel(); Playback.sync();
   const pp = document.querySelector('.ppgroup [data-act="playpause"],[data-act="playpause"]'); if (pp) pp.innerHTML = I.pause;
+  thumbTo(best.t);
   return true;
+}
+/* tapping an alert icon on the timeline slides the thumbnails below to that alert and marks it */
+function thumbTo(t) {
+  const row = document.getElementById('thumbs'); if (!row) return;
+  const b = row.querySelector('.thumb[data-t="' + t + '"]');
+  row.querySelectorAll('.thumb.cur').forEach(n => n.classList.remove('cur'));
+  if (!b) return;
+  b.classList.add('cur');
+  row.scrollTo({ left: Math.max(0, b.offsetLeft - row.offsetLeft - (row.clientWidth - b.offsetWidth) / 2), behavior: 'smooth' });
 }
 function refreshTrack() {
   const tr = document.getElementById('track'); if (!tr || !S.expanded) return;
@@ -3069,7 +3079,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.6.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.6.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3564,8 +3574,13 @@ function wire() {
     zone.addEventListener('pointerup', end); zone.addEventListener('pointercancel', end);
     zone.addEventListener('wheel', e => {
       const k = wheelKind(e);
+      /* one swipe = one burst of wheel events (incl. the trackpad's coasting tail). Its direction is decided by its
+         first events and kept: a sideways swipe never changes the length, even when some of its events lean vertical */
+      const tn = performance.now(), g = zone._g;
+      if (!g || tn - g.at > 250) zone._g = { at: tn, dir: Math.abs(e.deltaX) > Math.abs(e.deltaY) ? 'h' : 'v' }; else g.at = tn;
+      if (zone._g.dir === 'h' && k !== 'pinch') return;
       if (k === 'pad') {           /* Magic Mouse one-finger (or trackpad two-finger) up/down swipe over the timeline = change its length; sideways does nothing */
-        if (!e.target.closest('#track') || Math.abs(e.deltaY) < Math.abs(e.deltaX)) return;
+        if (!e.target.closest('#track') || Math.abs(e.deltaY) < 2 * Math.abs(e.deltaX)) return;
         e.preventDefault();
         if (!zone._wl || snapLen(Math.exp(zone._wl)) !== S.win) zone._wl = Math.log(S.win);
         zone._wl = clamp(zone._wl + e.deltaY * 0.012, Math.log(MIN), Math.log(WMAX)); zoomTo(Math.exp(zone._wl));
@@ -3851,7 +3866,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.6.5';
+    const BUILD = '1.6.6';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);

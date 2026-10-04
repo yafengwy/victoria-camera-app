@@ -1,0 +1,12 @@
+const { chromium } = require('playwright');
+(async () => { const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' }); const pg = await b.newPage({ viewport: { width: 1100, height: 900 } });
+await pg.goto('file://' + process.cwd() + '/../camapp/preview.html'); await pg.waitForTimeout(1500);
+const pos = await pg.evaluate(() => { S.layout = 'grid'; S.expanded = 'front_door'; setWin(2 * DAY); render();
+  const evs = camEvents('front_door'), start = S.winEnd - S.win, tr = document.getElementById('track').getBoundingClientRect();
+  const inWin = evs.filter(e => e.t >= start).slice(0, 30); const e = inWin[inWin.length - 1];
+  document.getElementById('panel').scrollIntoView({ block: 'center' });
+  const r = document.getElementById('track').getBoundingClientRect();
+  return { x: r.left + (e.t - start) / S.win * r.width, y: r.top + r.height / 2, t: e.t, idx: evs.indexOf(e) }; });
+await pg.mouse.click(pos.x, pos.y); await pg.waitForTimeout(900);
+const r = await pg.evaluate(t => { const row = document.getElementById('thumbs'); const c = row.querySelector('.thumb.cur'); return { scroll: Math.round(row.scrollLeft), cur: c && c.dataset.t == String(t), camT: camT('front_door') ? Math.round((t - camT('front_door'))/1000) : null, win: winLabel(S.win) }; }, pos.t);
+console.log(pos.idx, JSON.stringify(r)); await b.close(); })();

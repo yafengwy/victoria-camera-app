@@ -1,0 +1,10 @@
+const { chromium } = require('playwright');
+(async () => { const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' }); const pg = await b.newPage({ viewport: { width: 1100, height: 900 } });
+await pg.goto('file://' + process.cwd() + '/../camapp/preview.html'); await pg.waitForTimeout(1500);
+const r = await pg.evaluate(async () => { S.layout = 'grid'; S.expanded = 'front_door'; render(); setWin(2 * HOUR); render();
+  const out = [winLabel(S.win)];
+  const evs = camEvents('front_door'); const old = evs[evs.length - 1]; out.push('events ' + evs.length + ' oldest ' + new Date(old.t).toLocaleString());
+  const th = [...document.querySelectorAll('#thumbs .thumb')]; const last = th[th.length - 1]; last.click(); await new Promise(r => setTimeout(r, 800));
+  out.push('after thumb ' + winLabel(S.win) + ' pill ' + document.getElementById('winpill').textContent);
+  return out; });
+console.log(r); await b.close(); })();
