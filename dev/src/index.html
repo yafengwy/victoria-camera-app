@@ -1959,7 +1959,7 @@ function modalWho() {
     '<img class="whoimg" src="' + e.img + '" alt="">' +
     (names.length ? '<div class="lbl" style="margin-top:6px">People</div><div class="chips">' + names.map(n => '<button class="chip sm" data-act="whopick" data-v="' + esc(n) + '" aria-pressed="' + (cur === n) + '">' + esc(n) + '</button>').join('') + '</div>' : '') +
     '<div class="lbl">' + (names.length ? 'Or A New Name' : 'Name') + '</div><input id="whonew" class="field" type="text" placeholder="E.g. UPS Driver" autocomplete="off" value="' + (names.includes(cur) ? '' : esc(cur)) + '">' +
-    (People.faceOn ? '<button class="check" role="checkbox" aria-checked="' + (S.whoTeach !== false) + '" data-act="whoteach"><span class="box">' + (S.whoTeach !== false ? I.check : '') + '</span>Teach Face Recognition</button>' : '') +
+    (People.faceOn ? '<button class="check" role="checkbox" aria-checked="' + (S.whoTeach === true) + '" data-act="whoteach"><span class="box">' + (S.whoTeach === true ? I.check : '') + '</span>Teach Face Recognition</button>' : '') +
     '<button class="btn solid snzgo" data-act="whosave">Save Name</button>' +
     (e.who && e.dets.some(d => People.sub[d]) ? '<button class="btn snzgo" style="margin-top:6px" data-act="whoclear">Remove Name</button>' : '') +
     '</div></div></div>';
@@ -3530,15 +3530,15 @@ const ACT = {
     if (!People.faces) People.loadFaces().then(() => { if (S.modal === 'who') render(); });
   },
   whopick(d) { S.whoName = S.whoName === d.v ? '' : d.v; const i = document.getElementById('whonew'); if (i) i.value = ''; render(); },
-  whoteach() { S.whoTeach = S.whoTeach === false; render(); },
+  whoteach() { S.whoTeach = !S.whoTeach; render(); },
   async whosave() {
     const e = Data.events.find(x => x.id === S.whoId); if (!e || People.busy) return;
     const typed = (document.getElementById('whonew') || {}).value || '', n = (typed.trim() || S.whoName || '').trim();
     if (!n) { toast('Pick Or Type A Name'); return; }
-    People.busy = true; const r = await People.name(e, n, S.whoTeach !== false); People.busy = false;
+    People.busy = true; const r = await People.name(e, n, S.whoTeach === true); People.busy = false;
     if (!r.ok) { toast(r.msg || 'Could Not Save The Name'); return; }
     whoOf(e); S.modal = null; render(); People.faces = null;
-    toast('Saved As ' + niceName(n) + (S.whoTeach !== false && People.faceOn ? (r.taught ? ' · Face Learned' : ' · No Clear Face To Learn') : ''));
+    toast('Saved As ' + niceName(n) + (S.whoTeach === true && People.faceOn ? (r.taught ? ' · Face Learned' : ' · No Clear Face To Learn') : ''));
   },
   async whoclear() {
     const e = Data.events.find(x => x.id === S.whoId); if (!e || People.busy) return;
