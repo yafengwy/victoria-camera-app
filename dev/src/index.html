@@ -1296,7 +1296,8 @@ const Frigate = {
   async reviews(after) {
     const rows = await this.get('/api/review?limit=2000&after=' + after);
     return rows.map(r => {
-      const objs = (r.data && r.data.objects) || [], sl = ((r.data && r.data.sub_labels) || []).map(x => String(Array.isArray(x) ? x[0] : x));
+      /* Frigate calls a person it recognized "person-verified": treat it as a person */
+      const objs = ((r.data && r.data.objects) || []).map(o => String(o).replace(/-verified$/, '')), sl = ((r.data && r.data.sub_labels) || []).map(x => String(Array.isArray(x) ? x[0] : x));
       const label = (objs.find(o => !isAttr(o)) || objs[0] || 'motion').replace(/^\w/, m => m.toUpperCase());
       const det = r.data && r.data.detections && r.data.detections[0], dets = (r.data && r.data.detections) || [];
       /* delivery logos Frigate+ found on a car (sub labels, or listed as objects) and people's names (face recognition,
@@ -3131,7 +3132,7 @@ const ICON_SVG = {
 const ICON_OF = {"person": "person", "baby": "person", "face": "face", "cat": "cat", "dog": "dog", "bird": "bird", "bear": "bear", "raccoon": "fox", "fox": "fox", "squirrel": "squirrel", "rabbit": "rabbit", "rodent": "rodent", "skunk": "rodent", "possum": "rodent", "deer": "paw", "horse": "paw", "cow": "paw", "goat": "paw", "kangaroo": "paw", "sheep": "paw", "car": "car", "license_plate": "car", "truck": "truck", "bus": "truck", "garbage truck": "truck", "garbage_truck": "truck", "school_bus": "truck", "amazon": "van", "usps": "van", "ups": "van", "fedex": "van", "dhl": "van", "motorcycle": "bike", "bicycle": "bike", "package": "package", "backpack": "bag", "handbag": "bag", "suitcase": "bag", "umbrella": "bag", "laptop": "bag", "remote": "bag", "cell phone": "bag", "cell_phone": "bag", "waste_bin": "bag", "baby_stroller": "bag"};
 const objIcon = label => ICON_SVG[ICON_OF[String(label).toLowerCase()] || 'paw'];
 /* what an alert is called on screen: the object, plus the delivery company or the person's name when known */
-function lab(e) { return e.who ? e.label + ' · ' + e.who : e.label; }
+function lab(e) { return e.who || e.label; }   /* a known name or delivery company replaces the object name */
 function ico(e) { return e.logo || e.label; }
 const OBJ_ICON = new Proxy({}, { get: (_, k) => objIcon(k) });
 function drawRvTrack(force) {
