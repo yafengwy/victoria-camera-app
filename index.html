@@ -1508,7 +1508,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.5.5 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.5.6 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2966,7 +2966,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.5.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.5.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3265,7 +3265,7 @@ const ACT = {
   fuitap(d, e) { if (e && e.target.closest('.fuitop')) return; if (Date.now() - FZ.moved < 400) return; S.fui = !S.fui; if (!S.fui) S.fpanel = false; render(); },
   fkick() { fuiKick(); },
   fpanel() { S.fpanel = !S.fpanel; S.fui = true; render(); fuiKick(); },
-  fseek(d) { S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true; if (S.fpanel) render(); else { paintFocus(); Playback.sync(); } fuiKick(); },
+  fseek(d) { Dbg.log('tap alert', hms(+d.t)); S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true; if (S.fpanel) render(); else { paintFocus(); Playback.sync(); } fuiKick(); },
   fbadge() { const id = S.focus && S.focus.cam; if (!id) return; if (camT(id) != null) { ACT.flive(); return; } if (!Ctl.on(id)) return; Live.restart(id); toast('Reconnecting'); },
   flive() { S.camTime[S.focus.cam] = null; S.focus.dayEnd = null; S.focus.lineY = FTOP; render(); const sc = document.getElementById('fsc'); if (sc) { fSetScroll(sc, 0); fPaintLine(); } const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
   flist() { S.flist = !S.flist; render(); fShow(camT(S.focus.cam)); },
@@ -3329,7 +3329,7 @@ const ACT = {
     ACT.fjump({ t: e.t });
   },
   fjump(d) {   /* tap a card or rail icon: go to that alert (1 s before it starts) */
-    const t = +d.t - 1000, id = S.focus.cam;
+    const t = +d.t - 1000, id = S.focus.cam; Dbg.log('tap alert', hms(+d.t));
     S.camTime[id] = t; S.playing = true; paintFocus();       /* the line moves to the alert; the list stays where it is */
     document.querySelectorAll('.fsi').forEach(n => n.classList.toggle('cur', +n.dataset.t === +d.t));
     Playback.sync();
@@ -3357,6 +3357,18 @@ function openDate(cb) {
   try { inp.showPicker(); } catch (e) { inp.click(); }
 }
 
+/* Any finger drag that ends on the camera view (list, rail, cards, full screen) is not a tap. The page can redraw
+   during a drag, so this is tracked on the whole page instead of on one element. */
+const TG = { mv: false, end: 0, t0: null };
+document.addEventListener('touchstart', e => { const t = e.touches[0]; TG.t0 = t ? [t.clientX, t.clientY] : null; TG.mv = e.touches.length > 1; }, { capture: true, passive: true });
+document.addEventListener('touchmove', e => { const t = e.touches[0]; if (e.touches.length > 1 || (TG.t0 && t && Math.hypot(t.clientX - TG.t0[0], t.clientY - TG.t0[1]) > 10)) TG.mv = true; }, { capture: true, passive: true });
+document.addEventListener('touchend', e => { if (!e.touches.length) TG.end = Date.now(); }, { capture: true, passive: true });
+document.addEventListener('click', e => {
+  if (TG.mv && Date.now() - TG.end < 800 && e.target.closest && e.target.closest('.focus, .full, #fsc, #ftsc')) {
+    const a = e.target.closest('[data-act]'); if (a) Dbg.log('drag end not a tap', a.dataset.act);
+    e.stopPropagation(); e.preventDefault(); TG.mv = false;
+  }
+}, true);
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]');
   if (!el) return;
@@ -3730,7 +3742,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.5.5';
+    const BUILD = '1.5.6';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
