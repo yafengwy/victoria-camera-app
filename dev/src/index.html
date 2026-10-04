@@ -2786,33 +2786,42 @@ function rvBig() { return rvLay() === 'big'; }
 const RV_LAYS = { big: 'Big', top: 'Alerts On Top', grid: 'Grid' };
 /* Big layout: the camera with an alert at the line gets the big picture (2/3 wide), the next two sit beside it,
    the rest follow 3 per row. Tiles are only reordered (CSS order), never redrawn, so dragging stays smooth. */
-/* order of the cameras below the alerts at the line: other alerts (Interesting first, then Uninteresting), then
-   cameras that have a picture at that time, then those with No Recording; each group keeps the usual camera order */
-function rvRank(c, n, t, rest, i) {
-  const r = rest.indexOf(c.id); if (r >= 0) return -50 + r;
-  const img = n.querySelector('img');
-  const none = (img && img.getAttribute('src') === NOREC) || (Data.source === 'frigate' && t != null && RecMap.has(c.id, t) === false);
-  return none ? 1000 + i : i;
+/* Review order. A picture comes first: cameras showing a picture at the line before those with No Recording. Among
+   the ones with a picture: Interesting alerts, then Uninteresting ones, then the rest; the same again among those with
+   No Recording (an alert with nothing recorded, e.g. a parked car the camera keeps seeing, sits below every picture).
+   Each group keeps the usual camera order. */
+function rvNoPic(c, t) {
+  const n = document.getElementById('rv-' + c.id), img = n && n.querySelector('img');
+  return (!!img && img.getAttribute('src') === NOREC) || (Data.source === 'frigate' && t != null && RecMap.has(c.id, t) === false && !alertTry(c.id, rvAt(c, t)));
+}
+function rvHits(cams, t) {
+  return cams.map(c => ({ c, e: rvAt(c, t), np: rvNoPic(c, t) })).filter(x => x.e)
+    .sort((a, b) => (a.np - b.np) || (b.e.interesting - a.e.interesting) || (b.e.t - a.e.t));
+}
+function rvRank(c, t, rest, i) {
+  const r = rest.indexOf(c.id), np = rvNoPic(c, t);
+  if (r >= 0) return (np ? 500 : -50) + r;
+  return np ? 1000 + i : i;
 }
 function rvLayout(t) {
   const box = document.querySelector('.rvcams'); if (!box || !(box.classList.contains('big3') || box.classList.contains('top24'))) return;
   if (box.classList.contains('top24')) {      /* alerts side by side on top: 1 → 3/4 wide, 2 → halves, 3+ → thirds; the rest 4 per row */
-    const cams = rvCams(), hits = cams.map(c => ({ c, e: rvAt(c, t) })).filter(x => x.e).sort((a, b) => (b.e.interesting - a.e.interesting) || (b.e.t - a.e.t));
-    /* a narrow phone (e.g. Galaxy Z Flip) fits at most 2 per row */
-    const narrow = box.clientWidth < 520, top = hits.map(x => x.c.id).slice(0, narrow ? 4 : 3), span = narrow ? 12 : top.length === 1 ? 18 : top.length === 2 ? 12 : 8;
+    const cams = rvCams(), hits = rvHits(cams, t);
+    /* a narrow phone (e.g. Galaxy Z Flip) fits at most 2 per row; only alerts that have a picture go on top */
+    const narrow = box.clientWidth < 520, top = hits.filter(x => !x.np).map(x => x.c.id).slice(0, narrow ? 4 : 3), span = narrow ? 12 : top.length === 1 ? 18 : top.length === 2 ? 12 : 8;
     const rest = hits.map(x => x.c.id).filter(id => !top.includes(id));
     cams.forEach((c, i) => {
       const n = document.getElementById('rv-' + c.id); if (!n) return;
       const k = top.indexOf(c.id);
       n.classList.toggle('feat', k >= 0);
-      n.style.order = k >= 0 ? -100 + k : rvRank(c, n, t, rest, i);
+      n.style.order = k >= 0 ? -100 + k : rvRank(c, t, rest, i);
       n.style.gridColumn = k >= 0 ? (top.length === 1 ? (narrow ? '1 / span 24' : '4 / span 18') : 'span ' + span) : (narrow ? 'span 12' : 'span 6');
       const img = n.querySelector('img'); n.classList.toggle('nr', !!img && img.getAttribute('src') === NOREC);
     });
     return;
   }
-  const cams = rvCams(), hits = cams.map(c => ({ c, e: rvAt(c, t) })).filter(x => x.e).sort((a, b) => (b.e.interesting - a.e.interesting) || (b.e.t - a.e.t));
-  const top = hits[0] && hits[0].c.id;
+  const cams = rvCams(), hits = rvHits(cams, t);
+  const top = hits[0] && !hits[0].np ? hits[0].c.id : null;
   if (top && top !== S.rv.autoFeat) { S.rv.feat = top; }             /* a new alert under the line takes the big picture */
   S.rv.autoFeat = top || null;
   if (!S.rv.feat || !cams.some(c => c.id === S.rv.feat)) S.rv.feat = cams[0] && cams[0].id;
@@ -2821,9 +2830,9 @@ function rvLayout(t) {
   const narrow = box.clientWidth < 520; box.classList.toggle('narrow', narrow); box.style.setProperty('--cols', narrow ? 2 : rvBigCols());
   cams.forEach((c, i) => {
     const n = document.getElementById('rv-' + c.id); if (!n) return;
-    const f = c.id === S.rv.feat, si = side.indexOf(c.id);
+    const f = c.id === S.rv.feat;
     n.classList.toggle('feat', f);
-    n.style.order = f ? -100 : si >= 0 ? -50 + si : rvRank(c, n, t, [], i);
+    n.style.order = f ? -100 : rvRank(c, t, side, i);
     const img = n.querySelector('img'); n.classList.toggle('nr', !!img && img.getAttribute('src') === NOREC);
   });
 }
