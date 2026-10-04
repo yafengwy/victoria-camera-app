@@ -319,6 +319,12 @@ img.rf{opacity:0}
 .rvtop.one .rvbar .rvtitle{flex:0 0 auto;margin-right:10px}
 .rvtop.one .chip.rvf{max-width:220px}
 .rvend{display:flex;align-items:center;gap:6px}
+.evbar.one{gap:6px;padding-left:16px}
+.rvdd.wide:not(.pop){width:min(340px,calc(100vw - 16px))}
+.evbar.one .evttl{margin-right:2px}
+.evbar.one .evn{font-size:13px;font-weight:600;color:var(--sub);margin-right:10px;white-space:nowrap}
+.evbar.one .chip{flex-shrink:0;font-size:13px}
+.evbar.one .chip.rvf{max-width:240px}
 /* side timeline: the two buttons sit centered right above it */
 .rvend.v{width:104px;margin-right:-8px;justify-content:center;gap:2px;flex:none}
 .rvend.v.l{width:270px}
@@ -2607,10 +2613,11 @@ function viewEvents() {
   for (let i = 0; i < 7; i++) { const d0 = today - i * DAY; days.push({ i, d0, n: visible.filter(e => e.t >= d0 && e.t < d0 + DAY).length }); }
   const d0 = days[S.evDay].d0;
   const list = visible.filter(e => e.t >= d0 && e.t < d0 + DAY);
-  let h = '<div class="evtop"><div class="evbar"><span style="flex:1">Alerts</span>' + (COVER ? evStrip() : '') + (Data.source === 'frigate' ? '<button class="ic bxbtn2" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '<button class="ic" style="color:var(--head-fg)" data-act="go" data-v="home" aria-label="Close">' + I.x + '</button></div>';
-  if (!COVER) h += '<button class="fbtn" data-act="filters" aria-expanded="' + S.filtersOpen + '"><span>Filters</span><span class="fcount">' + visible.length + ' In 7 Days</span><span style="color:var(--sub);display:flex">' + (S.filtersOpen ? I.up : I.down) + '</span></button>';
-  if (!COVER && S.filtersOpen) h += filterPanel();
-  if (COVER && S.evPop) h += evDropdown();
+  const EONE = !COVER && rvOneRow();   /* computer: one row like Review — Reset, Cameras, Objects, Boxes on the left */
+  let h = EONE ? '<div class="evtop"><div class="evbar one">' + evBarOne(visible.length) + '</div>' : '<div class="evtop"><div class="evbar"><span style="flex:1">Alerts</span>' + (COVER ? evStrip() : '') + (Data.source === 'frigate' ? '<button class="ic bxbtn2" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '<button class="ic" style="color:var(--head-fg)" data-act="go" data-v="home" aria-label="Close">' + I.x + '</button></div>';
+  if (!COVER && !EONE) h += '<button class="fbtn" data-act="filters" aria-expanded="' + S.filtersOpen + '"><span>Filters</span><span class="fcount">' + visible.length + ' In 7 Days</span><span style="color:var(--sub);display:flex">' + (S.filtersOpen ? I.up : I.down) + '</span></button>';
+  if (!COVER && !EONE && S.filtersOpen) h += filterPanel();
+  if ((COVER || EONE) && S.evPop) h += evDropdown();
   h += '<div class="days">' + days.map(d => '<button class="day" data-act="day" data-v="' + d.i + '" aria-pressed="' + (S.evDay === d.i) + '">' + dayLabel(d.d0) + '<b>' + d.n + '</b></button>').join('') + '</div></div>';
   const byHour = {};
   list.forEach(e => { const hr = new Date(e.t).getHours(); (byHour[hr] = byHour[hr] || []).push(e); });
@@ -2690,9 +2697,22 @@ function evStrip() {
     ib('evpop', 'cam', S.evPop === 'cam' || off > 0, 'Cameras', I.camsel, off ? '<span class="rvibn">' + (Data.cams.length - off) + '</span>' : '') +
     ib('evpop', 'obj', S.evPop === 'obj' || !objAll || !f.int || f.unint, 'Objects', I.filter);
 }
+function evBarOne(n) {
+  const f = S.filt, camsOn = Data.cams.filter(c => !f.off[c.id]), objsOn = OBJS().filter(o => objOn(f, o)), allObj = objsOn.length === OBJS().length;
+  const grpOn = [...new Set(Data.cams.map(c => c.group))].find(g => { const gc = Data.cams.filter(c => c.group === g); return gc.length === camsOn.length && gc.every(c => camsOn.includes(c)); });
+  const camLab = camsOn.length === Data.cams.length ? 'All Cameras' : grpOn ? grpOn + ' Only' : camsOn.length + (camsOn.length === 1 ? ' Camera' : ' Cameras');
+  const objLab = (allObj ? 'Any Object' : objsOn.length ? objsOn.map(objName).join(', ') : 'No Object') + (f.int && f.unint ? ' · All' : f.unint ? ' · Uninteresting' : f.int ? '' : ' · None');
+  const dd = on => (on ? I.up : I.down).replace(/22/g, '14');
+  return '<span class="evttl">Alerts</span><span class="evn">' + n + ' In 7 Days</span>' +
+    '<button class="chip sm rvib" data-act="filtreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
+    '<button class="chip sm rvf" data-act="evpop" data-v="cam" aria-pressed="' + (S.evPop === 'cam' || camsOn.length !== Data.cams.length) + '" aria-label="Cameras"><span>' + esc(camLab) + '</span>' + dd(S.evPop === 'cam') + '</button>' +
+    '<button class="chip sm rvf" data-act="evpop" data-v="obj" aria-pressed="' + (S.evPop === 'obj' || !allObj || !f.int || f.unint) + '" aria-label="Objects"><span>' + esc(objLab) + '</span>' + dd(S.evPop === 'obj') + '</button>' +
+    (Data.source === 'frigate' ? '<button class="chip sm bxchip" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
+    '<span style="flex:1"></span><button class="ic" style="color:var(--head-fg)" data-act="go" data-v="home" aria-label="Close">' + I.x + '</button>';
+}
 function evDropdown() {
   const f = S.filt, ck = (on, v, label) => '<button class="check" role="checkbox" aria-checked="' + on + '" data-act="chk" data-v="' + v + '"><span class="box">' + (on ? I.check : '') + '</span>' + label + '</button>';
-  let h = '<div class="rvscrim" data-act="evpclose"></div><div class="rvdd" data-anchor="evpop:' + S.evPop + '" role="dialog" aria-label="' + (S.evPop === 'cam' ? 'Cameras' : 'Objects') + '"><div class="popin">';
+  let h = '<div class="rvscrim" data-act="evpclose"></div><div class="rvdd' + (S.evPop === 'obj' ? ' wide' : '') + '" data-anchor="evpop:' + S.evPop + '" role="dialog" aria-label="' + (S.evPop === 'cam' ? 'Cameras' : 'Objects') + '"><div class="popin">';
   if (S.evPop === 'cam') {
     const camsOn = Data.cams.filter(c => !f.off[c.id]);
     const grpOn = [...new Set(Data.cams.map(c => c.group))].find(g => { const gc = Data.cams.filter(c => c.group === g); return gc.length === camsOn.length && gc.every(c => camsOn.includes(c)); });
