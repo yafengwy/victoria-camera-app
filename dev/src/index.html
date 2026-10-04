@@ -538,6 +538,9 @@ img.rf{opacity:0}
 :root[data-cover] .rail .ic{width:42px;height:42px}
 :root[data-cover] .rail .ic[aria-current="page"]{background:var(--chip)}
 :root[data-cover] .rail .rlogo{display:none}
+:root[data-cover]:not([data-view="home"]) .rail{display:none}
+:root[data-cover]:not([data-view="home"]) .app{padding-right:0}
+:root[data-cover]:not([data-view="home"]) .rvdock{right:0}
 :root[data-cover] .rvdock{left:0;right:var(--strip)}
 /* ---- v28: vertical review rail on wide landscape screens ---- */
 .rvdock.v{left:auto;right:0;top:var(--rvtop,110px);bottom:0;width:104px;border-top:0;border-left:1px solid var(--line);padding:0}
@@ -2302,6 +2305,7 @@ window.addEventListener('popstate', () => {
 });
 function render() {
   document.documentElement.dataset.mark = S.markStyle;
+  document.documentElement.dataset.view = S.view;   /* cover screen: the side icons belong to the home page only */
   applyLook();
   detectCover();
   let h = S.view === 'events' ? viewEvents() : S.view === 'review' ? viewReview() : viewHome();
@@ -3090,7 +3094,7 @@ function rvBarCompact(st) {
     ib('rvfopen', S.rv.fopen || !rvFDefault(), 'Alert Types On Timeline', I.filter) +
     ib('rvlist', !!S.rv.list, S.rv.list ? 'Show Timeline' : 'Show Alert List', S.rv.list ? I.tline : I.bellO.replace(/22/g, '18')) +
     (Data.source === 'frigate' ? ib('boxes', Box.on, 'Show Object Boxes', I.boxes) : '') +
-    dtOver('<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button>', 'rv') +
+    dtOver(ib('date', false, 'Pick Date', I.cal.replace(/22/g, '20')).replace('data-act="date"', 'data-act="date" data-v="rv"'), 'rv') +
     ib('rvcolsopen', !!S.rv.colsOpen, 'Layout', I.grid4.replace(/22/g, '18')) + '</div>';
 }
 function rvFDefault() { const f = S.rv.f; return f.int && !f.unint && OBJS().every(o => objOn(f, o)); }
