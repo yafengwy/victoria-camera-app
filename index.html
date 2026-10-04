@@ -1508,7 +1508,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.5.1 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.5.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -1599,6 +1599,7 @@ const Playback = {
       v.addEventListener('error', () => Dbg.log('video', id, 'error', v.error ? v.error.code + ' ' + (v.error.message || '') : ''));
       v.addEventListener('timeupdate', () => {
         if (!p.on || !p.win || S.dragging || v.paused || p.prep) return;
+        if (S.focus && S.focus.cam === id && fScrubbing()) return;
         const t = this.wall(p, v.currentTime);
         /* the user just jumped somewhere else (tapped an alert or Live): this update is from the old position, ignore it */
         if (S.camTime[id] !== p.expect && (S.camTime[id] == null || Math.abs(t - S.camTime[id]) > 2500)) return;
@@ -2249,11 +2250,14 @@ function fSetScroll(sc, v) { v = Math.max(0, Math.round(v)); if (sc.scrollTop ==
 function fShow(t) { const sc = document.getElementById('fsc'); if (!sc) return; const y = fLineY(t); if (y < sc.scrollTop + 10 || y > sc.scrollTop + sc.clientHeight - 40) fSetScroll(sc, y - 120); fPaintLine(); }
 /* The blue line sits where the playing time is. Swiping the list moves the timeline under the line (scrubs);
    tapping an alert or an empty spot moves the line there instead of moving the list. */
+/* the finger is on (or just left) a camera-view timeline: the playing video must not move the time or the list then,
+   or the timeline jumps back to where the video is while it is being dragged */
+function fScrubbing() { return ['fsc', 'ftsc'].some(i => { const n = document.getElementById(i); return n && (n._touch || Date.now() - (n._scrolled || 0) < 700); }); }
 function fPaintLine() {
   const sc = document.getElementById('fsc'), ln = document.getElementById('fpline'); if (!sc || !ln || !S.focus) return;
   const t = camT(S.focus.cam);
   let y = t == null ? FTOP : fLineY(t) - sc.scrollTop;
-  if (t != null && (y < 0 || y > sc.clientHeight - 10)) { fSetScroll(sc, fLineY(t) - Math.min(120, sc.clientHeight / 3)); y = fLineY(t) - sc.scrollTop; }
+  if (t != null && (y < 0 || y > sc.clientHeight - 10) && !fScrubbing()) { fSetScroll(sc, fLineY(t) - Math.min(120, sc.clientHeight / 3)); y = fLineY(t) - sc.scrollTop; }
   S.focus.lineY = y; ln.style.top = y + 'px';
 }
 function durLabel(e) { const d = Math.max(1, Math.round(((e.end || e.t) - e.t) / 1000)); return d >= 60 ? Math.floor(d / 60) + ' min ' + (d % 60) + ' sec' : d + ' sec'; }
@@ -2502,7 +2506,9 @@ function wireFull() {
   zone.addEventListener('touchend', e => { if (e.touches.length < 2) pz = null; });
   zone.addEventListener('touchcancel', () => { pz = null; });
   zone.addEventListener('wheel', e => { const k = wheelKind(e); if (k === 'pad') return; e.preventDefault(); fZoom(FFPX * Math.exp(-e.deltaY * (k === 'pinch' ? 0.02 : 0.002))); }, { passive: false });
-  sc.addEventListener('touchstart', e => { sc._t0 = e.touches[0] ? [e.touches[0].clientX, e.touches[0].clientY] : null; sc._mv = e.touches.length > 1; }, { passive: true });
+  sc.addEventListener('touchstart', e => { sc._touch = true; sc._t0 = e.touches[0] ? [e.touches[0].clientX, e.touches[0].clientY] : null; sc._mv = e.touches.length > 1; }, { passive: true });
+    sc.addEventListener('touchend', e => { if (!e.touches.length) { sc._touch = false; if (sc._mv) sc._scrolled = Math.max(sc._scrolled || 0, Date.now() - 300); } }, { passive: true });
+    sc.addEventListener('touchcancel', () => { sc._touch = false; }, { passive: true });
   sc.addEventListener('touchmove', e => { const t = e.touches[0]; if (e.touches.length > 1 || (sc._t0 && t && Math.hypot(t.clientX - sc._t0[0], t.clientY - sc._t0[1]) > 8)) sc._mv = true; }, { passive: true });
   sc.addEventListener('scroll', () => {
     if (S.fLock) return; sc._scrolled = Date.now();
@@ -2952,7 +2958,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.5.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.5.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -2996,12 +3002,17 @@ async function fetchWithBar(url, text, from, est) {
 }
 function deliver(blob, name) {
   const file = new File([blob], name, { type: 'video/mp4' }), phone = /iPhone|iPad|Android/.test(navigator.userAgent);
+  Dbg.log('save ready', name, Math.round(blob.size / 1024) + 'KB', 'share ' + !!(navigator.canShare && navigator.canShare({ files: [file] })));
   if (phone && navigator.canShare && navigator.canShare({ files: [file] })) {
     clearInterval(SaveBar.tm); const b = SaveBar.el(); b.hidden = false;
     /* the share sheet needs a fresh tap */
     b.innerHTML = '<span class="sbr">Video Ready</span><button class="sv">' + I.dl + 'Save</button><button class="sx" aria-label="Close">' + I.x + '</button>';
     b.querySelector('.sx').onclick = () => SaveBar.end();
-    b.querySelector('.sv').onclick = async () => { SaveBar.end(); try { await navigator.share({ files: [file] }); } catch (e) { if (!e || e.name !== 'AbortError') toast('Could Not Open Save'); } };
+    b.querySelector('.sv').onclick = async () => {
+      SaveBar.end(); Dbg.log('save share', name, Math.round(blob.size / 1024) + 'KB');
+      try { await navigator.share({ files: [file] }); Dbg.log('save shared'); }
+      catch (e) { Dbg.log('save share error', e && e.name, e && e.message); if (!e || e.name !== 'AbortError') toast('Could Not Open Save · ' + ((e && e.name) || 'Error')); }
+    };
     SaveBar.busy = false; return;
   }
   const u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
@@ -3548,7 +3559,9 @@ function wire() {
   const sc = document.getElementById('fsc');
   if (sc) {
     /* a drag of the timeline must never count as a tap when the finger lifts (it jumped to the nearest alert) */
-    sc.addEventListener('touchstart', e => { sc._t0 = e.touches[0] ? [e.touches[0].clientX, e.touches[0].clientY] : null; sc._mv = e.touches.length > 1; }, { passive: true });
+    sc.addEventListener('touchstart', e => { sc._touch = true; sc._t0 = e.touches[0] ? [e.touches[0].clientX, e.touches[0].clientY] : null; sc._mv = e.touches.length > 1; }, { passive: true });
+    sc.addEventListener('touchend', e => { if (!e.touches.length) { sc._touch = false; if (sc._mv) sc._scrolled = Math.max(sc._scrolled || 0, Date.now() - 300); } }, { passive: true });
+    sc.addEventListener('touchcancel', () => { sc._touch = false; }, { passive: true });
     sc.addEventListener('touchmove', e => { const t = e.touches[0]; if (e.touches.length > 1 || (sc._t0 && t && Math.hypot(t.clientX - sc._t0[0], t.clientY - sc._t0[1]) > 8)) sc._mv = true; }, { passive: true });
     sc.addEventListener('click', e => {
       if (e.target.closest('button')) return;
@@ -3732,7 +3745,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.5.1';
+    const BUILD = '1.5.2';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
