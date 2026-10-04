@@ -321,7 +321,7 @@ img.rf{opacity:0}
 .rvend{display:flex;align-items:center;gap:6px}
 .evbar.one{gap:6px;padding-left:16px}
 .rvdd.wide:not(.pop){width:min(340px,calc(100vw - 16px))}
-.evbar.one .evttl{margin-right:2px}
+.evbar.one .evttl{margin-right:10px}
 .evbar.one .evn{font-size:13px;font-weight:600;color:var(--sub);margin-right:10px;white-space:nowrap}
 .evbar.one .chip{flex-shrink:0;font-size:13px}
 .evbar.one .chip.rvf{max-width:240px}
@@ -1760,7 +1760,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.10.10 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.1.1 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2703,7 +2703,7 @@ function evBarOne(n) {
   const camLab = camsOn.length === Data.cams.length ? 'All Cameras' : grpOn ? grpOn + ' Only' : camsOn.length + (camsOn.length === 1 ? ' Camera' : ' Cameras');
   const objLab = (allObj ? 'Any Object' : objsOn.length ? objsOn.map(objName).join(', ') : 'No Object') + (f.int && f.unint ? ' · All' : f.unint ? ' · Uninteresting' : f.int ? '' : ' · None');
   const dd = on => (on ? I.up : I.down).replace(/22/g, '14');
-  return '<span class="evttl">Alerts</span><span class="evn">' + n + ' In 7 Days</span>' +
+  return '<span class="evttl">Alerts</span>' +
     '<button class="chip sm rvib" data-act="filtreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
     '<button class="chip sm rvf" data-act="evpop" data-v="cam" aria-pressed="' + (S.evPop === 'cam' || camsOn.length !== Data.cams.length) + '" aria-label="Cameras"><span>' + esc(camLab) + '</span>' + dd(S.evPop === 'cam') + '</button>' +
     '<button class="chip sm rvf" data-act="evpop" data-v="obj" aria-pressed="' + (S.evPop === 'obj' || !allObj || !f.int || f.unint) + '" aria-label="Objects"><span>' + esc(objLab) + '</span>' + dd(S.evPop === 'obj') + '</button>' +
@@ -3600,7 +3600,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.10.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.1.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3693,7 +3693,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 1.10.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.1.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -4514,7 +4514,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.10.10';
+    const BUILD = '2.1.1';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);

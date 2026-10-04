@@ -321,7 +321,7 @@ img.rf{opacity:0}
 .rvend{display:flex;align-items:center;gap:6px}
 .evbar.one{gap:6px;padding-left:16px}
 .rvdd.wide:not(.pop){width:min(340px,calc(100vw - 16px))}
-.evbar.one .evttl{margin-right:2px}
+.evbar.one .evttl{margin-right:10px}
 .evbar.one .evn{font-size:13px;font-weight:600;color:var(--sub);margin-right:10px;white-space:nowrap}
 .evbar.one .chip{flex-shrink:0;font-size:13px}
 .evbar.one .chip.rvf{max-width:240px}
@@ -2703,7 +2703,7 @@ function evBarOne(n) {
   const camLab = camsOn.length === Data.cams.length ? 'All Cameras' : grpOn ? grpOn + ' Only' : camsOn.length + (camsOn.length === 1 ? ' Camera' : ' Cameras');
   const objLab = (allObj ? 'Any Object' : objsOn.length ? objsOn.map(objName).join(', ') : 'No Object') + (f.int && f.unint ? ' · All' : f.unint ? ' · Uninteresting' : f.int ? '' : ' · None');
   const dd = on => (on ? I.up : I.down).replace(/22/g, '14');
-  return '<span class="evttl">Alerts</span><span class="evn">' + n + ' In 7 Days</span>' +
+  return '<span class="evttl">Alerts</span>' +
     '<button class="chip sm rvib" data-act="filtreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
     '<button class="chip sm rvf" data-act="evpop" data-v="cam" aria-pressed="' + (S.evPop === 'cam' || camsOn.length !== Data.cams.length) + '" aria-label="Cameras"><span>' + esc(camLab) + '</span>' + dd(S.evPop === 'cam') + '</button>' +
     '<button class="chip sm rvf" data-act="evpop" data-v="obj" aria-pressed="' + (S.evPop === 'obj' || !allObj || !f.int || f.unint) + '" aria-label="Objects"><span>' + esc(objLab) + '</span>' + dd(S.evPop === 'obj') + '</button>' +
