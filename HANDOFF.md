@@ -48,10 +48,11 @@ Read this first when picking the app up in a new conversation. No secrets live i
 - Review page: `paintReview`, `drawRvTrack`, `rvRefine`, `rvBarCompact`.
 - Wide Alerts page (at least 1000px): `evWide`.
 - Camera-view clip: `fclip*`.
-- Header button order everywhere: Power, Date, Boxes, Sound, Live (Live rightmost).
+- Header button order everywhere: Power, Date, Boxes, Sound, Live (Live rightmost). Grid panel puts the same set at its right. Panel has only Play/Pause (no previous/next).
+- Wide grids (3+ per row): panel is 2 columns wide under the opened camera (`.grid.dense`, `panel(c, col)`).
 
 ## Open items
-- Duo (Galaxy Z Flip cover screen): screenshots pending.
+- iPhone Duo cover screen: she has not received the phone yet; screenshots pending. (She also uses a Galaxy Z Flip.)
 - Xiaomi / Aqara cameras: waiting for model numbers.
 - Prep Kitchen WiFi question.
 - Offered: change the "No Recording" subtitle to "Not Saved By Frigate" on tiles that do have an alert.

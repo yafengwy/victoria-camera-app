@@ -2085,9 +2085,9 @@ function panel(c, col) {
   }
   return '<div class="panel' + (col ? ' half' : '') + '" id="panel"' + (col ? ' style="grid-column:' + col + ' / span 2"' : '') + '>' +
     (S.layout === 'list' ? '<div class="pctl solo">' : '<div class="pctl g3"><span class="psp"></span>') +
-    '<div class="trio"><button data-act="step" data-v="-1" aria-label="Previous Event">' + I.prev + '</button>' +
+    '<div class="trio">' +
     '<button data-act="playpause" aria-label="' + (S.playing ? 'Pause' : 'Play') + '">' + (S.playing ? I.pause : I.play) + '</button>' +
-    '<button data-act="step" data-v="1" aria-label="Next Event">' + I.next + '</button></div>' +
+    '</div>' +
     /* grid cards have no title row, so their controls sit at the panel's right, in the same order as every other
        page's top right: Power, Date, Boxes, Sound, Live */
     (S.layout === 'list' ? '' : '<div class="pctl2">' +
