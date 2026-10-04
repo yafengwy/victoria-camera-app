@@ -70,11 +70,22 @@ img.rf{opacity:0}
 .pairrow > .cam{flex:var(--fr) 1 0;width:0;min-width:0}
 .pairrow > .cam .frame{aspect-ratio:16/9}
 .pairrow > .cam.tall .frame{aspect-ratio:var(--ar);width:100%;margin:0}
-.pairrow > .cam.tall .frame .badge{top:34px!important}
 /* 3 or more per row: two rows tall, picture fills the card */
 .grid .cam.span2{grid-row:span 2;align-self:stretch;min-height:0}
 .cam.span2 .frame img,.cam.span2 .frame .lvh,.cam.span2 .frame .lvc,.cam.span2 .frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .grid:has(.span2){container-type:inline-size}
+.fblock{grid-column:1/-1;display:flex;gap:8px;align-items:stretch;min-width:0}
+.fblock > .cam{flex:0 0 56%;min-width:0}
+.fblock > .cam .frame{aspect-ratio:var(--ar);width:100%;margin:0}
+.fbside{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:8px}
+.fbside > .cam{flex:1 1 0;min-height:0}
+.fbside > .cam .frame{flex:1 1 0;height:0;aspect-ratio:auto}
+.fblock .frame img,.fblock .frame .lvh,.fblock .frame .lvc,.fblock .frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.fbside .frame{--bt:5px;--bh:22px}
+.fbside .badge{font-size:10px;padding:0 7px}
+.fbside .ctm{display:none}
+.fbside .cnm{max-width:94%;font-size:11px}
+.fbside .fsnd svg{width:13px;height:13px}
 .tallblock{grid-column:1/-1;display:flex;gap:inherit;align-items:stretch;min-width:0}
 .tallblock > .cam{flex:0 0 var(--dw,25%);min-width:0}
 .tallblock > .cam .frame{flex:1 1 0;height:0;aspect-ratio:auto;width:100%;margin:0}
@@ -279,6 +290,7 @@ img.rf{opacity:0}
   .cam .ic{width:30px;height:32px}
   .cam .ic svg{width:16px;height:16px}
   .badge{height:26px;font-size:11px;padding:0 9px}
+  .frame{--bh:26px}
   .grid{gap:8px}
   .cam{border-radius:6px}
   .evlist{padding-bottom:40px}
@@ -486,7 +498,17 @@ img.rf{opacity:0}
 .wx{position:absolute;z-index:5;left:calc(10px + env(safe-area-inset-left,0px));top:calc(8px + env(safe-area-inset-top,0px));width:40px;height:40px;border-radius:20px;background:rgba(40,44,52,.85);color:#fff;display:flex;align-items:center;justify-content:center;border:0}
 .watchv.land .wx{top:auto;left:auto;right:calc(10px + env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px))}
 .wpc .wk{display:inline-flex;width:18px;height:18px;border-radius:9px;background:var(--accent,#233A6E);color:#fff;font-size:11px;align-items:center;justify-content:center;margin-right:6px}
-.ctm{position:absolute;left:6px;top:6px;padding:2px 6px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:9px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap;z-index:2;pointer-events:none}
+.frame{--bt:8px;--bh:30px}
+.grid.compact .frame{--bt:6px;--bh:26px}
+.wt{--bt:6px;--bh:24px}
+.ctm{transform:translateY(-50%)!important}
+.ctr{position:absolute;top:var(--bt);right:8px;height:var(--bh);display:flex;align-items:center;gap:6px;z-index:3}
+.ctr .badge{position:static}
+.ctr .fsnd{width:var(--bh);height:var(--bh);border-radius:50%;background:rgba(18,22,24,.72);color:#fff;display:flex;align-items:center;justify-content:center;padding:0}
+.ctr .fsnd svg{width:16px;height:16px}
+.ctr .snzb{height:var(--bh);display:flex;align-items:center;gap:4px;padding:0 9px;border-radius:15px;background:rgba(18,22,24,.72);color:#fff;font-size:11px;font-weight:700}
+.cam.slim .cnm{font-size:12px;padding:4px 10px}
+.ctm{position:absolute;left:6px;top:calc(var(--bt) + var(--bh) / 2);padding:2px 6px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:9px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap;z-index:2;pointer-events:none}
 .grid.compact .tag{top:28px!important}
 .fulltm{position:absolute;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));padding:3px 8px;border-radius:6px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap;z-index:3;pointer-events:none}
 .fov .pillk.ftm{flex:0 0 auto;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:10px;font-weight:400}
@@ -1036,7 +1058,7 @@ input,select,textarea{font-size:16px}
 /* Small cards (3, 4 or 5 per row): the labels shrink with the card */
 .grid.compact .frame{container-type:inline-size;container-name:cam}
 @container cam (max-width:200px){
-  .grid.compact .frame .ctm{padding:1px 4px;left:4px;top:5px}
+  .grid.compact .frame .ctm{--bt:4px;--bh:20px;padding:1px 4px;left:4px}
   .grid.compact .tag{top:22px!important}
   .grid.compact .frame .badge{height:20px;font-size:10px;padding:0 6px;gap:4px;top:4px;right:4px;border-radius:10px}
   .grid.compact .frame .badge .dot{width:6px;height:6px}
@@ -1047,7 +1069,7 @@ input,select,textarea{font-size:16px}
   .grid.compact .frame .offv .btn{height:20px;padding:0 8px;font-size:10px;margin-top:2px}
 }
 @container cam (max-width:130px){
-  .grid.compact .frame .ctm{font-size:8px;padding:1px 3px;left:3px;top:4px}
+  .grid.compact .frame .ctm{--bt:3px;--bh:16px;font-size:8px;padding:1px 3px;left:3px}
   .grid.compact .frame .badge{height:16px;font-size:9px;padding:0 5px;gap:3px;top:3px;right:3px}
   .grid.compact .frame .badge .dot{width:5px;height:5px}
   .grid.compact .frame .cnm{font-size:9px;padding:1px 5px;max-width:86%}
@@ -1839,7 +1861,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.3.1 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.3.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2557,6 +2579,13 @@ function viewHome() {
       /* an upright camera (the Doorbell): 1–2 per row it shares a row with the next camera, both the same height, so its
          picture is whole with no grey sides; 3 or more per row it is two rows tall */
       const rows = [];
+      if (n === 1 && isTall(cams[0]) && cams.length > 2) {
+        /* one per row: the Doorbell big on the left, Right Yard Front and Right Yard Back stacked beside it */
+        const want = ['right_yard_front', 'right_yard_back'].map(id => cams.find(c => c.id === id)).filter(Boolean);
+        const main = cams[0], side = want.length === 2 ? want : cams.slice(1, 3);
+        rows.push({ fblock: true, cams: [main, ...side] });
+        cams.splice(0, cams.length, ...cams.filter(c => c !== main && !side.includes(c)));
+      }
       if (n <= 2) { for (let i = 0; i < cams.length;) {
         if (isTall(cams[i]) && cams[i + 1] && !isTall(cams[i + 1])) { rows.push({ pair: true, cams: [cams[i], cams[i + 1]] }); i += 2; continue; }
         const r = []; while (i < cams.length && r.length < n && !(r.length && isTall(cams[i]))) r.push(cams[i++]); rows.push({ cams: r }); } }
@@ -2569,7 +2598,8 @@ function viewHome() {
       }
       rows.forEach(row => {
         const k = row.cams.findIndex(c => c.id === S.expanded);
-        if (row.block) h += '<div class="tallblock" style="--tcols:' + (n - 1) + ';--ar:' + row.cams[0].ar.toFixed(4) + '">' + camCard(row.cams[0]) + '<div class="grid tbgrid' + (S.layout === 'grid' ? ' compact' : '') + '" style="--cols:' + (n - 1) + '">' + row.cams.slice(1).map(c => camCard(c)).join('') + '</div></div>';
+        if (row.fblock) h += '<div class="fblock" style="--ar:' + row.cams[0].ar.toFixed(4) + '">' + camCard(row.cams[0]) + '<div class="fbside">' + row.cams.slice(1).map(c => camCard(c)).join('') + '</div></div>';
+        else if (row.block) h += '<div class="tallblock" style="--tcols:' + (n - 1) + ';--ar:' + row.cams[0].ar.toFixed(4) + '">' + camCard(row.cams[0]) + '<div class="grid tbgrid' + (S.layout === 'grid' ? ' compact' : '') + '" style="--cols:' + (n - 1) + '">' + row.cams.slice(1).map(c => camCard(c)).join('') + '</div></div>';
         else if (row.pair) h += '<div class="pairrow">' + row.cams.map(c => camCard(c, isTall(c) ? c.ar : 16 / 9)).join('') + '</div>';
         else row.cams.forEach(c => { h += camCard(c, 0, n >= 3 && isTall(c)); });
         if (k >= 0) h += panel(Data.cam(S.expanded), half && !row.block ? Math.min(Math.floor(k / 2) * 2 + 1, n - 1) : 0);   /* cameras pair up: 1–2 → columns 1–2, 3–4 → 3–4 */
@@ -2598,20 +2628,21 @@ function sizeTall() {
 window.addEventListener('resize', () => requestAnimationFrame(sizeTall));
 function camCard(c, fr, span2) {
   const t = camT(c.id), f = Data.frame(c, t), off = !Ctl.on(c.id);
-  const tall = isTall(c);
-  return '<article class="cam' + (c.id === S.expanded ? ' on' : '') + (off ? ' off' : '') + (tall ? ' tall' : '') + (span2 ? ' span2' : '') + '" id="cam-' + c.id + '"' + (tall || fr ? ' style="' + (tall ? '--ar:' + c.ar.toFixed(4) + ';' : '') + (fr ? '--fr:' + fr.toFixed(4) : '') + '"' : '') + '>' +
-    '<div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button>' + (Snz.has(c.id) ? '<span class="snzb">' + I.snooze + (Snz.st.mode === 'c' ? 'Clear' : Snz.left()) + '</span>' : '') +
+  const tall = isTall(c), slim = S.layout === 'list' && c.id !== S.expanded;   /* list: no name bar — name bottom left, sound next to Live */
+  const snz = Snz.has(c.id) ? '<span class="snzb">' + I.snooze + (Snz.st.mode === 'c' ? 'Clear' : Snz.left()) + '</span>' : '';
+  return '<article class="cam' + (c.id === S.expanded ? ' on' : '') + (off ? ' off' : '') + (tall ? ' tall' : '') + (span2 ? ' span2' : '') + (slim ? ' slim' : '') + '" id="cam-' + c.id + '"' + (tall || fr ? ' style="' + (tall ? '--ar:' + c.ar.toFixed(4) + ';' : '') + (fr ? '--fr:' + fr.toFixed(4) : '') + '"' : '') + '>' +
+    (slim ? '' : '<div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button>' + snz +
     (S.layout === 'list' && c.id === S.expanded ? '<div class="chctl">' +
       (Data.source === 'frigate' && !off ? '<button class="ic" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
       dtOver('<button class="ic" data-act="date" aria-label="Pick Date">' + I.cal + '</button>', 'home') +
       (Data.source === 'frigate' ? '<button class="ic bxh" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
       sndC(c.id) + '<button class="chlive" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button></div>'
-      : S.layout === 'list' ? sndC(c.id) : '') +
-    '</div>' +
-    '<div class="frame"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(Live.cardSrc(c.id), t != null) + Playback.holder(c.id) + (S.layout === 'grid' ? '<div class="cnm">' + esc(c.name) + '</div>' : '') +
+      : '') +
+    '</div>') +
+    '<div class="frame"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(Live.cardSrc(c.id), t != null) + Playback.holder(c.id) + (S.layout === 'grid' || slim ? '<div class="cnm">' + esc(c.name) + '</div>' : '') +
     '<button class="hit" data-act="tap" data-id="' + c.id + '" aria-label="Show playback for ' + esc(c.name) + '"></button>' +
     (off ? '<div class="offv" id="off-' + c.id + '" data-act="tap" data-id="' + c.id + '"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>' : '') +
-    badgeHtml(c.id, t, f) + '<div class="ctm" id="ctm-' + c.id + '">' + hms(shownT(c.id, Live.cardSrc(c.id))) + '</div><div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="tag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div></article>';
+    (slim ? '<div class="ctr">' + snz + sndC(c.id).replace('class="ic sndb"', 'class="ic sndb fsnd"') + badgeHtml(c.id, t, f) + '</div>' : badgeHtml(c.id, t, f)) + '<div class="ctm" id="ctm-' + c.id + '">' + hms(shownT(c.id, Live.cardSrc(c.id))) + '</div><div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="tag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div></article>';
 }
 /* The moment the picture on screen is from: the playback time; live video = now while the picture is moving,
    and when it stops (Still) the moment it last moved; a still snapshot = when that snapshot was taken. */
@@ -3811,7 +3842,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.3.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.3.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3913,7 +3944,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.3.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.3.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -4773,7 +4804,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.3.1';
+    const BUILD = '2.3.2';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
