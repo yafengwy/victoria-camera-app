@@ -53,6 +53,8 @@ Read this first when picking the app up in a new conversation. No secrets live i
 - Wide grids (3+ per row): panel is 2 columns wide; cameras pair up (1–2 → columns 1–2, 3–4 → 3–4, last odd one → last two) (`.grid.dense`, `panel(c, col)`). Panel spacing compacted in v71 CSS block.
 
 ## Open items
+- Next (2026-10-04): (a) app shows person names from Frigate face recognition and lets her label people (e.g. "UPS driver"); (b) back up the Frigate+ model files in ~/frigate/config/model_cache (not in the daily config backup). She decided not to rotate the notify key.
+- In ~2 days: per-day recording sizes → decide on a 2TB M.2 SSD (EQi13 has a free M.2 2280 slot); face recognition is on (Train tab).
 - Driveway Enter Line: car false alerts from headlights reflecting on a window (3-5 s). First watch with the Frigate+ model; if it continues, draw a car-only Object Mask over that window (needs a screenshot of a false alert with its box).
 - iPhone Duo cover screen: the phone arrives in November; nothing to do before then. (She also uses a Galaxy Z Flip.)
 - Xiaomi / Aqara cameras: waiting for model numbers.
