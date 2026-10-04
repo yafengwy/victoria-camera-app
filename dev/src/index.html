@@ -329,7 +329,7 @@ img.rf{opacity:0}
 .rvsevrow{display:flex}.rvsevrow .check{flex:1}
 .rvcams.big3 .rvcam.feat{grid-column:span 2;grid-row:span 2;aspect-ratio:auto}
 .rvcams.big3.fixh .rvcam{aspect-ratio:auto;height:auto;min-height:0}
-.rvcams.big3.narrow .rvcam.feat{grid-row:span 1;aspect-ratio:16/9}
+.rvcams.big3.narrow .rvcam.feat{grid-column:1/-1;grid-row:span 1;aspect-ratio:16/9}
 .rvcams.big3 .rvcam.feat .nm{font-size:13px;padding:4px 10px}
 .rvcams.big3 .rvcam.nr{opacity:.5}
 .rvcam{position:relative;border-radius:10px;overflow:hidden;background:#1E2226;aspect-ratio:16/9}
@@ -2713,9 +2713,9 @@ function rvDropdown() {
   const ck = (on, act, v, label, cls) => '<button class="check' + (cls ? ' ' + cls : '') + '" role="checkbox" aria-checked="' + on + '" data-act="' + act + '" data-v="' + esc(v) + '"><span class="box">' + (on ? I.check : '') + '</span>' + esc(label) + '</button>';
   let h = '<div class="rvscrim" data-act="rvdclose"></div><div class="rvdd' + (S.rv.pick ? ' low' : '') + (S.rv.colsOpen ? ' narrow' : '') + '" role="dialog" aria-label="' + (S.rv.fopen ? 'Alert Types' : S.rv.colsOpen ? 'Layout' : 'Cameras') + '">';
   if (S.rv.colsOpen) {
-    const mx = window.innerWidth >= 1000 ? 5 : 4, L = S.rv.lay === 'top' && rvVert() ? 'big' : S.rv.lay;
+    const mx = window.innerWidth >= 1000 ? 5 : 4, L = S.rv.lay === 'top' ? 'big' : S.rv.lay;
     h += '<div class="rvddh">Layout</div>' +
-      (rvVert() ? ['big', 'grid'] : ['big', 'top', 'grid']).map(k => '<button class="check" role="radio" aria-checked="' + (L === k) + '" data-act="rvlay" data-v="' + k + '"><span class="box rdo">' + (L === k ? I.check : '') + '</span>' + RV_LAYS[k] + '</button>').join('');
+      ['big', 'grid'].map(k => '<button class="check" role="radio" aria-checked="' + (L === k) + '" data-act="rvlay" data-v="' + k + '"><span class="box rdo">' + (L === k ? I.check : '') + '</span>' + RV_LAYS[k] + '</button>').join('');
     if (L === 'grid') {
       h += '<div class="rvddh">Per Row</div><div class="rvperrow">';
       for (let n = 1; n <= mx; n++) h += '<button data-act="rvcols" data-v="' + n + '" aria-pressed="' + (rvCols() === n) + '">' + n + '</button>';
@@ -2779,9 +2779,11 @@ function rvFSummary() {
    right, newest at the top, so the camera grid keeps the full height. Portrait: horizontal strip at the bottom. */
 const VTOP = 24;   /* vertical timelines: the playhead sits near the top (newest = Live at the top), like Frigate */
 /* Review layouts: big (one big picture + small), top (cameras with an alert side by side on top), grid (N per row) */
-/* wide screens (side timeline): no Alerts On Top (one picture would fill the screen) — it shows as Big there */
-function rvLay() { return S.rv.lay !== 'grid' && rvCams().length > 3 ? (S.rv.lay === 'top' && rvVert() ? 'big' : S.rv.lay) : 'grid'; }
-/* Big on a wide screen: 4–5 columns with the big picture 2×2, so many cameras stay in view; phones keep 3 */
+/* two layouts only: Big and Grid (Alerts On Top was merged into Big; a saved 'top' shows as Big) */
+function rvLay() { return S.rv.lay !== 'grid' && rvCams().length > 3 ? 'big' : 'grid'; }
+/* Big, by screen: wide (side timeline) — the big picture on the left, 2×2, with 2–3 small ones per row beside it
+   (4–5 columns by width); phones and upright tablets — the big picture across the top, small ones below
+   (2 per row on a phone, 3 on a tablet) */
 function rvBigCols() { return rvVert() ? (window.innerWidth >= 1300 ? 5 : 4) : 3; }
 function rvBig() { return rvLay() === 'big'; }
 const RV_LAYS = { big: 'Big', top: 'Alerts On Top', grid: 'Grid' };
@@ -2828,7 +2830,7 @@ function rvLayout(t) {
   if (!S.rv.feat || !cams.some(c => c.id === S.rv.feat)) S.rv.feat = cams[0] && cams[0].id;
   const side = hits.map(x => x.c.id).filter(id => id !== S.rv.feat);
   /* narrow phone: the big picture takes the full width, everything else 2 per row */
-  const narrow = box.clientWidth < 520; box.classList.toggle('narrow', narrow); box.style.setProperty('--cols', narrow ? 2 : rvBigCols());
+  const wide = rvVert(), narrow = !wide; box.classList.toggle('narrow', narrow); box.style.setProperty('--cols', wide ? rvBigCols() : box.clientWidth < 520 ? 2 : 3);
   /* fixed row height (one 16:9 tile) so the big picture is exactly 2 tiles high: left to itself, Safari on the iPad
      sized the rows from the picture inside and stretched the big tile far down the screen */
   box.classList.toggle('fixh', !narrow);
