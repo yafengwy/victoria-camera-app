@@ -172,7 +172,7 @@ img.rf{opacity:0}
 .fvid{position:relative;flex-shrink:0;width:100%;max-width:900px;margin:0 auto;aspect-ratio:16/9;background:#000}
 .fvid img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .fvid{min-height:0}
-.fvid.tall{aspect-ratio:var(--ar);max-height:62vh}
+.fvid.tall{aspect-ratio:var(--ar);width:min(100%,calc(64vh * var(--ar)));max-height:none}
 .fov{position:absolute;top:10px;left:10px;right:10px;display:flex;align-items:center;gap:8px;z-index:3}
 .pillk{height:36px;padding:0 13px;border-radius:18px;background:rgba(0,0,0,.6);display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
 .dk{width:44px;height:44px;border-radius:22px;background:var(--dark-card);color:var(--dark-fg);display:flex;align-items:center;justify-content:center}
@@ -300,6 +300,7 @@ img.rf{opacity:0}
 @media (min-width:1000px) and (min-height:560px){
   .focus{--fw:clamp(270px,24vw,300px);display:grid;grid-template-columns:minmax(0,1fr) var(--fw);grid-template-rows:68px minmax(0,1fr)}
   .focus>.fvid{grid-column:1;grid-row:1/3;align-self:center;justify-self:center;max-width:none;width:min(calc(100% - 32px),calc((100vh - env(safe-area-inset-top,0px) - 32px) * 16 / 9));margin:0 16px;border-radius:14px;overflow:hidden}
+  .focus>.fvid.tall{width:min(calc(100% - 32px),calc((100vh - env(safe-area-inset-top,0px) - 32px) * var(--ar)))}
   .focus>.fctl{grid-column:2;grid-row:1;max-width:none;border-left:1px solid var(--dark-line)}
   .focus>.fscroll{grid-column:2;grid-row:2;max-width:none;border-left:1px solid var(--dark-line)}
   .focus .pullhint{display:none}
@@ -1475,6 +1476,8 @@ const Frigate = {
       'nest_master_bedroom', 'fishtofu_furbo', 'riceball_furbo'];
     const rank = c => { const i = ORDER.indexOf(c.id); return i < 0 ? ORDER.length + Data.cams.indexOf(c) : i; };
     Data.cams = Data.cams.slice().sort((a, b) => rank(a) - rank(b));
+    /* cameras whose detect size isn't in Frigate's config (the Doorbell): read the picture shape from a snapshot */
+    Data.cams.filter(c => !c.ar).forEach(c => { const im = new Image(); im.onload = () => { if (c.ar || !im.naturalWidth) return; c.ar = im.naturalWidth / im.naturalHeight; Dbg.log('picture shape', c.id, c.ar.toFixed(3)); if (isTall(c) && app.innerHTML) render(); }; im.src = c.img; });
   },
   async reviews(after) { return this.mapReviews(await this.get('/api/review?limit=2000&after=' + after)); },
   mapReviews(rows) {
