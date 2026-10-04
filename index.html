@@ -1508,7 +1508,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 1.5.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 1.5.3 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2098,10 +2098,10 @@ function trackMarks(evs, start, win, widthPx) {
     return '<span class="segi' + cls + '" style="left:' + pct.toFixed(2) + '%" title="' + esc(top) + ' ' + hm(g.items[0].t) + '">' + objIcon(top) + (g.items.length > 1 ? '<b class="segn"><i>' + g.items.length + '</i></b>' : '') + '</span>';
   }).join('');
 }
-function snapAlert(clientX) {
+function snapAlert(clientX, mouse) {
   const tr = document.getElementById('track'); if (!tr || !S.expanded) return false;
   const r = tr.getBoundingClientRect(), start = S.winEnd - S.win;
-  let best = null, bd = 40;
+  let best = null, bd = mouse ? 12 : 24;     /* a mouse is exact: only a click on the icon itself goes to the alert */
   camEvents(S.expanded).forEach(e => { if (e.t < start || e.t > S.winEnd) return; const d = Math.abs(r.left + (e.t - start) / S.win * r.width - clientX); if (d < bd) { bd = d; best = e; } });
   if (!best) return false;
   seek(S.expanded, best.t - 1000); S.playing = true; refreshTrack(); paintPanel(); Playback.sync();
@@ -2958,7 +2958,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.5.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 1.5.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3437,7 +3437,7 @@ function wire() {
         if (before) { S.camTime[S.expanded] = before.t; S.winEnd = before.winEnd; S.pos = before.pos; }
         const d = dist(); pinch = { last: d, at: performance.now(), lw: Math.log(S.win), shown: S.win }; return;
       }
-      if (!pinch && onTrack) { before = { t: S.camTime[S.expanded], winEnd: S.winEnd, pos: S.pos }; tapStart = { x: e.clientX, at: performance.now(), moved: false }; S.dragging = true; setFrom(e.clientX); }
+      if (!pinch && onTrack) { before = { t: S.camTime[S.expanded], winEnd: S.winEnd, pos: S.pos }; tapStart = { x: e.clientX, at: performance.now(), moved: false, mouse: e.pointerType === 'mouse' }; S.dragging = true; setFrom(e.clientX); }
     });
     zone.addEventListener('pointermove', e => {
       if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -3454,7 +3454,7 @@ function wire() {
       }
       if (S.dragging) { if (tapStart && Math.abs(e.clientX - tapStart.x) > 12) tapStart.moved = true; setFrom(e.clientX); }
     });
-    const end = e => { const wasPinch = !!pinch; pts.delete(e.pointerId); if (pts.size < 2 && pinch) { pinch = null; before = null; } if (!pts.size) { const hitEdge = edgeTick.used; edgeTick.used = false; S.dragging = false; edgeDir = 0; if (hitEdge && S.expanded && camT(S.expanded) != null) { const t = camT(S.expanded); S.winEnd = Math.min(now(), t + S.win / 2); S.pos = (t - (S.winEnd - S.win)) / S.win; refreshTrack(); paintPanel(); } if (tapStart && !wasPinch && !tapStart.moved && performance.now() - tapStart.at < 700) snapAlert(tapStart.x); tapStart = null; } };
+    const end = e => { const wasPinch = !!pinch; pts.delete(e.pointerId); if (pts.size < 2 && pinch) { pinch = null; before = null; } if (!pts.size) { const hitEdge = edgeTick.used; edgeTick.used = false; S.dragging = false; edgeDir = 0; if (hitEdge && S.expanded && camT(S.expanded) != null) { const t = camT(S.expanded); S.winEnd = Math.min(now(), t + S.win / 2); S.pos = (t - (S.winEnd - S.win)) / S.win; refreshTrack(); paintPanel(); } if (tapStart && !wasPinch && !tapStart.moved && performance.now() - tapStart.at < 700) snapAlert(tapStart.x, tapStart.mouse); tapStart = null; } };
     zone.addEventListener('pointerup', end); zone.addEventListener('pointercancel', end);
     zone.addEventListener('wheel', e => {
       const k = wheelKind(e);
@@ -3745,7 +3745,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '1.5.2';
+    const BUILD = '1.5.3';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
