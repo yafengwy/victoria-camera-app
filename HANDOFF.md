@@ -30,7 +30,7 @@ Read this first when picking the app up in a new conversation. No secrets live i
 - Public: `cam.victoriashome.app` (the app) and `frigate.victoriashome.app` (Frigate UI). Home Assistant runs separately on HA Yellow.
 - HA has **no** Frigate integration. HA talks to Frigate over MQTT (for example `frigate/<cam>/enabled/set`).
 - Recording: continuous 0 days, motion 7 days, segment_time 5. Alerts retention mode was set to All globally on 2026-10-03, so alerts keep their full video.
-- Litter Box 猫砂盆 (Xiaomi isa.camera.hlc7, 192.168.1.84): separate `xiaomi` go2rtc container on the host network (xiaomi-go2rtc.yaml, RTSP 8574); Frigate pulls rtsp://xiaomi:{FRIGATE_CAM_PW}@192.168.1.77:8574/litter_box. Token XIAOMI_TOKEN in .env. Notifies always, all animals.
+- Litter Box 猫砂盆 (Xiaomi isa.camera.hlc7, 192.168.1.84): separate `xiaomi` go2rtc container on the host network (xiaomi-go2rtc.yaml, RTSP 8574); Frigate pulls rtsp://xiaomi:{FRIGATE_CAM_PW}@192.168.1.77:8574/litter_box. Token XIAOMI_TOKEN in .env. Notifies always, all animals. Uses `&transport=tcp`: cs2 over UDP kept timing out on its WiFi and stuttered (2K is fine over TCP). Changing the stream resolution needs `docker restart frigate`, or Live goes green. Frigate camera_fps 5 is just detect fps; check the source rate in the xiaomi go2rtc API (about 20).
 - Treat Feeder (CloudEdge/Meari): a go2rtc `echo:curl` to HA `/api/camera_stream_source/<entity>` (HA token from `.env`). It needs `GO2RTC_ALLOW_ARBITRARY_EXEC=true` in `.env` (added 2026-10-03).
 
 ## Camera rules (as of 1.5.10)
