@@ -607,6 +607,11 @@ img.rf{opacity:0}
 :root[data-dark] .msoon.wt{background:#14263F;color:#CFE0FB}
 .wtnote{font-size:12px;color:var(--sub);margin:10px 2px 0;line-height:1.4}
 #objl1[hidden],#objl2[hidden],#objl1 > [hidden],#objl2 > [hidden],#objl3 > [hidden]{display:none !important}
+.objchips{display:flex;flex-wrap:wrap;gap:6px;padding:6px 2px}
+.objchips .chip{font-size:12px;padding:6px 10px;min-height:0;border-radius:10px}
+.objchips .chip[aria-pressed="true"]{background:var(--strong);color:var(--strong-fg);border-color:var(--strong);box-shadow:none}
+.objchips .chip.ogrp,.objchips .chip.oany{font-weight:800}
+.objchips [hidden]{display:none !important}
 .objgrp{display:flex;gap:6px;flex-wrap:wrap;padding:4px 2px 6px}
 .objgrp .chip{border-radius:10px}
 .objgrp .chip[aria-pressed="true"]{background:var(--strong);color:var(--strong-fg);border-color:var(--strong);box-shadow:none}
@@ -1219,6 +1224,15 @@ function objGroup(f, key) {
   mine.forEach(o => { f.objs[o] = !full; });
   if (list.every(o => !objOn(f, o))) f.objs = {};
 }
+/* every object as a small tap-to-pick block, laid out in rows, so the whole list fits on one screen:
+   Any Object, the two group picks, then each object (picked = filled) */
+function objChips(f, act, grpAct, anyAct) {
+  const list = OBJS(), all = list.every(o => objOn(f, o));
+  const b = (cls, a, v, on, label) => '<button class="chip sm' + cls + '" data-act="' + a + '" data-v="' + esc(v) + '" aria-pressed="' + on + '">' + esc(label) + '</button>';
+  return '<div class="objchips">' + b(' oany', anyAct, '*', all, 'Any Object') +
+    OBJ_GROUPS.filter(g => list.some(g[2])).map(g => b(' ogrp', grpAct, g[0], !all && list.filter(g[2]).every(o => objOn(f, o)), g[1])).join('') +
+    list.map(o => b('', act, o, !all && objOn(f, o), objName(o))).join('') + '</div>';
+}
 function objGroupChips(f, act) {
   const list = OBJS(), all = list.every(o => objOn(f, o));
   return '<div class="objgrp">' + OBJ_GROUPS.filter(g => list.some(g[2])).map(g => { const on = !all && list.filter(g[2]).every(o => objOn(f, o));
@@ -1532,7 +1546,7 @@ document.addEventListener('input', ev => {
   (S.objQs = S.objQs || {})[t.dataset.objq] = t.value;
   const q = t.value.trim().toLowerCase(), box = document.getElementById(t.dataset.objq); if (!box) return;
   if (box.hidden) { box.hidden = false; if (t.dataset.open) S[t.dataset.open] = true; }
-  box.querySelectorAll('[data-v]').forEach(b => { if (b.closest('.objgrp')) return; b.hidden = !!q && (b.dataset.v === '*' || !b.textContent.toLowerCase().includes(q)); });
+  box.querySelectorAll('[data-v]').forEach(b => { if (b.closest('.objgrp') || b.classList.contains('ogrp') || b.classList.contains('oany')) return; b.hidden = !!q && (b.dataset.v === '*' || !b.textContent.toLowerCase().includes(q)); });
 });
 document.addEventListener('focusin', ev => {
   const t = ev.target; if (!t.dataset || !t.dataset.objq || !t.dataset.open) return;
@@ -2632,8 +2646,7 @@ function filterPanel() {
     '<div class="dd2 objqbox2"><input class="objq" type="text" data-objq="objl2" data-open="ddObj" placeholder="' + esc(objSum) + '" autocomplete="off" autocorrect="off" spellcheck="false"><button class="objqdd" data-act="ddobj" aria-label="Show Objects" aria-expanded="' + S.ddObj + '">' + (S.ddObj ? I.up : I.down) + '</button></div>' +
     '<button class="dd2" data-act="ddcam" aria-expanded="' + S.ddCam + '"><span>' + esc(camSum) + '</span>' + (S.ddCam ? I.up : I.down) + '</button>' +
     '<button class="ddreset" data-act="filtreset" aria-label="Reset Filters">' + I.reset + '</button></div>';
-  h += '<div class="ddl" id="objl2"' + (S.ddObj ? '' : ' hidden') + '>' + objGroupChips(f, 'objgrp') + '<button class="mrow" data-act="anyobj">' + mini(allObj) + 'Any Recognized Object</button>' +
-    OBJS().map(o => '<button class="mrow" data-act="obj" data-v="' + esc(o) + '">' + mini(!allObj && objOn(f, o)) + esc(objName(o)) + '</button>').join('') + '</div>';
+  h += '<div class="ddl" id="objl2"' + (S.ddObj ? '' : ' hidden') + '>' + objChips(f, 'obj', 'objgrp', 'anyobj') + '</div>';
   if (S.ddCam) {
     const groups = [...new Set(Data.cams.map(c => c.group))];
     h += '<div class="ddl"><div class="mrow head camquick"><button class="lnk" data-act="allcams" data-v="1">All</button>' +
@@ -3025,8 +3038,7 @@ function rvDropdown() {
   } else if (S.rv.fopen) {
     const f = S.rv.f, all = OBJS().every(o => objOn(f, o));
     h += '<div class="rvddh">Alert Level</div><div class="rvsevrow">' + ck(f.int, 'rvsev', 'int', 'Interesting') + ck(f.unint, 'rvsev', 'unint', 'Uninteresting') + '</div>' +
-      '<input class="objq in" type="text" data-objq="objl3" placeholder="Objects · Type To Find" autocomplete="off" autocorrect="off" spellcheck="false"><div id="objl3">' + objGroupChips(f, 'rvobjgrp') + ck(all, 'rvobj', '*', 'Any Recognized Object', 'strong') +
-      OBJS().map(o => ck(!all && objOn(f, o), 'rvobj', o, objName(o))).join('') + '</div>';
+      '<input class="objq in" type="text" data-objq="objl3" placeholder="Objects · Type To Find" autocomplete="off" autocorrect="off" spellcheck="false"><div id="objl3">' + objChips(f, 'rvobj', 'rvobjgrp', 'rvobj') + '</div>';
   } else {
     const sel = S.rv.sel, on = id => sel != null && sel.includes(id);
     const groups = [...new Set(Data.cams.map(c => c.group))];
@@ -3450,8 +3462,7 @@ function modalFilter() {
     '<div class="lbl" style="margin-top:0">Show Me</div>' + checkRow('int', 'Interesting Alerts', f.int) + checkRow('unint', 'Uninteresting Alerts', f.unint) +
     '<div class="lbl">That Involve</div>' +
     '<div class="dd objqbox"><input class="objq" type="text" data-objq="objl1" data-open="objOpen" placeholder="' + esc(summary) + '" autocomplete="off" autocorrect="off" spellcheck="false"><button class="objqdd" data-act="objdd" aria-label="Show Objects" aria-expanded="' + S.objOpen + '">' + (S.objOpen ? I.up : I.down) + '</button></div>' +
-    '<div class="ddlist" id="objl1"' + (S.objOpen ? '' : ' hidden') + '>' + objGroupChips(f, 'objgrp') + OBJS().map(o => '<button class="check" role="checkbox" aria-checked="' + (!all && objOn(f, o)) + '" data-act="obj" data-v="' + esc(o) + '"><span class="box">' + (!all && objOn(f, o) ? I.check : '') + '</span>' + esc(objName(o)) + '</button>').join('') + '</div>' +
-    '<button class="check" role="checkbox" aria-checked="' + all + '" data-act="anyobj"><span class="box">' + (all ? I.check : '') + '</span>Any Recognized Object</button>' +
+    '<div class="ddlist" id="objl1"' + (S.objOpen ? '' : ' hidden') + '>' + objChips(f, 'obj', 'objgrp', 'anyobj') + '</div>' +
 
     '<button class="btn solid" style="align-self:flex-end" data-act="close">Save</button></div></div></div>';
 }
