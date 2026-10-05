@@ -57,37 +57,107 @@ def gpu_errors():
         return 0
 
 
-def health(dead, st, stats):
-    # Mini PC health for the app: copied together with the Playback Log (Settings → Copy), so problems can be read
-    # without a terminal. Times in California time.
-    now = datetime.now(TZ) if TZ else datetime.now()
-    L = ['Mini PC Health · ' + now.strftime('%m-%d %H:%M:%S')]
+def sh(args, t=20):
     try:
-        la = open('/proc/loadavg').read().split()[:3]; L.append('Load ' + ' '.join(la))
+        r = subprocess.run(args, capture_output=True, text=True, timeout=t); return r.stdout + r.stderr
+    except Exception:
+        return ''
+
+
+DEC = ('Failed to sync surface', 'hardware accelerator failed', 'Failed to download frame', 'Missing reference')
+
+
+def counts(txt):
+    # per camera: graphics decode errors, ffmpeg crashes, recordings discarded (Frigate could not keep up)
+    c = {'dec': {}, 'crash': {}, 'disc': {}}
+    for line in txt.splitlines():
+        cam = None
+        if any(k in line for k in DEC):
+            m = re.search(r'ffmpeg\.([a-z0-9_]+)\.', line); k = 'dec'; cam = m and m.group(1)
+        elif 'Ffmpeg process crashed unexpectedly for' in line:
+            m = re.search(r'unexpectedly for ([a-z0-9_]+)', line); k = 'crash'; cam = m and m.group(1)
+        elif 'Unable to keep up with recording segments' in line:
+            m = re.search(r'cache for ([a-z0-9_]+)', line); k = 'disc'; cam = m and m.group(1)
+        if cam:
+            c[k][cam] = c[k].get(cam, 0) + 1
+    return c
+
+
+def top(d, n=4):
+    return ', '.join('%s %d' % kv for kv in sorted(d.items(), key=lambda x: -x[1])[:n]) if d else 'None'
+
+
+def health(dead, st, stats):
+    # Mini PC Log for the app (Settings → Mini PC Log → Copy), written every minute, so the mini PC can be checked
+    # from the phone without a terminal. Times in California time. Sections: Now, Last 10 Min, Hourly History (30 h),
+    # Automatic Restarts, Update Log.
+    now = datetime.now(TZ) if TZ else datetime.now()
+    hk = now.strftime('%m-%d %Hh')
+    L = ['Mini PC Log · ' + now.strftime('%m-%d %H:%M:%S'), '', '== Now ==']
+    up = 0
+    try:
+        up = float(open('/proc/uptime').read().split()[0])
+    except Exception: pass
+    la = (open('/proc/loadavg').read().split()[:3] if os.path.exists('/proc/loadavg') else ['?'] * 3)
+    temp = ''
+    try:
+        ts = [int(open(f).read()) / 1000 for f in __import__('glob').glob('/sys/class/thermal/thermal_zone*/temp')]
+        if ts: temp = ' · CPU %d°C' % max(ts)
+    except Exception: pass
+    L.append('Mini PC Up %dd %dh · Load %s%s' % (up // 86400, up % 86400 // 3600, ' '.join(la), temp))
+    mem = {}
+    try:
+        for line in open('/proc/meminfo'):
+            k, v = line.split(':'); mem[k] = int(v.split()[0]) // 1024
+        L.append('Memory Free %.1f GB of %.1f GB · Swap Used %d MB' % (mem['MemAvailable'] / 1024, mem['MemTotal'] / 1024, mem['SwapTotal'] - mem['SwapFree']))
     except Exception: pass
     try:
         du = shutil.disk_usage('/'); L.append('Disk Free %d GB of %d GB' % (du.free // 2**30, du.total // 2**30))
     except Exception: pass
-    a = started_ago(); L.append('Frigate Up ' + (('%d Hr %d Min' % (a // 3600, a % 3600 // 60)) if a < 1e8 else 'Not Running'))
+    ps = sh(['docker', 'ps', '-a', '--format', '{{.Names}} {{.Status}}']).strip().splitlines()
+    L.append('Containers: ' + (' · '.join(ps) if ps else '?'))
+    a = started_ago()
+    ver = ''
     try:
-        g = (stats or {}).get('gpu_usages') or {}
-        for k, v in g.items(): L.append('GPU %s · Decode %s' % (v.get('gpu', '?'), v.get('dec', '?')))
+        ver = ' ' + str((stats or {}).get('service', {}).get('version', ''))
+    except Exception: pass
+    L.append('Frigate%s Up %s' % (ver, ('%d Hr %d Min' % (a // 3600, a % 3600 // 60)) if a < 1e8 else 'Not Running'))
+    try:
+        for k, v in ((stats or {}).get('gpu_usages') or {}).items(): L.append('GPU %s · Decode %s' % (v.get('gpu', '?'), v.get('dec', '?')))
+        for k, v in ((stats or {}).get('detectors') or {}).items(): L.append('Detector %s %.1f ms' % (k, v.get('inference_speed', 0)))
     except Exception: pass
     L.append('No Frames: ' + (', '.join(dead) if dead else 'None'))
-    try:
-        out = subprocess.run(['docker', 'logs', 'frigate', '--since', '10m'], capture_output=True, text=True, timeout=20)
-        cnt = {}
-        for line in (out.stdout + out.stderr).splitlines():
-            if any(k in line for k in ('Failed to sync surface', 'hardware accelerator failed', 'Failed to download frame', 'Missing reference')):
-                m = re.search(r'ffmpeg\.([a-z0-9_]+)\.', line)
-                if m: cnt[m.group(1)] = cnt.get(m.group(1), 0) + 1
-        L.append('Decode Errors 10 Min: ' + (', '.join('%s %d' % kv for kv in sorted(cnt.items(), key=lambda x: -x[1])) if cnt else 'None'))
+    c10 = counts(sh(['docker', 'logs', 'frigate', '--since', '10m']))
+    L += ['', '== Last 10 Min ==', 'Decode Errors: ' + top(c10['dec'], 8), 'Camera Crashes: ' + top(c10['crash'], 8), 'Recordings Discarded: ' + top(c10['disc'], 8)]
+    cw = sh(['docker', 'logs', 'clipwait', '--since', '10m'])
+    L.append('Notification Clips: %d Made · %d Failed' % (cw.count(' made '), cw.count('FAILED') + cw.count('failed')))
+    # hourly history: this minute's new log lines added to the hour's bucket
+    c1 = counts(sh(['docker', 'logs', 'frigate', '--since', '61s']))
+    hist = st.setdefault('hist', {})
+    h = hist.setdefault(hk, {'dec': {}, 'crash': {}, 'disc': {}, 'nofr': 0, 'load': 0, 'mem': 999, 'rs': 0})
+    for k in ('dec', 'crash', 'disc'):
+        for cam, n in c1[k].items(): h[k][cam] = h[k].get(cam, 0) + n
+    h['nofr'] = max(h['nofr'], len(dead))
+    try: h['load'] = max(h['load'], float(la[0]))
     except Exception: pass
+    if mem: h['mem'] = min(h['mem'], mem['MemAvailable'] // 1024)
+    for k in sorted(hist)[:-30]: del hist[k]
+    L += ['', '== Hourly History (California Time) ==']
+    for k in sorted(hist, reverse=True):
+        x = hist[k]
+        L.append('%s · Decode %d (%s) · Crashes %d · Discards %d · No Frames Max %d · Load Max %.1f · Memory Free Min %s GB%s' % (
+            k, sum(x['dec'].values()), top(x['dec'], 3), sum(x['crash'].values()), sum(x['disc'].values()), x['nofr'], x['load'],
+            x['mem'] if x['mem'] != 999 else '?', ' · Auto Restart' if x.get('rs') else ''))
     try:
-        w = open(LOG).read().strip().splitlines()[-6:]
-        L.append('Auto Restarts: ' + (' | '.join(w) if w else 'None'))
+        w = open(LOG).read().strip().splitlines()[-10:]
     except Exception:
-        L.append('Auto Restarts: None')
+        w = []
+    L += ['', '== Automatic Restarts =='] + (w or ['None'])
+    try:
+        u = open(os.path.join(D, 'app', 'update-log.txt')).read().strip().splitlines()[-5:]
+    except Exception:
+        u = []
+    L += ['', '== Update Log =='] + (u or ['None'])
     try:
         tmp = os.path.join(D, 'app', 'health.txt.tmp'); open(tmp, 'w').write('\n'.join(L) + '\n'); os.replace(tmp, os.path.join(D, 'app', 'health.txt'))
     except Exception: pass
@@ -103,7 +173,7 @@ def main():
     dead, why, stats = [], '', None
     if started_ago() < 600:          # just (re)started: give it time
         st.update(dead_runs=0, gpu_runs=0, api_runs=0)
-        json.dump(st, open(STATE, 'w')); health([], st, None); return
+        health([], st, None); json.dump(st, open(STATE, 'w')); return
 
     try:
         stats, cfg = get('/stats'), get('/config')
@@ -130,13 +200,14 @@ def main():
         r = subprocess.run(['docker', 'restart', 'frigate'], capture_output=True, text=True, timeout=180)
         log('restart done' if r.returncode == 0 else 'restart failed: ' + (r.stderr or '').strip()[:200])
         st.update(last_restart=time.time(), dead_runs=0, gpu_runs=0, api_runs=0)
+        hk = (datetime.now(TZ) if TZ else datetime.now()).strftime('%m-%d %Hh'); st.setdefault('hist', {}).setdefault(hk, {'dec': {}, 'crash': {}, 'disc': {}, 'nofr': 0, 'load': 0, 'mem': 999})['rs'] = 1
     elif why and not st.get('noted'):
         log('would restart (waiting, restarted < 30 min ago): ' + why)
         st['noted'] = 1
     if not why:
         st['noted'] = 0
-    json.dump(st, open(STATE, 'w'))
     health(dead, st, stats)
+    json.dump(st, open(STATE, 'w'))
 
 
 if __name__ == '__main__':
