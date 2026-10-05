@@ -255,6 +255,8 @@ img.rf{opacity:0}
 .fsi span{position:absolute;left:0;right:0;bottom:0;padding:1px 4px;font-size:10px;font-weight:700;color:#fff;background:rgba(0,0,0,.6);white-space:nowrap;font-variant-numeric:tabular-nums;text-align:left}
 .fsi span .lico svg{width:10px;height:10px}
 .fsi.cur{outline:2px solid #C9D6FF;outline-offset:-2px}
+.fsi.un img{filter:grayscale(1) brightness(.75)}
+.fsi.un span{background:rgba(40,40,40,.7);color:#C8CDD6}
 .fev i.dim{background:#5D666E}
 .fev img{width:104px;height:58px;object-fit:cover;border-radius:8px;flex-shrink:0}
 .fev b{display:block;font-size:14px}
@@ -1500,6 +1502,7 @@ const Demo = {
 };
 
 /* Frigate adapter. Written against the Frigate 0.17/0.18 HTTP API; it gets verified once the mini PC is running. */
+Data.alertRule = {};
 const Frigate = {
   base() { return S.server.replace(/\/+$/, ''); },
   async get(p) { const r = await fetch(this.base() + p, { credentials: 'include' }); if (!r.ok) throw new Error(r.status); return r.json(); },
@@ -1517,7 +1520,10 @@ const Frigate = {
     this.streams = {}; Object.keys((cfg.go2rtc && cfg.go2rtc.streams) || {}).forEach(k => { this.streams[k] = 1; });
     Object.keys(cfg.cameras).forEach(id => { const cc = cfg.cameras[id], st = Ctl.get(id);
       Object.values((cc.live && cc.live.streams) || {}).forEach(k => { this.streams[k] = 1; });
-      st.enabled = cc.enabled !== false; st.alerts = !(cc.review && cc.review.alerts && cc.review.alerts.enabled === false); });
+      st.enabled = cc.enabled !== false; st.alerts = !(cc.review && cc.review.alerts && cc.review.alerts.enabled === false);
+      /* what makes an object Interesting on this camera (Frigate's alert labels and required zones) */
+      const ra = (cc.review && cc.review.alerts) || {}, ga = (cfg.review && cfg.review.alerts) || {};
+      Data.alertRule[id] = { labels: (ra.labels || ga.labels || []).map(x => String(x).toLowerCase()), zones: ra.required_zones || [] }; });
     const cap = l => String(l).replace(/^\w/, m => m.toUpperCase());
     Data.logos = [].concat(((cfg.objects || {}).track) || [], ...Object.values(cfg.cameras).map(cc => ((cc.objects || {}).track) || [])).some(l => isLogo(l));
     Data.objs = [...new Set([].concat(((cfg.objects || {}).track) || [], ...Object.values(cfg.cameras).map(cc => ((cc.objects || {}).track) || [])).filter(l => !isAttr(l)).map(cap))];
@@ -1905,7 +1911,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.5.5 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.5.6 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2839,7 +2845,16 @@ const Arrive = {
         .catch(() => { this.days[d0] = { at }; });
     });
   },
-  row(r) { const sb = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label; return { l: String(r.label || '').toLowerCase(), t: r.start_time * 1000, sub: sb ? String(sb) : '', fp: !!r.false_positive }; },
+  row(r) { const sb = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label; return { id: r.id, l: String(r.label || '').toLowerCase(), t: r.start_time * 1000, sub: sb ? String(sb) : '', fp: !!r.false_positive, z: r.zones || [] }; },
+  /* the separate objects inside one alert (the Weee driver, the package, the cars on the street), first seen first.
+     Interesting = an alert label of this camera inside its required zones; Uninteresting ones only with that filter */
+  parts(e, f) {
+    const rule = Data.alertRule[e.cam] || { labels: [], zones: [] };
+    return (e.dets || []).map(d => this.det[d] && Object.assign({ d }, this.det[d])).filter(x => x && !x.fp && x.t >= e.t - 1000).map(x => {
+      const L = x.l.replace(/^\w/, m => m.toUpperCase());
+      return { d: x.d, t: x.t, label: L, hot: rule.labels.includes(x.l) && (!rule.zones.length || x.z.some(z => rule.zones.includes(z))) };
+    }).filter(x => objOn(f, x.label) && (x.hot ? f.int : f.unint)).sort((a, b) => a.t - b.t);
+  },
   /* Corrections made in Frigate win: a car whose sub label was changed there to a name (or cleared after "not FedEx"),
      or a logo marked "not this" (false positive), stops showing that company here; any object whose every detection
      was marked a false positive is dropped from the alert. Alerts with a company re-check their objects every 2 min
@@ -2880,6 +2895,7 @@ const Arrive = {
       if (S.dragging) return this.redraw();
       if (S.expanded) refreshTrack();
       const tr = S.focus && document.getElementById('ftrack'); if (tr) tr.innerHTML = fTrack(Data.cam(S.focus.cam));
+      else if (S.focus && document.getElementById('fsc')) { const sc = document.getElementById('fsc'), top = sc.scrollTop; render(); const n2 = document.getElementById('fsc'); if (n2) n2.scrollTop = top; }
       if (S.view === 'review' && !S.focus) { if (rvBkArgs) rvBuckets(...rvBkArgs); rvDrawn = null; drawRvTrack(true); const l = document.getElementById('rvlist'); if (l) l.outerHTML = rvListHtml(rvCams(), rvBkArgs ? rvBkArgs[1] : now()); }
       if (S.view === 'events' && !S.focus && !S.evPlay) render();
     }, 400);
@@ -3188,7 +3204,7 @@ function viewFocus() {
     /* One grouping for both the icons and the cards: alerts closer than one card height (~35 min) form a group.
        The group gets one card and one icon per kind (with a count). Tapping either plays the same alert; a group of
        several opens into a strip of all its alerts so each one can be picked. */
-    const grp = [];
+    const grp = []; Arrive.want(evs);
     evs.forEach(e => {
       const y = FTOP + (end - e.t) / MIN * FPX, g = grp[grp.length - 1];
       if (g && y - g.y < 70) g.items.push(e); else grp.push({ y, items: [e] });
@@ -3197,25 +3213,33 @@ function viewFocus() {
     const curT = t;
     grp.forEach((g, gi) => {
       const y = g.y, n = g.items.length, kinds = [];
-      g.items.forEach(e => { const k = e.label + (e.interesting ? '+' : '-'); let kd = kinds.find(x => x.k === k); if (!kd) { kd = { k, e, n: 0 }; kinds.push(kd); } kd.n++; });
+      g.items.forEach(e => { const p = pick(e, S.filt), k = p.label + (e.interesting ? '+' : '-'); let kd = kinds.find(x => x.k === k); if (!kd) { kd = { k, e, p, n: 0 }; kinds.push(kd); } kd.n++; });
       kinds.sort((a, b) => (b.e.interesting - a.e.interesting) || (b.n - a.n));
       const used = {};
       kinds.forEach(kd => {
         const cols = S.markStyle !== 'b' ? [0, 1, 2] : kd.e.interesting ? [0, 1] : [2];
         let ln = cols.find(c => !used[c]); if (ln == null) return; used[ln] = 1;
-        rows += '<button class="fmark ico' + (kd.e.interesting ? '' : ' dim') + '" style="top:' + (y - 9) + 'px;--ln:' + ln + '" data-act="fgrp" data-g="' + gi + '" data-k="' + esc(kd.k) + '" aria-label="' + esc(lab(kd.e)) + ' ' + hm(kd.e.t) + (kd.n > 1 ? ', ' + kd.n + ' Alerts' : '') + '">' + objIcon(ico(kd.e)) + (kd.n > 1 ? '<b class="segn"><i>' + kd.n + '</i></b>' : '') + '</button>';
+        rows += '<button class="fmark ico' + (kd.e.interesting ? '' : ' dim') + '" style="top:' + (y - 9) + 'px;--ln:' + ln + '" data-act="fgrp" data-g="' + gi + '" data-k="' + esc(kd.k) + '" aria-label="' + esc(lab(kd.e, kd.p)) + ' ' + hm(kd.p.t) + (kd.n > 1 ? ', ' + kd.n + ' Alerts' : '') + '">' + objIcon(ico(kd.e, kd.p)) + (kd.n > 1 ? '<b class="segn"><i>' + kd.n + '</i></b>' : '') + '</button>';
       });
-      const e = g.items[0], key = String(e.t);
-      if (n > 1 && S.focus.og === key) {
+      const e = g.items[0], key = String(e.t), ep = pick(e, S.filt), parts = n === 1 ? Arrive.parts(e, S.filt) : [];
+      if (n === 1 && parts.length > 1 && S.focus.og === key) {
+        /* one long alert opened into its separate objects: tap one to go to when it showed up */
+        rows += '<div class="fev fstrip" style="top:' + (y - 32) + 'px">' + parts.map(x => {
+          const on = curT != null && Math.abs(curT - (x.t - 1000)) < 1500;
+          return '<button class="fsi' + (on ? ' cur' : '') + (x.hot ? '' : ' un') + '" data-act="fjump" data-t="' + x.t + '" aria-label="' + esc(objName(x.label)) + ' ' + hms(x.t) + '"><img src="' + Frigate.base() + '/api/events/' + x.d + '/thumbnail.webp" alt="" loading="lazy"><span><i class="lico">' + objIcon(x.label) + '</i>' + hms(x.t) + '</span></button>';
+        }).join('') + '</div>';
+      } else if (n > 1 && S.focus.og === key) {
         rows += '<div class="fev fstrip" style="top:' + (y - 32) + 'px">' + g.items.map(x => {
           const on = curT != null && curT >= x.t - 3000 && curT <= (x.end || x.t) + 3000;
-          return '<button class="fsi' + (on ? ' cur' : '') + '" data-act="fjump" data-t="' + x.t + '" aria-label="' + esc(x.label) + ' ' + hm(x.t) + '"><img src="' + x.img + '" alt="" loading="lazy"><span><i class="lico">' + objIcon(x.label) + '</i>' + hm(x.t) + '</span></button>';
+          const xp = pick(x, S.filt);
+          return '<button class="fsi' + (on ? ' cur' : '') + '" data-act="fjump" data-t="' + xp.t + '" aria-label="' + esc(objName(xp.label)) + ' ' + hm(xp.t) + '"><img src="' + evImg(x, xp) + '" alt="" loading="lazy"><span><i class="lico">' + objIcon(ico(x, xp)) + '</i>' + hm(xp.t) + '</span></button>';
         }).join('') + '</div>';
       } else {
-        const names = [...new Set(g.items.map(x => objName(x.label)))];
+        /* a single alert names the objects in it (Person, Package); a group names its alerts */
+        const names = n === 1 ? [...new Set((parts.length ? parts.filter(x => x.hot).concat(parts.filter(x => !x.hot)).map(x => x.label).sort((a, b) => objRank(a) - objRank(b)) : [ep.label]).map(objName))] : [...new Set(g.items.map(x => objName(pick(x, S.filt).label)))];
         const title = names.slice(0, 2).join(', ') + (names.length > 2 ? ' +' + (names.length - 2) : '');
-        const sub = n === 1 ? hm(e.t) + ' · ' + durLabel(e) : hm(e.t) + ' · ' + n + ' Alerts';
-        rows += '<button class="fev" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + e.img + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e)) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span></button>';
+        const sub = n === 1 ? hm(ep.t) + ' · ' + durLabel(e) + (parts.length > 1 ? ' · ' + parts.length + ' Objects' : '') : hm(ep.t) + ' · ' + n + ' Alerts';
+        rows += '<button class="fev" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + evImg(e, ep) + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e, ep)) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span></button>';
       }
     });
     body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px"><div class="frail"></div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + FTOP + 'px"></div>';
@@ -3990,7 +4014,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.5.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.5.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -4093,7 +4117,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.5.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.5.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -4506,10 +4530,11 @@ const ACT = {
   rvlive() { S.rv.t = null; rvScrollTo(null); paintReview(); },
   fgrp(d) {     /* tap a group's card or icon: play its newest alert (of that kind, for an icon); a group of several opens into a strip */
     const g = S.focus && S.focus.groups && S.focus.groups[+d.g]; if (!g) return;
-    const e = (d.k && g.items.find(x => x.label + (x.interesting ? '+' : '-') === d.k)) || g.items[0];
-    const og = g.items.length > 1 ? String(g.items[0].t) : null;
+    const e = (d.k && g.items.find(x => pick(x, S.filt).label + (x.interesting ? '+' : '-') === d.k)) || g.items[0];
+    /* a group of alerts, or one alert holding several objects, opens into a strip to pick from */
+    const og = g.items.length > 1 || Arrive.parts(g.items[0], S.filt).length > 1 ? String(g.items[0].t) : null;
     if (S.focus.og !== og) { S.focus.og = og; render(); }
-    ACT.fjump({ t: e.t });
+    ACT.fjump({ t: pick(e, S.filt).t });
   },
   fjump(d) {   /* tap a card or rail icon: go to that alert (1 s before it starts) */
     const t = +d.t - 1000, id = S.focus.cam; Dbg.log('tap alert', hms(+d.t));
@@ -4954,7 +4979,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.5.5';
+    const BUILD = '2.5.6';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
