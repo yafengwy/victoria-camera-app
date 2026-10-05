@@ -840,7 +840,7 @@ input,select,textarea{font-size:16px}
 .box.rdo{border-radius:50%}
 
 .evmedia{position:relative;display:block;width:100%;aspect-ratio:16/9;background:#1E2226;cursor:pointer}
-.evclk{position:absolute;left:8px;top:8px;z-index:3;padding:2px 7px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none}
+.evclk{position:absolute;left:3px;top:3px;z-index:3;padding:2px 7px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none}
 .evmedia img,.evmedia video{width:100%;height:100%;object-fit:cover;display:block}
 .evplayb{position:absolute;right:10px;bottom:10px;width:34px;height:34px;border-radius:17px;background:rgba(18,22,24,.6);color:#fff;display:flex;align-items:center;justify-content:center;pointer-events:none}
 .evprog{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.25)}
@@ -2081,8 +2081,19 @@ const Playback = {
       const tag = (u.match(/\/vod\/([^/]+)\/start\/(\d+)\/end\/(\d+)/) || []).slice(1).map((x, i) => i ? hms(+x * 1000) : x).join(' ');
       Dbg.log('alert clip', tag, this.native() ? 'native' : 'hls.js');
       ['loadedmetadata', 'playing', 'stalled', 'error'].forEach(ev => v.addEventListener(ev, () => Dbg.log('alert clip', ev, tag, ev === 'error' && v.error ? 'code ' + v.error.code + ' ' + (v.error.message || '') : 'at ' + v.currentTime.toFixed(1))));
-      fetch(u, { credentials: 'include' }).then(r => r.text().then(t => Dbg.log('alert clip list', tag, r.status, (t.match(/#EXTINF/g) || []).length + ' parts'))).catch(e => Dbg.log('alert clip list', tag, 'failed'));
-      if (this.native()) { v.src = u; v.play().catch(() => {}); }
+      /* the Playback Log's part count is read only after the clip plays, so Frigate isn't asked to build the same
+         list twice at the moment the clip should start */
+      v.addEventListener('playing', () => fetch(u, { credentials: 'include' }).then(r => r.text().then(t => Dbg.log('alert clip list', tag, r.status, (t.match(/#EXTINF/g) || []).length + ' parts'))).catch(e => Dbg.log('alert clip list', tag, 'failed')), { once: true });
+      /* iPhone: open the clip right at the alert (#t=) instead of loading the minute before it and then jumping,
+         which loaded twice before the first picture. The recorded pieces are known within a moment; then start. */
+      if (this.native()) {
+        const t0 = Date.now();
+        Promise.race([segsP, new Promise(ok => setTimeout(ok, 1200))]).then(() => {
+          const vt = at ? vodAt(v, at) : 0;
+          v.src = vt > 0.5 ? u + '#t=' + vt.toFixed(1) : u; v.play().catch(() => {});
+          Dbg.log('alert clip start', tag, 'at ' + vt.toFixed(1), (Date.now() - t0) + 'ms');
+        });
+      }
       else this.hls().then(H => { const h = new H(); v._hls = h; h.loadSource(u); h.attachMedia(v); v.play().catch(() => {}); }).catch(() => { v.src = u; });
     });
     const want = this.cams();
