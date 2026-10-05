@@ -51,6 +51,9 @@ fi
     echo "$u -> ${r:-no answer}"
   done
 } > "$D/app/diag.txt" 2>&1
+# Frigate watchdog: restarts Frigate by itself when cameras stop giving frames / graphics decoding keeps failing
+# (it stayed broken from 23:00 to 08:40 on 2026-10-04); log in ~/frigate/watchdog-log.txt
+[ -s "$G/frigate-watchdog.py" ] && python3 "$G/frigate-watchdog.py" >>"$L" 2>&1
 # Daily copy of the Frigate config to the private backup repo (does nothing until ~/frigate/backup-token exists)
 [ -s "$G/backup-config.sh" ] && sh "$G/backup-config.sh" >>"$L" 2>&1
 if head -1 "$G/update-app.sh" | grep -q '^#!/bin/sh' && sh -n "$G/update-app.sh" && ! cmp -s "$G/update-app.sh" "$D/update-app.sh"; then
