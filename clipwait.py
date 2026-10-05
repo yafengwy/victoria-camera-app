@@ -34,6 +34,25 @@ def live(cam, secs, audio):
                        check=True, timeout=max(2, secs) + 15)
         return open(out, 'rb').read()
 
+def stretch(body, want=11.0):
+    # Android phones don't play a notification video: they show frames taken from it and need about 10 s of video.
+    # For them (?a=1) a short clip is slowed down to ~11 s, so the same seconds the iPhone gets show up as frames
+    # right away, instead of waiting for a longer recording.
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            a, b = os.path.join(d, 'in.mp4'), os.path.join(d, 'out.mp4')
+            open(a, 'wb').write(body)
+            dur = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', a],
+                                       capture_output=True, text=True, timeout=10).stdout.strip() or 0)
+            if dur <= 0 or dur >= want:
+                return body
+            f = want / dur
+            subprocess.run(['ffmpeg', '-v', 'error', '-i', a, '-an', '-vf', f'setpts={f:.3f}*PTS', '-r', '10', '-c:v', 'libx264', '-preset', 'veryfast',
+                            '-crf', '28', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', b], check=True, timeout=20)
+            return open(b, 'rb').read()
+    except Exception:
+        return body
+
 def silent(body):
     try:
         with tempfile.TemporaryDirectory() as d:
@@ -188,6 +207,8 @@ class H(BaseHTTPRequestHandler):
             except Exception as x:
                 err = x; body = None
                 print('live clip failed', cam, kind, repr(x), flush=True)
+        if body is not None and kind != 'clip.gif' and 'a=1' in self.path:
+            body = stretch(body)
         try:
             if body is None:
                 raise RuntimeError(err)
