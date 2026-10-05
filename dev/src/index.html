@@ -2813,32 +2813,63 @@ function paintPanel() {
   const tr = document.getElementById('track'); if (tr) tr.setAttribute('aria-valuetext', live ? 'Live' : hms(t));
   paintCam(id);
 }
+/* When an alert's own object first showed up. A review item opens on the first activity (a car driving by, a van)
+   and the person may join minutes later, so timeline icons sit where that object arrived, not where the item opened.
+   Looked up once per alert from its detections (same cache as the Review page's jump), then the timelines redraw. */
+const Arrive = {
+  ot: {}, busy: {}, tm: 0,
+  t(e) { return this.ot[e.id] || e.t; },
+  want(evs) {
+    if (Data.source !== 'frigate') return;
+    evs.forEach(e => {
+      if (this.ot[e.id] || this.busy[e.id] || !e.dets || !e.dets.length || /^motion$/i.test(e.label)) return;
+      this.busy[e.id] = 1;
+      const want = String(e.label).toLowerCase();
+      Promise.all(e.dets.slice(0, 12).map(d => rvDetStart[d] || (rvDetStart[d] = Frigate.get('/api/events/' + encodeURIComponent(d)).then(r => r ? { l: String(r.label || '').toLowerCase(), t: r.start_time * 1000 } : null).catch(() => null))))
+        .then(rs => {
+          const ts = rs.filter(r => r && r.l === want && r.t && r.t >= e.t - 1000).map(r => r.t);   /* a parked object seen long before doesn't count */
+          const ot = ts.length ? Math.min(e.end || Infinity, Math.max(e.t, Math.min(...ts))) : e.t;
+          this.ot[e.id] = ot;
+          if (ot - e.t > 3000) { Dbg.log('icon moved to object start', e.cam, e.label, hms(e.t), '→', hms(ot)); this.redraw(); }
+        }).catch(() => { delete this.busy[e.id]; });
+    });
+  },
+  redraw() {
+    clearTimeout(this.tm);
+    this.tm = setTimeout(() => {
+      if (S.dragging) return this.redraw();
+      if (S.expanded) refreshTrack();
+      const tr = S.focus && document.getElementById('ftrack'); if (tr) tr.innerHTML = fTrack(Data.cam(S.focus.cam));
+    }, 400);
+  }
+};
 /* Alerts on the small track: alerts closer than ~20px are merged into one icon (most common object) with a count.
    Tapping the track (no drag) snaps to the nearest alert within reach and plays it from its start. */
 function trackMarks(evs, start, win, widthPx) {
-  const list = evs.filter(e => e.t >= start && e.t <= start + win).sort((a, b) => a.t - b.t);
+  const list = evs.filter(e => (e.end || e.t) >= start && e.t <= start + win).filter(e => Arrive.t(e) >= start && Arrive.t(e) <= start + win).sort((a, b) => Arrive.t(a) - Arrive.t(b));
+  Arrive.want(evs.filter(e => (e.end || e.t) >= start && e.t <= start + win));
   const lanes = S.markStyle === 'b';
   const groups = [];
   const lastOf = {};
   list.forEach(e => {
-    const x = (e.t - start) / win * widthPx, key = lanes ? (e.interesting ? 'i' : 'u') : 'all', g = lastOf[key];
+    const x = (Arrive.t(e) - start) / win * widthPx, key = lanes ? (e.interesting ? 'i' : 'u') : 'all', g = lastOf[key];
     if (g && x - g.x0 < 20) g.items.push(e); else { const ng = { x0: x, items: [e], key }; groups.push(ng); lastOf[key] = ng; }
   });
   return groups.map(g => {
     const cnt = {}; g.items.forEach(e => cnt[e.label] = (cnt[e.label] || 0) + 1);
     const top = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0], hot = g.items.some(e => e.interesting);
-    const mid = (g.items[0].t + g.items[g.items.length - 1].t) / 2, pct = (mid - start) / win * 100;
+    const mid = (Arrive.t(g.items[0]) + Arrive.t(g.items[g.items.length - 1])) / 2, pct = (mid - start) / win * 100;
     const cls = lanes ? (hot ? ' lane ltop' : ' lane lbot') : (hot ? (S.markStyle === 'e' ? ' ring' : S.markStyle === 'd' ? ' mdot' : ' hot') : (S.markStyle === 'd' ? ' mdotu' : ''));
-    return '<span class="segi' + cls + '" style="left:' + pct.toFixed(2) + '%" title="' + esc(top) + ' ' + hm(g.items[0].t) + '">' + objIcon(top) + (g.items.length > 1 ? '<b class="segn"><i>' + g.items.length + '</i></b>' : '') + '</span>';
+    return '<span class="segi' + cls + '" style="left:' + pct.toFixed(2) + '%" title="' + esc(top) + ' ' + hm(Arrive.t(g.items[0])) + '">' + objIcon(top) + (g.items.length > 1 ? '<b class="segn"><i>' + g.items.length + '</i></b>' : '') + '</span>';
   }).join('');
 }
 function snapAlert(clientX, mouse) {
   const tr = document.getElementById('track'); if (!tr || !S.expanded) return false;
   const r = tr.getBoundingClientRect(), start = S.winEnd - S.win;
   let best = null, bd = mouse ? 12 : 24;     /* a mouse is exact: only a click on the icon itself goes to the alert */
-  camEvents(S.expanded).forEach(e => { if (e.t < start || e.t > S.winEnd) return; const d = Math.abs(r.left + (e.t - start) / S.win * r.width - clientX); if (d < bd) { bd = d; best = e; } });
+  camEvents(S.expanded).forEach(e => { const at = Arrive.t(e); if (at < start || at > S.winEnd) return; const d = Math.abs(r.left + (at - start) / S.win * r.width - clientX); if (d < bd) { bd = d; best = e; } });
   if (!best) return false;
-  seek(S.expanded, best.t - 1000); S.playing = true; refreshTrack(); paintPanel(); Playback.sync();
+  seek(S.expanded, Arrive.t(best) - 1000); S.playing = true; refreshTrack(); paintPanel(); Playback.sync();
   const pp = document.querySelector('.ppgroup [data-act="playpause"],[data-act="playpause"]'); if (pp) pp.innerHTML = I.pause;
   thumbTo(best.t);
   return true;
@@ -3206,10 +3237,11 @@ function fTrack(c) {
     if (isMaj) tr += '<div class="flb" style="top:' + Y(k).toFixed(1) + 'px">' + (new Date(k).getHours() === 0 && new Date(k).getMinutes() === 0 ? dayLabel(k) : hm(k)) + '</div>';
   }
   let lastIc = -1e9; const icons = [];
-  camEvents(c.id).filter(e => e.t <= end && (e.end || e.t) > end - FSPAN).sort((a, b) => b.t - a.t).forEach(e => {
+  const fevs = camEvents(c.id).filter(e => e.t <= end && (e.end || e.t) > end - FSPAN); Arrive.want(fevs);
+  fevs.sort((a, b) => Arrive.t(b) - Arrive.t(a)).forEach(e => {
     const y0 = Y(Math.max(e.end || e.t, e.t + 5000)), y1 = Math.max(Y(e.t), y0 + 3);
     tr += '<button class="fseg' + (e.interesting ? '' : ' un') + '" data-act="fseek" data-t="' + e.t + '" aria-label="' + esc(lab(e)) + ' At ' + hm(e.t) + '" style="top:' + y0.toFixed(1) + 'px;height:' + (y1 - y0).toFixed(1) + 'px"></button>';
-    const yc = (y0 + y1) / 2;
+    const yc = Arrive.ot[e.id] ? clamp(Y(Arrive.t(e)), y0, y1) : (y0 + y1) / 2;   /* where its object arrived, once known */
     if (yc - lastIc >= 18) { lastIc = yc; icons.push({ e, yc, n: 1 }); } else if (icons.length) icons[icons.length - 1].n++;   /* close ones add to the count */
   });
   icons.forEach(g => { tr += '<span class="fico' + (g.e.interesting ? '' : ' un') + '" style="top:' + (g.yc - 7.5).toFixed(1) + 'px">' + objIcon(ico(g.e)) + (g.n > 1 ? '<b class="segn"><i>' + g.n + '</i></b>' : '') + '</span>'; });
