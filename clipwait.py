@@ -159,7 +159,9 @@ class H(BaseHTTPRequestHandler):
         cam, s, e, kind = m.group(1), int(m.group(2)), int(m.group(3)), m.group(4)
         t0 = time.time()
         ok = False
-        while time.time() - t0 < 22:   # as before: wait for the recording (the phone gives up after ~30 s)
+        # wait for the recording (the phone gives up after ~30 s). Sound clips wait a little longer and never use the
+        # live stream: the sound is already in the past, and 9 live seconds on top made the phone give up
+        while time.time() - t0 < (25 if kind == 'sound.mp4' else 22):
             if covered(cam, s, e):
                 ok = True; break
             time.sleep(0.5)
@@ -178,9 +180,9 @@ class H(BaseHTTPRequestHandler):
             except Exception as x:
                 err = x; body = None
                 print('clip try failed', cam, a, b, kind, repr(x), flush=True)
-        if body is None:
+        if body is None and kind != 'sound.mp4':
             try:
-                raw = live(cam, e - s, kind == 'sound.mp4')
+                raw = live(cam, e - s, False)
                 body = gif(raw) if kind == 'clip.gif' else raw
                 print('clip from live stream', cam, s, e, kind, 'recording ready' if ok else 'recording not ready', flush=True)
             except Exception as x:
