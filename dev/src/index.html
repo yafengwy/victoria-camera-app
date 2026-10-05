@@ -1417,7 +1417,7 @@ function objGroupChips(f, act) {
 /* object names on screen: "garbage_truck" → "Garbage Truck" (the value itself stays as Frigate writes it) */
 const objName = o => String(o).replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase());
 /* an alert counts for an object filter by its object, or by the delivery company on that car */
-const objHit = (f, e) => objOn(f, e.label) || (!!e.logo && objOn(f, coName(e.logo)));
+const objHit = (f, e) => objOn(f, e.label) || (!!e.objs && e.objs.some(o => objOn(f, o))) || (!!e.logo && objOn(f, coName(e.logo)));
 function OBJS() {
   const set = new Set(Data.source === 'frigate' && Data.objs && Data.objs.length ? Data.objs : OBJECTS);
   if (Data.source === 'frigate' && Data.logos) WAIT_CO.forEach(c => set.add(c[1]));   /* delivery companies, picked on their own */
@@ -1550,7 +1550,10 @@ const Frigate = {
     return rows.map(r => {
       /* Frigate calls a person it recognized "person-verified": treat it as a person */
       const objs = ((r.data && r.data.objects) || []).map(o => String(o).replace(/-verified$/, '')), sl = ((r.data && r.data.sub_labels) || []).map(x => String(Array.isArray(x) ? x[0] : x));
-      const label = (objs.find(o => !isAttr(o)) || objs[0] || 'motion').replace(/^\w/, m => m.toUpperCase());
+      const cap = o => isLogo(o) ? coName(o) : o.replace(/^\w/, m => m.toUpperCase());
+      const label = cap(objs.find(o => !isAttr(o)) || objs[0] || 'motion');
+      /* every object in the alert (a person carrying a package is listed under Person but also counts for Package) */
+      const allObjs = [...new Set(objs.filter(o => !isAttr(o)).map(cap))];
       const det = r.data && r.data.detections && r.data.detections[0], dets = (r.data && r.data.detections) || [];
       /* delivery logos Frigate+ found on a car (sub labels, or listed as objects) and people's names (face recognition,
          or a name given in this app) are shown after the object: "Car · UPS", "Person · Victoria" */
@@ -1558,7 +1561,7 @@ const Frigate = {
       const names = [...sl.filter(x => !isLogo(x.toLowerCase()) && x.toLowerCase() !== 'unknown'), ...dets.map(d => People.sub[d]).filter(Boolean)].map(niceName);
       const who = [...new Set([...subs.map(coName), ...names])].join(' · ');
       return {
-        id: r.id, cam: r.camera, t: r.start_time * 1000, end: (r.end_time || r.start_time) * 1000, label, dets, who, logo: subs[0] || '',
+        id: r.id, cam: r.camera, t: r.start_time * 1000, end: (r.end_time || r.start_time) * 1000, label, objs: allObjs, dets, who, logo: subs[0] || '',
         sev: r.severity, subs, interesting: r.severity === 'alert' || Wait.hit(r.start_time * 1000, subs),
         zones: ((r.data && r.data.zones) || []).map(z => z.replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase())),
         img: Frigate.thumb(r, det),
