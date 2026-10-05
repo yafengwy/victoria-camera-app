@@ -1581,7 +1581,10 @@ const Frigate = {
         zones: ((r.data && r.data.zones) || []).map(z => z.replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase())),
         img: Frigate.thumb(r, det),
         preview: this.base() + '/api/review/' + r.id + '/preview?format=mp4',
-        vod: this.base() + '/vod/' + r.camera + '/start/' + Math.floor(r.start_time - 1) + '/end/' + Math.ceil((r.end_time || r.start_time + 20) + 1) + '/index.m3u8',
+        /* the alert's player holds a minute before and after it, so −10 s / +10 s (and the scrub bar) can go past the
+           alert into whatever was recorded around it; it still opens at the alert */
+        vs: Math.floor(r.start_time) - 60, ve: Math.ceil(r.end_time || r.start_time + 20) + 60,
+        vod: this.base() + '/vod/' + r.camera + '/start/' + (Math.floor(r.start_time) - 60) + '/end/' + (Math.ceil(r.end_time || r.start_time + 20) + 60) + '/index.m3u8',
         clip: this.base() + '/api/' + r.camera + '/start/' + Math.floor(r.start_time - 1) + '/end/' + Math.ceil((r.end_time || r.start_time + 20) + 2) + '/clip.mp4'
       };
     }).filter((e, i) => e.label !== 'Motion' || !(((rows[i].data || {}).objects || []).includes('waste_bin'))).map(e => Arrive.fix(e)).sort((a, b) => b.t - a.t);
@@ -1884,7 +1887,7 @@ const Box = {
     }
     if (S.view === 'events' && S.evPlay && !S.focus) {
       const e = Data.events.find(x => x.id === S.evPlay), host = e && document.getElementById('evm-' + e.id), v = host && host.querySelector('video.evv');
-      if (v && v.currentTime > 0) out.push({ host, cam: e.cam, t: (Math.floor(e.t / 1000 - 1) + v.currentTime) * 1000, media: v });
+      if (v && v.currentTime > 0) out.push({ host, cam: e.cam, t: vodReal(v, v.currentTime), media: v });
     }
     return out;
   },
@@ -1918,7 +1921,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.6.1 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.6.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2040,9 +2043,16 @@ const Playback = {
     if (Data.source !== 'frigate') return;
     Live.policy();
     document.querySelectorAll('video[data-hls]:not([data-on])').forEach(v => {     /* alert cards */
-      v.dataset.on = '1'; const u = v.dataset.hls, st = +v.dataset.st || 0;
+      v.dataset.on = '1'; const u = v.dataset.hls, cam = v.dataset.cam, vs = +v.dataset.vs || 0, ve = +v.dataset.ve || 0, at = +v.dataset.at || 0;
       v.addEventListener('playing', () => { v.style.opacity = '1'; });
-      if (st > 0) v.addEventListener('loadedmetadata', () => { if (v.currentTime < st - 1) v.currentTime = st; }, { once: true });   /* start where the picked object shows up */
+      /* the recorded pieces in the player's window, so video time ↔ clock time stays right even when the minute
+         before the alert has no recording or has gaps (the player joins only what was recorded) */
+      const segsP = cam && vs ? Frigate.get('/api/' + cam + '/recordings?after=' + vs + '&before=' + ve).then(rows => {
+        v._segs = (rows || []).filter(x => x.end_time > vs && x.start_time < ve).sort((a, b) => a.start_time - b.start_time)
+          .map(x => ({ a: Math.max(vs, x.start_time) * 1000, b: Math.min(ve, x.end_time) * 1000 }));
+      }).catch(() => {}) : Promise.resolve();
+      v._vs = vs * 1000;
+      if (at) v.addEventListener('loadedmetadata', () => segsP.then(() => { const vt = vodAt(v, at); if (vt > 0.5 && Math.abs(v.currentTime - vt) > 1) v.currentTime = vt; }), { once: true });   /* open at the alert */
       /* alert-card and full-screen players: say what happened, so a clip that never starts shows up in the Playback Log */
       const tag = (u.match(/\/vod\/([^/]+)\/start\/(\d+)\/end\/(\d+)/) || []).slice(1).map((x, i) => i ? hms(+x * 1000) : x).join(' ');
       Dbg.log('alert clip', tag, this.native() ? 'native' : 'hls.js');
@@ -2980,8 +2990,8 @@ function evImg(e, p) {
 function evMedia(e) {
   const playing = S.evPlay === e.id, p = pick(e, S.filt);
   if (Data.source === 'frigate') {
-    const st = p.moved ? Math.max(0, (p.t - Math.floor(e.t / 1000 - 1) * 1000) / 1000 - 1) : 0;
-    if (playing) return '<img src="' + evImg(e, p) + '" alt="" loading="lazy"><video class="evv" data-hls="' + e.vod + '" data-st="' + st.toFixed(1) + '" autoplay muted controls playsinline style="opacity:0"></video><div class="evclk" hidden></div>';
+    const at = (p.moved ? p.t : e.t) - 1000;   /* opens 1 s before the alert (or its picked object) */
+    if (playing) return '<img src="' + evImg(e, p) + '" alt="" loading="lazy"><video class="evv" data-hls="' + e.vod + '" data-cam="' + e.cam + '" data-vs="' + e.vs + '" data-ve="' + e.ve + '" data-at="' + at + '" autoplay muted controls playsinline style="opacity:0"></video><div class="evclk" hidden></div>';
     return '<img src="' + evImg(e, p) + '" alt="" loading="lazy">';
   }
   const dur = Math.max(4000, (e.end || e.t) - e.t);
@@ -2989,6 +2999,17 @@ function evMedia(e) {
     (playing ? '<div class="evprog"><i style="width:' + ((S.evPos || 0) * 100).toFixed(1) + '%"></i></div><div class="evclock">' + hms(e.t + (S.evPos || 0) * dur) + '</div>' : '');
 }
 let evTimer = null, evIO = null, evTapTimer = null, evTapLast = { id: null, at: 0 };
+/* alert players: video seconds ↔ clock time through the recorded pieces (see the alert-card loader) */
+function vodReal(v, sec) {
+  const sg = v._segs; if (!sg || !sg.length) return (v._vs || (+(v.dataset && v.dataset.vs) || 0) * 1000) + sec * 1000;
+  let acc = 0; for (const x of sg) { const d = (x.b - x.a) / 1000; if (sec <= acc + d) return x.a + (sec - acc) * 1000; acc += d; }
+  return sg[sg.length - 1].b;
+}
+function vodAt(v, ms) {
+  const sg = v._segs; if (!sg || !sg.length) return Math.max(0, (ms - (v._vs || (+(v.dataset && v.dataset.vs) || 0) * 1000)) / 1000);
+  let acc = 0; for (const x of sg) { if (ms < x.a) return acc; if (ms <= x.b) return acc + (ms - x.a) / 1000; acc += (x.b - x.a) / 1000; }
+  return acc;
+}
 /* Alerts page: the playing clip shows its date and time in its top-left corner, like the other players */
 const ymdhms = t => { const d = new Date(t); return d.getFullYear() + '/' + pad(d.getMonth() + 1) + '/' + pad(d.getDate()) + ' ' + hms(t); };
 setInterval(() => {
@@ -2996,7 +3017,7 @@ setInterval(() => {
   const e = Data.events.find(x => x.id === S.evPlay), host = e && document.getElementById('evm-' + e.id); if (!host) return;
   const v = host.querySelector('video.evv'), c = host.querySelector('.evclk'); if (!v || !c) return;
   if (!(v.currentTime > 0)) { c.hidden = true; return; }
-  c.hidden = false; c.textContent = ymdhms((Math.floor(e.t / 1000 - 1) + v.currentTime) * 1000);
+  c.hidden = false; c.textContent = ymdhms(vodReal(v, v.currentTime));
 }, 250);
 function evStop() { clearInterval(evTimer); evTimer = null; S.evPlay = null; S.evPos = 0; }
 function evIcons() { document.querySelectorAll('.evcard .ic[data-act="evplay"]').forEach(b => { b.innerHTML = b.dataset.v === S.evPlay ? I.pause : I.playO; }); }
@@ -4040,7 +4061,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.6.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.6.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -4143,7 +4164,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.6.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.6.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5010,7 +5031,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.6.1';
+    const BUILD = '2.6.2';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
