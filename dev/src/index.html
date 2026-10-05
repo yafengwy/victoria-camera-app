@@ -593,6 +593,7 @@ img.rf{opacity:0}
 .seg5 button{height:38px;border-radius:9px;font-size:14px;font-weight:700}
 .seg5 button[aria-pressed="true"]{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.12)}
 .dot.forced{background:#7CC4FF}
+.dot.nopic{background:#FF4D4F}
 .modes{padding:6px;gap:6px;border-radius:14px;justify-content:center;background:none}
 .mode{flex-direction:row;gap:5px;height:32px;padding:0 12px 0 8px;border-radius:16px;font-size:12px;background:var(--card);border:1px solid var(--line)}
 .mode span{width:auto;height:auto;border:0;background:none!important;color:inherit!important}
@@ -1684,6 +1685,23 @@ const Motion = {
     s.onclose = ev => { clearTimeout(to); this.up = false; this.err = (this.err === 'Timeout' ? 'Timeout ' : '') + 'Code ' + ev.code + (ev.reason ? ' ' + ev.reason : ''); setTimeout(() => this.ensure(), 2000); };
   }
 };
+/* No Picture: a camera that is on but has given Frigate no frames for over a minute shows a red "No Picture" pill
+   instead of "Still" (a dead camera used to look like a quiet one). Frigate's stats are asked for every 15 s. */
+const Pic = {
+  z: {}, shown: {},
+  no(id) { return Data.source === 'frigate' && Ctl.on(id) && !!this.z[id] && now() - this.z[id] > 60000; },
+  async poll() {
+    if (Data.source !== 'frigate' || document.hidden) return;
+    try {
+      const d = await Frigate.get('/api/stats'), t = now();
+      for (const id in (d.cameras || {})) {
+        if ((d.cameras[id].camera_fps || 0) < 1) { if (!this.z[id]) this.z[id] = t; } else delete this.z[id];
+        /* repaint only a camera whose pill changes (compared with what was last shown) */
+        const n = this.no(id); if (n !== !!this.shown[id]) { this.shown[id] = n; Dbg.log(n ? 'no picture' : 'picture back', id); if (S.view === 'home' && !S.focus) paintCam(id); }
+      }
+    } catch (e) {}
+  }
+};
 Frigate.pollStats = async function () {
   if (Motion.up) return;
   try {
@@ -2658,6 +2676,7 @@ function moreMenu() {
 function watchIds() { return (S.wsel || []).filter(id => Data.cam(id)).slice(0, 9); }
 function stillInner(id) {
   if (!Ctl.on(id)) return '<span class="dot idle"></span>Off';
+  if (Pic.no(id)) return '<span class="dot nopic"></span>No Picture';
   if (S.forced[id] && S.forced[id] > now()) return '<span class="dot forced"></span>Live';
   const m = Data.motion(id);
   return (m.active || (m.last != null && now() - m.last < 5000)) ? '<span class="dot busy"></span>Live' : '<span class="dot idle"></span>Still' + (m.last != null ? ' ' + agoShort(now() - m.last) : '');
@@ -2841,6 +2860,7 @@ function badgeHtml(id, t, f) {
   let inner;
   if (t != null) inner = hms(t);
   else if (!Ctl.on(id)) inner = '<span class="dot idle"></span>Off';
+  else if (Pic.no(id)) inner = '<span class="dot nopic"></span>No Picture';
   else if (S.forced[id] && S.forced[id] > now()) inner = '<span class="dot forced"></span>Live';
   else { const m = Data.motion(id); inner = (m.active || (m.last != null && now() - m.last < 5000)) ? '<span class="dot busy"></span>Live' : '<span class="dot idle"></span>Still' + (m.last != null ? ' ' + agoShort(now() - m.last) : ''); }
   const rc = '';
@@ -5222,7 +5242,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
     setInterval(() => Motion.ensure(), 3000); setInterval(() => Live.watch(), 2000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) { Motion.ensure(); Frigate.refresh(); HA.get(); Snz.get(); Wait.get(); } });
     window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); HA.get(); setInterval(() => HA.get(), 10000); if (store.get('boxes', false)) Box.set(true); if (!Playback.native()) Playback.hls().catch(() => {}); Snz.get(); setInterval(() => Snz.get(), 15000); Wait.get(); setInterval(() => Wait.get(), 15000);
-    setInterval(() => { if (S.view === 'home' && !S.modal && (Snz.active() || Wait.active() || document.querySelector('.snzban'))) render(); }, 60000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000);
+    setInterval(() => { if (S.view === 'home' && !S.modal && (Snz.active() || Wait.active() || document.querySelector('.snzban'))) render(); }, 60000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000); Pic.poll(); setInterval(() => Pic.poll(), 15000);
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
   openLink(); window.addEventListener('hashchange', openLink);

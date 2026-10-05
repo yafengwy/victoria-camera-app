@@ -20,6 +20,13 @@ D = os.path.expanduser('~/frigate')
 STATE = os.path.join(D, '.watchdog.json')
 LOG = os.path.join(D, 'watchdog-log.txt')
 API = 'http://127.0.0.1:5000/api'
+# Camera down alerts: a camera Frigate keeps trying (and failing) to read, with no picture for 10 minutes, sends one
+# phone notification through Home Assistant (automation "Camera No Picture", webhook trigger, local network only);
+# again at most every 3 hours while it stays down. Cameras switched off on purpose give no Frigate log lines, so they
+# never count. 2026-10-05: Closet had broken pictures for over an hour (Wi-Fi) and nobody knew.
+HOOK = 'http://192.168.1.252:8123/api/webhook/vh-camera-down-6a53d96d5efbd590'
+DOWN_MIN, DOWN_EVERY = 600, 3 * 3600
+QUIET = {'nest_master_bedroom'}   # turned off in Google Home on purpose; take it out of here when it is back on
 
 
 def get(path):
@@ -87,6 +94,36 @@ def top(d, n=4):
     return ', '.join('%s %d' % kv for kv in sorted(d.items(), key=lambda x: -x[1])[:n]) if d else 'None'
 
 
+def down_alerts(dead, st, t10):
+    # returns lines for the Mini PC Log: cameras down now (since when) and the last alerts sent
+    now = time.time(); dn = st.setdefault('down', {}); sent = st.setdefault('down_sent', {}); hist = st.setdefault('down_log', [])
+    tz = lambda t, f='%H:%M': (datetime.fromtimestamp(t, TZ) if TZ else datetime.fromtimestamp(t)).strftime(f)
+    trying = {c for c in dead if ('watchdog.%s ' % c) in t10 or ('ffmpeg.%s.' % c) in t10 or (': %s:' % c) in t10}
+    for c in list(dn):
+        if c not in trying:
+            if sent.get(c, 0) > dn[c]:
+                hist.append(tz(now, '%m-%d %H:%M ') + c + ' picture back')
+            del dn[c]
+    for c in trying:
+        if c in QUIET:
+            continue
+        dn.setdefault(c, now)
+        mins = int((now - dn[c]) // 60)
+        if now - dn[c] >= DOWN_MIN and now - sent.get(c, 0) >= DOWN_EVERY:
+            name = (st.get('names') or {}).get(c, c)
+            ok = 'sent'
+            try:
+                req = urllib.request.Request(HOOK, data=json.dumps({'cam': c, 'name': name, 'minutes': mins}).encode(), headers={'Content-Type': 'application/json'}, method='POST')
+                urllib.request.urlopen(req, timeout=8).read()
+            except Exception as x:
+                ok = 'not sent (' + repr(x)[:80] + ')'
+            sent[c] = now
+            hist.append(tz(now, '%m-%d %H:%M ') + '%s no picture %d min · alert %s' % (c, mins, ok))
+    del hist[:-10]
+    cur = ['Down Now: ' + ', '.join('%s since %s' % (c, tz(dn[c])) for c in sorted(dn))] if dn else ['Down Now: None']
+    return cur + hist
+
+
 def health(dead, st, stats):
     # Mini PC Log for the app (Settings → Mini PC Log → Copy), written every minute, so the mini PC can be checked
     # from the phone without a terminal. Times in California time. Sections: Now, Last 10 Min, Hourly History (30 h),
@@ -127,7 +164,9 @@ def health(dead, st, stats):
         for k, v in ((stats or {}).get('detectors') or {}).items(): L.append('Detector %s %.1f ms' % (k, v.get('inference_speed', 0)))
     except Exception: pass
     L.append('No Frames: ' + (', '.join(dead) if dead else 'None'))
-    c10 = counts(sh(['docker', 'logs', 'frigate', '--since', '10m']))
+    t10 = sh(['docker', 'logs', 'frigate', '--since', '10m'])
+    c10 = counts(t10)
+    down = down_alerts(dead, st, t10)
     L += ['', '== Last 10 Min ==', 'Decode Errors: ' + top(c10['dec'], 8), 'Camera Crashes: ' + top(c10['crash'], 8), 'Recordings Discarded: ' + top(c10['disc'], 8)]
     cw = sh(['docker', 'logs', 'clipwait', '--since', '10m'])
     L.append('Notification Clips: %d Made · %d Failed' % (cw.count(' made '), cw.count('FAILED') + cw.count('failed')))
@@ -165,6 +204,7 @@ def health(dead, st, stats):
         w = open(LOG).read().strip().splitlines()[-10:]
     except Exception:
         w = []
+    L += ['', '== Camera No Picture Alerts (Phone) =='] + (down or ['None'])
     L += ['', '== Automatic Restarts =='] + (w or ['None'])
     try:
         u = open(os.path.join(D, 'app', 'update-log.txt')).read().strip().splitlines()[-5:]
@@ -191,6 +231,7 @@ def main():
     try:
         stats, cfg = get('/stats'), get('/config')
         st['api_runs'] = 0
+        st['names'] = {cam: (c.get('friendly_name') or cam.replace('_', ' ').title()) for cam, c in (cfg.get('cameras') or {}).items()}
         for cam, c in (cfg.get('cameras') or {}).items():
             if c.get('enabled', True) is False:
                 continue
