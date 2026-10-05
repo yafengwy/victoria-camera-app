@@ -5,7 +5,7 @@
 # clip.mp4: the sound is taken out, so the video always plays silently on the phone. clip.gif gives the same seconds
 # as a moving picture, which the phone plays by itself as soon as the notification is opened. sound.mp4 keeps the
 # sound (for sound alerts, so the right sound can be checked by pressing and holding the notification).
-import json, time, re, os, glob, subprocess, tempfile, urllib.request
+import json, time, re, os, glob, subprocess, tempfile, threading, urllib.request
 from datetime import datetime, timezone
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
@@ -157,6 +157,44 @@ def stamped(cam, s, e, off, full=False):
         encode(['-i', a], stamp_vf(s + off, w), out, full)
         return open(out, 'rb').read()
 
+def make(path, cam, s, e, kind):
+    t0 = time.time()
+    ok = False
+    # wait for the recording (the phone gives up after ~30 s). Sound clips wait a little longer and never use the
+    # live stream: the sound is already in the past, and 9 live seconds on top made the phone give up
+    while time.time() - t0 < (25 if kind == 'sound.mp4' else 22):
+        if covered(cam, s, e):
+            ok = True; break
+        time.sleep(0.5)
+    # Frigate sometimes can't cut a very short piece right at the edge of a recording segment (some cameras,
+    # like Treat Feeder, write longer segments): try the asked seconds, then a slightly wider window once more.
+    body, err = None, None
+    # Frigate's clip starts on the full picture before the asked second, so it moves from the first frame and is
+    # usually a few seconds longer than asked (that is the clip as it always was).
+    for a, b, wait in (((s, e, 0), (s - 1, e + 3, 2)) if ok else ()):
+        try:
+            time.sleep(wait)
+            with urllib.request.urlopen(f'{FRIGATE}/api/{cam}/start/{a}/end/{b}/clip.mp4', timeout=30) as r:
+                body = r.read()
+            body = gif(body) if kind == 'clip.gif' else faststart(body) if kind == 'sound.mp4' else silent(body)
+            break
+        except Exception as x:
+            err = x; body = None
+            print('clip try failed', cam, a, b, kind, repr(x), flush=True)
+    if body is None and kind != 'sound.mp4':
+        try:
+            raw = live(cam, e - s, False)
+            body = gif(raw) if kind == 'clip.gif' else raw
+            print('clip from live stream', cam, s, e, kind, 'recording ready' if ok else 'recording not ready', flush=True)
+        except Exception as x:
+            err = x; body = None
+            print('live clip failed', cam, kind, repr(x), flush=True)
+    if body is not None and kind != 'clip.gif' and 'a=1' in path:
+        body = stretch(body)
+    return body, err
+
+CACHE, LOCKS, LOCK = {}, {}, threading.Lock()
+
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
         st = STAMP.match(self.path.split('?')[0])
@@ -176,49 +214,54 @@ class H(BaseHTTPRequestHandler):
         if not m:
             self.send_error(404); return
         cam, s, e, kind = m.group(1), int(m.group(2)), int(m.group(3)), m.group(4)
+        # The same notification video is asked for more than once (Android reads it in pieces and again when the
+        # notification is redrawn): the first request makes it, the others wait for it and get it at once, so a
+        # repeat never waits 20 s again and runs past the phone's limit (that made the Samsung video vanish).
+        key = self.path.split('?')[0] + ('?a=1' if 'a=1' in self.path else '')
         t0 = time.time()
-        ok = False
-        # wait for the recording (the phone gives up after ~30 s). Sound clips wait a little longer and never use the
-        # live stream: the sound is already in the past, and 9 live seconds on top made the phone give up
-        while time.time() - t0 < (25 if kind == 'sound.mp4' else 22):
-            if covered(cam, s, e):
-                ok = True; break
-            time.sleep(0.5)
-        # Frigate sometimes can't cut a very short piece right at the edge of a recording segment (some cameras,
-        # like Treat Feeder, write longer segments): try the asked seconds, then a slightly wider window once more.
-        body, err = None, None
-        # Frigate's clip starts on the full picture before the asked second, so it moves from the first frame and is
-        # usually a few seconds longer than asked (that is the clip as it always was).
-        for a, b, wait in (((s, e, 0), (s - 1, e + 3, 2)) if ok else ()):
-            try:
-                time.sleep(wait)
-                with urllib.request.urlopen(f'{FRIGATE}/api/{cam}/start/{a}/end/{b}/clip.mp4', timeout=30) as r:
-                    body = r.read()
-                body = gif(body) if kind == 'clip.gif' else faststart(body) if kind == 'sound.mp4' else silent(body)
-                break
-            except Exception as x:
-                err = x; body = None
-                print('clip try failed', cam, a, b, kind, repr(x), flush=True)
-        if body is None and kind != 'sound.mp4':
-            try:
-                raw = live(cam, e - s, False)
-                body = gif(raw) if kind == 'clip.gif' else raw
-                print('clip from live stream', cam, s, e, kind, 'recording ready' if ok else 'recording not ready', flush=True)
-            except Exception as x:
-                err = x; body = None
-                print('live clip failed', cam, kind, repr(x), flush=True)
-        if body is not None and kind != 'clip.gif' and 'a=1' in self.path:
-            body = stretch(body)
+        with LOCK:
+            lk = LOCKS.setdefault(key, threading.Lock())
+            for k in [k for k, v in CACHE.items() if time.time() - v[1] > 600]:
+                CACHE.pop(k, None); LOCKS.pop(k, None) if k != key else None
+        with lk:
+            hit = CACHE.get(key)
+            if hit:
+                body, err = hit[0], None
+            else:
+                body, err = make(self.path, cam, s, e, kind)
+                if body is not None:
+                    CACHE[key] = (body, time.time())
+        rng = re.match(r'bytes=(\d*)-(\d*)$', self.headers.get('Range', '') or '')
+        print('wait', cam, kind, 'a=1' if 'a=1' in self.path else '', 'cached' if hit else 'made',
+              f'{time.time() - t0:.1f}s', len(body) if body else 'FAILED', self.headers.get('Range', ''),
+              (self.headers.get('User-Agent', '') or '')[:40], flush=True)
         try:
             if body is None:
                 raise RuntimeError(err)
-            self.send_response(200)
+            n = len(body)
+            if rng and (rng.group(1) or rng.group(2)):
+                if rng.group(1):
+                    a = int(rng.group(1)); b = min(int(rng.group(2)) if rng.group(2) else n - 1, n - 1)
+                else:
+                    a = max(0, n - int(rng.group(2))); b = n - 1
+                if a >= n:
+                    self.send_response(416); self.send_header('Content-Range', f'bytes */{n}'); self.end_headers(); return
+                self.send_response(206)
+                self.send_header('Content-Range', f'bytes {a}-{b}/{n}')
+                part = body[a:b + 1]
+            else:
+                self.send_response(200)
+                part = body
             self.send_header('Content-Type', 'image/gif' if kind == 'clip.gif' else 'video/mp4')
-            self.send_header('Content-Length', str(len(body)))
+            self.send_header('Accept-Ranges', 'bytes')
+            self.send_header('Content-Length', str(len(part)))
             self.end_headers()
-            self.wfile.write(body)
+            self.wfile.write(part)
         except Exception:
-            self.send_error(502)
+            try:
+                self.send_error(502)
+            except Exception:
+                pass
     def log_message(self, *a):
         pass
 
