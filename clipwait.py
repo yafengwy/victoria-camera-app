@@ -66,6 +66,17 @@ def silent(body):
     except Exception:
         return body
 
+def streams(body):
+    # which streams a clip has, e.g. "video:hevc audio:pcm_alaw" (no "audio" = the recording has no sound)
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            a = os.path.join(d, 'in.mp4'); open(a, 'wb').write(body)
+            out = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'stream=codec_type,codec_name', '-of', 'csv=p=0', a],
+                                 capture_output=True, text=True, timeout=10).stdout.split()
+            return ' '.join(':'.join(reversed(x.split(','))) for x in out) or 'none'
+    except Exception as x:
+        return repr(x)
+
 def faststart(body):
     try:
         with tempfile.TemporaryDirectory() as d:
@@ -176,6 +187,8 @@ def make(path, cam, s, e, kind):
             time.sleep(wait)
             with urllib.request.urlopen(f'{FRIGATE}/api/{cam}/start/{a}/end/{b}/clip.mp4', timeout=30) as r:
                 body = r.read()
+            if kind == 'sound.mp4':
+                print('sound clip from Frigate', cam, a, b, 'streams:', streams(body), flush=True)
             body = gif(body) if kind == 'clip.gif' else faststart(body) if kind == 'sound.mp4' else silent(body)
             break
         except Exception as x:
