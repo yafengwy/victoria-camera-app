@@ -783,7 +783,9 @@ img.rf{opacity:0}
 .objqbox2 .objq{font-size:13px;font-weight:700;padding:0;color:var(--text)}
 .objqbox2 .objq::placeholder{color:var(--text);opacity:1}
 .objqbox{display:flex;align-items:center;padding:0 0 0 12px;gap:4px}
-html,body{overflow-x:hidden;max-width:100vw;overscroll-behavior-x:none;touch-action:manipulation}
+/* clip, not hidden: hidden on html+body made the body its own scroll box, which quietly switched off every sticky
+   header (Alerts title and filters, hour rail, Review top bar) */
+html,body{overflow-x:clip;max-width:100vw;overscroll-behavior-x:none;touch-action:manipulation}
 input,select,textarea{font-size:16px}
 .objq{flex:1;min-width:0;border:0;background:transparent;color:var(--head-fg);font:inherit;font-size:16px;padding:10px 0;outline:none}
 .objq:focus,.objq:focus-visible{outline:none !important;box-shadow:none}
@@ -4549,7 +4551,13 @@ const ACT = {
       if (n) {
         hourLock = d.v; setCur(d.v);
         clearTimeout(lockTimer); lockTimer = setTimeout(() => { hourLock = null; }, 1200);
-        window.scrollTo({ top: window.scrollY + n.getBoundingClientRect().top - evTopPx() - 6, behavior: 'smooth' });
+        /* that hour's first alert already fully on screen: leave the page where it is (scrolling there anyway pushed
+           the title and filters off the top and left empty space under the last alert) */
+        const r = n.getBoundingClientRect(), first = n.nextElementSibling, fb = first ? first.getBoundingClientRect().bottom : r.bottom;
+        if (!(r.top >= evTopPx() - 2 && fb <= innerHeight)) {
+          const maxY = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight) - innerHeight;
+          window.scrollTo({ top: Math.max(0, Math.min(maxY, window.scrollY + r.top - evTopPx() - 6)), behavior: 'smooth' });
+        }
       }
     }
   },
