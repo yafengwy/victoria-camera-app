@@ -2857,6 +2857,8 @@ function paintPanel() {
    the picked object; with no filter, about the most important one (person, package, animal, other, car). Its time,
    timeline icon, picture and video all follow that object.
    Start times of every tracked object come from Frigate one day at a time (today: only what is new). */
+let lastTouch = 0;
+['touchstart', 'pointerdown'].forEach(ev => document.addEventListener(ev, () => { lastTouch = Date.now(); }, { capture: true, passive: true }));
 const Arrive = {
   det: {}, asked: {}, q: [], busy: 0, got: 0, tm: 0,
   /* Only Interesting alerts with more than one object need this, and only the ones on screen; each object is one
@@ -2870,6 +2872,9 @@ const Arrive = {
     this.pump();
   },
   pump() {
+    /* background work waits while she is touching the screen or a video is starting, so taps always come first */
+    const loading = Object.values(Playback.st || {}).some(p => p.loading);
+    if (this.q.length && (Date.now() - lastTouch < 1500 || loading)) { clearTimeout(this.pt); this.pt = setTimeout(() => this.pump(), 800); return; }
     while (this.busy < 3 && this.q.length) {
       const d = this.q.shift(); this.busy++;
       Frigate.get('/api/events/' + encodeURIComponent(d)).then(r => { if (r) { this.det[d] = this.row(r); this.got++; } }).catch(() => {})
@@ -2923,7 +2928,7 @@ const Arrive = {
   redraw() {
     clearTimeout(this.tm);
     this.tm = setTimeout(() => {
-      if (S.dragging) return this.redraw();
+      if (S.dragging || Date.now() - lastTouch < 1500) return this.redraw();
       if (S.expanded) refreshTrack();
       const tr = S.focus && document.getElementById('ftrack'); if (tr) tr.innerHTML = fTrack(Data.cam(S.focus.cam));
       /* the camera view's cards and the Alerts list pick this up on their next redraw; redrawing whole pages from here

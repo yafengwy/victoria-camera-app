@@ -1921,7 +1921,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.6.5 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.6.6 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2857,6 +2857,8 @@ function paintPanel() {
    the picked object; with no filter, about the most important one (person, package, animal, other, car). Its time,
    timeline icon, picture and video all follow that object.
    Start times of every tracked object come from Frigate one day at a time (today: only what is new). */
+let lastTouch = 0;
+['touchstart', 'pointerdown'].forEach(ev => document.addEventListener(ev, () => { lastTouch = Date.now(); }, { capture: true, passive: true }));
 const Arrive = {
   det: {}, asked: {}, q: [], busy: 0, got: 0, tm: 0,
   /* Only Interesting alerts with more than one object need this, and only the ones on screen; each object is one
@@ -2870,6 +2872,9 @@ const Arrive = {
     this.pump();
   },
   pump() {
+    /* background work waits while she is touching the screen or a video is starting, so taps always come first */
+    const loading = Object.values(Playback.st || {}).some(p => p.loading);
+    if (this.q.length && (Date.now() - lastTouch < 1500 || loading)) { clearTimeout(this.pt); this.pt = setTimeout(() => this.pump(), 800); return; }
     while (this.busy < 3 && this.q.length) {
       const d = this.q.shift(); this.busy++;
       Frigate.get('/api/events/' + encodeURIComponent(d)).then(r => { if (r) { this.det[d] = this.row(r); this.got++; } }).catch(() => {})
@@ -2923,7 +2928,7 @@ const Arrive = {
   redraw() {
     clearTimeout(this.tm);
     this.tm = setTimeout(() => {
-      if (S.dragging) return this.redraw();
+      if (S.dragging || Date.now() - lastTouch < 1500) return this.redraw();
       if (S.expanded) refreshTrack();
       const tr = S.focus && document.getElementById('ftrack'); if (tr) tr.innerHTML = fTrack(Data.cam(S.focus.cam));
       /* the camera view's cards and the Alerts list pick this up on their next redraw; redrawing whole pages from here
@@ -4073,7 +4078,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.6.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.6.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -4176,7 +4181,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.6.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.6.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5057,7 +5062,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.6.5';
+    const BUILD = '2.6.6';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
