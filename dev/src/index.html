@@ -74,6 +74,8 @@ img.rf{opacity:0}
 .pairrow{container-type:inline-size}
 .pairrow > .cam.tall{flex:0 0 calc((100cqw - 8px) * 0.975 / 2.528)}
 .pairrow > .cam:not(.tall){flex:1 1 0}
+/* the camera beside the Doorbell keeps the right edge of its picture (--fx: 100% = right edge, 50% = centre) */
+.pairrow > .cam:not(.tall) .frame img,.pairrow > .cam:not(.tall) .frame video{object-position:var(--fx,100%) center}
 .pairrow > .cam:not(.tall) .frame{aspect-ratio:auto;height:calc((100cqw - 8px) * 1.3 / 2.528)}
 /* 3 or more per row: two rows tall, picture fills the card */
 .grid .cam.span2{grid-row:span 2;align-self:stretch;min-height:0}
