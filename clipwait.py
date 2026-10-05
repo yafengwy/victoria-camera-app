@@ -39,7 +39,10 @@ def silent(body):
         with tempfile.TemporaryDirectory() as d:
             a, b = os.path.join(d, 'in.mp4'), os.path.join(d, 'out.mp4')
             open(a, 'wb').write(body)
-            subprocess.run(['ffmpeg', '-v', 'error', '-i', a, '-an', '-c:v', 'copy', '-movflags', '+faststart', b], check=True, timeout=20)
+            # small H.264: Android phones (the Samsung) only show a notification video they can decode quickly;
+            # the cameras' own HEVC came through as nothing there
+            subprocess.run(['ffmpeg', '-v', 'error', '-i', a, '-an', '-vf', "scale='min(640,iw)':-2", '-c:v', 'libx264', '-preset', 'veryfast',
+                            '-crf', '27', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', b], check=True, timeout=25)
             return open(b, 'rb').read()
     except Exception:
         return body
@@ -51,8 +54,9 @@ def faststart(body):
             open(a, 'wb').write(body)
             # sound clips: picture copied, sound turned into AAC (some cameras record G.711 sound, which the
             # iPhone won't play inside an mp4, so those videos came out silent)
-            subprocess.run(['ffmpeg', '-v', 'error', '-i', a, '-map', '0:v:0', '-map', '0:a?', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '96k',
-                            '-movflags', '+faststart', b], check=True, timeout=20)
+            subprocess.run(['ffmpeg', '-v', 'error', '-i', a, '-map', '0:v:0', '-map', '0:a?', '-vf', "scale='min(640,iw)':-2", '-c:v', 'libx264',
+                            '-preset', 'veryfast', '-crf', '27', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '96k',
+                            '-movflags', '+faststart', b], check=True, timeout=25)
             return open(b, 'rb').read()
     except Exception:
         return body
