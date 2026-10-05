@@ -1962,7 +1962,9 @@ const Playback = {
     const p = this.st[id], seq = p.seq = (p.seq || 0) + 1; p.loading = true; p.loadT = t; p.on = false; p.win = null; this.paintVis(id);
     const gone = () => seq !== p.seq;          /* a newer tap started another load: drop this one */
     if (p.h) { p.h.destroy(); p.h = null; }    /* stop downloading the old spot at once, so the new tap gets the network */
-    let a = Math.floor(t / 1000) - 1, b = Math.min(Math.floor(now() / 1000), a + 180);   /* a short window: Frigate builds it faster */
+    /* the window starts a minute before the asked time, so −10 s, pause/play and small drags back stay inside it
+       (a new load on the iPhone takes a few seconds before it plays); still short enough for Frigate to build fast */
+    let a = Math.floor(t / 1000) - 61, b = Math.min(Math.floor(now() / 1000), a + 240);
     Dbg.log('load', id, hms(t), 'native=' + this.native());
     try {
       /* Start the video exactly at the beginning of the recording piece that holds t (pieces start on a key frame).
@@ -2022,6 +2024,9 @@ const Playback = {
           return;
         }
         if (S.camTime[id] != null && Math.abs(t - S.camTime[id]) > 5000 && S.camTime[id] === p.expect) Dbg.log('video moved time', id, hms(S.camTime[id]), '→', hms(t));
+        /* nothing was recorded at the asked time (Frigate keeps only moving parts), so the video went on to the next
+           recorded second: say so, so −10 s that stops there doesn't look broken */
+        if (S.focus && S.focus.cam === id && S.camTime[id] != null && t - S.camTime[id] > 5000 && S.camTime[id] === p.expect && Date.now() - (p.gapToast || 0) > 4000) { p.gapToast = Date.now(); toast('No Recording Before ' + hms(t)); }
         /* the user just jumped somewhere else (tapped an alert or Live): this update is from the old position, ignore it */
         if (S.camTime[id] !== p.expect && (S.camTime[id] == null || Math.abs(t - S.camTime[id]) > 2500)) return;
         p.lastSet = t; p.expect = t;
@@ -4498,10 +4503,24 @@ const ACT = {
   fseek(d) { Dbg.log('tap alert', hms(+d.t)); S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true; if (S.fpanel) render(); else { paintFocus(); Playback.sync(); } fuiKick(); },
   fbadge() { const id = S.focus && S.focus.cam; if (!id) return; if (camT(id) != null) { ACT.flive(); return; } if (!Ctl.on(id)) return; Live.restart(id); toast('Reconnecting'); },
   /* −10s / +10s in the camera view and full screen; going past now means Live */
-  fstep(d) {
+  async fstep(d) {
     const id = S.focus && S.focus.cam; if (!id) return;
-    const t = camT(id), nt = (t == null ? now() : t) + (+d.v) * 1000;
+    const t = camT(id), from = t == null ? now() : t; let nt = from + (+d.v) * 1000;
     if (nt >= now() - 1500) { ACT.flive(); return; }
+    /* going back into a stretch Frigate didn't record (it keeps only moving parts): go to the last recorded seconds
+       before it instead, so each −10 s keeps moving back through what was recorded */
+    if (+d.v < 0 && Data.source === 'frigate') {
+      try {
+        const rows = await Frigate.get('/api/' + id + '/recordings?after=' + Math.floor(nt / 1000 - 6 * 3600) + '&before=' + Math.ceil(nt / 1000 + 1));
+        if (!rows.some(r => r.start_time * 1000 <= nt && r.end_time * 1000 > nt)) {
+          const prev = rows.filter(r => r.end_time * 1000 <= nt + 1000).sort((a, b) => b.end_time - a.end_time)[0];
+          if (!prev) { toast('No Earlier Recording'); return; }
+          nt = Math.min(nt, prev.end_time * 1000 - 3000); toast('No Recording Here · Back To ' + hms(nt));
+          Dbg.log('step back over a gap', id, hms(from), '→', hms(nt));
+        }
+      } catch (e) {}
+      if (!S.focus || S.focus.cam !== id) return;
+    }
     S.camTime[id] = nt;
     const ds = dayStart(nt), de = ds === dayStart(now()) ? null : ds + DAY;
     if ((S.focus.dayEnd || null) !== de) { S.focus.dayEnd = de; render(); } else paintFocus();   /* crossed midnight: show that day's timeline */
