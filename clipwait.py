@@ -58,15 +58,16 @@ def font():
         f = glob.glob('/usr/share/fonts/**/DejaVuSans.ttf', recursive=True)
     return f[0] if f else None
 
-def stamp_vf(base):
+def stamp_vf(base, w=1920):
     fmt = '%Y/%m/%d %H\\\\\\:%M\\\\\\:%S'
     ff = font()
-    return ("scale='min(1920,iw)':-2,drawtext=" + (f'fontfile={ff}:' if ff else '') +
+    return (f"scale='min({w},iw)':-2,drawtext=" + (f'fontfile={ff}:' if ff else '') +
             "text='%{pts\\:gmtime\\:" + str(base) + "\\:" + fmt + "}':x=16:y=16:fontsize=h/24:fontcolor=white:box=1:boxcolor=black@0.55:boxborderw=8")
 
 def encode(args, vf, out):
     subprocess.run(['ffmpeg', '-v', 'error'] + args + ['-map', '0:v:0', '-map', '0:a?', '-vf', vf, '-c:v', 'libx264', '-preset', 'veryfast',
-                    '-crf', '23', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-movflags', '+faststart', '-y', out], check=True, timeout=900)
+                    '-crf', '23', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-level:v', '4.1', '-tag:v', 'avc1',
+                    '-c:a', 'aac', '-ar', '44100', '-movflags', '+faststart', '-y', out], check=True, timeout=900)
 
 def stamped(cam, s, e, off):
     # The recording pieces themselves (each piece's start time is known exactly), joined and cut on the exact second,
@@ -93,14 +94,14 @@ def stamped(cam, s, e, off):
             lst = os.path.join(d, 'list.txt')
             open(lst, 'w').write(''.join(f"file '{f}'\n" for f in files))
             out = os.path.join(d, 'out.mp4')
-            encode(['-f', 'concat', '-safe', '0', '-ss', str(max(0, s - rows[0]['start_time'])), '-i', lst, '-t', str(e - s)], stamp_vf(s + off), out)
+            encode(['-f', 'concat', '-safe', '0', '-ss', str(max(0, s - rows[0]['start_time'])), '-i', lst, '-t', str(e - s)], stamp_vf(s + off, 1920 if e - s <= 120 else 1280), out)
             return open(out, 'rb').read()
         except Exception as x:
             print('stamp from pieces failed, using the clip:', cam, s, e, x)
         a, out = os.path.join(d, 'in.mp4'), os.path.join(d, 'out2.mp4')
         with urllib.request.urlopen(f'{FRIGATE}/api/{cam}/start/{s}/end/{e}/clip.mp4', timeout=60) as r:
             open(a, 'wb').write(r.read())
-        encode(['-i', a], stamp_vf(s + off), out)
+        encode(['-i', a], stamp_vf(s + off, 1920 if e - s <= 120 else 1280), out)
         return open(out, 'rb').read()
 
 class H(BaseHTTPRequestHandler):

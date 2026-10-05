@@ -3939,7 +3939,8 @@ async function fetchWithBar(url, text, from, est) {
   const blob = new Blob(parts, { type: 'video/mp4' }); if (!blob.size) throw new Error('empty'); return blob;
 }
 function deliver(blob, name) {
-  const file = new File([blob], name, { type: 'video/mp4' }), phone = /iPhone|iPad|Android/.test(navigator.userAgent);
+  const file = new File([blob], name, { type: 'video/mp4' }), phone = /iPhone|iPad/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  /* Android's share sheet has no Save To Gallery, so Android downloads the file straight away (Gallery shows the Downloads folder); iPhone uses the share sheet's Save Video */
   Dbg.log('save ready', name, Math.round(blob.size / 1024) + 'KB', 'share ' + !!(navigator.canShare && navigator.canShare({ files: [file] })));
   if (phone && navigator.canShare && navigator.canShare({ files: [file] })) {
     clearInterval(SaveBar.tm); const b = SaveBar.el(); b.hidden = false;
@@ -3954,7 +3955,7 @@ function deliver(blob, name) {
     SaveBar.busy = false; return;
   }
   const u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(u), 60000); SaveBar.end(); toast('Video Saved');
+  setTimeout(() => URL.revokeObjectURL(u), 60000); SaveBar.end(); toast(/Android/.test(navigator.userAgent) ? 'Video Saved · Downloads' : 'Video Saved');
 }
 /* Downloads come with the date and time burned into the top-left corner (made on the mini PC, which takes a moment);
    if that fails, the plain video is saved instead. */
