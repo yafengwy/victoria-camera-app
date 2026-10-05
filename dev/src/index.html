@@ -1557,8 +1557,10 @@ const Frigate = {
       const det = r.data && r.data.detections && r.data.detections[0], dets = (r.data && r.data.detections) || [];
       /* delivery logos Frigate+ found on a car (sub labels, or listed as objects) and people's names (face recognition,
          or a name given in this app) are shown after the object: "Car · UPS", "Person · Victoria" */
-      const subs = [...new Set([...sl, ...objs].map(x => x.toLowerCase()).filter(isLogo))];
+      let subs = [...new Set([...sl, ...objs].map(x => x.toLowerCase()).filter(isLogo))];
       const names = [...sl.filter(x => !isLogo(x.toLowerCase()) && x.toLowerCase() !== 'unknown'), ...dets.map(d => People.sub[d]).filter(Boolean)].map(niceName);
+      /* a car given its own name here (say Weee) overrides a company the model guessed (FedEx): the name is the truth */
+      if (/^car$/i.test(label) && names.length) subs = [];
       const who = [...new Set([...subs.map(coName), ...names])].join(' · ');
       return {
         id: r.id, cam: r.camera, t: r.start_time * 1000, end: (r.end_time || r.start_time) * 1000, label, objs: allObjs, dets, who, logo: subs[0] || '',
@@ -2194,6 +2196,7 @@ const People = {
 };
 function whoOf(e) {   /* recompute the names shown on one alert after a change here */
   const names = e.dets.map(d => People.sub[d]).filter(Boolean).map(niceName);
+  if (/^car$/i.test(e.label) && names.length) { e.logo = ''; e.subs = []; }   /* its own name beats a guessed company */
   e.who = [...new Set([...(e.logo ? [coName(e.logo)] : []), ...names])].join(' · ');
 }
 const Wait = {
