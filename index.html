@@ -1423,7 +1423,7 @@ function OBJS() {
   if (Data.source === 'frigate' && Data.logos) WAIT_CO.forEach(c => set.add(c[1]));   /* delivery companies, picked on their own */
   (Data.events || []).forEach(e => { if (e.label && e.label !== 'Motion') set.add(e.label); });
   [S.filt, S.rv && S.rv.f].forEach(f => { if (f) Object.keys(f.objs || {}).forEach(k => { if (f.objs[k]) set.add(k); }); });   /* keep showing what was picked */
-  set.delete('Bird');   /* no camera looks for birds any more; old bird alerts don't need a filter */
+  set.delete('Bird'); set.delete('Waste_bin');   /* waste bins are no longer looked for */   /* no camera looks for birds any more; old bird alerts don't need a filter */
   return [...set].sort((a, b) => objTier(a) - objTier(b) || a.localeCompare(b));
 }
 /* Is this object chosen? Nothing turned off = everything shows (also objects not in the list). Once some are turned
@@ -1549,7 +1549,7 @@ const Frigate = {
   mapReviews(rows) {
     return rows.map(r => {
       /* Frigate calls a person it recognized "person-verified": treat it as a person */
-      const objs = ((r.data && r.data.objects) || []).map(o => String(o).replace(/-verified$/, '')), sl = ((r.data && r.data.sub_labels) || []).map(x => String(Array.isArray(x) ? x[0] : x));
+      const objs = ((r.data && r.data.objects) || []).map(o => String(o).replace(/-verified$/, '')).filter(o => o !== 'waste_bin'), sl = ((r.data && r.data.sub_labels) || []).map(x => String(Array.isArray(x) ? x[0] : x));
       const cap = o => isLogo(o) ? coName(o) : o.replace(/^\w/, m => m.toUpperCase());
       const label = cap(objs.find(o => !isAttr(o)) || objs[0] || 'motion');
       /* every object in the alert (a person carrying a package is listed under Person but also counts for Package) */
@@ -1569,7 +1569,7 @@ const Frigate = {
         vod: this.base() + '/vod/' + r.camera + '/start/' + Math.floor(r.start_time - 1) + '/end/' + Math.ceil((r.end_time || r.start_time + 20) + 1) + '/index.m3u8',
         clip: this.base() + '/api/' + r.camera + '/start/' + Math.floor(r.start_time - 1) + '/end/' + Math.ceil((r.end_time || r.start_time + 20) + 2) + '/clip.mp4'
       };
-    }).sort((a, b) => b.t - a.t);
+    }).filter((e, i) => e.label !== 'Motion' || !(((rows[i].data || {}).objects || []).includes('waste_bin'))).sort((a, b) => b.t - a.t);
   },
   /* New and still-running alerts: every 10 s fetch the last 2 hours and merge them in (the list used to load only at start) */
   async refresh() {
@@ -1903,7 +1903,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.5.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.5.3 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2025,8 +2025,9 @@ const Playback = {
     if (Data.source !== 'frigate') return;
     Live.policy();
     document.querySelectorAll('video[data-hls]:not([data-on])').forEach(v => {     /* alert cards */
-      v.dataset.on = '1'; const u = v.dataset.hls;
+      v.dataset.on = '1'; const u = v.dataset.hls, st = +v.dataset.st || 0;
       v.addEventListener('playing', () => { v.style.opacity = '1'; });
+      if (st > 0) v.addEventListener('loadedmetadata', () => { if (v.currentTime < st - 1) v.currentTime = st; }, { once: true });   /* start where the picked object shows up */
       /* alert-card and full-screen players: say what happened, so a clip that never starts shows up in the Playback Log */
       const tag = (u.match(/\/vod\/([^/]+)\/start\/(\d+)\/end\/(\d+)/) || []).slice(1).map((x, i) => i ? hms(+x * 1000) : x).join(' ');
       Dbg.log('alert clip', tag, this.native() ? 'native' : 'hls.js');
@@ -2816,26 +2817,30 @@ function paintPanel() {
   const tr = document.getElementById('track'); if (tr) tr.setAttribute('aria-valuetext', live ? 'Live' : hms(t));
   paintCam(id);
 }
-/* When an alert's own object first showed up. A review item opens on the first activity (a car driving by, a van)
-   and the person may join minutes later, so timeline icons sit where that object arrived, not where the item opened.
-   Looked up once per alert from its detections (same cache as the Review page's jump), then the timelines redraw. */
+/* Which object an alert is "about" and when that object showed up. A review item opens on the first activity (a waste
+   bin, a car driving by) and the person or package may join minutes later. With an object filter, the alert is about
+   the picked object; with no filter, about the most important one (person, package, animal, other, car). Its time,
+   timeline icon, picture and video all follow that object.
+   Start times of every tracked object come from Frigate one day at a time (today: only what is new). */
 const Arrive = {
-  ot: {}, busy: {}, tm: 0,
-  t(e) { return this.ot[e.id] || e.t; },
+  days: {}, det: {}, tm: 0,
   want(evs) {
-    if (Data.source !== 'frigate') return;
-    evs.forEach(e => {
-      if (this.ot[e.id] || this.busy[e.id] || !e.dets || !e.dets.length || /^motion$/i.test(e.label)) return;
-      this.busy[e.id] = 1;
-      const want = String(e.label).toLowerCase();
-      Promise.all(e.dets.slice(0, 12).map(d => rvDetStart[d] || (rvDetStart[d] = Frigate.get('/api/events/' + encodeURIComponent(d)).then(r => r ? { l: String(r.label || '').toLowerCase(), t: r.start_time * 1000 } : null).catch(() => null))))
-        .then(rs => {
-          const ts = rs.filter(r => r && r.l === want && r.t && r.t >= e.t - 1000).map(r => r.t);   /* a parked object seen long before doesn't count */
-          const ot = ts.length ? Math.min(e.end || Infinity, Math.max(e.t, Math.min(...ts))) : e.t;
-          this.ot[e.id] = ot;
-          if (ot - e.t > 3000) { Dbg.log('icon moved to object start', e.cam, e.label, hms(e.t), '→', hms(ot)); this.redraw(); }
-        }).catch(() => { delete this.busy[e.id]; });
+    if (Data.source !== 'frigate' || !evs.length) return;
+    new Set(evs.map(e => dayStart(e.t))).forEach(d0 => {
+      const k = this.days[d0], today = d0 === dayStart(now());
+      if (k && (k.busy || !today || now() - k.at < 20000)) return;
+      const from = k && today ? k.at - 10 * MIN : d0 - 10 * MIN;
+      this.days[d0] = { busy: true, at: k ? k.at : 0 }; const at = now();
+      Frigate.get('/api/events?after=' + Math.floor(from / 1000) + '&before=' + Math.ceil(Math.min(d0 + DAY, now() + MIN) / 1000) + '&limit=5000&include_thumbnails=0')
+        .then(rows => { let n = 0; (rows || []).forEach(r => { if (!this.det[r.id]) n++; this.det[r.id] = { l: String(r.label || '').toLowerCase(), t: r.start_time * 1000 }; }); this.days[d0] = { at }; if (n) this.redraw(); })
+        .catch(() => { this.days[d0] = { at }; });
     });
+  },
+  /* first time this object showed up inside the alert (one parked there since before the alert doesn't count) */
+  at(e, label) {
+    const want = String(label).toLowerCase(); let best = Infinity, did = null;
+    (e.dets || []).forEach(d => { const x = this.det[d] || rvDetStart[d]; if (x && x.t && x.l === want && x.t >= e.t - 1000 && x.t < best) { best = x.t; did = d; } });
+    return best < Infinity ? { t: Math.min(best, e.end || best), d: did } : null;
   },
   redraw() {
     clearTimeout(this.tm);
@@ -2843,36 +2848,46 @@ const Arrive = {
       if (S.dragging) return this.redraw();
       if (S.expanded) refreshTrack();
       const tr = S.focus && document.getElementById('ftrack'); if (tr) tr.innerHTML = fTrack(Data.cam(S.focus.cam));
+      if (S.view === 'review' && !S.focus) { if (rvBkArgs) rvBuckets(...rvBkArgs); rvDrawn = null; drawRvTrack(true); const l = document.getElementById('rvlist'); if (l) l.outerHTML = rvListHtml(rvCams(), rvBkArgs ? rvBkArgs[1] : now()); }
+      if (S.view === 'events' && !S.focus && !S.evPlay) render();
     }, 400);
   }
 };
+const objRank = l => { l = String(l).toLowerCase(); return l === 'person' ? 0 : l === 'package' ? 1 : ANIMALS.includes(l) ? 2 : l === 'car' ? 4 : 3; };
+function pick(e, f) {
+  let c = e.objs && e.objs.length ? e.objs : [e.label];
+  if (f) { const p = c.filter(o => objOn(f, o)); if (p.length) c = p; }
+  const L = c.slice().sort((a, b) => objRank(a) - objRank(b))[0] || e.label, a = Arrive.at(e, L);
+  return { label: L, t: a ? a.t : e.t, d: a ? a.d : null, moved: !!a && a.t - e.t > 3000 };
+}
 /* Alerts on the small track: alerts closer than ~20px are merged into one icon (most common object) with a count.
    Tapping the track (no drag) snaps to the nearest alert within reach and plays it from its start. */
 function trackMarks(evs, start, win, widthPx) {
-  const list = evs.filter(e => (e.end || e.t) >= start && e.t <= start + win).filter(e => Arrive.t(e) >= start && Arrive.t(e) <= start + win).sort((a, b) => Arrive.t(a) - Arrive.t(b));
-  Arrive.want(evs.filter(e => (e.end || e.t) >= start && e.t <= start + win));
+  const near = evs.filter(e => (e.end || e.t) >= start && e.t <= start + win); Arrive.want(near);
+  const pk = new Map(near.map(e => [e, pick(e, S.filt)])), T = e => pk.get(e).t;
+  const list = near.filter(e => T(e) >= start && T(e) <= start + win).sort((a, b) => T(a) - T(b));
   const lanes = S.markStyle === 'b';
   const groups = [];
   const lastOf = {};
   list.forEach(e => {
-    const x = (Arrive.t(e) - start) / win * widthPx, key = lanes ? (e.interesting ? 'i' : 'u') : 'all', g = lastOf[key];
+    const x = (T(e) - start) / win * widthPx, key = lanes ? (e.interesting ? 'i' : 'u') : 'all', g = lastOf[key];
     if (g && x - g.x0 < 20) g.items.push(e); else { const ng = { x0: x, items: [e], key }; groups.push(ng); lastOf[key] = ng; }
   });
   return groups.map(g => {
-    const cnt = {}; g.items.forEach(e => cnt[e.label] = (cnt[e.label] || 0) + 1);
+    const cnt = {}; g.items.forEach(e => { const L = ico(e, pk.get(e)); cnt[L] = (cnt[L] || 0) + 1; });
     const top = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0], hot = g.items.some(e => e.interesting);
-    const mid = (Arrive.t(g.items[0]) + Arrive.t(g.items[g.items.length - 1])) / 2, pct = (mid - start) / win * 100;
+    const mid = (T(g.items[0]) + T(g.items[g.items.length - 1])) / 2, pct = (mid - start) / win * 100;
     const cls = lanes ? (hot ? ' lane ltop' : ' lane lbot') : (hot ? (S.markStyle === 'e' ? ' ring' : S.markStyle === 'd' ? ' mdot' : ' hot') : (S.markStyle === 'd' ? ' mdotu' : ''));
-    return '<span class="segi' + cls + '" style="left:' + pct.toFixed(2) + '%" title="' + esc(top) + ' ' + hm(Arrive.t(g.items[0])) + '">' + objIcon(top) + (g.items.length > 1 ? '<b class="segn"><i>' + g.items.length + '</i></b>' : '') + '</span>';
+    return '<span class="segi' + cls + '" style="left:' + pct.toFixed(2) + '%" title="' + esc(top) + ' ' + hm(T(g.items[0])) + '">' + objIcon(top) + (g.items.length > 1 ? '<b class="segn"><i>' + g.items.length + '</i></b>' : '') + '</span>';
   }).join('');
 }
 function snapAlert(clientX, mouse) {
   const tr = document.getElementById('track'); if (!tr || !S.expanded) return false;
   const r = tr.getBoundingClientRect(), start = S.winEnd - S.win;
   let best = null, bd = mouse ? 12 : 24;     /* a mouse is exact: only a click on the icon itself goes to the alert */
-  camEvents(S.expanded).forEach(e => { const at = Arrive.t(e); if (at < start || at > S.winEnd) return; const d = Math.abs(r.left + (at - start) / S.win * r.width - clientX); if (d < bd) { bd = d; best = e; } });
+  camEvents(S.expanded).forEach(e => { const at = pick(e, S.filt).t; if (at < start || at > S.winEnd) return; const d = Math.abs(r.left + (at - start) / S.win * r.width - clientX); if (d < bd) { bd = d; best = e; } });
   if (!best) return false;
-  seek(S.expanded, Arrive.t(best) - 1000); S.playing = true; refreshTrack(); paintPanel(); Playback.sync();
+  seek(S.expanded, pick(best, S.filt).t - 1000); S.playing = true; refreshTrack(); paintPanel(); Playback.sync();
   const pp = document.querySelector('.ppgroup [data-act="playpause"],[data-act="playpause"]'); if (pp) pp.innerHTML = I.pause;
   thumbTo(best.t);
   return true;
@@ -2899,11 +2914,17 @@ function refreshTrack() {
 /* ===== Events page ===== */
 /* Alert card media. Frigate: a short muted looping preview plays while the card is on screen; Play loads the
    full clip in place with controls. Demo: still frames, Play steps through the event in place. */
+/* the card's picture: Frigate's own frame, or (when the alert is about an object that came later) that object's snapshot */
+function evImg(e, p) {
+  if (!p || !p.moved || !p.d || Data.source !== 'frigate') return e.img;
+  const u = Frigate.base() + '/api/events/' + p.d + '/snapshot.jpg?height=480'; Frigate.fb[u] = e.img; return u;
+}
 function evMedia(e) {
-  const playing = S.evPlay === e.id;
+  const playing = S.evPlay === e.id, p = pick(e, S.filt);
   if (Data.source === 'frigate') {
-    if (playing) return '<img src="' + e.img + '" alt="" loading="lazy"><video class="evv" data-hls="' + e.vod + '" autoplay muted controls playsinline style="opacity:0"></video>';
-    return '<img src="' + e.img + '" alt="" loading="lazy">';
+    const st = p.moved ? Math.max(0, (p.t - Math.floor(e.t / 1000 - 1) * 1000) / 1000 - 1) : 0;
+    if (playing) return '<img src="' + evImg(e, p) + '" alt="" loading="lazy"><video class="evv" data-hls="' + e.vod + '" data-st="' + st.toFixed(1) + '" autoplay muted controls playsinline style="opacity:0"></video>';
+    return '<img src="' + evImg(e, p) + '" alt="" loading="lazy">';
   }
   const dur = Math.max(4000, (e.end || e.t) - e.t);
   return '<img src="' + (playing ? Data.frame(Data.cam(e.cam), e.t + (S.evPos || 0) * dur).img : e.img) + '" alt="" loading="lazy">' +
@@ -2925,7 +2946,7 @@ function viewEvents() {
   const days = [];
   for (let i = 0; i < 7; i++) { const d0 = today - i * DAY; days.push({ i, d0, n: visible.filter(e => e.t >= d0 && e.t < d0 + DAY).length }); }
   const d0 = days[S.evDay].d0;
-  const list = visible.filter(e => e.t >= d0 && e.t < d0 + DAY);
+  const list = visible.filter(e => e.t >= d0 && e.t < d0 + DAY); Arrive.want(list);
   const EONE = !COVER && rvOneRow();   /* computer: one row like Review — Reset, Cameras, Objects, Boxes on the left */
   let h = EONE ? '<div class="evtop"><div class="evbar one">' + evBarOne(visible.length) + '</div>' : '<div class="evtop"><div class="evbar"><span style="flex:1">Alerts</span>' + (COVER ? evStrip() : '') + (Data.source === 'frigate' ? '<button class="ic bxbtn2" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '<button class="ic" style="color:var(--head-fg)" data-act="go" data-v="home" aria-label="Close">' + I.x + '</button></div>';
   if (!COVER && !EONE) h += '<button class="fbtn" data-act="filters" aria-expanded="' + S.filtersOpen + '"><span>Filters</span><span class="fcount">' + visible.length + ' In 7 Days</span><span style="color:var(--sub);display:flex">' + (S.filtersOpen ? I.up : I.down) + '</span></button>';
@@ -2941,14 +2962,14 @@ function viewEvents() {
     sel = list.find(e => e.id === S.evSel) || list[0] || null; S.evSel = sel ? sel.id : null;
     h += '<div class="evwrap wide"><div class="evplayer" id="evplayer">';
     if (sel) {
-      const sc = Data.cam(sel.cam);
-      h += '<article class="evcard big' + (sel.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(sel)) + '</i>' + esc(lab(sel)) + ' At ' + hms(sel.t) + '</b><span>' + esc(sc ? sc.name : sel.cam) + '</span></div>' +
+      const sc = Data.cam(sel.cam), sp = pick(sel, f);
+      h += '<article class="evcard big' + (sel.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(sel, sp)) + '</i>' + esc(lab(sel, sp)) + ' At ' + hms(sp.t) + '</b><span>' + esc(sc ? sc.name : sel.cam) + '</span></div>' +
         (sel.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(sel.id) + '">' + (sel.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
-        '<button class="ic" aria-label="Open Camera" data-act="focusat" data-id="' + esc(sel.cam) + '" data-t="' + sel.t + '">' + I.expand + '</button>' +
+        '<button class="ic" aria-label="Open Camera" data-act="focusat" data-id="' + esc(sel.cam) + '" data-t="' + sp.t + '">' + I.expand + '</button>' +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(sel.id) + '">' + I.dl + '</button>' +
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(sel.id) + '">' + I.trash + '</button>' : '') +
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(sel.id) + '">' + (S.evPlay === sel.id ? I.pause : I.playO) + '</button></div>' +
-        '<div class="evmedia" id="evm-' + esc(sel.id) + '" data-act="evtap" data-v="' + esc(sel.id) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(sel)) + ' At ' + hms(sel.t) + ' Full Screen">' + evMedia(sel) + '</div></article>';
+        '<div class="evmedia" id="evm-' + esc(sel.id) + '" data-act="evtap" data-v="' + esc(sel.id) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(sel, sp)) + ' At ' + hms(sp.t) + ' Full Screen">' + evMedia(sel) + '</div></article>';
     } else h += '<div class="empty">No alerts on this day with the current filters.</div>';
     h += '</div><div class="evlist">';
   } else h += '<div class="evwrap"><div class="evlist">';
@@ -2956,20 +2977,20 @@ function viewEvents() {
   Object.keys(byHour).map(Number).sort((a, b) => b - a).forEach(hr => {
     h += '<div class="hourh" id="hour-' + hr + '"></div>';
     byHour[hr].forEach(e => {
-      const cam = Data.cam(e.cam);
+      const cam = Data.cam(e.cam), p = pick(e, f);
       if (wide) {
-        h += '<article class="evrow' + (e.interesting ? '' : ' dim') + (sel && sel.id === e.id ? ' sel' : '') + '" data-act="evsel" data-v="' + esc(e.id) + '"><img src="' + e.img + '" alt="" loading="lazy">' +
-          '<div class="evt"><b><i class="lico">' + objIcon(ico(e)) + '</i>' + esc(lab(e)) + ' At ' + hms(e.t) + '</b><span>' + esc(cam ? cam.name : e.cam) + ' · ' + durLabel(e) + '</span></div>' +
+        h += '<article class="evrow' + (e.interesting ? '' : ' dim') + (sel && sel.id === e.id ? ' sel' : '') + '" data-act="evsel" data-v="' + esc(e.id) + '"><img src="' + evImg(e, p) + '" alt="" loading="lazy">' +
+          '<div class="evt"><b><i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(lab(e, p)) + ' At ' + hms(p.t) + '</b><span>' + esc(cam ? cam.name : e.cam) + ' · ' + durLabel(e) + '</span></div>' +
           '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(e.id) + '">' + I.dl + '</button></article>';
         return;
       }
-      h += '<article class="evcard' + (e.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(e)) + '</i>' + esc(lab(e)) + ' At ' + hms(e.t) + '</b><span>' + esc(cam ? cam.name : e.cam) + '</span></div>' +
+      h += '<article class="evcard' + (e.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(lab(e, p)) + ' At ' + hms(p.t) + '</b><span>' + esc(cam ? cam.name : e.cam) + '</span></div>' +
         (e.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(e.id) + '">' + I.dl + '</button>' +
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(e.id) + '">' + I.trash + '</button>' : '') +
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(e.id) + '">' + (S.evPlay === e.id ? I.pause : I.playO) + '</button>' +
 '</div>' +
-        '<div class="evmedia" id="evm-' + esc(e.id) + '" data-act="evtap" data-v="' + esc(e.id) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(e)) + ' At ' + hms(e.t) + ' Full Screen">' + evMedia(e) + '</div></article>';
+        '<div class="evmedia" id="evm-' + esc(e.id) + '" data-act="evtap" data-v="' + esc(e.id) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(e, p)) + ' At ' + hms(p.t) + ' Full Screen">' + evMedia(e) + '</div></article>';
     });
   });
   const maxN = Math.max(1, ...Object.values(byHour).map(v => v.length));
@@ -3241,13 +3262,14 @@ function fTrack(c) {
   }
   let lastIc = -1e9; const icons = [];
   const fevs = camEvents(c.id).filter(e => e.t <= end && (e.end || e.t) > end - FSPAN); Arrive.want(fevs);
-  fevs.sort((a, b) => Arrive.t(b) - Arrive.t(a)).forEach(e => {
+  const fpk = new Map(fevs.map(e => [e, pick(e, S.filt)]));
+  fevs.sort((a, b) => fpk.get(b).t - fpk.get(a).t).forEach(e => {
     const y0 = Y(Math.max(e.end || e.t, e.t + 5000)), y1 = Math.max(Y(e.t), y0 + 3);
-    tr += '<button class="fseg' + (e.interesting ? '' : ' un') + '" data-act="fseek" data-t="' + e.t + '" aria-label="' + esc(lab(e)) + ' At ' + hm(e.t) + '" style="top:' + y0.toFixed(1) + 'px;height:' + (y1 - y0).toFixed(1) + 'px"></button>';
-    const yc = Arrive.ot[e.id] ? clamp(Y(Arrive.t(e)), y0, y1) : (y0 + y1) / 2;   /* where its object arrived, once known */
+    tr += '<button class="fseg' + (e.interesting ? '' : ' un') + '" data-act="fseek" data-t="' + fpk.get(e).t + '" aria-label="' + esc(lab(e)) + ' At ' + hm(e.t) + '" style="top:' + y0.toFixed(1) + 'px;height:' + (y1 - y0).toFixed(1) + 'px"></button>';
+    const yc = fpk.get(e).moved ? clamp(Y(fpk.get(e).t), y0, y1) : (y0 + y1) / 2;   /* where its object arrived, once known */
     if (yc - lastIc >= 18) { lastIc = yc; icons.push({ e, yc, n: 1 }); } else if (icons.length) icons[icons.length - 1].n++;   /* close ones add to the count */
   });
-  icons.forEach(g => { tr += '<span class="fico' + (g.e.interesting ? '' : ' un') + '" style="top:' + (g.yc - 7.5).toFixed(1) + 'px">' + objIcon(ico(g.e)) + (g.n > 1 ? '<b class="segn"><i>' + g.n + '</i></b>' : '') + '</span>'; });
+  icons.forEach(g => { tr += '<span class="fico' + (g.e.interesting ? '' : ' un') + '" style="top:' + (g.yc - 7.5).toFixed(1) + 'px">' + objIcon(ico(g.e, fpk.get(g.e))) + (g.n > 1 ? '<b class="segn"><i>' + g.n + '</i></b>' : '') + '</span>'; });
   return tr;
 }
 function fZoom(px) {
@@ -3641,8 +3663,8 @@ const ICON_SVG = {
 const ICON_OF = {"person": "person", "baby": "person", "face": "face", "cat": "cat", "dog": "dog", "bird": "bird", "bear": "bear", "raccoon": "fox", "fox": "fox", "squirrel": "squirrel", "rabbit": "rabbit", "rodent": "rodent", "skunk": "rodent", "possum": "rodent", "deer": "paw", "horse": "paw", "cow": "paw", "goat": "paw", "kangaroo": "paw", "sheep": "paw", "car": "car", "license_plate": "car", "truck": "truck", "bus": "truck", "garbage truck": "truck", "garbage_truck": "truck", "school_bus": "truck", "amazon": "van", "usps": "van", "ups": "van", "fedex": "van", "dhl": "van", "motorcycle": "bike", "bicycle": "bike", "package": "package", "backpack": "bag", "handbag": "bag", "suitcase": "bag", "umbrella": "bag", "laptop": "bag", "remote": "bag", "cell phone": "bag", "cell_phone": "bag", "waste_bin": "bag", "baby_stroller": "bag"};
 const objIcon = label => ICON_SVG[ICON_OF[String(label).toLowerCase()] || 'paw'];
 /* what an alert is called on screen: the object, plus the delivery company or the person's name when known */
-function lab(e) { return e.who || objName(e.label); }   /* 'Waste_bin' shows as 'Waste Bin' */   /* a known name or delivery company replaces the object name */
-function ico(e) { return e.logo || e.label; }
+function lab(e, p) { if (p && p.label !== e.label && !/^(person|car)$/i.test(p.label)) return objName(p.label); return e.who || objName(p ? p.label : e.label); }   /* 'Waste_bin' shows as 'Waste Bin' */   /* a known name or delivery company replaces the object name */
+function ico(e, p) { const L = p ? p.label : e.label; return /^car$/i.test(L) || L === e.label ? (e.logo || L) : L; }
 const OBJ_ICON = new Proxy({}, { get: (_, k) => objIcon(k) });
 function drawRvTrack(force) {
   const tr = document.getElementById('rvtrack'); if (!tr) return;
@@ -3708,6 +3730,16 @@ function rvZoom(span) {
 }
 /* Alert list instead of the timeline (the bell on the Review page, like the camera view's): every alert of the chosen
    cameras that passes the alert filter (Interesting, plus Uninteresting when chosen), newest first, by day */
+/* activity per minute for the picked cameras. Each alert counts from when its picked object shows up (see pick) */
+let rvBkArgs = null;
+function rvBuckets(ids, end) {
+  rvBkArgs = [ids, end]; rvBk = new Map(); rvHasCams = ids.length > 0;
+  const evs = Data.events.filter(e => ids.includes(e.cam) && e.t > end - RSPAN); Arrive.want(evs);
+  evs.forEach(e => {
+    const sel = rvPass(e), p = sel ? pick(e, S.rv.f) : null, L = p ? ico(e, p) : '', t0 = p ? p.t : e.t;
+    for (let m = Math.floor(t0 / MIN); m <= Math.floor(Math.max(t0, e.end || e.t) / MIN); m++) { const b = rvBk.get(m) || { n: 0, hot: false, other: 0, lab: {}, first: {}, hl: {} }; if (sel) { b.n++; b.hot = b.hot || e.interesting; if (e.interesting) b.hl[L] = 1; b.lab[L] = (b.lab[L] || 0) + 1; if (!(b.first[L] <= t0)) b.first[L] = t0; } else b.other++; rvBk.set(m, b); }
+  });
+}
 function rvListEvents(cams, end) {
   const ids = cams.map(c => c.id);
   return Data.events.filter(e => ids.includes(e.cam) && e.t > end - RSPAN && e.t <= end && rvPass(e)).sort((a, b) => b.t - a.t).slice(0, 300);
@@ -3719,8 +3751,8 @@ function rvListHtml(cams, end) {
   evs.forEach(e => {
     const dl = dayStart(e.t) === dayStart(now()) ? 'Today' : dayStart(e.t) === dayStart(now() - DAY) ? 'Yesterday' : dayLabel(e.t);
     if (dl !== lastDay) { h += '<div class="rvl-h">' + dl + '</div>'; lastDay = dl; }
-    const c = Data.cam(e.cam), cur = t != null && t >= e.t - 3000 && t <= (e.end || e.t) + 3000;
-    h += '<button class="rvli' + (cur ? ' cur' : '') + (e.interesting ? '' : ' un') + '" data-act="rvlpick" data-t="' + e.t + '" data-id="' + e.cam + '"><img src="' + e.img + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e)) + '</i>' + esc(lab(e).replace(/_/g, ' ')) + '</b><small>' + esc(c ? c.name : e.cam) + ' · ' + hm(e.t) + ' · ' + rvDur(e) + '</small></span></button>';
+    const c = Data.cam(e.cam), cur = t != null && t >= e.t - 3000 && t <= (e.end || e.t) + 3000, p = pick(e, S.rv.f);
+    h += '<button class="rvli' + (cur ? ' cur' : '') + (e.interesting ? '' : ' un') + '" data-act="rvlpick" data-t="' + p.t + '" data-e="' + esc(e.id) + '" data-id="' + e.cam + '"><img src="' + evImg(e, p) + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(lab(e, p).replace(/_/g, ' ')) + '</b><small>' + esc(c ? c.name : e.cam) + ' · ' + hm(p.t) + ' · ' + rvDur(e) + '</small></span></button>';
   });
   return h + '</div>';
 }
@@ -3756,11 +3788,7 @@ function viewReview() {
   else h += '</div><div class="rvdock' + (RVV ? ' v' : '') + '"><div class="rvh" id="rvh"><div class="rvhs" id="rvsc"><div class="sp"></div><div class="rvtrack" id="rvtrack">';
   /* activity per minute for the selected cameras; drawn lazily around the playhead by drawRvTrack() */
   const ids = cams.map(c => c.id);
-  rvBk = new Map(); rvHasCams = ids.length > 0;
-  Data.events.filter(e => ids.includes(e.cam) && e.t > end - RSPAN).forEach(e => {
-    const sel = rvPass(e);
-    for (let m = Math.floor(e.t / MIN); m <= Math.floor((e.end || e.t) / MIN); m++) { const b = rvBk.get(m) || { n: 0, hot: false, other: 0, lab: {}, first: {}, hl: {} }; if (sel) { b.n++; b.hot = b.hot || e.interesting; if (e.interesting) b.hl[e.label] = 1; b.lab[e.label] = (b.lab[e.label] || 0) + 1; if (!(b.first[e.label] <= e.t)) b.first[e.label] = e.t; } else b.other++; rvBk.set(m, b); }
-  });
+  rvBuckets(ids, end);
   if (S.rv.list) h += '</div>';
   else h += '</div><div class="sp"></div></div><div class="hline"></div><div class="hbub" id="rvbub">' + (t == null ? 'Live' : hms(t)) + '</div><div class="hzoom" id="rvzoom" hidden></div></div>';
   h += '<div class="rvctl"><button data-act="rvstep" data-v="-10" aria-label="Back 10 Seconds">' + I.back10 + '</button>' +
@@ -3930,7 +3958,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.5.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.5.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -4033,7 +4061,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.5.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.5.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -4195,14 +4223,14 @@ const ACT = {
   evtap(d, ev) {
     const e = Data.events.find(x => x.id === d.v); if (!e) return;
     const t = Date.now();
-    if (evTapLast.id === d.v && t - evTapLast.at < 320) { clearTimeout(evTapTimer); evTapLast = { id: null, at: 0 }; evStop(); ACT.focusat({ id: e.cam, t: e.t }); return; }
+    if (evTapLast.id === d.v && t - evTapLast.at < 320) { clearTimeout(evTapTimer); evTapLast = { id: null, at: 0 }; evStop(); ACT.focusat({ id: e.cam, t: pick(e, S.filt).t }); return; }
     evTapLast = { id: d.v, at: t };   /* single tap: play it here (Frigate); double tap: open the camera */
     if (Data.source === 'frigate' && S.evPlay !== d.v) ACT.evplay({ v: d.v }, ev);
   },
   evdl(d) {
     const e = Data.events.find(x => x.id === d.v); if (!e) return;
-    const aS = Math.floor(e.t / 1000) - 1, bS = Math.ceil((e.end || e.t + 20000) / 1000) + 2;
-    saveClip(e.clip, (Data.cam(e.cam) ? Data.cam(e.cam).name : e.cam) + ' ' + objName(e.label) + ' ' + fileTime(e.t) + '.mp4', bS - aS, e.cam, aS, bS);
+    const p = pick(e, S.filt), aS = Math.floor(p.t / 1000) - 2, bS = Math.ceil((e.end || e.t + 20000) / 1000) + 2;   /* from where the picked object shows up */
+    saveClip(e.clip, (Data.cam(e.cam) ? Data.cam(e.cam).name : e.cam) + ' ' + objName(p.label) + ' ' + fileTime(p.t) + '.mp4', bS - aS, e.cam, aS, bS);
   },
   /* wide screens: pick an alert in the list to play it in the big player */
   evsel(d) {
@@ -4382,7 +4410,7 @@ const ACT = {
   rvlpick(d, e) {   /* an alert in the list: every camera goes to that moment, the alert's camera comes first */
     S.rv.t = +d.t - 1000; S.playing = true; S.rv.feat = d.id; S.rv.autoFeat = null;
     /* the picked alert's camera stays first (big picture) while the line is inside that alert, even with no recording */
-    const pe = Data.events.find(x => x.cam === d.id && x.t === +d.t); S.rv.lp = { id: d.id, a: +d.t - 3000, b: (pe && pe.end || +d.t) + 3000 };
+    const pe = Data.events.find(x => x.id === d.e) || Data.events.find(x => x.cam === d.id && x.t === +d.t); S.rv.lp = { id: d.id, a: Math.min(+d.t, pe ? pe.t : +d.t) - 3000, b: (pe && pe.end || +d.t) + 3000 };
     document.querySelectorAll('#rvlist .rvli.cur').forEach(n => n.classList.remove('cur'));
     const b = e && e.target.closest('.rvli'); if (b) b.classList.add('cur');
     const pp = document.querySelector('.rvctl [data-act="playpause"]'); if (pp) pp.innerHTML = I.pause;
@@ -4894,7 +4922,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.5.2';
+    const BUILD = '2.5.3';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
