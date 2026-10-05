@@ -2442,6 +2442,7 @@ const Diag = {
     try { const r = await fetch(Frigate.base() + '/ws', { credentials: 'include' }); const t = (await r.text()).slice(0, 200).toLowerCase();
       this.route = t.includes('<!doctype') || t.includes('<html') ? 'Old Config' : 'OK (' + r.status + ')'; } catch (e) { this.route = 'Error'; }
     try { const r = await fetch('diag.txt?t=' + Date.now(), { credentials: 'include' }); if (r.ok) this.srv = (await r.text()).trim().split('\n').join(' | ').slice(0, 300); } catch (e) {}
+    try { const r = await fetch('health.txt?t=' + Date.now(), { credentials: 'include' }); if (r.ok) this.health = (await r.text()).trim(); } catch (e) {}
     try { const r = await fetch('update-log.txt?t=' + Date.now(), { credentials: 'include' }); if (r.ok) { const l = (await r.text()).trim().split('\n').filter(Boolean); this.log = l.slice(-3).join(' | ').slice(0, 300); } } catch (e) {}
     if (S.modal === 'settings') render();
   }
@@ -4130,7 +4131,7 @@ function modalSettings() {
     '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version __VER__ · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
-      ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
+      ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health).replace(/\n/g, '<br>') : '') + '</div>' : '') +
     '<div class="dbg">Playback Log · ' + Dbg.a.length + ' Lines <button class="btn" data-act="copylog">Copy</button> <button class="btn" data-act="clearlog">Clear</button></div>' +
     '<pre class="dbglog">' + esc(Dbg.a.slice(-40).join('\n')) + '</pre>' +
     (Data.source === 'frigate' ? '<div class="dbg">Frigate Log · Last 2 Hrs · Restarts, Recording, Errors <button class="btn" data-act="copyflog">Copy</button></div>' : '') + '</details>' +
@@ -4215,10 +4216,16 @@ function toast(msg) {
 let tapTimer = null, lastTap = { id: null, at: 0 };
 const ACT = {
   go(d) { S.view = d.v; S.modal = null; S.more = false; S.evPop = null; render(); window.scrollTo(0, 0); },
+  /* the Playback Log plus the mini PC's health (cameras without frames, graphics decode errors per camera, automatic
+     Frigate restarts), so one copy shows both the phone side and the mini PC side */
   copylog() {
-    const txt = Dbg.text();
-    const fallback = () => { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('Log Copied'); } catch (e) { toast('Copy Failed'); } ta.remove(); };
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(() => toast('Log Copied'), fallback); else fallback();
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : '').catch(() => '')
+      .then(h => (h ? h.trim() + '\n\n' : '') + Dbg.text());
+    const done = () => toast('Log Copied'), fail = () => p.then(txt => { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch (e) { toast('Copy Failed'); } ta.remove(); });
+    /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      navigator.clipboard.write([new ClipboardItem({ 'text/plain': p.then(t => new Blob([t], { type: 'text/plain' })) })]).then(done, () => p.then(t => navigator.clipboard.writeText(t)).then(done, fail));
+    } else if (navigator.clipboard && navigator.clipboard.writeText) p.then(t => navigator.clipboard.writeText(t)).then(done, fail); else fail();
   },
   /* Frigate's own log, trimmed to what explains "an alert with no recording": restarts, camera reconnects, recording
      and errors from the last 2 hours (times shown in local time). Frigate clears it when its container is rebuilt. */

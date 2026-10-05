@@ -8,7 +8,13 @@
 #   - Frigate's API does not answer for 5 checks in a row.
 # Never within 10 minutes of Frigate starting, and at most once every 30 minutes. Each restart is logged with the
 # cameras that were stuck, in ~/frigate/watchdog-log.txt, so the cause can be read afterwards.
-import calendar, json, os, subprocess, time, urllib.request
+import calendar, json, os, re, shutil, subprocess, time, urllib.request
+from datetime import datetime
+try:
+    from zoneinfo import ZoneInfo
+    TZ = ZoneInfo('America/Los_Angeles')
+except Exception:
+    TZ = None
 
 D = os.path.expanduser('~/frigate')
 STATE = os.path.join(D, '.watchdog.json')
@@ -51,6 +57,42 @@ def gpu_errors():
         return 0
 
 
+def health(dead, st, stats):
+    # Mini PC health for the app: copied together with the Playback Log (Settings → Copy), so problems can be read
+    # without a terminal. Times in California time.
+    now = datetime.now(TZ) if TZ else datetime.now()
+    L = ['Mini PC Health · ' + now.strftime('%m-%d %H:%M:%S')]
+    try:
+        la = open('/proc/loadavg').read().split()[:3]; L.append('Load ' + ' '.join(la))
+    except Exception: pass
+    try:
+        du = shutil.disk_usage('/'); L.append('Disk Free %d GB of %d GB' % (du.free // 2**30, du.total // 2**30))
+    except Exception: pass
+    a = started_ago(); L.append('Frigate Up ' + (('%d Hr %d Min' % (a // 3600, a % 3600 // 60)) if a < 1e8 else 'Not Running'))
+    try:
+        g = (stats or {}).get('gpu_usages') or {}
+        for k, v in g.items(): L.append('GPU %s · Decode %s' % (v.get('gpu', '?'), v.get('dec', '?')))
+    except Exception: pass
+    L.append('No Frames: ' + (', '.join(dead) if dead else 'None'))
+    try:
+        out = subprocess.run(['docker', 'logs', 'frigate', '--since', '10m'], capture_output=True, text=True, timeout=20)
+        cnt = {}
+        for line in (out.stdout + out.stderr).splitlines():
+            if any(k in line for k in ('Failed to sync surface', 'hardware accelerator failed', 'Failed to download frame', 'Missing reference')):
+                m = re.search(r'ffmpeg\.([a-z0-9_]+)\.', line)
+                if m: cnt[m.group(1)] = cnt.get(m.group(1), 0) + 1
+        L.append('Decode Errors 10 Min: ' + (', '.join('%s %d' % kv for kv in sorted(cnt.items(), key=lambda x: -x[1])) if cnt else 'None'))
+    except Exception: pass
+    try:
+        w = open(LOG).read().strip().splitlines()[-6:]
+        L.append('Auto Restarts: ' + (' | '.join(w) if w else 'None'))
+    except Exception:
+        L.append('Auto Restarts: None')
+    try:
+        tmp = os.path.join(D, 'app', 'health.txt.tmp'); open(tmp, 'w').write('\n'.join(L) + '\n'); os.replace(tmp, os.path.join(D, 'app', 'health.txt'))
+    except Exception: pass
+
+
 def main():
     try:
         st = json.load(open(STATE))
@@ -58,11 +100,11 @@ def main():
         st = {}
     st.setdefault('dead_runs', 0); st.setdefault('gpu_runs', 0); st.setdefault('api_runs', 0); st.setdefault('last_restart', 0)
 
+    dead, why, stats = [], '', None
     if started_ago() < 600:          # just (re)started: give it time
         st.update(dead_runs=0, gpu_runs=0, api_runs=0)
-        json.dump(st, open(STATE, 'w')); return
+        json.dump(st, open(STATE, 'w')); health([], st, None); return
 
-    dead, why = [], ''
     try:
         stats, cfg = get('/stats'), get('/config')
         st['api_runs'] = 0
@@ -94,6 +136,7 @@ def main():
     if not why:
         st['noted'] = 0
     json.dump(st, open(STATE, 'w'))
+    health(dead, st, stats)
 
 
 if __name__ == '__main__':
