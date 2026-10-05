@@ -83,6 +83,7 @@ img.rf{opacity:0}
 .fblock .frame img,.fblock .frame .lvh,.fblock .frame .lvc,.fblock .frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .fbside .frame{--bt:5px;--bh:22px}
 .cam.door .frame img,.cam.door .frame video,.fvid.door img,.fvid.door video{object-fit:fill!important}
+.wt.door img,.wt.door video{object-fit:fill!important}
 .full.door .fvw img,.full.door .fvw video{position:absolute;inset:0;margin:auto;width:auto!important;height:100%!important;max-width:100%;aspect-ratio:3/4;object-fit:fill!important}
 /* the two beside the Doorbell keep the right edge of their picture */
 .fbside .frame img,.fbside .frame video{object-position:right center}
@@ -1871,7 +1872,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.3.8 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.3.9 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2448,7 +2449,7 @@ window.addEventListener('popstate', () => {
   hDepth = Math.max(0, hDepth - 1);
   if (S.modal) S.modal = null;
   else if (S.watch && S.wbig) S.wbig = null;
-  else if (S.watch) S.watch = false;
+  else if (S.watch) { S.watch = false; try { sessionStorage.removeItem('vhwatch'); } catch (e) {} }
   else if (S.focus && S.full) { S.full = false; S.autoFull = false; S.fpanel = false; }
   else if (S.focus) { S.focus = null; S.full = false; }
   else if (S.view !== 'home') S.view = 'home';
@@ -2547,7 +2548,7 @@ function viewWatch() {
   const src = id => n <= 2 || S.wbig || (big && id === ids[0]) || !(Frigate.streams && Frigate.streams[id + '_sub']) ? id : id + '_sub';
   const tile = id => {
     const cam = Data.cam(id), f = Data.frame(cam, null), sr = src(id);
-    return '<div class="wt" id="wt-' + id + '" data-src="' + esc(sr) + '"' + (cam.ar ? ' style="--war:' + cam.ar.toFixed(4) + '"' : '') + '><img id="img-' + id + '" src="' + f.img + '" alt="' + esc(cam.name) + '">' + Live.holder(sr, false) +
+    return '<div class="wt' + (id === 'nest_doorbell' ? ' door' : '') + '" id="wt-' + id + '" data-src="' + esc(sr) + '"' + (cam.ar ? ' style="--war:' + cam.ar.toFixed(4) + '"' : '') + '><img id="img-' + id + '" src="' + f.img + '" alt="' + esc(cam.name) + '">' + Live.holder(sr, false) +
       '<button class="hit" data-act="' + (big && id !== ids[0] ? 'wmain' : 'wtap') + '" data-id="' + id + '" aria-label="' + (S.wbig ? 'Back To All' : big && id !== ids[0] ? 'Make ' + esc(cam.name) + ' Big' : 'Watch ' + esc(cam.name) + ' Alone') + '"></button>' +
       '<div class="ctm" id="wtm-' + id + '">' + hms(shownT(id, sr)) + '</div><div class="wbd" id="wbd-' + id + '">' + stillInner(id) + '</div><div class="cnm">' + esc(cam.name) + '</div></div>';
   };
@@ -3858,7 +3859,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.3.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.3.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3960,7 +3961,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.3.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.3.9\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -4048,8 +4049,8 @@ const ACT = {
   wpick() { S.wlay = S.wlay || store.get('wlay', 'grid'); S.more = false; S.wsel = S.wsel || store.get('wsel', []); S.modal = 'wpick'; render(); },
   wcam(d) { const a = S.wsel = (S.wsel || []).slice(), k = a.indexOf(d.id); if (k >= 0) a.splice(k, 1); else if (a.length < 9) a.push(d.id); else toast('Up To 9 Cameras'); store.set('wsel', a); render(); },
   wclear() { S.wsel = []; store.set('wsel', []); render(); },
-  wgo() { if (!watchIds().length) return; S.modal = null; S.focus = null; S.watch = true; S.wbig = null; render(); window.scrollTo(0, 0); },
-  wclose() { S.watch = false; S.wbig = null; render(); },
+  wgo() { if (!watchIds().length) return; S.modal = null; S.focus = null; S.watch = true; S.wbig = null; try { sessionStorage.setItem('vhwatch', '1'); } catch (e) {} render(); window.scrollTo(0, 0); },
+  wclose() { S.watch = false; S.wbig = null; try { sessionStorage.removeItem('vhwatch'); } catch (e) {} render(); },
   wtap(d) { S.wbig = S.wbig ? null : d.id; render(); },
   wmain(d) { S.wmain = d.id; render(); },
   wlay(d) { S.wlay = d.v; store.set('wlay', d.v); render(); },
@@ -4808,6 +4809,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   await Data.load(); lastCols = cols() * 10 + rvCols();
   /* Browsers open one websocket handshake at a time per site, so open the motion feed before the live videos queue theirs */
   if (Data.source === 'frigate') { Motion.connect(); await new Promise(ok => { const t1 = Date.now(), w = setInterval(() => { if (Motion.up || Date.now() - t1 > 1500) { clearInterval(w); ok(); } }, 50); }); }
+  try { if (sessionStorage.getItem('vhwatch') === '1') { S.wsel = store.get('wsel', []); S.wlay = store.get('wlay', 'grid'); if (watchIds().length) S.watch = true; } } catch (e) {}
   render(); Dbg.log('start first screen', (Date.now() - t0) + 'ms', 'motion ' + (Motion.up ? 'up' : 'not yet'));
   if (Data.evReady) Data.evReady.then(() => { if (Data.source === 'frigate') Motion.seed(); if (!S.dragging && !S.modal) render(); else if (S.expanded) refreshTrack(); });
   if (Data.source === 'frigate') {
@@ -4820,7 +4822,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.3.8';
+    const BUILD = '2.3.9';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
