@@ -2008,6 +2008,7 @@ const Playback = {
     let p = this.st[id];
     if (!p) {
       const v = document.createElement('video'); v.className = 'pbv'; v.muted = true; Snd.guard(v); v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto';
+      v.addEventListener('playing', () => { v._unlocked = true; });   /* played once: the phone lets it play later without a tap */
       p = this.st[id] = { v, win: null, loading: false, on: false, ext: 0, lastSet: null };
       ['loadstart', 'loadedmetadata', 'canplay', 'playing', 'waiting', 'stalled', 'pause', 'seeked'].forEach(k => v.addEventListener(k, () => (p.win || p.loading) && Dbg.log('video', id, k, 'at ' + v.currentTime.toFixed(1), 'ready ' + v.readyState)));
       v.addEventListener('canplay', () => { if (v.paused && !p.loading && !p.prep && p.win && S.playing && this.cams()[id]) setTimeout(() => { if (v.paused && !p.prep) this.sync(); }, 300); });
@@ -2857,18 +2858,23 @@ function paintPanel() {
    timeline icon, picture and video all follow that object.
    Start times of every tracked object come from Frigate one day at a time (today: only what is new). */
 const Arrive = {
-  days: {}, det: {}, tm: 0,
+  det: {}, asked: {}, q: [], busy: 0, got: 0, tm: 0,
+  /* Only Interesting alerts with more than one object need this, and only the ones on screen; each object is one
+     small request, three at a time (asking Frigate for a whole day of objects froze the iPhone) */
   want(evs) {
     if (Data.source !== 'frigate' || !evs.length) return;
-    new Set(evs.map(e => dayStart(e.t))).forEach(d0 => {
-      const k = this.days[d0], today = d0 === dayStart(now());
-      if (k && (k.busy || !today || now() - k.at < 20000)) return;
-      const from = k && today ? k.at - 10 * MIN : d0 - 10 * MIN;
-      this.days[d0] = { busy: true, at: k ? k.at : 0 }; const at = now();
-      Frigate.get('/api/events?after=' + Math.floor(from / 1000) + '&before=' + Math.ceil(Math.min(d0 + DAY, now() + MIN) / 1000) + '&limit=5000&include_thumbnails=0')
-        .then(rows => { let n = 0; (rows || []).forEach(r => { if (!this.det[r.id]) n++; this.det[r.id] = Arrive.row(r); }); this.days[d0] = { at }; Data.events.forEach(e => this.fix(e)); if (n) this.redraw(); })
-        .catch(() => { this.days[d0] = { at }; });
+    evs.forEach(e => {
+      if (!e.interesting || !e.dets || (e.dets.length < 2 && (e.objs || []).length < 2)) return;
+      e.dets.slice(0, 8).forEach(d => { if (!this.det[d] && !this.asked[d]) { this.asked[d] = 1; this.q.push(d); } });
     });
+    this.pump();
+  },
+  pump() {
+    while (this.busy < 3 && this.q.length) {
+      const d = this.q.shift(); this.busy++;
+      Frigate.get('/api/events/' + encodeURIComponent(d)).then(r => { if (r) { this.det[d] = this.row(r); this.got++; } }).catch(() => {})
+        .finally(() => { this.busy--; this.pump(); if (!this.q.length && !this.busy && this.got) { this.got = 0; Data.events.forEach(e => this.fix(e)); this.redraw(); } });
+    }
   },
   row(r) { const sb = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label; return { id: r.id, l: String(r.label || '').toLowerCase(), t: r.start_time * 1000, sub: sb ? String(sb) : '', fp: !!r.false_positive, z: r.zones || [] }; },
   /* the separate objects inside one alert (the Weee driver, the package, the cars on the street), first seen first.
@@ -3842,7 +3848,8 @@ function rvZoom(span) {
 let rvBkArgs = null;
 function rvBuckets(ids, end) {
   rvBkArgs = [ids, end]; rvBk = new Map(); rvHasCams = ids.length > 0;
-  const evs = Data.events.filter(e => ids.includes(e.cam) && e.t > end - RSPAN); Arrive.want(evs);
+  const evs = Data.events.filter(e => ids.includes(e.cam) && e.t > end - RSPAN); const rc = S.rv.t == null ? end : S.rv.t;
+  Arrive.want(evs.filter(e => e.t > rc - 3 * HOUR && e.t < rc + HOUR));
   evs.forEach(e => {
     const sel = rvPass(e), p = sel ? pick(e, S.rv.f) : null, L = p ? ico(e, p) : '', t0 = p ? p.t : e.t;
     for (let m = Math.floor(t0 / MIN); m <= Math.floor(Math.max(t0, e.end || e.t) / MIN); m++) { const b = rvBk.get(m) || { n: 0, hot: false, other: 0, lab: {}, first: {}, hl: {} }; if (sel) { b.n++; b.hot = b.hot || e.interesting; if (e.interesting) b.hl[L] = 1; b.lab[L] = (b.lab[L] || 0) + 1; if (!(b.first[L] <= t0)) b.first[L] = t0; } else b.other++; rvBk.set(m, b); }
@@ -5783,8 +5790,10 @@ function wakeVideos() {
   document.querySelectorAll('video[data-hls]').forEach(v => { if (v.paused) v.play().catch(() => {}); });
   /* iPhone lets a video play by itself later only if it was started once from a finger tap: do that now for the
      recording players, with a 1-frame blank clip when they have nothing loaded yet */
+  const open = Playback.cams();
   for (const id in Playback.st) {
     const v = Playback.st[id].v; if (v._unlocked) continue;
+    if (v.getAttribute('src') && !open[id]) continue;   /* a player for a camera no longer open: don't start it again (it kept starting and stopping on every tap) */
     if (!v.getAttribute('src') && !Playback.st[id].h) { v.src = BLANK_MP4; v.play().then(() => { v.pause(); v._unlocked = true; if (v.src === BLANK_MP4) v.removeAttribute('src'); }).catch(() => {}); }
     else v.play().then(() => { v._unlocked = true; }).catch(() => {});
   }
