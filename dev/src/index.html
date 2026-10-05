@@ -4738,12 +4738,16 @@ document.addEventListener('click', e => {
   const fn = ACT[el.dataset.act]; if (fn) fn(el.dataset, e);
 });
 (function pullToRefresh() {
-  let y0 = null, x0 = 0, d = 0, ind = null;
+  /* a refresh needs a real pull: long (160 px) and held a moment, starting from a page that was not just scrolling.
+     A quick flick down to get back to the top kept reloading the page (6 times in 3 minutes). */
+  let y0 = null, x0 = 0, d = 0, ind = null, t0 = 0, lastScroll = 0;
+  window.addEventListener('scroll', () => { lastScroll = Date.now(); }, { passive: true });
   const icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>';
   const show = () => { if (!ind) { ind = document.createElement('div'); ind.id = 'ptr'; ind.innerHTML = icon; document.body.appendChild(ind); } return ind; };
   document.addEventListener('touchstart', e => {
     y0 = null; d = 0;
-    if (S.focus || S.modal || window.scrollY > 0 || e.touches.length !== 1) return;
+    if (S.focus || S.modal || window.scrollY !== 0 || e.touches.length !== 1 || Date.now() - lastScroll < 500) return;
+    t0 = Date.now();
     if (e.target.closest('.tl,.track,.thumbs,.rvsc,.rvhs,.days,input,select')) return;
     y0 = e.touches[0].clientY; x0 = e.touches[0].clientX;
   }, { passive: true });
@@ -4756,7 +4760,7 @@ document.addEventListener('click', e => {
   }, { passive: true });
   document.addEventListener('touchend', () => {
     if (y0 == null) return; y0 = null;
-    if (d > 110 && ind) { ind.classList.add('go'); ind.style.transform = 'translateY(40px)'; setTimeout(() => { try { sessionStorage.setItem('vhreload', 'pull down'); } catch (e) {} location.reload(); }, 150); }
+    if (d > 160 && Date.now() - t0 > 450 && ind) { ind.classList.add('go'); ind.style.transform = 'translateY(40px)'; setTimeout(() => { try { sessionStorage.setItem('vhreload', 'pull down'); } catch (e) {} location.reload(); }, 150); }
     else if (ind) { ind.style.transform = 'translateY(-44px)'; ind.style.opacity = 0; }
     d = 0;
   }, { passive: true });
@@ -5841,6 +5845,10 @@ class LiveCam extends VideoRTC {
   onconnect() {
     if (this.suspended) return false;
     if (Live.scrolling && !this.ws && !this.pc) { this.want = true; return false; }
+    /* a camera below or above the screen doesn't start its stream: every redraw of the home page used to start all 22
+       at once (only ~5 are on screen), which froze the iPhone for seconds. It starts when it scrolls into view (the
+       stream's own on-screen watcher calls this again then). */
+    if (!this.ws && !this.pc) { const r = this.getBoundingClientRect(); if (!(r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight)) { this.want = true; return false; } }
     this.want = false; return super.onconnect();
   }
   oninit() {
