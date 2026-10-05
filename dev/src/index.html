@@ -2827,6 +2827,8 @@ function paintTimes() {
   if (S.watch) document.querySelectorAll('.wt').forEach(w => { const id = w.id.slice(3), t = document.getElementById('wtm-' + id), b = document.getElementById('wbd-' + id);
     if (t) { const v = hms(shownT(id, w.dataset.src)); if (t.textContent !== v) t.textContent = v; } if (b) { const v = stillInner(id); if (b.innerHTML !== v) b.innerHTML = v; } });
   if (S.view === 'home') Data.cams.forEach(c => { const n = document.getElementById('ctm-' + c.id); if (n) { const v = hms(shownT(c.id, Live.cardSrc(c.id))); if (n.textContent !== v) n.textContent = v; } });
+  /* camera view timeline: the date button names the day of the moment on screen (it said Today while showing yesterday) */
+  if (S.focus && !S.flist) { const b = document.querySelector('.focus .fday'); if (b) { const w = dayLabel(shownT(S.focus.cam, S.focus.cam)); if (b._w !== w) { b._w = w; b.innerHTML = I.cal + w; } } }
   ['ftm', 'fulltm'].forEach(k => { const f = document.getElementById(k); if (f && S.focus) { const v = (k === 'ftm' ? dtHdr : dtShort)(shownT(S.focus.cam, S.focus.cam)); if (f.textContent !== v) f.textContent = v; } });
 }
 setInterval(paintTimes, 500);
@@ -3401,7 +3403,7 @@ function viewFocus() {
       '<button class="dk" data-act="fclipx" aria-label="Cancel Download">' + I.x + '</button><div class="fclipt"><b>Start</b> ' + (S.fclip.a ? hms(S.fclip.a) : '—') + '<br><b>End</b> ' + (S.fclip.b ? hms(S.fclip.b) : '—') + '</div>' +
       '<button class="dk fbk' + (S.fclip.a ? ' set' : '') + '" data-act="fclipmark" data-v="a" aria-label="Set Start Here">[</button><button class="dk fbk' + (S.fclip.b ? ' set' : '') + '" data-act="fclipmark" data-v="b" aria-label="Set End Here">]</button>' +
       '<button class="dk solid" data-act="fclipdl" aria-label="Download"' + (S.fclip.a && S.fclip.b ? '' : ' style="opacity:.45"') + '>' + I.dl + '</button></div>' :
-    dtOver('<button class="fday" data-act="fdate">' + I.cal + (S.focus.dayEnd && !S.flist ? dayLabel(S.focus.dayEnd - 1) : 'Today') + '</button>', 'focus') + '<div style="flex:1"></div>' +
+    dtOver('<button class="fday" data-act="fdate">' + I.cal + (S.flist ? 'Today' : dayLabel(shownT(c.id, c.id))) + '</button>', 'focus') + '<div style="flex:1"></div>' +
     (Data.source === 'frigate' ? '<button class="dk" data-act="fclip" aria-label="Download Video">' + I.dl + '</button>' : '') +
     (S.flist ? '<button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button>' : '') +
     '<button class="dk' + (S.flist ? ' on' : '') + '" data-act="flist" aria-label="' + (S.flist ? 'Show Timeline' : 'Show Alert List') + '">' + (S.flist ? I.tline : I.bellO) + '</button></div>') +
@@ -5233,7 +5235,11 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
     let newVer = null;
     checkVer().then(() => { if (newVer && Date.now() - t0 < 20000) { try { sessionStorage.setItem('vhreload', 'new version'); } catch (e) {} location.reload(); } });
     setInterval(checkVer, 120000);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) return; if (newVer) { try { sessionStorage.setItem('vhreload', 'new version'); } catch (e) {} location.reload(); } else checkVer(); });
+    /* coming back to the app: a new version found within 3 s of coming back (before any tap) loads at once; before,
+       it waited for the next time the app was opened, so a phone kept on an old version all session */
+    let backAt = 0, tapped = false; document.addEventListener('pointerdown', () => { tapped = true; }, { capture: true, passive: true });
+    const goNew = () => { try { sessionStorage.setItem('vhreload', 'new version'); } catch (e) {} location.reload(); };
+    document.addEventListener('visibilitychange', () => { if (document.hidden) return; if (newVer) { goNew(); return; } backAt = Date.now(); tapped = false; checkVer().then(() => { if (newVer && !tapped && Date.now() - backAt < 3000) goNew(); }); });
   }
 })();
 </script>
