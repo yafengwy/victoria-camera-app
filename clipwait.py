@@ -71,9 +71,9 @@ def streams(body):
     try:
         with tempfile.TemporaryDirectory() as d:
             a = os.path.join(d, 'in.mp4'); open(a, 'wb').write(body)
-            out = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'stream=codec_type,codec_name', '-of', 'csv=p=0', a],
+            out = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'stream=codec_type,codec_name,sample_rate', '-of', 'csv=p=0', a],
                                  capture_output=True, text=True, timeout=10).stdout.split()
-            return ' '.join(':'.join(reversed(x.split(','))) for x in out) or 'none'
+            return ' '.join(x.replace(',', ':') for x in out) or 'none'
     except Exception as x:
         return repr(x)
 
@@ -82,10 +82,10 @@ def faststart(body):
         with tempfile.TemporaryDirectory() as d:
             a, b = os.path.join(d, 'in.mp4'), os.path.join(d, 'out.mp4')
             open(a, 'wb').write(body)
-            # sound clips: picture copied, sound turned into AAC (some cameras record G.711 sound, which the
-            # iPhone won't play inside an mp4, so those videos came out silent)
+            # sound clips: sound turned into 44.1 kHz stereo AAC. The cameras record 8/16 kHz sound, which the iPhone
+            # shows as a video with sound but plays silently (same fix as the app's downloads)
             subprocess.run(['ffmpeg', '-v', 'error', '-i', a, '-map', '0:v:0', '-map', '0:a?', '-vf', "scale='min(640,iw)':-2", '-c:v', 'libx264',
-                            '-preset', 'veryfast', '-crf', '27', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '96k',
+                            '-preset', 'veryfast', '-crf', '27', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-ar', '44100', '-ac', '2', '-b:a', '128k',
                             '-movflags', '+faststart', b], check=True, timeout=25)
             return open(b, 'rb').read()
     except Exception:
@@ -190,6 +190,8 @@ def make(path, cam, s, e, kind):
             if kind == 'sound.mp4':
                 print('sound clip from Frigate', cam, a, b, 'streams:', streams(body), flush=True)
             body = gif(body) if kind == 'clip.gif' else faststart(body) if kind == 'sound.mp4' else silent(body)
+            if kind == 'sound.mp4':
+                print('sound clip sent', cam, 'streams:', streams(body), flush=True)
             break
         except Exception as x:
             err = x; body = None
