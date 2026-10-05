@@ -212,4 +212,12 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as x:   # never leave the app without a Mini PC Log: say what went wrong instead
+        import traceback
+        try:
+            open(os.path.join(D, 'app', 'health.txt'), 'w').write('Mini PC Log · ' + time.strftime('%m-%d %H:%M UTC') + '\nWatchdog error: ' + repr(x) + '\n' + traceback.format_exc()[-600:])
+        except Exception:
+            pass
+        log('watchdog error: ' + repr(x))
