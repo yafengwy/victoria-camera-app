@@ -2718,8 +2718,10 @@ function viewHome() {
              under both rows; the Doorbell keeps its two-row height (--th) */
           const side = row.cams.slice(1), m = n - 1, sk = k - 1, after = sk >= 0 ? Math.min(side.length, (Math.floor(sk / m) + 1) * m) : -1;
           let inner = '';
-          side.forEach((c, i) => { inner += camCard(c); if (i + 1 === after) inner += panel(Data.cam(S.expanded), 0); });
-          h += '<div class="tallblock' + (after > 0 ? ' haspanel' : '') + '" style="--tcols:' + m + ';--ar:' + row.cams[0].ar.toFixed(4) + '">' + camCard(row.cams[0]) + '<div class="grid tbgrid' + (S.layout === 'grid' ? ' compact' : '') + '" style="--cols:' + m + '">' + inner + '</div></div>';
+          /* 3 or more beside it: the panel is 2 cameras wide, under the opened camera's pair (like the other rows) */
+          const pc = m >= 3 && sk >= 0 ? Math.min(Math.floor((sk % m) / 2) * 2 + 1, m - 1) : 0;
+          side.forEach((c, i) => { inner += camCard(c); if (i + 1 === after) inner += panel(Data.cam(S.expanded), pc); });
+          h += '<div class="tallblock' + (after > 0 ? ' haspanel' : '') + '" style="--tcols:' + m + ';--ar:' + row.cams[0].ar.toFixed(4) + '">' + camCard(row.cams[0]) + '<div class="grid tbgrid' + (S.layout === 'grid' ? ' compact' : '') + (pc ? ' dense' : '') + '" style="--cols:' + m + '">' + inner + '</div></div>';
         }
         else if (row.pair) h += '<div class="pairrow">' + row.cams.map(c => camCard(c, isTall(c) ? c.ar : 16 / 9)).join('') + '</div>';
         else row.cams.forEach(c => { h += camCard(c, 0, n >= 3 && isTall(c)); });
