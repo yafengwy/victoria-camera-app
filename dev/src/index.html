@@ -471,6 +471,7 @@ img.rf{opacity:0}
 .frow{display:flex;gap:8px}
 .dd2{flex:1;min-width:0;height:34px;display:flex;align-items:center;justify-content:space-between;gap:4px;padding:0 6px 0 10px;border:1.5px solid var(--line);border-radius:9px;font-size:13px;font-weight:700;color:var(--text)}
 .dd2 span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dhbtns{display:flex;align-items:center;gap:4px}
 .ddreset{flex:none;width:34px;height:34px;display:grid;place-items:center;border:1.5px solid var(--line);border-radius:9px;color:var(--head-fg)}
 .dd2 svg{width:16px;height:16px;color:var(--sub)}
 .ddl{border:1.5px solid var(--line);border-radius:10px;padding:2px 0;max-height:300px;overflow-y:auto}
@@ -3867,7 +3868,7 @@ function modalFilter() {
   const picked = OBJS().filter(o => objOn(f, o));
   const summary = all ? 'All Objects' : picked.length ? picked.map(objName).join(', ') : 'Select Objects';
   return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm" role="dialog" aria-label="Alert Settings" data-stop="1">' +
-    '<div class="dhead">Alert Settings<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
+    '<div class="dhead">Alert Settings<span class="dhbtns"><button class="ic" style="color:var(--head-fg)" data-act="filtreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button><button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></span></div><div class="dbody">' +
     '<div class="lbl" style="margin-top:0">Show Me</div>' + checkRow('int', 'Interesting Alerts', f.int) + checkRow('unint', 'Uninteresting Alerts', f.unint) +
     '<div class="lbl">That Involve</div>' +
     '<div class="dd objqbox"><input class="objq" type="text" data-objq="objl1" data-open="objOpen" placeholder="' + esc(summary) + '" autocomplete="off" autocorrect="off" spellcheck="false"><button class="objqdd" data-act="objdd" aria-label="Show Objects" aria-expanded="' + S.objOpen + '">' + (S.objOpen ? I.up : I.down) + '</button></div>' +
@@ -3959,7 +3960,7 @@ function deliver(blob, name) {
 }
 /* Downloads come with the date and time burned into the top-left corner (made on the mini PC, which takes a moment);
    if that fails, the plain video is saved instead. */
-function stampUrl(cam, aS, bS) { return Frigate.base() + '/stamp/' + cam + '/' + aS + '/' + bS + '/' + (-new Date(aS * 1000).getTimezoneOffset() * 60) + '/clip.mp4'; }
+function stampUrl(cam, aS, bS) { return Frigate.base() + '/stamp/' + cam + '/' + aS + '/' + bS + '/' + (-new Date(aS * 1000).getTimezoneOffset() * 60) + '/clip.mp4' + (/iPhone|iPad|Android/.test(navigator.userAgent) || navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent) ? '' : '?full=1'); }   /* phone: smaller video; computer: the camera's own size */
 async function saveClip(url, name, durS, cam, aS, bS) {
   if (Data.source !== 'frigate') { toast('Downloads Work Once The App Runs On The Mini PC'); return; }
   if (SaveBar.busy) return; SaveBar.busy = true; SaveBar.ac = new AbortController();

@@ -59,17 +59,21 @@ def font():
     return f[0] if f else None
 
 def stamp_vf(base, w=1920):
+    # w=0: keep the camera's own size (computer downloads)
     fmt = '%Y/%m/%d %H\\\\\\:%M\\\\\\:%S'
     ff = font()
-    return (f"scale='min({w},iw)':-2,drawtext=" + (f'fontfile={ff}:' if ff else '') +
+    return ((f"scale='min({w},iw)':-2," if w else '') + "drawtext=" + (f'fontfile={ff}:' if ff else '') +
             "text='%{pts\\:gmtime\\:" + str(base) + "\\:" + fmt + "}':x=16:y=16:fontsize=h/24:fontcolor=white:box=1:boxcolor=black@0.55:boxborderw=8")
 
-def encode(args, vf, out):
-    subprocess.run(['ffmpeg', '-v', 'error'] + args + ['-map', '0:v:0', '-map', '0:a?', '-vf', vf, '-c:v', 'libx264', '-preset', 'veryfast',
-                    '-crf', '23', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-level:v', '4.1', '-tag:v', 'avc1',
+def encode(args, vf, out, full=False):
+    # phone: H.264 High 4.1 the iPhone's Photos accepts; computer (full): the camera's own size at near-original quality
+    q = ['-crf', '17'] if full else ['-crf', '23', '-level:v', '4.1']
+    subprocess.run(['ffmpeg', '-v', 'error'] + args + ['-map', '0:v:0', '-map', '0:a?', '-vf', vf, '-c:v', 'libx264', '-preset', 'veryfast'] + q +
+                   ['-pix_fmt', 'yuv420p', '-profile:v', 'high', '-tag:v', 'avc1',
                     '-c:a', 'aac', '-ar', '44100', '-movflags', '+faststart', '-y', out], check=True, timeout=900)
 
-def stamped(cam, s, e, off):
+def stamped(cam, s, e, off, full=False):
+    w = 0 if full else (1920 if e - s <= 120 else 1280)
     # The recording pieces themselves (each piece's start time is known exactly), joined and cut on the exact second,
     # so the burned-in clock matches the picture. Frigate's clip.mp4 starts on the key frame before the asked second.
     with tempfile.TemporaryDirectory() as d:
@@ -94,14 +98,14 @@ def stamped(cam, s, e, off):
             lst = os.path.join(d, 'list.txt')
             open(lst, 'w').write(''.join(f"file '{f}'\n" for f in files))
             out = os.path.join(d, 'out.mp4')
-            encode(['-f', 'concat', '-safe', '0', '-ss', str(max(0, s - rows[0]['start_time'])), '-i', lst, '-t', str(e - s)], stamp_vf(s + off, 1920 if e - s <= 120 else 1280), out)
+            encode(['-f', 'concat', '-safe', '0', '-ss', str(max(0, s - rows[0]['start_time'])), '-i', lst, '-t', str(e - s)], stamp_vf(s + off, w), out, full)
             return open(out, 'rb').read()
         except Exception as x:
             print('stamp from pieces failed, using the clip:', cam, s, e, x)
         a, out = os.path.join(d, 'in.mp4'), os.path.join(d, 'out2.mp4')
         with urllib.request.urlopen(f'{FRIGATE}/api/{cam}/start/{s}/end/{e}/clip.mp4', timeout=60) as r:
             open(a, 'wb').write(r.read())
-        encode(['-i', a], stamp_vf(s + off, 1920 if e - s <= 120 else 1280), out)
+        encode(['-i', a], stamp_vf(s + off, w), out, full)
         return open(out, 'rb').read()
 
 class H(BaseHTTPRequestHandler):
@@ -109,7 +113,7 @@ class H(BaseHTTPRequestHandler):
         st = STAMP.match(self.path.split('?')[0])
         if st:
             try:
-                body = stamped(st.group(1), int(st.group(2)), int(st.group(3)), int(st.group(4)))
+                body = stamped(st.group(1), int(st.group(2)), int(st.group(3)), int(st.group(4)), 'full=1' in self.path)
                 self.send_response(200)
                 self.send_header('Content-Type', 'video/mp4')
                 self.send_header('Content-Length', str(len(body)))
