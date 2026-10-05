@@ -1571,7 +1571,7 @@ const Frigate = {
         vod: this.base() + '/vod/' + r.camera + '/start/' + Math.floor(r.start_time - 1) + '/end/' + Math.ceil((r.end_time || r.start_time + 20) + 1) + '/index.m3u8',
         clip: this.base() + '/api/' + r.camera + '/start/' + Math.floor(r.start_time - 1) + '/end/' + Math.ceil((r.end_time || r.start_time + 20) + 2) + '/clip.mp4'
       };
-    }).filter((e, i) => e.label !== 'Motion' || !(((rows[i].data || {}).objects || []).includes('waste_bin'))).sort((a, b) => b.t - a.t);
+    }).filter((e, i) => e.label !== 'Motion' || !(((rows[i].data || {}).objects || []).includes('waste_bin'))).map(e => Arrive.fix(e)).sort((a, b) => b.t - a.t);
   },
   /* New and still-running alerts: every 10 s fetch the last 2 hours and merge them in (the list used to load only at start) */
   async refresh() {
@@ -2835,9 +2835,38 @@ const Arrive = {
       const from = k && today ? k.at - 10 * MIN : d0 - 10 * MIN;
       this.days[d0] = { busy: true, at: k ? k.at : 0 }; const at = now();
       Frigate.get('/api/events?after=' + Math.floor(from / 1000) + '&before=' + Math.ceil(Math.min(d0 + DAY, now() + MIN) / 1000) + '&limit=5000&include_thumbnails=0')
-        .then(rows => { let n = 0; (rows || []).forEach(r => { if (!this.det[r.id]) n++; this.det[r.id] = { l: String(r.label || '').toLowerCase(), t: r.start_time * 1000 }; }); this.days[d0] = { at }; if (n) this.redraw(); })
+        .then(rows => { let n = 0; (rows || []).forEach(r => { if (!this.det[r.id]) n++; this.det[r.id] = Arrive.row(r); }); this.days[d0] = { at }; Data.events.forEach(e => this.fix(e)); if (n) this.redraw(); })
         .catch(() => { this.days[d0] = { at }; });
     });
+  },
+  row(r) { const sb = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label; return { l: String(r.label || '').toLowerCase(), t: r.start_time * 1000, sub: sb ? String(sb) : '', fp: !!r.false_positive }; },
+  /* Corrections made in Frigate win: a car whose sub label was changed there to a name (or cleared after "not FedEx"),
+     or a logo marked "not this" (false positive), stops showing that company here; any object whose every detection
+     was marked a false positive is dropped from the alert. Alerts with a company re-check their objects every 2 min
+     (a few tiny requests), so a fix made in Frigate shows up here within about that long. */
+  chk: {},
+  fix(e) {
+    if (!e.dets || !e.dets.length) return e;
+    const xs = e.dets.map(d => this.det[d]).filter(Boolean); if (!xs.length) return e;
+    const good = new Set(xs.filter(x => !x.fp).map(x => x.l)), drop = new Set(xs.filter(x => x.fp && !good.has(x.l)).map(x => x.l));
+    const cars = xs.filter(x => x.l === 'car' && !x.fp), carNames = cars.map(x => x.sub).filter(n => n && !isLogo(n) && n.toLowerCase() !== 'unknown');
+    if ((e.subs || []).length && (carNames.length || [...drop].some(isLogo))) e.subs.forEach(l => drop.add(l));
+    if (!drop.size) return e;
+    e.subs = (e.subs || []).filter(l => !drop.has(l)); e.logo = e.subs[0] || '';
+    e.objs = (e.objs || []).filter(o => !drop.has(String(o).toLowerCase()) && !(isLogo(o) && drop.has(String(o).toLowerCase())));
+    if (drop.has(String(e.label).toLowerCase()) && e.objs.length) e.label = e.objs[0];
+    const names = [...String(e.who || '').split(' · ').filter(x => x && !WAIT_CO.some(c => c[1] === x)), ...carNames.map(niceName)];
+    e.who = [...new Set([...e.subs.map(coName), ...names])].join(' · ');
+    e.interesting = e.sev === 'alert' || Wait.hit(e.t, e.subs);
+    return e;
+  },
+  recheck(evs) {
+    if (Data.source !== 'frigate') return;
+    evs.filter(e => (e.subs || []).length && e.dets).forEach(e => e.dets.slice(0, 6).forEach(d => {
+      if (this.chk[d] && now() - this.chk[d] < 120000) return; this.chk[d] = now();
+      Frigate.get('/api/events/' + encodeURIComponent(d)).then(r => { if (!r) return; const o = this.det[d], n = this.row(r); this.det[d] = n;
+        if (!o || o.sub !== n.sub || o.fp !== n.fp) { this.fix(e); this.redraw(); } }).catch(() => {});
+    }));
   },
   /* first time this object showed up inside the alert (one parked there since before the alert doesn't count) */
   at(e, label) {
@@ -2949,7 +2978,7 @@ function viewEvents() {
   const days = [];
   for (let i = 0; i < 7; i++) { const d0 = today - i * DAY; days.push({ i, d0, n: visible.filter(e => e.t >= d0 && e.t < d0 + DAY).length }); }
   const d0 = days[S.evDay].d0;
-  const list = visible.filter(e => e.t >= d0 && e.t < d0 + DAY); Arrive.want(list);
+  const list = visible.filter(e => e.t >= d0 && e.t < d0 + DAY); Arrive.want(list); Arrive.recheck(list);
   const EONE = !COVER && rvOneRow();   /* computer: one row like Review — Reset, Cameras, Objects, Boxes on the left */
   let h = EONE ? '<div class="evtop"><div class="evbar one">' + evBarOne(visible.length) + '</div>' : '<div class="evtop"><div class="evbar"><span style="flex:1">Alerts</span>' + (COVER ? evStrip() : '') + (Data.source === 'frigate' ? '<button class="ic bxbtn2" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '<button class="ic" style="color:var(--head-fg)" data-act="go" data-v="home" aria-label="Close">' + I.x + '</button></div>';
   if (!COVER && !EONE) h += '<button class="fbtn" data-act="filters" aria-expanded="' + S.filtersOpen + '"><span>Filters</span><span class="fcount">' + visible.length + ' In 7 Days</span><span style="color:var(--sub);display:flex">' + (S.filtersOpen ? I.up : I.down) + '</span></button>';
@@ -3749,7 +3778,7 @@ function rvListEvents(cams, end) {
 }
 const rvDur = e => { const d = Math.max(1, Math.round(((e.end || e.t) - e.t) / 1000)); return d >= 60 ? Math.floor(d / 60) + 'm ' + (d % 60) + 's' : d + 's'; };   /* short, for the narrow list */
 function rvListHtml(cams, end) {
-  const evs = rvListEvents(cams, end), t = S.rv.t;
+  const evs = rvListEvents(cams, end), t = S.rv.t; Arrive.recheck(evs);
   let h = '<div class="rvlist" id="rvlist">' + (evs.length ? '' : '<div class="rvl-h">No alerts match your filters.</div>'), lastDay = null;
   evs.forEach(e => {
     const dl = dayStart(e.t) === dayStart(now()) ? 'Today' : dayStart(e.t) === dayStart(now() - DAY) ? 'Yesterday' : dayLabel(e.t);
