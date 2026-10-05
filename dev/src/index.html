@@ -771,6 +771,8 @@ img.rf{opacity:0}
 .objchips .chip.oone{border:1.5px solid transparent}
 .objchips .chip.oone[aria-pressed="true"]{background:transparent;border-color:var(--strong);color:var(--strong);box-shadow:none}
 .objchips .objbr{flex-basis:100%;height:0}
+/* a short line under the quick picks (All Cameras / … Only, Any Object / All …) sets them apart from the single ones */
+.objchips .objbr.objdiv{height:1.5px;margin:4px 0 3px;border-radius:1px;background:linear-gradient(90deg,var(--sub) 0,transparent 48%);opacity:.4}
 .objchips .chip.ogrp,.objchips .chip.oany{font-weight:800}
 .objchips [hidden]{display:none !important}
 .objgrp{display:flex;gap:6px;flex-wrap:wrap;padding:4px 2px 6px}
@@ -1412,7 +1414,7 @@ function objChips(f, act, grpAct, anyAct) {
   let last = -1;
   return '<div class="objchips">' + b(' oany', anyAct, '*', all, 'Any Object') +
     OBJ_GROUPS.filter(g => list.some(g[2])).map(g => b(' ogrp', grpAct, g[0], !all && list.filter(g[2]).every(o => objOn(f, o)), g[1])).join('') +
-    list.map(o => { const k = objSet(o), br = k !== last ? '<i class="objbr"></i>' : ''; last = k; return br + b(' oone', act, o, !all && objOn(f, o), objName(o)); }).join('') + '</div>';
+    list.map(o => { const k = objSet(o), br = k !== last ? '<i class="objbr' + (last === -1 ? ' objdiv' : '') + '"></i>' : ''; last = k; return br + b(' oone', act, o, !all && objOn(f, o), objName(o)); }).join('') + '</div>';
 }
 /* cameras the same way: All Cameras and each group "Only" on top (filled), then each group's cameras on its own row
    (picked = outlined). on(id) says whether a camera is picked; state is 'all', a group name, or 'custom' */
@@ -1421,7 +1423,7 @@ function camChips(on, state, quickAct, camAct, idAttr, noQuick) {
   const b = (cls, a, attr, v, pressed, label) => '<button class="chip sm' + cls + '" data-act="' + a + '" ' + attr + '="' + esc(v) + '" aria-pressed="' + pressed + '">' + esc(label) + '</button>';
   return '<div class="objchips">' + (noQuick ? '' : b(' oany', quickAct, 'data-v', quickAct === 'allcams' ? '1' : 'all', state === 'all', 'All Cameras') +
     groups.map(g => b(' ogrp', quickAct, 'data-v', quickAct === 'allcams' ? 'g:' + g : g, state === g, g + ' Only')).join('')) +
-    groups.map((g, i) => (noQuick && !i ? '' : '<i class="objbr"></i>') + Data.cams.filter(c => c.group === g).map(c => b(' oone', camAct, idAttr, c.id, state !== 'all' && on(c.id), c.name)).join('')).join('') + '</div>';
+    groups.map((g, i) => (noQuick && !i ? '' : '<i class="objbr' + (i ? '' : ' objdiv') + '"></i>') + Data.cams.filter(c => c.group === g).map(c => b(' oone', camAct, idAttr, c.id, state !== 'all' && on(c.id), c.name)).join('')).join('') + '</div>';
 }
 function objGroupChips(f, act) {
   const list = OBJS(), all = list.every(o => objOn(f, o));
