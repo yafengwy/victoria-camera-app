@@ -1932,7 +1932,7 @@ const Box = {
         out.push({ host, cam: c.id, t: m ? +m[1] * 1000 : t, media: img }); });
     }
     if (S.view === 'events' && S.evPlay && !S.focus) {
-      const e = Data.events.find(x => x.id === S.evPlay), host = e && document.getElementById('evm-' + e.id), v = host && host.querySelector('video.evv');
+      const e = evE(S.evPlay), host = e && document.getElementById('evm-' + S.evPlay), v = host && host.querySelector('video.evv');
       if (v && v.currentTime > 0) out.push({ host, cam: e.cam, t: vodReal(v, v.currentTime), media: v });
     }
     return out;
@@ -1967,7 +1967,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.10.1 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.10.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -2342,7 +2342,7 @@ const Wait = {
   names() { return this.st.cos.map(coName).join(' · '); }
 };
 function modalDel() {
-  const e = Data.events.find(x => x.id === S.delId); if (!e) return '';
+  const e = evE(S.delId); if (!e) return '';
   const c = Data.cam(e.cam);
   return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm snzd" role="dialog" aria-label="Delete Alert" data-stop="1">' +
     '<div class="dhead">Delete This Alert?<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
@@ -2977,14 +2977,14 @@ const Arrive = {
         .finally(() => { this.busy--; this.pump(); if (!this.q.length && !this.busy && this.got) { this.got = 0; Data.events.forEach(e => this.fix(e)); this.redraw(); } });
     }
   },
-  row(r) { const sb = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label; return { id: r.id, l: String(r.label || '').toLowerCase(), t: r.start_time * 1000, sub: sb ? String(sb) : '', fp: !!r.false_positive, z: r.zones || [] }; },
+  row(r) { const sb = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label; return { id: r.id, l: String(r.label || '').toLowerCase(), t: r.start_time * 1000, en: r.end_time ? r.end_time * 1000 : null, sub: sb ? String(sb) : '', fp: !!r.false_positive, z: r.zones || [] }; },
   /* the separate objects inside one alert (the Weee driver, the package, the cars on the street), first seen first.
      Interesting = an alert label of this camera inside its required zones; Uninteresting ones only with that filter */
   parts(e, f) {
     const rule = Data.alertRule[e.cam] || { labels: [], zones: [] };
     return (e.dets || []).map(d => this.det[d] && Object.assign({ d }, this.det[d])).filter(x => x && !x.fp && x.t >= e.t - 1000).map(x => {
       const L = x.l.replace(/^\w/, m => m.toUpperCase());
-      return { d: x.d, t: x.t, label: L, sub: x.sub, hot: rule.labels.includes(x.l) && (!rule.zones.length || x.z.some(z => rule.zones.includes(z))) };
+      return { d: x.d, t: x.t, en: x.en, label: L, sub: x.sub, hot: rule.labels.includes(x.l) && (!rule.zones.length || x.z.some(z => rule.zones.includes(z))) };
     }).filter(x => objOn(f, x.label) && (x.hot ? f.int : f.unint)).sort((a, b) => a.t - b.t);
   },
   /* Corrections made in Frigate win: a car whose sub label was changed there to a name (or cleared after "not FedEx"),
@@ -3102,10 +3102,10 @@ function evImg(e, p) {
   if (!p || !p.moved || !p.d || Data.source !== 'frigate') return e.img;
   const u = Frigate.base() + '/api/events/' + p.d + '/snapshot.jpg?height=480'; Frigate.fb[u] = e.img; return u;
 }
-function evMedia(e) { const c = Data.cam(e.cam); return evMedia0(e) + '<div class="pillk evnm">' + esc(c ? c.name : e.cam) + '</div>'; }
+function evMedia(e, k) { const c = Data.cam(e.cam); return evMedia0(e, k == null ? e.id : k) + '<div class="pillk evnm">' + esc(c ? c.name : e.cam) + '</div>'; }
 /* the alert's camera name sits in the picture's bottom-left corner, like the camera view (the header had no room for it) */
-function evMedia0(e) {
-  const playing = S.evPlay === e.id, p = pick(e, S.filt);
+function evMedia0(e, k) {
+  const playing = S.evPlay === k, p = evP(k, S.filt) || pick(e, S.filt);
   if (Data.source === 'frigate') {
     const at = (p.moved ? p.t : e.t) - 1000;   /* opens 1 s before the alert (or its picked object) */
     if (playing) return '<img src="' + evImg(e, p) + '" alt="" loading="lazy"><video class="evv" data-hls="' + e.vod + '" data-cam="' + e.cam + '" data-vs="' + e.vs + '" data-ve="' + e.ve + '" data-at="' + at + '" autoplay muted controls playsinline style="opacity:0"></video><div class="evclk" hidden></div>';
@@ -3131,7 +3131,7 @@ function vodAt(v, ms) {
 const ymdhms = t => { const d = new Date(t); return d.getFullYear() + '/' + pad(d.getMonth() + 1) + '/' + pad(d.getDate()) + ' ' + hms(t); };
 setInterval(() => {
   if (S.view !== 'events' || !S.evPlay || S.focus) return;
-  const e = Data.events.find(x => x.id === S.evPlay), host = e && document.getElementById('evm-' + e.id); if (!host) return;
+  const e = evE(S.evPlay), host = e && document.getElementById('evm-' + S.evPlay); if (!host) return;
   const v = host.querySelector('video.evv'), c = host.querySelector('.evclk'); if (!v || !c) return;
   if (!(v.currentTime > 0)) { c.hidden = true; return; }
   c.hidden = false; c.textContent = ymdhms(vodReal(v, v.currentTime));
@@ -3158,44 +3158,52 @@ function viewEvents() {
   if (!COVER && !EONE && S.filtersOpen) h += filterPanel();
   if ((COVER || EONE) && S.evPop) h += evDropdown();
   h += '<div class="days">' + days.map(d => '<button class="day" data-act="day" data-v="' + d.i + '" aria-pressed="' + (S.evDay === d.i) + '">' + dayLabel(d.d0) + '<b>' + d.n + '</b></button>').join('') + '</div></div>';
+  for (const k in EVK) delete EVK[k];
+  const cards = [];
+  list.forEach(e => { const gs = evGroups(e, f);
+    if (!gs) { EVK[e.id] = { e, g: null }; cards.push({ k: e.id, e, g: null, st: e.t }); }
+    else gs.forEach((g, i) => { const k = e.id + '~' + i; EVK[k] = { e, g }; cards.push({ k, e, g, st: g.t }); }); });
+  cards.sort((a, b) => b.st - a.st);
   const byHour = {};
-  list.forEach(e => { const hr = new Date(e.t).getHours(); (byHour[hr] = byHour[hr] || []).push(e); });
+  cards.forEach(c => { const hr = new Date(c.st).getHours(); (byHour[hr] = byHour[hr] || []).push(c); });
   /* wide screens (computer): the chosen alert plays big on the left, the day's alerts are a compact list on the right */
   const wide = evWide();
   let sel = null;
   if (wide) {
-    sel = list.find(e => e.id === S.evSel) || list[0] || null; S.evSel = sel ? sel.id : null;
+    const sc0 = cards.find(c => c.k === S.evSel) || cards.find(c => c.e.id === String(S.evSel).split('~')[0]) || cards[0] || null;
+    sel = sc0 ? sc0.e : null; const sk = sc0 ? sc0.k : null; S.evSel = sk;
     h += '<div class="evwrap wide"><div class="evplayer" id="evplayer">';
     if (sel) {
-      const sc = Data.cam(sel.cam), sp = pick(sel, f);
-      h += '<article class="evcard big' + (sel.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(sel, sp)) + '</i>' + esc(labAll(sel, sp, f)) + ' At ' + hms(sp.t) + '</b></div>' +
+      const sc = Data.cam(sel.cam), sp = evP(sk, f);
+      h += '<article class="evcard big' + (sel.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(sel, sp)) + '</i>' + esc(sc0.g ? labGroup(sc0.g) : labAll(sel, sp, f)) + ' At ' + hms(sp.t) + '</b></div>' +
         (sel.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(sel.id) + '">' + (sel.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Open Camera" data-act="focusat" data-id="' + esc(sel.cam) + '" data-t="' + sp.t + '">' + I.expand + '</button>' +
-        '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(sel.id) + '">' + I.dl + '</button>' +
-        (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(sel.id) + '">' + I.trash + '</button>' : '') +
-        '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(sel.id) + '">' + (S.evPlay === sel.id ? I.pause : I.playO) + '</button></div>' +
-        '<div class="evmedia" id="evm-' + esc(sel.id) + '" data-act="evtap" data-v="' + esc(sel.id) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(sel, sp)) + ' At ' + hms(sp.t) + ' Full Screen">' + evMedia(sel) + '</div></article>';
+        '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(sk) + '">' + I.dl + '</button>' +
+        (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(sk) + '">' + I.trash + '</button>' : '') +
+        '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(sk) + '">' + (S.evPlay === sk ? I.pause : I.playO) + '</button></div>' +
+        '<div class="evmedia" id="evm-' + esc(sk) + '" data-act="evtap" data-v="' + esc(sk) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(sel, sp)) + ' At ' + hms(sp.t) + ' Full Screen">' + evMedia(sel, sk) + '</div></article>';
     } else h += '<div class="empty">No alerts on this day with the current filters.</div>';
     h += '</div><div class="evlist">';
   } else h += '<div class="evwrap"><div class="evlist">';
-  if (!list.length && !wide) h += '<div class="empty">No alerts on this day with the current filters.</div>';
+  if (!cards.length && !wide) h += '<div class="empty">No alerts on this day with the current filters.</div>';
   Object.keys(byHour).map(Number).sort((a, b) => b - a).forEach(hr => {
     h += '<div class="hourh" id="hour-' + hr + '"></div>';
-    byHour[hr].forEach(e => {
-      const cam = Data.cam(e.cam), p = pick(e, f);
+    byHour[hr].forEach(cd => {
+      const e = cd.e, k = cd.k, cam = Data.cam(e.cam), p = evP(k, f), ttl = cd.g ? labGroup(cd.g) : labAll(e, p, f);
+      const dur = cd.g ? (s => s >= 60 ? Math.floor(s / 60) + ' min ' + (s % 60) + ' sec' : s + ' sec')(Math.max(1, Math.round((cd.g.en - cd.g.t) / 1000))) : durLabel(e);
       if (wide) {
-        h += '<article class="evrow' + (e.interesting ? '' : ' dim') + (sel && sel.id === e.id ? ' sel' : '') + '" data-act="evsel" data-v="' + esc(e.id) + '"><img src="' + evImg(e, p) + '" alt="" loading="lazy">' +
-          '<div class="evt"><b><i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(labAll(e, p, f)) + ' At ' + hms(p.t) + '</b><span>' + esc(cam ? cam.name : e.cam) + ' · ' + durLabel(e) + '</span></div>' +
-          '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(e.id) + '">' + I.dl + '</button></article>';
+        h += '<article class="evrow' + (e.interesting ? '' : ' dim') + (S.evSel === k ? ' sel' : '') + '" data-act="evsel" data-v="' + esc(k) + '"><img src="' + evImg(e, p) + '" alt="" loading="lazy">' +
+          '<div class="evt"><b><i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(ttl) + ' At ' + hms(p.t) + '</b><span>' + esc(cam ? cam.name : e.cam) + ' · ' + dur + '</span></div>' +
+          '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(k) + '">' + I.dl + '</button></article>';
         return;
       }
-      h += '<article class="evcard' + (e.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(labAll(e, p, f)) + ' At ' + hms(p.t) + '</b></div>' +
+      h += '<article class="evcard' + (e.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(ttl) + ' At ' + hms(p.t) + '</b></div>' +
         (e.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
-        '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(e.id) + '">' + I.dl + '</button>' +
-        (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(e.id) + '">' + I.trash + '</button>' : '') +
-        '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(e.id) + '">' + (S.evPlay === e.id ? I.pause : I.playO) + '</button>' +
+        '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(k) + '">' + I.dl + '</button>' +
+        (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(k) + '">' + I.trash + '</button>' : '') +
+        '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(k) + '">' + (S.evPlay === k ? I.pause : I.playO) + '</button>' +
 '</div>' +
-        '<div class="evmedia" id="evm-' + esc(e.id) + '" data-act="evtap" data-v="' + esc(e.id) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(e, p)) + ' At ' + hms(p.t) + ' Full Screen">' + evMedia(e) + '</div></article>';
+        '<div class="evmedia" id="evm-' + esc(k) + '" data-act="evtap" data-v="' + esc(k) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(e, p)) + ' At ' + hms(p.t) + ' Full Screen">' + evMedia(e, k) + '</div></article>';
     });
   });
   const maxN = Math.max(1, ...Object.values(byHour).map(v => v.length));
@@ -3904,15 +3912,44 @@ const objIcon = label => { const l = String(label).toLowerCase(); return ICON_SV
    minute); its title names every Interesting kind in it (an alert label of that camera), most important first
    ("Dog And Cat", "Person, Dog And Cat"), instead of only the first one. Uninteresting alerts list the kinds the
    object filter shows. A known name or delivery company still replaces the object name, as before. */
+const andJoin = n => n.length < 2 ? (n[0] || '') : n.slice(0, -1).join(', ') + ' And ' + n[n.length - 1];
 function labAll(e, p, f) {
-  if (e.who) return lab(e, p);
+  const names = String(e.who || '').split(' · ').filter(Boolean);
   const rule = (Data.alertRule || {})[e.cam], hot = e.interesting && rule && rule.labels.length ? o => rule.labels.includes(String(o).toLowerCase()) : null;
   const seen = new Set(), os = [];
   (e.objs && e.objs.length ? e.objs : [e.label]).forEach(o => { const k = String(o).toLowerCase(); if (!seen.has(k) && (!f || objOn(f, o)) && (!hot || hot(o))) { seen.add(k); os.push(o); } });
-  if (os.length < 2) return lab(e, p);
-  const n = os.sort((a, b) => objRank(a) - objRank(b)).map(objName);
-  return n.slice(0, -1).join(', ') + ' And ' + n[n.length - 1];
+  const all = [...names, ...os.sort((a, b) => objRank(a) - objRank(b)).map(objName)];
+  return all.length < 2 ? lab(e, p) : andJoin([...new Set(all)]);
 }
+/* One Frigate alert, several separate videos: when its objects come at different times (the FedEx truck, then the
+   driver after it has gone), each run of objects that overlap in time gets its own card, playing from when it came.
+   Objects at the same moment (one cat seen as "cat" in one frame and "dog" in the next) stay one card. Needs the
+   alert's objects (asked for while on screen), so an alert splits once they have arrived. */
+function evGroups(e, f) {
+  if (Data.source !== 'frigate') return null;
+  const ps = Arrive.parts(e, f); if (ps.length < 2) return null;
+  const gs = [];
+  ps.forEach(x => { const en = x.en || e.end || now(), g = gs[gs.length - 1];
+    if (g && x.t <= g.en + 2000) { g.ps.push(x); g.en = Math.max(g.en, en); } else gs.push({ t: x.t, en, ps: [x] }); });
+  return gs.length < 2 ? null : gs;
+}
+function labGroup(g) {
+  const names = [], kinds = [];
+  g.ps.slice().sort((a, b) => objRank(a.label) - objRank(b.label)).forEach(x => {
+    if (x.sub && x.sub.toLowerCase() !== 'unknown') names.push(objName(x.sub));
+    kinds.push(objName(x.label));
+  });
+  return andJoin([...new Set([...names, ...kinds])]);
+}
+/* card key → its alert (and group): plain alert id, or id~n for the n-th separate video of a split alert */
+const EVK = {};
+function evE(k) { const c = EVK[k]; if (c) return c.e; const id = String(k).split('~')[0]; return Data.events.find(x => x.id === id); }
+function evP(k, f) {
+  const c = EVK[k];
+  if (c && c.g) { const x = c.g.ps.slice().sort((a, b) => objRank(a.label) - objRank(b.label))[0]; return { label: x.label, t: c.g.t, d: c.g.ps[0].d, moved: c.g.t - c.e.t > 3000 }; }
+  const e = evE(k); return e ? pick(e, f) : null;
+}
+function evEnd(k) { const c = EVK[k], e = evE(k); return c && c.g ? c.g.en : (e && (e.end || e.t + 20000)); }
 function lab(e, p) { if (p && p.label !== e.label && !/^(person|car)$/i.test(p.label)) return objName(p.label); return e.who || objName(p ? p.label : e.label); }   /* 'Waste_bin' shows as 'Waste Bin' */   /* a known name or delivery company replaces the object name */
 function ico(e, p) { const L = p ? p.label : e.label; return /^car$/i.test(L) || L === e.label ? (e.logo || L) : L; }
 const OBJ_ICON = new Proxy({}, { get: (_, k) => objIcon(k) });
@@ -4209,7 +4246,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.10.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.10.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -4305,7 +4342,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 2.10.1');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 2.10.2');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -4322,7 +4359,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.10.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.10.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -4372,14 +4409,14 @@ const ACT = {
   },
   evdelask(d) { S.delId = d.v; S.modal = 'del'; render(); },
   async evdel() {
-    const e = Data.events.find(x => x.id === S.delId); if (!e || S.delBusy) return;
+    const e = evE(S.delId); if (!e || S.delBusy) return;
     S.delBusy = true; const h = { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '1' };
     try {
       /* the objects first (their snapshots and crops), then the alert itself, which also removes that camera's video of it */
       if (e.dets.length) await fetch(Frigate.base() + '/api/events/', { method: 'DELETE', credentials: 'include', headers: h, body: JSON.stringify({ event_ids: e.dets }) });
       const r = await fetch(Frigate.base() + '/api/reviews/delete', { method: 'POST', credentials: 'include', headers: h, body: JSON.stringify({ ids: [e.id] }) });
       if (!r.ok) throw new Error(r.status);
-      if (S.evPlay === e.id) evStop();
+      if (S.evPlay && evE(S.evPlay) === e) evStop();
       Data.events = Data.events.filter(x => x.id !== e.id); S.modal = null; S.delId = null; render(); toast('Alert Deleted');
     } catch (x) { toast('Could Not Delete'); }
     S.delBusy = false;
@@ -4482,15 +4519,15 @@ const ACT = {
   },
   focus(d) { openFocus(d.id); },
   evtap(d, ev) {
-    const e = Data.events.find(x => x.id === d.v); if (!e) return;
+    const e = evE(d.v); if (!e) return;
     const t = Date.now();
-    if (evTapLast.id === d.v && t - evTapLast.at < 320) { clearTimeout(evTapTimer); evTapLast = { id: null, at: 0 }; evStop(); ACT.focusat({ id: e.cam, t: pick(e, S.filt).t }); return; }
+    if (evTapLast.id === d.v && t - evTapLast.at < 320) { clearTimeout(evTapTimer); evTapLast = { id: null, at: 0 }; evStop(); ACT.focusat({ id: e.cam, t: evP(d.v, S.filt).t }); return; }
     evTapLast = { id: d.v, at: t };   /* single tap: play it here (Frigate); double tap: open the camera */
     if (Data.source === 'frigate' && S.evPlay !== d.v) ACT.evplay({ v: d.v }, ev);
   },
   evdl(d) {
-    const e = Data.events.find(x => x.id === d.v); if (!e) return;
-    const p = pick(e, S.filt), aS = Math.floor(p.t / 1000) - 2, bS = Math.ceil((e.end || e.t + 20000) / 1000) + 2;   /* from where the picked object shows up */
+    const e = evE(d.v); if (!e) return;
+    const p = evP(d.v, S.filt), aS = Math.floor(p.t / 1000) - 2, bS = Math.ceil(evEnd(d.v) / 1000) + 2;   /* from where the picked object shows up */
     saveClip(e.clip, (Data.cam(e.cam) ? Data.cam(e.cam).name : e.cam) + ' ' + objName(p.label) + ' ' + fileTime(p.t) + '.mp4', bS - aS, e.cam, aS, bS);
   },
   /* wide screens: pick an alert in the list to play it in the big player */
@@ -4502,16 +4539,16 @@ const ACT = {
   evplay(d, ev) {
     if (ev && ev.target && ev.target.tagName === 'VIDEO' && ev.target.controls) return;
     const was = S.evPlay; evStop();
-    if (was === d.v) { const m = document.getElementById('evm-' + d.v); const e = Data.events.find(x => x.id === d.v); if (m && e) { relIn(m); m.innerHTML = evMedia(e); } evIcons(); return; }
-    if (was) { const om = document.getElementById('evm-' + was), oe = Data.events.find(x => x.id === was); if (om && oe) { relIn(om); om.innerHTML = evMedia(oe); } }   /* the one that was playing goes back to its picture */
+    if (was === d.v) { const m = document.getElementById('evm-' + d.v); const e = evE(d.v); if (m && e) { relIn(m); m.innerHTML = evMedia(e, d.v); } evIcons(); return; }
+    if (was) { const om = document.getElementById('evm-' + was), oe = evE(was); if (om && oe) { relIn(om); om.innerHTML = evMedia(oe, was); } }   /* the one that was playing goes back to its picture */
     S.evPlay = d.v; S.evPos = 0;
-    const e = Data.events.find(x => x.id === d.v), m = document.getElementById('evm-' + d.v); if (!e || !m) return;
-    m.innerHTML = evMedia(e); evIcons();
+    const e = evE(d.v), m = document.getElementById('evm-' + d.v); if (!e || !m) return;
+    m.innerHTML = evMedia(e, d.v); evIcons();
     Playback.sync();   /* start the new clip right inside this tap: iPhone (Low Power Mode) only allows that */
     if (Data.source !== 'frigate') evTimer = setInterval(() => {
       S.evPos = Math.min(1, (S.evPos || 0) + 0.05);
-      const mm = document.getElementById('evm-' + e.id); if (mm) mm.innerHTML = evMedia(e);
-      if (S.evPos >= 1) { evStop(); if (mm) mm.innerHTML = evMedia(e); evIcons(); }
+      const mm = document.getElementById('evm-' + d.v); if (mm) mm.innerHTML = evMedia(e, d.v);
+      if (S.evPos >= 1) { evStop(); if (mm) mm.innerHTML = evMedia(e, d.v); evIcons(); }
     }, 250);
   },
   focusat(d) { S.camTime[d.id] = +d.t - 1000; openFocus(d.id); },
@@ -5260,7 +5297,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.10.1';
+    const BUILD = '2.10.2';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
