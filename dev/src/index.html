@@ -613,6 +613,8 @@ img.rf{opacity:0}
 .evt span{font-size:11px;font-weight:600;opacity:.85;overflow:hidden;text-overflow:ellipsis}
 .evh .ic{width:34px;height:34px}
 .evh .ic svg{width:18px;height:18px}
+.evcard .evh .ic{width:30px}
+.evcard .evh{padding-right:4px}
 .evcard{border-radius:10px}
 .hours{width:36px;padding:8px 4px 40px 0;gap:0;top:130px}
 .hr{height:30px;justify-content:flex-start;gap:5px;font-size:11px;border-radius:0;background:none!important;padding:0}
@@ -852,6 +854,7 @@ input,select,textarea{font-size:16px}
 .evmedia{position:relative;display:block;width:100%;aspect-ratio:16/9;background:#1E2226;cursor:pointer}
 .evclk{position:absolute;left:8px;top:8px;z-index:3;padding:2px 7px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none}
 .evmedia img,.evmedia video{width:100%;height:100%;object-fit:cover;display:block}
+.evmedia .evnm{position:absolute;left:4px;bottom:4px;z-index:3;height:26px;padding:0 9px;border-radius:13px;font-size:12px;font-weight:700;white-space:nowrap;max-width:calc(100% - 8px);overflow:hidden;text-overflow:ellipsis;display:block;line-height:26px;pointer-events:none}
 .evplayb{position:absolute;right:10px;bottom:10px;width:34px;height:34px;border-radius:17px;background:rgba(18,22,24,.6);color:#fff;display:flex;align-items:center;justify-content:center;pointer-events:none}
 .evprog{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.25)}
 .evprog i{display:block;height:100%;background:var(--strong)}
@@ -3057,7 +3060,9 @@ function evImg(e, p) {
   if (!p || !p.moved || !p.d || Data.source !== 'frigate') return e.img;
   const u = Frigate.base() + '/api/events/' + p.d + '/snapshot.jpg?height=480'; Frigate.fb[u] = e.img; return u;
 }
-function evMedia(e) {
+function evMedia(e) { const c = Data.cam(e.cam); return evMedia0(e) + '<div class="pillk evnm">' + esc(c ? c.name : e.cam) + '</div>'; }
+/* the alert's camera name sits in the picture's bottom-left corner, like the camera view (the header had no room for it) */
+function evMedia0(e) {
   const playing = S.evPlay === e.id, p = pick(e, S.filt);
   if (Data.source === 'frigate') {
     const at = (p.moved ? p.t : e.t) - 1000;   /* opens 1 s before the alert (or its picked object) */
@@ -3121,7 +3126,7 @@ function viewEvents() {
     h += '<div class="evwrap wide"><div class="evplayer" id="evplayer">';
     if (sel) {
       const sc = Data.cam(sel.cam), sp = pick(sel, f);
-      h += '<article class="evcard big' + (sel.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(sel, sp)) + '</i>' + esc(lab(sel, sp)) + ' At ' + hms(sp.t) + '</b><span>' + esc(sc ? sc.name : sel.cam) + '</span></div>' +
+      h += '<article class="evcard big' + (sel.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(sel, sp)) + '</i>' + esc(lab(sel, sp)) + ' At ' + hms(sp.t) + '</b></div>' +
         (sel.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(sel.id) + '">' + (sel.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Open Camera" data-act="focusat" data-id="' + esc(sel.cam) + '" data-t="' + sp.t + '">' + I.expand + '</button>' +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(sel.id) + '">' + I.dl + '</button>' +
@@ -3142,7 +3147,7 @@ function viewEvents() {
           '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(e.id) + '">' + I.dl + '</button></article>';
         return;
       }
-      h += '<article class="evcard' + (e.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(lab(e, p)) + ' At ' + hms(p.t) + '</b><span>' + esc(cam ? cam.name : e.cam) + '</span></div>' +
+      h += '<article class="evcard' + (e.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(lab(e, p)) + ' At ' + hms(p.t) + '</b></div>' +
         (e.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(e.id) + '">' + I.dl + '</button>' +
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(e.id) + '">' + I.trash + '</button>' : '') +
