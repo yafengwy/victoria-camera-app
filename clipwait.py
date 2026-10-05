@@ -5,7 +5,7 @@
 # clip.mp4: the sound is taken out, so the video always plays silently on the phone. clip.gif gives the same seconds
 # as a moving picture, which the phone plays by itself as soon as the notification is opened. sound.mp4 keeps the
 # sound (for sound alerts, so the right sound can be checked by pressing and holding the notification).
-import json, time, re, os, glob, subprocess, tempfile, threading, urllib.request
+import json, time, re, os, glob, subprocess, tempfile, threading, urllib.request, urllib.parse
 from datetime import datetime, timezone
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
@@ -217,7 +217,13 @@ class H(BaseHTTPRequestHandler):
         # The same notification video is asked for more than once (Android reads it in pieces and again when the
         # notification is redrawn): the first request makes it, the others wait for it and get it at once, so a
         # repeat never waits 20 s again and runs past the phone's limit (that made the Samsung video vanish).
-        key = self.path.split('?')[0] + ('?a=1' if 'a=1' in self.path else '')
+        q = urllib.parse.parse_qs(self.path.partition('?')[2])
+        andro = q.get('a') == ['1']
+        # ?ready=1 is asked by Home Assistant (rest_command.clip_ready) before it sends the notification: the clip is
+        # made and kept here, and HA hears "ok" only when it is ready. Then the phone's own request is answered at
+        # once, instead of the phone waiting for the recording and giving up ("failed to load attachment").
+        ready = q.get('ready') == ['1']
+        key = self.path.split('?')[0] + ('?a=1' if andro else '')
         t0 = time.time()
         with LOCK:
             lk = LOCKS.setdefault(key, threading.Lock())
@@ -228,13 +234,21 @@ class H(BaseHTTPRequestHandler):
             if hit:
                 body, err = hit[0], None
             else:
-                body, err = make(self.path, cam, s, e, kind)
+                body, err = make('?a=1' if andro else '', cam, s, e, kind)
                 if body is not None:
                     CACHE[key] = (body, time.time())
         rng = re.match(r'bytes=(\d*)-(\d*)$', self.headers.get('Range', '') or '')
-        print('wait', cam, kind, 'a=1' if 'a=1' in self.path else '', 'cached' if hit else 'made',
+        print('wait', cam, kind, 'a=1' if andro else '', 'ready' if ready else 'phone', 'cached' if hit else 'made',
               f'{time.time() - t0:.1f}s', len(body) if body else 'FAILED', self.headers.get('Range', ''),
               (self.headers.get('User-Agent', '') or '')[:40], flush=True)
+        if ready:
+            msg = (f'ok {len(body)}' if body else f'failed {err}').encode()
+            self.send_response(200 if body else 502)
+            self.send_header('Content-Type', 'text/plain')
+            self.send_header('Content-Length', str(len(msg)))
+            self.end_headers()
+            self.wfile.write(msg)
+            return
         try:
             if body is None:
                 raise RuntimeError(err)
