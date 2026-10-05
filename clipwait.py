@@ -152,20 +152,21 @@ class H(BaseHTTPRequestHandler):
         cam, s, e, kind = m.group(1), int(m.group(2)), int(m.group(3)), m.group(4)
         t0 = time.time()
         ok = False
-        while time.time() - t0 < 18:   # the phone gives up after ~30 s: wait up to 18 s for the recording, then use the live stream
+        while time.time() - t0 < 22:   # as before: wait for the recording (the phone gives up after ~30 s)
             if covered(cam, s, e):
                 ok = True; break
             time.sleep(0.5)
         # Frigate sometimes can't cut a very short piece right at the edge of a recording segment (some cameras,
         # like Treat Feeder, write longer segments): try the asked seconds, then a slightly wider window once more.
         body, err = None, None
-        pre = 6 if kind == 'clip.gif' else 0   # GIF: start a few seconds early so decoding begins on a full picture
-        for a, b, wait in (((s - pre, e, 0), (s - pre - 1, e + 3, 2)) if ok else ()):
+        # Frigate's clip starts on the full picture before the asked second, so it moves from the first frame and is
+        # usually a few seconds longer than asked (that is the clip as it always was).
+        for a, b, wait in (((s, e, 0), (s - 1, e + 3, 2)) if ok else ()):
             try:
                 time.sleep(wait)
                 with urllib.request.urlopen(f'{FRIGATE}/api/{cam}/start/{a}/end/{b}/clip.mp4', timeout=30) as r:
                     body = r.read()
-                body = gif(body, b - a - pre) if kind == 'clip.gif' else faststart(body) if kind == 'sound.mp4' else silent(body)
+                body = gif(body) if kind == 'clip.gif' else faststart(body) if kind == 'sound.mp4' else silent(body)
                 break
             except Exception as x:
                 err = x; body = None
