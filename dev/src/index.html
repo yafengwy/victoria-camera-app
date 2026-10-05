@@ -2673,7 +2673,7 @@ function camCard(c, fr, span2) {
     '<div class="frame"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(Live.cardSrc(c.id), t != null) + Playback.holder(c.id) + (S.layout === 'grid' || slim ? '<div class="cnm">' + esc(c.name) + '</div>' : '') +
     '<button class="hit" data-act="tap" data-id="' + c.id + '" aria-label="Show playback for ' + esc(c.name) + '"></button>' +
     (off ? '<div class="offv" id="off-' + c.id + '" data-act="tap" data-id="' + c.id + '"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>' : '') +
-    (slim ? '<div class="ctr">' + snz + sndC(c.id).replace('class="ic sndb"', 'class="ic sndb fsnd"') + badgeHtml(c.id, t, f) + '</div>' : badgeHtml(c.id, t, f)) + '<div class="ctm" id="ctm-' + c.id + '">' + hms(shownT(c.id, Live.cardSrc(c.id))) + '</div><div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="tag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div></article>';
+    (slim ? '<div class="ctr">' + snz + badgeHtml(c.id, t, f) + '</div>' : badgeHtml(c.id, t, f)) + '<div class="ctm" id="ctm-' + c.id + '">' + hms(shownT(c.id, Live.cardSrc(c.id))) + '</div><div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="tag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div></article>';
 }
 /* The moment the picture on screen is from: the playback time; live video = now while the picture is moving,
    and when it stops (Still) the moment it last moved; a still snapshot = when that snapshot was taken. */
