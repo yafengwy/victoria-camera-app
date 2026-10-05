@@ -212,6 +212,32 @@ def make(path, cam, s, e, kind):
     return body, err
 
 CACHE, LOCKS, LOCK = {}, {}, threading.Lock()
+# Finished clips are also kept on disk for a day: opening an older notification on the iPhone asks for its GIF/video
+# again, and after the 10-minute memory cache that meant making it again (slow, or failing while Frigate was busy).
+DISK = '/tmp/clipcache'
+os.makedirs(DISK, exist_ok=True)
+
+def disk_path(key):
+    import hashlib
+    return os.path.join(DISK, hashlib.md5(key.encode()).hexdigest())
+
+def disk_get(key):
+    try:
+        p = disk_path(key)
+        if time.time() - os.path.getmtime(p) < 86400:
+            return open(p, 'rb').read()
+    except OSError:
+        pass
+    return None
+
+def disk_put(key, body):
+    try:
+        p = disk_path(key); open(p + '.tmp', 'wb').write(body); os.replace(p + '.tmp', p)
+        for f in os.listdir(DISK):
+            q = os.path.join(DISK, f)
+            if time.time() - os.path.getmtime(q) > 86400: os.remove(q)
+    except OSError:
+        pass
 
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -249,12 +275,15 @@ class H(BaseHTTPRequestHandler):
                 CACHE.pop(k, None); LOCKS.pop(k, None) if k != key else None
         with lk:
             hit = CACHE.get(key)
+            if not hit:
+                b0 = disk_get(key)
+                if b0: hit = CACHE[key] = (b0, time.time())
             if hit:
                 body, err = hit[0], None
             else:
                 body, err = make('?a=1' if andro else '', cam, s, e, kind)
                 if body is not None:
-                    CACHE[key] = (body, time.time())
+                    CACHE[key] = (body, time.time()); disk_put(key, body)
         rng = re.match(r'bytes=(\d*)-(\d*)$', self.headers.get('Range', '') or '')
         print('wait', cam, kind, 'a=1' if andro else '', 'ready' if ready else 'phone', 'cached' if hit else 'made',
               f'{time.time() - t0:.1f}s', len(body) if body else 'FAILED', self.headers.get('Range', ''),
