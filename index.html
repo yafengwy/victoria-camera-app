@@ -160,7 +160,7 @@ img.rf{opacity:0}
 .tabs button{height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:13px;font-weight:700;color:var(--head-fg)}
 .tabs button[aria-selected="true"]{background:var(--chip);font-weight:800}
 .tabbody{padding:10px 12px 12px;display:flex;flex-direction:column;gap:10px}
-.thumbs{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.thumbs{display:flex;gap:8px;overflow-x:auto;overflow-y:hidden;overscroll-behavior:contain;touch-action:pan-x;padding:2px 0;scrollbar-width:none;flex-shrink:0}
 .thumb{flex-shrink:0;width:136px;height:78px;position:relative;border-radius:8px;overflow:hidden;background:#1E2226}
 .thumb img{width:100%;height:100%;object-fit:cover;display:block}
 .thumb span{position:absolute;left:0;right:0;bottom:0;padding:4px 8px;background:rgba(18,22,24,.72);color:#fff;font-size:11px;font-weight:700;text-align:left;font-variant-numeric:tabular-nums}
@@ -1706,6 +1706,8 @@ const Live = {
   },
   /* a stream whose picture stops moving for 6 s is restarted on its own */
   watch() {
+    const nLive = Object.values(this.els).filter(e => e.ws && !e.suspended && e.isConnected).length, nRec = Object.values(Playback.st || {}).filter(p => p.on || p.loading).length;
+    if (nLive + '/' + nRec !== this.dbgN) { this.dbgN = nLive + '/' + nRec; Dbg.log('videos running', 'live ' + nLive, 'recordings ' + nRec); }
     for (const src in this.els) {
       const e = this.els[src], v = e.video;
       if (!v || e.suspended || !e.isConnected || !e.ws || v.closest('[hidden]') || document.hidden) { e.stuck = 0; continue; }
@@ -1921,7 +1923,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.6.6 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.6.7 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2068,7 +2070,19 @@ const Playback = {
       else this.hls().then(H => { const h = new H(); v._hls = h; h.loadSource(u); h.attachMedia(v); v.play().catch(() => {}); }).catch(() => { v.src = u; });
     });
     const want = this.cams();
-    for (const id in this.st) if (!want[id]) this.stop(id, 'not open');
+    for (const id in this.st) if (!want[id]) {
+      this.stop(id, 'not open');
+      /* a closed camera's recording player gives its video memory back after a few seconds (each one held a decoder
+         and buffered video; several of them got the page ended by the iPhone) */
+      const p = this.st[id];
+      if (!p.closedAt) { p.closedAt = Date.now(); setTimeout(() => this.sync(), 5500); }
+      else if (Date.now() - p.closedAt > 5000 && (p.v.getAttribute('src') || p.h)) {
+        if (p.h) { try { p.h.destroy(); } catch (e) {} p.h = null; }
+        p.v.removeAttribute('src'); try { p.v.load(); } catch (e) {} p.win = null; p.loading = false; p.lastSet = null; p.v._unlocked = false;
+        Dbg.log('released', id);
+      }
+    }
+    for (const id in want) if (this.st[id]) this.st[id].closedAt = 0;
     for (const id in want) {
       const t = camT(id), p = this.el(id);
       if (t == null || !S.playing || S.dragging || (S.hov && (S.hov.id === id || S.hov.id === 'full'))) { const why = t == null ? 'live' : !S.playing ? 'paused' : S.dragging ? 'dragging' : 'hover'; if (p.on || !p.v.paused) this.stop(id, why); else if (p.dbgHold !== why && t != null) Dbg.log('hold', id, why); p.dbgHold = why; continue; }
@@ -4078,7 +4092,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.6.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.6.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -4181,7 +4195,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.6.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.6.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -4702,7 +4716,7 @@ document.addEventListener('click', e => {
   }, { passive: true });
   document.addEventListener('touchend', () => {
     if (y0 == null) return; y0 = null;
-    if (d > 110 && ind) { ind.classList.add('go'); ind.style.transform = 'translateY(40px)'; setTimeout(() => location.reload(), 150); }
+    if (d > 110 && ind) { ind.classList.add('go'); ind.style.transform = 'translateY(40px)'; setTimeout(() => { try { sessionStorage.setItem('vhreload', 'pull down'); } catch (e) {} location.reload(); }, 150); }
     else if (ind) { ind.style.transform = 'translateY(-44px)'; ind.style.opacity = 0; }
     d = 0;
   }, { passive: true });
@@ -5042,6 +5056,17 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
 
 (async function start() {
   const t0 = Date.now();
+  /* why this start: the phone ended the page without closing it (usually out of memory), a reload we asked for, or a
+     normal open. Logged with the first-screen line so a self-refresh can be explained from the log. */
+  let why = 'open';
+  try {
+    const was = sessionStorage.getItem('vhalive'), rl = sessionStorage.getItem('vhreload');
+    why = rl ? 'reload ' + rl : was === '1' ? 'page was ended by the phone (memory)' : 'open';
+    sessionStorage.removeItem('vhreload'); sessionStorage.setItem('vhalive', '1');
+    window.addEventListener('pagehide', () => { try { sessionStorage.setItem('vhalive', '0'); } catch (e) {} });
+    window.addEventListener('pageshow', () => { try { sessionStorage.setItem('vhalive', '1'); } catch (e) {} });
+  } catch (e) {}
+  Dbg.log('start why', why);
   await Data.load(); lastCols = cols() * 10 + rvCols();
   /* Browsers open one websocket handshake at a time per site, so open the motion feed before the live videos queue theirs */
   if (Data.source === 'frigate') { Motion.connect(); await new Promise(ok => { const t1 = Date.now(), w = setInterval(() => { if (Motion.up || Date.now() - t1 > 1500) { clearInterval(w); ok(); } }, 50); }); }
@@ -5062,15 +5087,15 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.6.6';
+    const BUILD = '2.6.7';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
        start), so it never reloads under her fingers */
     let newVer = null;
-    checkVer().then(() => { if (newVer && Date.now() - t0 < 20000) location.reload(); });
+    checkVer().then(() => { if (newVer && Date.now() - t0 < 20000) { try { sessionStorage.setItem('vhreload', 'new version'); } catch (e) {} location.reload(); } });
     setInterval(checkVer, 120000);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) return; if (newVer) location.reload(); else checkVer(); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) return; if (newVer) { try { sessionStorage.setItem('vhreload', 'new version'); } catch (e) {} location.reload(); } else checkVer(); });
   }
 })();
 </script>
