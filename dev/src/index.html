@@ -1509,6 +1509,9 @@ const Frigate = {
       'nest_master_bedroom', 'fishtofu_furbo', 'riceball_furbo'];
     const rank = c => { const i = ORDER.indexOf(c.id); return i < 0 ? ORDER.length + Data.cams.indexOf(c) : i; };
     Data.cams = Data.cams.slice().sort((a, b) => rank(a) - rank(b));
+    /* the Doorbell is shown as an upright 3:4 card (its 4:3 picture fills it, centred); the live video and the
+       snapshot are now the same shape, so both are cut the same way and nothing jumps */
+    Data.cams.forEach(c => { if (c.id === 'nest_doorbell') c.ar = 0.75; });
     /* cameras whose detect size isn't in Frigate's config (the Doorbell): read the picture shape from a snapshot */
     Data.cams.filter(c => !c.ar).forEach(c => { const im = new Image(); im.onload = () => { if (c.ar || !im.naturalWidth) return; c.ar = im.naturalWidth / im.naturalHeight; Dbg.log('picture shape', c.id, c.ar.toFixed(3)); if (isTall(c) && app.innerHTML) render(); }; im.src = c.img; });
   },
