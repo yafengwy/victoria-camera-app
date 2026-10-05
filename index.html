@@ -1967,7 +1967,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.9.9 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.9.10 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -3168,7 +3168,7 @@ function viewEvents() {
     h += '<div class="evwrap wide"><div class="evplayer" id="evplayer">';
     if (sel) {
       const sc = Data.cam(sel.cam), sp = pick(sel, f);
-      h += '<article class="evcard big' + (sel.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(sel, sp)) + '</i>' + esc(lab(sel, sp)) + ' At ' + hms(sp.t) + '</b></div>' +
+      h += '<article class="evcard big' + (sel.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(sel, sp)) + '</i>' + esc(labAll(sel, sp, f)) + ' At ' + hms(sp.t) + '</b></div>' +
         (sel.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(sel.id) + '">' + (sel.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Open Camera" data-act="focusat" data-id="' + esc(sel.cam) + '" data-t="' + sp.t + '">' + I.expand + '</button>' +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(sel.id) + '">' + I.dl + '</button>' +
@@ -3185,11 +3185,11 @@ function viewEvents() {
       const cam = Data.cam(e.cam), p = pick(e, f);
       if (wide) {
         h += '<article class="evrow' + (e.interesting ? '' : ' dim') + (sel && sel.id === e.id ? ' sel' : '') + '" data-act="evsel" data-v="' + esc(e.id) + '"><img src="' + evImg(e, p) + '" alt="" loading="lazy">' +
-          '<div class="evt"><b><i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(lab(e, p)) + ' At ' + hms(p.t) + '</b><span>' + esc(cam ? cam.name : e.cam) + ' · ' + durLabel(e) + '</span></div>' +
+          '<div class="evt"><b><i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(labAll(e, p, f)) + ' At ' + hms(p.t) + '</b><span>' + esc(cam ? cam.name : e.cam) + ' · ' + durLabel(e) + '</span></div>' +
           '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(e.id) + '">' + I.dl + '</button></article>';
         return;
       }
-      h += '<article class="evcard' + (e.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(lab(e, p)) + ' At ' + hms(p.t) + '</b></div>' +
+      h += '<article class="evcard' + (e.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(labAll(e, p, f)) + ' At ' + hms(p.t) + '</b></div>' +
         (e.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(e.id) + '">' + I.dl + '</button>' +
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(e.id) + '">' + I.trash + '</button>' : '') +
@@ -3900,6 +3900,16 @@ const AUDIO_LABELS = ['meow', 'caterwaul', 'hiss', 'bark', 'yell', 'scream', 'do
 ICON_SVG.sound = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
 const objIcon = label => { const l = String(label).toLowerCase(); return ICON_SVG[ICON_OF[l] || (AUDIO_LABELS.includes(l) ? 'sound' : 'paw')]; };
 /* what an alert is called on screen: the object, plus the delivery company or the person's name when known */
+/* Alerts page: one alert from Frigate can hold several objects (the Bedroom Furbo saw the cat and a "dog" in the same
+   minute); its title names each picked kind, most important first ("Dog And Cat"), instead of only the first one.
+   A known name or delivery company still replaces the object name, as before. */
+function labAll(e, p, f) {
+  if (e.who) return lab(e, p);
+  const seen = new Set(), os = [];
+  (e.objs && e.objs.length ? e.objs : [e.label]).forEach(o => { const k = String(o).toLowerCase(); if (!seen.has(k) && (!f || objOn(f, o))) { seen.add(k); os.push(o); } });
+  if (os.length < 2) return lab(e, p);
+  return os.sort((a, b) => objRank(a) - objRank(b)).slice(0, 3).map(objName).join(' And ');
+}
 function lab(e, p) { if (p && p.label !== e.label && !/^(person|car)$/i.test(p.label)) return objName(p.label); return e.who || objName(p ? p.label : e.label); }   /* 'Waste_bin' shows as 'Waste Bin' */   /* a known name or delivery company replaces the object name */
 function ico(e, p) { const L = p ? p.label : e.label; return /^car$/i.test(L) || L === e.label ? (e.logo || L) : L; }
 const OBJ_ICON = new Proxy({}, { get: (_, k) => objIcon(k) });
@@ -4196,7 +4206,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.9.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.9.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -4292,7 +4302,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 2.9.9');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 2.9.10');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -4309,7 +4319,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.9.9\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.9.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5247,7 +5257,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.9.9';
+    const BUILD = '2.9.10';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
