@@ -4,6 +4,7 @@ Read this first when picking the app up in a new conversation. No secrets live i
 
 ## Working rules (Victoria)
 - Reply in Chinese, short and direct. Spell out every terminal step: say whether a block is pasted as one command or line by line.
+- Every time a terminal step is needed (especially after a night away), first tell her how to get into the mini PC: Mac Terminal (Cmd+Space, Terminal) → `ssh victoria-frigate@192.168.1.77` (or `ssh victoria-frigate@frigate.local`) → her mini PC password (nothing shows while typing) → `cd ~/frigate`. At home on the same Wi-Fi only.
 - Push fixes right away (commit + push; the mini PC pulls every minute).
 - Mockups (示意图) are images only, until she confirms. Don't touch the app for mockups.
 - Every UI label starts with a capital letter, including each "·"-separated part.
