@@ -1564,8 +1564,8 @@ const Frigate = {
     }));
     /* Victoria's order; cameras not listed keep Frigate's order after these */
     const ORDER = ['nest_doorbell', 'front_door', 'driveway', 'right_yard_front', 'right_yard_back', 'nest_backyard', 'left_yard', 'california_room',
-      'garage1', 'garage2', 'closet', 'entry_room', 'nest_entry_room', 'prep_kitchen', 'upstairs_furbo', 'bedroom_furbo', 'treat_feeder', 'living_room', 'upstairs_living',
-      'nest_master_bedroom', 'fishtofu_furbo', 'riceball_furbo'];
+      'garage1', 'garage2', 'closet', 'entry_room', 'nest_entry_room', 'prep_kitchen', 'living_room', 'treat_feeder', 'upstairs_living', 'upstairs_furbo',
+      'bedroom_furbo', 'nest_master_bedroom', 'fishtofu_furbo', 'riceball_furbo', 'litter_box'];
     const rank = c => { const i = ORDER.indexOf(c.id); return i < 0 ? ORDER.length + Data.cams.indexOf(c) : i; };
     Data.cams = Data.cams.slice().sort((a, b) => rank(a) - rank(b));
     /* the Doorbell's picture is upright 3:4. Nest's stream carries a wrong "stretch sideways" flag, so browsers show
