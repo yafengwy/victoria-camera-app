@@ -152,7 +152,7 @@ class H(BaseHTTPRequestHandler):
         cam, s, e, kind = m.group(1), int(m.group(2)), int(m.group(3)), m.group(4)
         t0 = time.time()
         ok = False
-        while time.time() - t0 < 8:   # the phone gives up after ~30 s, so don't wait long for the recording
+        while time.time() - t0 < 18:   # the phone gives up after ~30 s: wait up to 18 s for the recording, then use the live stream
             if covered(cam, s, e):
                 ok = True; break
             time.sleep(0.5)
