@@ -230,12 +230,13 @@ img.rf{opacity:0}
 .fov .dk{background:rgba(0,0,0,.6)}
 .fov{gap:6px}
 .fov .pillk{height:30px;padding:0 10px;border-radius:15px;font-size:12px;font-weight:700;white-space:nowrap;min-width:0}
-.fov .pillk.fname{flex:0 1 auto}
+.fov .pillk.fname{flex:0 0 auto}
 #ptr{position:fixed;left:50%;top:0;width:36px;height:36px;margin-left:-18px;border-radius:18px;background:var(--card);color:var(--text);box-shadow:0 2px 10px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;z-index:60;transform:translateY(-44px);pointer-events:none;transition:opacity .2s}
 #ptr svg{width:20px;height:20px}
 #ptr.go svg{animation:ptrspin .8s linear infinite}
 @keyframes ptrspin{to{transform:rotate(360deg)}}
 .fov .dk,.fov .dk.ctl{width:32px;height:32px;border-radius:16px}
+.fov .dk + .dk{margin-left:-4px}
 .fov .dk svg,.fov .dk.ctl svg{width:17px;height:17px}
 .fctl{height:68px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--dark-line);width:100%;max-width:900px;margin:0 auto}
 .fday{height:44px;padding:0 14px;border-radius:22px;background:var(--dark-card);display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700}
@@ -552,7 +553,7 @@ img.rf{opacity:0}
 .ctm{position:absolute;left:6px;top:calc(var(--bt) + var(--bh) / 2);padding:2px 6px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:9px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap;z-index:2;pointer-events:none}
 .grid.compact .tag{top:28px!important}
 .fulltm{position:absolute;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));padding:3px 8px;border-radius:6px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap;z-index:3;pointer-events:none}
-.fclk{position:absolute;left:3px;top:46px;z-index:3;padding:2px 7px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none}
+.fov .pillk.ftm{flex:0 0 auto;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:400;pointer-events:none}
 .cnm{position:absolute;left:0;bottom:0;max-width:72%;padding:3px 8px 3px 8px;border-radius:0 8px 0 0;background:rgba(18,22,24,.66);color:#fff;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:2;pointer-events:none}
 .grid.compact .tag{bottom:auto;top:6px;left:6px;font-size:11px;padding:2px 7px}
 .topicons .ic{width:38px}
@@ -1932,7 +1933,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.7.6 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.7.9 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2778,11 +2779,13 @@ function shownT(id, src) {
 }
 /* today: time only; another day: date and time */
 const dtShort = t => dayStart(t) === dayStart(now()) ? hms(t) : fmtDT(t);
+/* camera view top row (beside the name): today time only, another day month/day and time, so the row fits a phone */
+const dtHdr = t => { if (dayStart(t) === dayStart(now())) return hms(t); const d = new Date(t); return pad(d.getMonth() + 1) + '/' + pad(d.getDate()) + ' ' + hms(t); };
 function paintTimes() {
   if (S.watch) document.querySelectorAll('.wt').forEach(w => { const id = w.id.slice(3), t = document.getElementById('wtm-' + id), b = document.getElementById('wbd-' + id);
     if (t) { const v = hms(shownT(id, w.dataset.src)); if (t.textContent !== v) t.textContent = v; } if (b) { const v = stillInner(id); if (b.innerHTML !== v) b.innerHTML = v; } });
   if (S.view === 'home') Data.cams.forEach(c => { const n = document.getElementById('ctm-' + c.id); if (n) { const v = hms(shownT(c.id, Live.cardSrc(c.id))); if (n.textContent !== v) n.textContent = v; } });
-  ['ftm', 'fulltm'].forEach(k => { const f = document.getElementById(k); if (f && S.focus) { const v = dtShort(shownT(S.focus.cam, S.focus.cam)); if (f.textContent !== v) f.textContent = v; } });
+  ['ftm', 'fulltm'].forEach(k => { const f = document.getElementById(k); if (f && S.focus) { const v = (k === 'ftm' ? dtHdr : dtShort)(shownT(S.focus.cam, S.focus.cam)); if (f.textContent !== v) f.textContent = v; } });
 }
 setInterval(paintTimes, 500);
 function agoShort(ms) { const s = Math.max(0, Math.floor(ms / 1000)); if (s < 60) return s + 's'; const m = Math.floor(s / 60); if (m < 60) return m + 'm'; const h = Math.floor(m / 60); return h < 24 ? h + 'h' : Math.floor(h / 24) + 'd'; }
@@ -3321,11 +3324,10 @@ function viewFocus() {
     body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px"><div class="frail"></div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + FTOP + 'px"></div>';
   }
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
-  const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk fname">' + esc(c.name) + '</div><div style="flex:1"></div>' +
+  const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk fname">' + esc(c.name) + '</div><div class="pillk ftm" id="ftm">' + dtHdr(shownT(c.id, c.id)) + '</div><div style="flex:1"></div>' +
     (frig && cs.enabled ? '<button class="dk ctl" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
-    '</div>' +   /* no Live/time pill at the top right: the time is on the picture and Live is the button at the bottom */
-    '<div class="fclk" id="ftm">' + dtShort(shownT(c.id, c.id)) + '</div>';   /* the one time on the picture: its top-left corner, under the buttons */
+    '</div>';   /* one row: name, then the time of the picture; Live is the button at the bottom */
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
     '<div class="fvid vfit' + (c.id === 'nest_doorbell' ? ' door' : '') + (isTall(c) ? ' tall' : '') + '" style="--R:' + trueAr(c).toFixed(4) + (isTall(c) ? ';--ar:' + c.ar.toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fctl" id="fctl">' + (S.fclip && S.fclip.cam === c.id ?
@@ -4105,7 +4107,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.7.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.7.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -4208,7 +4210,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.7.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.7.9\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5125,7 +5127,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.7.6';
+    const BUILD = '2.7.9';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
