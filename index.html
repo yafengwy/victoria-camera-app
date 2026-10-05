@@ -840,6 +840,7 @@ input,select,textarea{font-size:16px}
 .box.rdo{border-radius:50%}
 
 .evmedia{position:relative;display:block;width:100%;aspect-ratio:16/9;background:#1E2226;cursor:pointer}
+.evclk{position:absolute;left:8px;top:8px;z-index:3;padding:2px 7px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none}
 .evmedia img,.evmedia video{width:100%;height:100%;object-fit:cover;display:block}
 .evplayb{position:absolute;right:10px;bottom:10px;width:34px;height:34px;border-radius:17px;background:rgba(18,22,24,.6);color:#fff;display:flex;align-items:center;justify-content:center;pointer-events:none}
 .evprog{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.25)}
@@ -1917,7 +1918,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.5.10 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.6.1 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2980,7 +2981,7 @@ function evMedia(e) {
   const playing = S.evPlay === e.id, p = pick(e, S.filt);
   if (Data.source === 'frigate') {
     const st = p.moved ? Math.max(0, (p.t - Math.floor(e.t / 1000 - 1) * 1000) / 1000 - 1) : 0;
-    if (playing) return '<img src="' + evImg(e, p) + '" alt="" loading="lazy"><video class="evv" data-hls="' + e.vod + '" data-st="' + st.toFixed(1) + '" autoplay muted controls playsinline style="opacity:0"></video>';
+    if (playing) return '<img src="' + evImg(e, p) + '" alt="" loading="lazy"><video class="evv" data-hls="' + e.vod + '" data-st="' + st.toFixed(1) + '" autoplay muted controls playsinline style="opacity:0"></video><div class="evclk" hidden></div>';
     return '<img src="' + evImg(e, p) + '" alt="" loading="lazy">';
   }
   const dur = Math.max(4000, (e.end || e.t) - e.t);
@@ -2988,6 +2989,15 @@ function evMedia(e) {
     (playing ? '<div class="evprog"><i style="width:' + ((S.evPos || 0) * 100).toFixed(1) + '%"></i></div><div class="evclock">' + hms(e.t + (S.evPos || 0) * dur) + '</div>' : '');
 }
 let evTimer = null, evIO = null, evTapTimer = null, evTapLast = { id: null, at: 0 };
+/* Alerts page: the playing clip shows its date and time in its top-left corner, like the other players */
+const ymdhms = t => { const d = new Date(t); return d.getFullYear() + '/' + pad(d.getMonth() + 1) + '/' + pad(d.getDate()) + ' ' + hms(t); };
+setInterval(() => {
+  if (S.view !== 'events' || !S.evPlay || S.focus) return;
+  const e = Data.events.find(x => x.id === S.evPlay), host = e && document.getElementById('evm-' + e.id); if (!host) return;
+  const v = host.querySelector('video.evv'), c = host.querySelector('.evclk'); if (!v || !c) return;
+  if (!(v.currentTime > 0)) { c.hidden = true; return; }
+  c.hidden = false; c.textContent = ymdhms((Math.floor(e.t / 1000 - 1) + v.currentTime) * 1000);
+}, 250);
 function evStop() { clearInterval(evTimer); evTimer = null; S.evPlay = null; S.evPos = 0; }
 function evIcons() { document.querySelectorAll('.evcard .ic[data-act="evplay"]').forEach(b => { b.innerHTML = b.dataset.v === S.evPlay ? I.pause : I.playO; }); }
 function wireEvPreviews() {
@@ -4030,7 +4040,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.5.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.6.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -4133,7 +4143,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.5.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.6.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5000,7 +5010,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.5.10';
+    const BUILD = '2.6.1';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
