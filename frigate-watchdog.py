@@ -191,8 +191,9 @@ def main():
     g = gpu_errors()
     st['gpu_runs'] = st['gpu_runs'] + 1 if g >= 60 else 0
 
-    if st['dead_runs'] >= 5: why = f'{len(dead)} cameras without frames for 5 min: {", ".join(dead)}'
-    elif st['gpu_runs'] >= 5: why = f'graphics decode errors for 5 min ({g} in the last 2 min); no frames: {", ".join(dead) or "none"}'
+    # cameras without frames are only logged, never a reason to restart: cameras switched off by Camera Mode also give
+    # no frames, and that restarted Frigate by mistake (white app while it restarted)
+    if st['gpu_runs'] >= 5: why = f'graphics decode errors for 5 min ({g} in the last 2 min); no frames: {", ".join(dead) or "none"}'
     elif st['api_runs'] >= 5: why = 'Frigate API not answering for 5 min'
 
     if why and time.time() - st['last_restart'] > 1800:
