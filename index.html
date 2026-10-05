@@ -840,7 +840,7 @@ input,select,textarea{font-size:16px}
 .box.rdo{border-radius:50%}
 
 .evmedia{position:relative;display:block;width:100%;aspect-ratio:16/9;background:#1E2226;cursor:pointer}
-.evclk{position:absolute;left:3px;top:3px;z-index:3;padding:2px 7px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none}
+.evclk{position:absolute;left:8px;top:8px;z-index:3;padding:2px 7px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none}
 .evmedia img,.evmedia video{width:100%;height:100%;object-fit:cover;display:block}
 .evplayb{position:absolute;right:10px;bottom:10px;width:34px;height:34px;border-radius:17px;background:rgba(18,22,24,.6);color:#fff;display:flex;align-items:center;justify-content:center;pointer-events:none}
 .evprog{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(255,255,255,.25)}
@@ -1626,8 +1626,6 @@ const Frigate = {
    Fallback while the websocket is down: /api/stats (a camera running object detection is moving). */
 const Motion = {
   sock: null, up: false, n: 0, nm: 0,
-  /* the Settings line says Connected the moment it is, without reopening Settings */
-  label() { const el = document.getElementById('mconn'); if (el && Data.source === 'frigate') el.textContent = this.up ? 'Connected' : 'Connecting…'; },
   set(id, on) { const m = Data.motion(id); if (on) { m.active = true; m.last = now(); } else { if (m.active) m.last = now(); m.active = false; } },
   seed() { Data.events.forEach(e => { const m = Data.motion(e.cam); const t = e.end || e.t; if (m.last == null || t > m.last) m.last = t; }); },
   /* Phones drop the connection when the app goes to the background; reconnect as soon as it is needed again */
@@ -1648,7 +1646,7 @@ const Motion = {
       this.connect();
     }, 8000);
     s.onerror = () => { this.err = (this.err && this.err !== 'Error' ? this.err + ', ' : '') + 'Error'; };
-    s.onopen = () => { clearTimeout(to); this.err = ''; this.up = true; this.label(); Dbg.log('frigate feed connected', (this.tries || 0) + ' tries'); s.send(JSON.stringify({ topic: 'onConnect', message: '', payload: '', retain: false })); };
+    s.onopen = () => { clearTimeout(to); this.err = ''; this.up = true; s.send(JSON.stringify({ topic: 'onConnect', message: '', payload: '', retain: false })); };
     s.onmessage = ev => {
       let d; try { d = JSON.parse(ev.data); } catch (e) { return; }
       if (!d || !d.topic) return;
@@ -1666,7 +1664,7 @@ const Motion = {
       if (Ctl.msg(d.topic, d.payload)) return;
       const m = /^([^/]+)\/motion$/.exec(d.topic); if (m) { this.nm++; this.set(m[1], d.payload === 'ON' || d.payload === true); }
     };
-    s.onclose = ev => { clearTimeout(to); this.up = false; this.label(); this.err = (this.err === 'Timeout' ? 'Timeout ' : '') + 'Code ' + ev.code + (ev.reason ? ' ' + ev.reason : ''); setTimeout(() => this.ensure(), 2000); };
+    s.onclose = ev => { clearTimeout(to); this.up = false; this.err = (this.err === 'Timeout' ? 'Timeout ' : '') + 'Code ' + ev.code + (ev.reason ? ' ' + ev.reason : ''); setTimeout(() => this.ensure(), 2000); };
   }
 };
 Frigate.pollStats = async function () {
@@ -1693,7 +1691,7 @@ const Live = {
       e = document.createElement('live-cam');
       e.className = 'lvc'; e.mode = 'mse,hls,mjpeg'; e.visibilityThreshold = 0.05; e.suspended = true; e.DISCONNECT_TIMEOUT = 1500;
       e.src = new URL(Frigate.base() + '/live/mse/api/ws?src=' + encodeURIComponent(src), location.href).href;
-      e._src = src; this.els[src] = e;
+      this.els[src] = e;
     }
     return e;
   },
@@ -1732,17 +1730,6 @@ const Live = {
   onScroll() {
     Live.scrolling = true; clearTimeout(Live.sTimer);
     Live.sTimer = setTimeout(() => { Live.scrolling = false; Live.resume(); }, 400);
-  },
-  starting() { const t = Date.now(); return Object.values(this.els).filter(e => e.ws && e._st && t - e._st < 3000 && !(e.video && e.video.currentTime > 0)).length; },
-  /* a tap on a camera picture whose live stream is still waiting its turn starts it right away */
-  tap(ev) {
-    const h = ev.target && ev.target.closest && ev.target.closest('[data-live]'); if (!h) return;
-    const e = Live.els[h.dataset.live]; if (!e || e.suspended || e.ws || e.pc) return;
-    e._force = true; Dbg.log('live tap start', h.dataset.live); try { e.onconnect(); } catch (x) {}
-  },
-  pumpSoon() {
-    if (this.pT) return;
-    this.pT = setTimeout(() => { this.pT = 0; this.resume(); if (Object.values(this.els).some(e => e.want && !e.suspended && e.isConnected)) this.pumpSoon(); }, 400);
   },
   resume() {
     for (const src in this.els) {
@@ -1945,7 +1932,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.7.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.7.3 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2087,19 +2074,8 @@ const Playback = {
       const tag = (u.match(/\/vod\/([^/]+)\/start\/(\d+)\/end\/(\d+)/) || []).slice(1).map((x, i) => i ? hms(+x * 1000) : x).join(' ');
       Dbg.log('alert clip', tag, this.native() ? 'native' : 'hls.js');
       ['loadedmetadata', 'playing', 'stalled', 'error'].forEach(ev => v.addEventListener(ev, () => Dbg.log('alert clip', ev, tag, ev === 'error' && v.error ? 'code ' + v.error.code + ' ' + (v.error.message || '') : 'at ' + v.currentTime.toFixed(1))));
-      /* the Playback Log's part count is read only after the clip plays, so Frigate isn't asked to build the same
-         list twice at the moment the clip should start */
-      v.addEventListener('playing', () => fetch(u, { credentials: 'include' }).then(r => r.text().then(t => Dbg.log('alert clip list', tag, r.status, (t.match(/#EXTINF/g) || []).length + ' parts'))).catch(e => Dbg.log('alert clip list', tag, 'failed')), { once: true });
-      /* iPhone: open the clip right at the alert (#t=) instead of loading the minute before it and then jumping,
-         which loaded twice before the first picture. The recorded pieces are known within a moment; then start. */
-      if (this.native()) {
-        const t0 = Date.now();
-        Promise.race([segsP, new Promise(ok => setTimeout(ok, 1200))]).then(() => {
-          const vt = at ? vodAt(v, at) : 0;
-          v.src = vt > 0.5 ? u + '#t=' + vt.toFixed(1) : u; v.play().catch(() => {});
-          Dbg.log('alert clip start', tag, 'at ' + vt.toFixed(1), (Date.now() - t0) + 'ms');
-        });
-      }
+      fetch(u, { credentials: 'include' }).then(r => r.text().then(t => Dbg.log('alert clip list', tag, r.status, (t.match(/#EXTINF/g) || []).length + ' parts'))).catch(e => Dbg.log('alert clip list', tag, 'failed'));
+      if (this.native()) { v.src = u; v.play().catch(() => {}); }
       else this.hls().then(H => { const h = new H(); v._hls = h; h.loadSource(u); h.attachMedia(v); v.play().catch(() => {}); }).catch(() => { v.src = u; });
     });
     const want = this.cams();
@@ -4125,7 +4101,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.7.2 · ' + '<span id="mconn">' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</span></summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.7.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -4228,7 +4204,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.7.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.7.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5120,7 +5096,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.7.2';
+    const BUILD = '2.7.3';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
@@ -5834,13 +5810,7 @@ class LiveCam extends VideoRTC {
   onconnect() {
     if (this.suspended) return false;
     if (Live.scrolling && !this.ws && !this.pc) { this.want = true; return false; }
-    /* at most 6 streams start at the same time: 20 starting at once shared the phone's connection 20 ways, so none
-       showed a picture for a long time. The rest wait their turn (a stream counts as starting until its first
-       picture, at most 3 s). The camera you opened, or a picture you tap, never waits. */
-    const mine = this._src && S.focus && S.focus.cam === Live.cam(this._src);
-    if (!this.ws && !this.pc && !this._force && !mine && Live.starting() >= 6) { this.want = true; Live.pumpSoon(); return false; }
-    this._force = false;
-    this.want = false; this._st = Date.now(); return super.onconnect();
+    this.want = false; return super.onconnect();
   }
   oninit() {
     super.oninit();
@@ -5874,7 +5844,6 @@ function wakeVideos() {
   for (const id in Playback.st) { const p = Playback.st[id]; if (camT(id) != null && S.playing && p.v.paused && p.v.isConnected && (p.win || p.loading)) p.v.play().catch(() => {}); }
 }
 document.addEventListener('touchend', wakeVideos, { capture: true, passive: true });
-document.addEventListener('touchend', ev => Live.tap(ev), { capture: true, passive: true });
 document.addEventListener('click', wakeVideos, { capture: true });
 document.addEventListener('touchmove', Live.onScroll, { capture: true, passive: true });
 </script>
