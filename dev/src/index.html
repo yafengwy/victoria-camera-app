@@ -1962,9 +1962,9 @@ const Playback = {
     const p = this.st[id], seq = p.seq = (p.seq || 0) + 1; p.loading = true; p.loadT = t; p.on = false; p.win = null; this.paintVis(id);
     const gone = () => seq !== p.seq;          /* a newer tap started another load: drop this one */
     if (p.h) { p.h.destroy(); p.h = null; }    /* stop downloading the old spot at once, so the new tap gets the network */
-    /* the window starts a minute before the asked time, so −10 s, pause/play and small drags back stay inside it
+    /* the window starts 30 s before the asked time, so −10 s, pause/play and small drags back stay inside it
        (a new load on the iPhone takes a few seconds before it plays); still short enough for Frigate to build fast */
-    let a = Math.floor(t / 1000) - 61, b = Math.min(Math.floor(now() / 1000), a + 240);
+    let a = Math.floor(t / 1000) - 31, b = Math.min(Math.floor(now() / 1000), a + 180);
     Dbg.log('load', id, hms(t), 'native=' + this.native());
     try {
       /* Start the video exactly at the beginning of the recording piece that holds t (pieces start on a key frame).
@@ -2926,9 +2926,9 @@ const Arrive = {
       if (S.dragging) return this.redraw();
       if (S.expanded) refreshTrack();
       const tr = S.focus && document.getElementById('ftrack'); if (tr) tr.innerHTML = fTrack(Data.cam(S.focus.cam));
-      else if (S.focus && document.getElementById('fsc')) { const sc = document.getElementById('fsc'), top = sc.scrollTop; render(); const n2 = document.getElementById('fsc'); if (n2) n2.scrollTop = top; }
+      /* the camera view's cards and the Alerts list pick this up on their next redraw; redrawing whole pages from here
+         made the iPhone stall while a video loaded */
       if (S.view === 'review' && !S.focus) { if (rvBkArgs) rvBuckets(...rvBkArgs); rvDrawn = null; drawRvTrack(true); const l = document.getElementById('rvlist'); if (l) l.outerHTML = rvListHtml(rvCams(), rvBkArgs ? rvBkArgs[1] : now()); }
-      if (S.view === 'events' && !S.focus && !S.evPlay) render();
     }, 400);
   }
 };
@@ -5059,9 +5059,13 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   if (HOSTED) {
     const BUILD = '__VER__';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
-      .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
-    checkVer(); setInterval(checkVer, 120000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVer(); });
+      .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
+    /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
+       start), so it never reloads under her fingers */
+    let newVer = null;
+    checkVer().then(() => { if (newVer && Date.now() - t0 < 20000) location.reload(); });
+    setInterval(checkVer, 120000);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) return; if (newVer) location.reload(); else checkVer(); });
   }
 })();
 </script>
