@@ -132,6 +132,9 @@ img.rf{opacity:0}
 .frame .hit{position:absolute;inset:0;width:100%;height:100%}
 .brc{display:flex;align-items:center;justify-content:center;width:1.5em;height:1.5em;margin:0 .15em 0 -.35em;border-right:1px solid rgba(255,255,255,.3);padding-right:.35em;box-sizing:content-box}
 .brc svg{width:1.1em;height:1.1em}
+.cnm.rcn,.fnmbr.rcn{pointer-events:auto;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.cnm.rcn.rcnow,.fnmbr.rcn.rcnow{animation:rcnflash .9s ease}
+@keyframes rcnflash{0%,100%{opacity:1}35%{opacity:.35}}
 .badge{position:absolute;top:8px;right:8px;height:30px;padding:0 11px;border-radius:15px;background:rgba(18,22,24,.72);color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums;z-index:2}
 .badge.past{background:rgba(255,255,255,.94);color:#16191B}
 .dot{width:7px;height:7px;border-radius:50%;background:#3DDC84}
@@ -2780,7 +2783,7 @@ function camCard(c, fr, span2) {
       sndC(c.id) + '<button class="chlive" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button></div>'
       : '') +
     '</div>') +
-    '<div class="frame vfit" style="--R:' + trueAr(c).toFixed(4) + '"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(Live.cardSrc(c.id), t != null) + Playback.holder(c.id) + (S.layout === 'grid' || slim ? '<div class="cnm">' + esc(c.name) + '</div>' : '') +
+    '<div class="frame vfit" style="--R:' + trueAr(c).toFixed(4) + '"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(Live.cardSrc(c.id), t != null) + Playback.holder(c.id) + (S.layout === 'grid' || slim ? '<div class="cnm' + rcnA(c.id) + '>' + esc(c.name) + '</div>' : '') +
     '<button class="hit" data-act="tap" data-id="' + c.id + '" aria-label="Show playback for ' + esc(c.name) + '"></button>' +
     (off ? '<div class="offv" id="off-' + c.id + '" data-act="tap" data-id="' + c.id + '"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>' : '') +
     (slim ? '<div class="ctr">' + snz + badgeHtml(c.id, t, f) + '</div>' : badgeHtml(c.id, t, f)) + '<div class="ctm" id="ctm-' + c.id + '">' + hms(shownT(c.id, Live.cardSrc(c.id))) + '</div><div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="tag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div></article>';
@@ -2813,15 +2816,16 @@ function paintTimes() {
 }
 setInterval(paintTimes, 500);
 function agoShort(ms) { const s = Math.max(0, Math.floor(ms / 1000)); if (s < 60) return s + 's'; const m = Math.floor(s / 60); if (m < 60) return m + 'm'; const h = Math.floor(m / 60); return h < 24 ? h + 'h' : Math.floor(h / 24) + 'd'; }
+/* tapping a camera's name reconnects just that camera's live picture (clears a smeared or frozen picture, e.g. the
+   Nest Doorbell after its stream renews); only for a camera that is on, with Frigate */
+function rcnA(id) { return Data.source === 'frigate' && Ctl.on(id) ? ' rcn" data-act="reconn" data-id="' + id + '" role="button" aria-label="Reconnect"' : '"'; }
 function badgeHtml(id, t, f) {
   let inner;
   if (t != null) inner = hms(t);
   else if (!Ctl.on(id)) inner = '<span class="dot idle"></span>Off';
   else if (S.forced[id] && S.forced[id] > now()) inner = '<span class="dot forced"></span>Live';
   else { const m = Data.motion(id); inner = (m.active || (m.last != null && now() - m.last < 5000)) ? '<span class="dot busy"></span>Live' : '<span class="dot idle"></span>Still' + (m.last != null ? ' ' + agoShort(now() - m.last) : ''); }
-  /* live and on: a reconnect icon at the left of the pill restarts just this camera's stream (clears a smeared or
-     frozen picture, e.g. the Nest Doorbell after its stream renews) */
-  const rc = t == null && Ctl.on(id) && Data.source === 'frigate' ? '<span class="brc" data-act="reconn" data-id="' + id + '" role="button" aria-label="Reconnect">' + I.reconn + '</span>' : '';
+  const rc = '';
   return '<button class="badge' + (t == null ? '' : ' past') + '" id="badge-' + id + '" data-act="badge" data-id="' + id + '" aria-label="' + (t == null ? 'Live. Tap to put every camera on live' : 'Playing ' + hms(t) + '. Tap to move every camera to this time') + '">' + rc + inner + '</button>';
 }
 function clipBand(id, start) {
@@ -3374,7 +3378,7 @@ function viewFocus() {
   const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk ftm" id="ftm">' + dtHdr(shownT(c.id, c.id)) + '</div><div style="flex:1"></div>' +
     (frig && cs.enabled ? '<button class="dk ctl" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
-    '</div><div class="pillk fnmbr">' + esc(c.name) + '</div>';   /* top row: back, the picture's time, buttons; the camera name sits in the picture's bottom-left corner (Loading shows bottom-right), the object tag just above it */
+    '</div><div class="pillk fnmbr' + rcnA(c.id) + '>' + esc(c.name) + '</div>';   /* top row: back, the picture's time, buttons; the camera name sits in the picture's bottom-left corner (Loading shows bottom-right), the object tag just above it */
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
     '<div class="fvid vfit' + (c.id === 'nest_doorbell' ? ' door' : '') + (isTall(c) ? ' tall' : '') + '" style="--R:' + trueAr(c).toFixed(4) + (isTall(c) ? ';--ar:' + c.ar.toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fctl" id="fctl">' + (S.fclip && S.fclip.cam === c.id ?
@@ -4605,9 +4609,10 @@ const ACT = {
   fkick() { fuiKick(); },
   fpanel() { S.fpanel = !S.fpanel; S.fui = true; render(); fuiKick(); },
   fseek(d) { Dbg.log('tap alert', hms(+d.t)); S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true; if (S.fpanel) render(); else { paintFocus(); Playback.sync(); } fuiKick(); },
-  reconn(d) {
+  reconn(d, ev) {
     const ids = [Live.cardSrc(d.id), d.id, d.id + '_sub'].filter((x, i, a) => a.indexOf(x) === i && Live.els[x]);
-    ids.forEach(x => Live.restart(x)); Dbg.log('reconnect', d.id, ids.join(' ')); toast('Reconnecting');
+    ids.forEach(x => Live.restart(x)); Dbg.log('reconnect', d.id, ids.join(' ')); toast('Reconnecting ' + ((Data.cam(d.id) || {}).name || ''));
+    const n = ev && ev.target && ev.target.closest && ev.target.closest('.rcn'); if (n && n.classList) { n.classList.remove('rcnow'); void n.offsetWidth; n.classList.add('rcnow'); }
   },
   fbadge() { const id = S.focus && S.focus.cam; if (!id) return; if (camT(id) != null) { ACT.flive(); return; } if (!Ctl.on(id)) return; Live.restart(id); toast('Reconnecting'); },
   /* −10s / +10s in the camera view and full screen; going past now means Live */
