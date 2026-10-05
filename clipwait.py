@@ -49,7 +49,10 @@ def faststart(body):
         with tempfile.TemporaryDirectory() as d:
             a, b = os.path.join(d, 'in.mp4'), os.path.join(d, 'out.mp4')
             open(a, 'wb').write(body)
-            subprocess.run(['ffmpeg', '-v', 'error', '-i', a, '-c', 'copy', '-movflags', '+faststart', b], check=True, timeout=20)
+            # sound clips: picture copied, sound turned into AAC (some cameras record G.711 sound, which the
+            # iPhone won't play inside an mp4, so those videos came out silent)
+            subprocess.run(['ffmpeg', '-v', 'error', '-i', a, '-map', '0:v:0', '-map', '0:a?', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '96k',
+                            '-movflags', '+faststart', b], check=True, timeout=20)
             return open(b, 'rb').read()
     except Exception:
         return body
