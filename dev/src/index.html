@@ -4696,7 +4696,10 @@ const ACT = {
   fuitap(d, e) { if (e && e.target.closest('.fuitop')) return; if (Date.now() - FZ.moved < 400) return; S.fui = !S.fui; if (!S.fui) S.fpanel = false; render(); },
   fkick() { fuiKick(); },
   fpanel() { S.fpanel = !S.fpanel; S.fui = true; render(); fuiKick(); },
-  fseek(d) { Dbg.log('tap alert', hms(+d.t)); S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true; if (S.fpanel) render(); else { paintFocus(); Playback.sync(); } fuiKick(); },
+  /* full screen with the alert panel: the page is redrawn to mark the picked alert, and the panel keeps its scroll
+     position (it jumped back to the top after every tap) */
+  fseek(d) { Dbg.log('tap alert', hms(+d.t)); S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true;
+    if (S.fpanel) { const pl = document.querySelector('.fpl'), y = pl ? pl.scrollTop : 0; render(); const n = document.querySelector('.fpl'); if (n) n.scrollTop = y; } else { paintFocus(); Playback.sync(); } fuiKick(); },
   reconn(d, ev) {
     if (Data.source !== 'frigate' || !Ctl.on(d.id)) { Dbg.log('reconnect skipped', d.id, Data.source, Ctl.on(d.id) ? 'on' : 'off'); return; }
     const ids = [Live.cardSrc(d.id), d.id, d.id + '_sub'].filter((x, i, a) => a.indexOf(x) === i && Live.els[x]);
