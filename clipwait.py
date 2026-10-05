@@ -23,6 +23,17 @@ def covered(cam, s, e):
     except Exception:
         return False
 
+def live(cam, secs, audio):
+    # Recordings of some cameras (Treat Feeder, Living Room) reach Frigate's storage late, so a clip asked for right
+    # after the alert isn't there yet. Then take the next few seconds straight from the camera's live stream instead
+    # (go2rtc inside the Frigate container), so the phone still gets a moving picture within seconds.
+    with tempfile.TemporaryDirectory() as d:
+        out = os.path.join(d, 'live.mp4')
+        subprocess.run(['ffmpeg', '-v', 'error', '-rtsp_transport', 'tcp', '-i', f'rtsp://frigate:8554/{cam}', '-t', str(max(2, secs)),
+                        '-map', '0:v:0'] + (['-map', '0:a?', '-c:a', 'aac'] if audio else ['-an']) + ['-c:v', 'copy', '-movflags', '+faststart', '-y', out],
+                       check=True, timeout=max(2, secs) + 15)
+        return open(out, 'rb').read()
+
 def silent(body):
     try:
         with tempfile.TemporaryDirectory() as d:
@@ -128,12 +139,15 @@ class H(BaseHTTPRequestHandler):
             self.send_error(404); return
         cam, s, e, kind = m.group(1), int(m.group(2)), int(m.group(3)), m.group(4)
         t0 = time.time()
-        while not covered(cam, s, e) and time.time() - t0 < 25:
+        ok = False
+        while time.time() - t0 < 8:   # the phone gives up after ~30 s, so don't wait long for the recording
+            if covered(cam, s, e):
+                ok = True; break
             time.sleep(0.5)
         # Frigate sometimes can't cut a very short piece right at the edge of a recording segment (some cameras,
         # like Treat Feeder, write longer segments): try the asked seconds, then a slightly wider window once more.
         body, err = None, None
-        for a, b, wait in ((s, e, 0), (s - 1, e + 3, 3)):
+        for a, b, wait in (((s, e, 0), (s - 1, e + 3, 2)) if ok else ()):
             try:
                 time.sleep(wait)
                 with urllib.request.urlopen(f'{FRIGATE}/api/{cam}/start/{a}/end/{b}/clip.mp4', timeout=30) as r:
@@ -143,6 +157,14 @@ class H(BaseHTTPRequestHandler):
             except Exception as x:
                 err = x; body = None
                 print('clip try failed', cam, a, b, kind, repr(x), flush=True)
+        if body is None:
+            try:
+                raw = live(cam, e - s, kind == 'sound.mp4')
+                body = gif(raw) if kind == 'clip.gif' else raw
+                print('clip from live stream', cam, s, e, kind, 'recording ready' if ok else 'recording not ready', flush=True)
+            except Exception as x:
+                err = x; body = None
+                print('live clip failed', cam, kind, repr(x), flush=True)
         try:
             if body is None:
                 raise RuntimeError(err)
