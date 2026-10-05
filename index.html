@@ -75,10 +75,10 @@ img.rf{opacity:0}
 .pairrow > .cam.tall{flex:0 0 calc((100cqw - 8px) * 0.975 / 2.528)}
 .pairrow > .cam:not(.tall){flex:1 1 0}
 /* wide screens: Front Door's very wide picture is cut to the card; keep more of its right side (0% left … 100% right) */
-@media (min-width:560px){.cam.fdoor .frame img,.cam.fdoor .frame video{object-position:70% center}}
-@media (max-width:559px){.cam.fdoor.slim .frame img,.cam.fdoor.slim .frame video{object-position:60% center}}   /* phone, one per row */
+@media (min-width:560px){.cam.fdoor .frame{--px:.7}}
+@media (max-width:559px){.cam.fdoor.slim .frame{--px:.6}}   /* phone, one per row */
 /* the camera beside the Doorbell keeps the right edge of its picture (--fx: 100% = right edge, 50% = centre) */
-.pairrow > .cam:not(.tall) .frame img,.pairrow > .cam:not(.tall) .frame video{object-position:var(--fx,80%) center}
+.pairrow > .cam:not(.tall) .frame{--px:.8}
 .pairrow > .cam:not(.tall) .frame{aspect-ratio:auto;height:calc((100cqw - 8px) * 1.3 / 2.528)}
 /* 3 or more per row: two rows tall, picture fills the card */
 .grid .cam.span2{grid-row:span 2;align-self:stretch;min-height:0}
@@ -101,9 +101,18 @@ img.rf{opacity:0}
 .fbside .chead .chlive{height:20px;padding:0 7px;font-size:10px;border-radius:10px}
 .cam.door .frame img,.cam.door .frame video,.fvid.door img,.fvid.door video{object-fit:fill!important}
 .wt.door img,.wt.door video{object-fit:fill!important}
+/* every picture and video drawn at the camera's real shape (--R), cut to its box (cover) or fitted inside (vcon) */
+.vfit{container-type:size!important}
+.vfit > img,.vfit video{position:absolute!important;inset:auto!important;max-width:none!important;max-height:none!important;object-fit:fill!important;
+  width:max(100cqw, 100cqh * var(--R,1.7778))!important;height:max(100cqh, 100cqw / var(--R,1.7778))!important;
+  left:calc((100cqw - max(100cqw, 100cqh * var(--R,1.7778))) * var(--px,.5))!important;top:calc((100cqh - max(100cqh, 100cqw / var(--R,1.7778))) * var(--py,.5))!important}
+.vfit.vcon > img,.vfit.vcon video{width:min(100cqw, 100cqh * var(--R,1.7778))!important;height:min(100cqh, 100cqw / var(--R,1.7778))!important;
+  left:calc((100cqw - min(100cqw, 100cqh * var(--R,1.7778))) / 2)!important;top:calc((100cqh - min(100cqh, 100cqw / var(--R,1.7778))) / 2)!important}
+@media (orientation:landscape){.full:not(.ui) .fvw.vfit > img,.full:not(.ui) .fvw.vfit video{width:max(100cqw, 100cqh * var(--R,1.7778))!important;height:max(100cqh, 100cqw / var(--R,1.7778))!important;
+  left:calc((100cqw - max(100cqw, 100cqh * var(--R,1.7778))) / 2)!important;top:calc((100cqh - max(100cqh, 100cqw / var(--R,1.7778))) / 2)!important}}
 .full.door .fvw img,.full.door .fvw video{position:absolute;inset:0;margin:auto;width:auto!important;height:100%!important;max-width:100%;aspect-ratio:3/4;object-fit:fill!important}
 /* the two beside the Doorbell keep the right edge of their picture */
-.fbside .frame img,.fbside .frame video{object-position:right center}
+.fbside .frame{--px:1}
 /* the Doorbell always shows its whole picture: Nest sometimes sends a slightly different shape, which used to crop
    the sides now and then */
 
@@ -1873,7 +1882,8 @@ const Box = {
       const W = g.host.clientWidth, H = g.host.clientHeight;
       const ar = (media && media.videoWidth ? media.videoWidth / media.videoHeight : 0) || c.ar || (media && media.naturalWidth ? media.naturalWidth / media.naturalHeight : 0) || 16 / 9;
       const fit = media ? getComputedStyle(media).objectFit : 'cover', wide = W / H > ar;
-      const dw = (fit === 'contain') === wide ? H * ar : W, dh = dw / ar, ox = (W - dw) / 2, oy = (H - dh) / 2;
+      let dw = (fit === 'contain') === wide ? H * ar : W, dh = dw / ar, ox = (W - dw) / 2, oy = (H - dh) / 2;
+      if (media && media.closest('.vfit')) { const mr = media.getBoundingClientRect(), hr = g.host.getBoundingClientRect(); if (mr.width) { dw = mr.width; dh = mr.height; ox = mr.left - hr.left; oy = mr.top - hr.top; } }
       ov.innerHTML = boxes.map(([b, lab]) => '<i style="left:' + (ox + b[0] * dw).toFixed(1) + 'px;top:' + (oy + b[1] * dh).toFixed(1) + 'px;width:' + (b[2] * dw).toFixed(1) + 'px;height:' + (b[3] * dh).toFixed(1) + 'px"><b>' + esc(objName(lab)) + '</b></i>').join('');
     });
     document.querySelectorAll('.bbx').forEach(n => { if (!seen.has(n)) n.innerHTML = ''; });
@@ -1889,7 +1899,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.4.7 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.4.8 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2565,7 +2575,7 @@ function viewWatch() {
   const src = id => n <= 2 || S.wbig || (big && id === ids[0]) || !(Frigate.streams && Frigate.streams[id + '_sub']) ? id : id + '_sub';
   const tile = id => {
     const cam = Data.cam(id), f = Data.frame(cam, null), sr = src(id);
-    return '<div class="wt' + (id === 'nest_doorbell' ? ' door' : '') + '" id="wt-' + id + '" data-src="' + esc(sr) + '"' + (cam.ar ? ' style="--war:' + cam.ar.toFixed(4) + '"' : '') + '><img id="img-' + id + '" src="' + f.img + '" alt="' + esc(cam.name) + '">' + Live.holder(sr, false) +
+    return '<div class="wt vfit vcon' + (id === 'nest_doorbell' ? ' door' : '') + '" id="wt-' + id + '" data-src="' + esc(sr) + '"' + ' style="--war:' + trueAr(cam).toFixed(4) + ';--R:' + trueAr(cam).toFixed(4) + '"><img id="img-' + id + '" src="' + f.img + '" alt="' + esc(cam.name) + '">' + Live.holder(sr, false) +
       '<button class="hit" data-act="' + (big && id !== ids[0] ? 'wmain' : 'wtap') + '" data-id="' + id + '" aria-label="' + (S.wbig ? 'Back To All' : big && id !== ids[0] ? 'Make ' + esc(cam.name) + ' Big' : 'Watch ' + esc(cam.name) + ' Alone') + '"></button>' +
       '<div class="ctm" id="wtm-' + id + '">' + hms(shownT(id, sr)) + '</div><div class="wbd" id="wbd-' + id + '">' + stillInner(id) + '</div><div class="cnm">' + esc(cam.name) + '</div></div>';
   };
@@ -2647,6 +2657,14 @@ function viewHome() {
 const sndC = id => Snd.btn('ic', id).replace('aria-pressed="' + Snd.on + '"', 'aria-pressed="' + (Snd.on && (Snd.cam || S.expanded) === id) + '"');
 /* cameras laid out by their own picture shape: upright ones, and the Doorbell (4:3). Other cameras keep the usual
    16:9 cards even when Frigate looks at them through a 4:3 sub stream (their detect size is not their picture shape). */
+/* the real shape of a camera's picture. Several cameras are looked at through a 704x480 / 640x480 sub stream that is
+   the whole 16:9 picture squeezed; their snapshots are squeezed too. Every picture and video is drawn at this shape,
+   so the snapshot, the small stream and the HD stream all line up and nothing jumps. */
+function trueAr(c) {
+  if (!c) return 16 / 9;
+  if (c.id === 'nest_doorbell') return 0.75;
+  return c.ar && (c.ar < 1.2 || (c.ar >= 1.7 && c.ar <= 2.6)) ? c.ar : 16 / 9;
+}
 const isTall = c => !!(c && c.ar && (c.ar < 1.2 || (c.id === 'nest_doorbell' && c.ar < 1.6)));
 /* width of the upright camera beside two rows of tiles: the tiles keep 16:9, the upright one keeps its own shape */
 function sizeTall() {
@@ -2673,7 +2691,7 @@ function camCard(c, fr, span2) {
       sndC(c.id) + '<button class="chlive" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button></div>'
       : '') +
     '</div>') +
-    '<div class="frame"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(Live.cardSrc(c.id), t != null) + Playback.holder(c.id) + (S.layout === 'grid' || slim ? '<div class="cnm">' + esc(c.name) + '</div>' : '') +
+    '<div class="frame vfit" style="--R:' + trueAr(c).toFixed(4) + '"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(Live.cardSrc(c.id), t != null) + Playback.holder(c.id) + (S.layout === 'grid' || slim ? '<div class="cnm">' + esc(c.name) + '</div>' : '') +
     '<button class="hit" data-act="tap" data-id="' + c.id + '" aria-label="Show playback for ' + esc(c.name) + '"></button>' +
     (off ? '<div class="offv" id="off-' + c.id + '" data-act="tap" data-id="' + c.id + '"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>' : '') +
     (slim ? '<div class="ctr">' + snz + badgeHtml(c.id, t, f) + '</div>' : badgeHtml(c.id, t, f)) + '<div class="ctm" id="ctm-' + c.id + '">' + hms(shownT(c.id, Live.cardSrc(c.id))) + '</div><div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="tag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div></article>';
@@ -3120,7 +3138,7 @@ function viewFocus() {
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
     '<button class="pillk" id="fbadge" data-act="fbadge" aria-label="Live. Tap to reconnect">' + (t == null ? (cs.enabled ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t)) + '</button></div>';
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
-    '<div class="fvid' + (c.id === 'nest_doorbell' ? ' door' : '') + (isTall(c) ? ' tall" style="--ar:' + c.ar.toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
+    '<div class="fvid vfit' + (c.id === 'nest_doorbell' ? ' door' : '') + (isTall(c) ? ' tall' : '') + '" style="--R:' + trueAr(c).toFixed(4) + (isTall(c) ? ';--ar:' + c.ar.toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fctl" id="fctl">' + (S.fclip && S.fclip.cam === c.id ?
       '<button class="dk" data-act="fclipx" aria-label="Cancel Download">' + I.x + '</button><div class="fclipt"><b>Start</b> ' + (S.fclip.a ? hms(S.fclip.a) : '—') + '<br><b>End</b> ' + (S.fclip.b ? hms(S.fclip.b) : '—') + '</div>' +
       '<button class="dk fbk' + (S.fclip.a ? ' set' : '') + '" data-act="fclipmark" data-v="a" aria-label="Set Start Here">[</button><button class="dk fbk' + (S.fclip.b ? ' set' : '') + '" data-act="fclipmark" data-v="b" aria-label="Set End Here">]</button>' +
@@ -3167,7 +3185,7 @@ function viewFull(c, t, f) {
       '</div>' +
       (S.fpanel ? '' : '<div class="fsb zdesk2"><button class="dk sm" data-act="fzoombtn" data-v="out" aria-label="Show Longer Time">−</button><button class="dk sm" data-act="fzoombtn" data-v="in" aria-label="Show Shorter Time">+</button></div>') + '</aside>';
   }
-  return '<div class="full' + (c.id === 'nest_doorbell' ? ' door' : '') + (S.fui ? ' ui' : '') + (fullRot() ? ' rot' : '') + '" id="fullv"><div class="fvw" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
+  return '<div class="full' + (c.id === 'nest_doorbell' ? ' door' : '') + (S.fui ? ' ui' : '') + (fullRot() ? ' rot' : '') + '" id="fullv"><div class="fvw vfit vcon" style="--R:' + trueAr(c).toFixed(4) + '" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
     '<div class="fulltm" id="fulltm">' + dtShort(shownT(c.id, c.id)) + '</div>' +
     (S.fui ? '<div class="fullsteps"><button class="dk sm wide" data-act="fstep" data-v="-10" aria-label="Back 10 Seconds">−10s</button><button class="fstep" data-act="flive" aria-label="Go Live">Live</button>' +
       '<button class="dk sm wide" id="fullstepf" data-act="fstep" data-v="10" aria-label="Forward 10 Seconds"' + (t == null ? ' disabled' : '') + '>+10s</button></div>' : '') +
@@ -3876,7 +3894,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.4.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.4.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3978,7 +3996,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.4.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.4.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -4839,7 +4857,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.4.7';
+    const BUILD = '2.4.8';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
