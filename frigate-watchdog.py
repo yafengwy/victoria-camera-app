@@ -131,6 +131,10 @@ def health(dead, st, stats):
     L += ['', '== Last 10 Min ==', 'Decode Errors: ' + top(c10['dec'], 8), 'Camera Crashes: ' + top(c10['crash'], 8), 'Recordings Discarded: ' + top(c10['disc'], 8)]
     cw = sh(['docker', 'logs', 'clipwait', '--since', '10m'])
     L.append('Notification Clips: %d Made · %d Failed' % (cw.count(' made '), cw.count('FAILED') + cw.count('failed')))
+    # the last notification clip requests (camera, kind, made/cached, seconds, size or FAILED, who asked) and any
+    # clip errors, from the last 3 hours, so a notification without its picture/video can be traced
+    cw3 = [l for l in sh(['docker', 'logs', 'clipwait', '--since', '3h']).splitlines() if l.startswith('wait ') or 'failed' in l.lower() or 'error' in l.lower()]
+    L += ['', '== Notification Clips (Last 15, 3 Hours, Mini PC Time UTC Not Shown) =='] + ([l[:160] for l in cw3[-15:]] or ['None'])
     # hourly history: this minute's new log lines added to the hour's bucket
     c1 = counts(sh(['docker', 'logs', 'frigate', '--since', '61s']))
     hist = st.setdefault('hist', {})
