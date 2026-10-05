@@ -256,6 +256,9 @@ img.rf{opacity:0}
 .fsi span .lico svg{width:10px;height:10px}
 .fsi.cur{outline:2px solid #C9D6FF;outline-offset:-2px}
 .fsi.un img{filter:grayscale(1) brightness(.75)}
+.fsi.hot span{background:var(--hot);color:#fff}
+.focus .fev>span{min-width:0;overflow:hidden}
+.focus .fev b,.focus .fev small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fsi.un span{background:rgba(40,40,40,.7);color:#C8CDD6}
 .fev i.dim{background:#5D666E}
 .fev img{width:104px;height:58px;object-fit:cover;border-radius:8px;flex-shrink:0}
@@ -3215,33 +3218,27 @@ function viewFocus() {
     S.focus.groups = grp;
     const curT = t;
     grp.forEach((g, gi) => {
-      const y = g.y, n = g.items.length, kinds = [];
-      g.items.forEach(e => { const p = pick(e, S.filt), k = p.label + (e.interesting ? '+' : '-'); let kd = kinds.find(x => x.k === k); if (!kd) { kd = { k, e, p, n: 0 }; kinds.push(kd); } kd.n++; });
-      kinds.sort((a, b) => (b.e.interesting - a.e.interesting) || (b.n - a.n));
-      const used = {};
+      const y = g.y, n = g.items.length, objs = focusObjs(g);
+      /* rail: one icon per kind of object, Interesting (orange) on the first row, Uninteresting (grey) on a second row */
+      const kinds = [];
+      objs.forEach(o => { const k = o.label + (o.hot ? '+' : '-'); let kd = kinds.find(x => x.k === k); if (!kd) { kd = { k, o, n: 0 }; kinds.push(kd); } kd.n++; });
+      kinds.sort((a, b) => objRank(a.o.label) - objRank(b.o.label) || b.n - a.n);
+      const lane = { '+': 0, '-': 0 };
       kinds.forEach(kd => {
-        const cols = S.markStyle !== 'b' ? [0, 1, 2] : kd.e.interesting ? [0, 1] : [2];
-        let ln = cols.find(c => !used[c]); if (ln == null) return; used[ln] = 1;
-        rows += '<button class="fmark ico' + (kd.e.interesting ? '' : ' dim') + '" style="top:' + (y - 9) + 'px;--ln:' + ln + '" data-act="fgrp" data-g="' + gi + '" data-k="' + esc(kd.k) + '" aria-label="' + esc(lab(kd.e, kd.p)) + ' ' + hm(kd.p.t) + (kd.n > 1 ? ', ' + kd.n + ' Alerts' : '') + '">' + objIcon(ico(kd.e, kd.p)) + (kd.n > 1 ? '<b class="segn"><i>' + kd.n + '</i></b>' : '') + '</button>';
+        const hot = kd.o.hot, ln = lane[hot ? '+' : '-']++; if (ln > 2) return;
+        rows += '<button class="fmark ico' + (hot ? '' : ' dim') + '" style="top:' + (y - 9 + (hot ? 0 : 24)) + 'px;--ln:' + ln + '" data-act="fgrp" data-g="' + gi + '" data-k="' + esc(kd.k) + '" aria-label="' + esc(objName(kd.o.label)) + ' ' + hm(kd.o.t) + (kd.n > 1 ? ', ' + kd.n : '') + '">' + objIcon(kd.o.label) + (kd.n > 1 ? '<b class="segn"><i>' + kd.n + '</i></b>' : '') + '</button>';
       });
-      const e = g.items[0], key = String(e.t), ep = pick(e, S.filt), parts = n === 1 ? Arrive.parts(e, S.filt) : [];
-      if (n === 1 && parts.length > 1 && S.focus.og === key) {
-        /* one long alert opened into its separate objects: tap one to go to when it showed up */
-        rows += '<div class="fev fstrip" style="top:' + (y - 32) + 'px">' + parts.map(x => {
-          const on = curT != null && Math.abs(curT - (x.t - 1000)) < 1500;
-          return '<button class="fsi' + (on ? ' cur' : '') + (x.hot ? '' : ' un') + '" data-act="fjump" data-t="' + x.t + '" aria-label="' + esc(objName(x.label)) + ' ' + hms(x.t) + '"><img src="' + Frigate.base() + '/api/events/' + x.d + '/thumbnail.webp" alt="" loading="lazy"><span><i class="lico">' + objIcon(x.label) + '</i>' + hms(x.t) + '</span></button>';
-        }).join('') + '</div>';
-      } else if (n > 1 && S.focus.og === key) {
-        rows += '<div class="fev fstrip" style="top:' + (y - 32) + 'px">' + g.items.map(x => {
-          const on = curT != null && curT >= x.t - 3000 && curT <= (x.end || x.t) + 3000;
-          const xp = pick(x, S.filt);
-          return '<button class="fsi' + (on ? ' cur' : '') + '" data-act="fjump" data-t="' + xp.t + '" aria-label="' + esc(objName(xp.label)) + ' ' + hm(xp.t) + '"><img src="' + evImg(x, xp) + '" alt="" loading="lazy"><span><i class="lico">' + objIcon(ico(x, xp)) + '</i>' + hm(xp.t) + '</span></button>';
+      const e = g.items[0], key = String(e.t), ep = pick(e, S.filt);
+      if (objs.length > 1 && S.focus.og === key) {
+        /* opened: every object in these alerts, newest first; tap one to go to when it showed up */
+        rows += '<div class="fev fstrip" style="top:' + (y - 32) + 'px">' + objs.map(o => {
+          const on = curT != null && Math.abs(curT - (o.t - 1000)) < 1500;
+          return '<button class="fsi' + (on ? ' cur' : '') + (o.hot ? ' hot' : ' un') + '" data-act="fjump" data-t="' + o.t + '" aria-label="' + esc(objName(o.label)) + ' ' + hms(o.t) + '"><img src="' + o.img + '" alt="" loading="lazy"><span><i class="lico">' + objIcon(o.label) + '</i>' + hms(o.t) + '</span></button>';
         }).join('') + '</div>';
       } else {
-        /* a single alert names the objects in it (Person, Package); a group names its alerts */
-        const names = n === 1 ? [...new Set((parts.length ? parts.filter(x => x.hot).concat(parts.filter(x => !x.hot)).map(x => x.label).sort((a, b) => objRank(a) - objRank(b)) : [ep.label]).map(objName))] : [...new Set(g.items.map(x => objName(pick(x, S.filt).label)))];
+        const hotL = objs.filter(o => o.hot).map(o => o.label), names = [...new Set((hotL.length ? hotL : objs.map(o => o.label)).sort((a, b) => objRank(a) - objRank(b)).map(objName))];
         const title = names.slice(0, 2).join(', ') + (names.length > 2 ? ' +' + (names.length - 2) : '');
-        const sub = n === 1 ? hm(ep.t) + ' · ' + durLabel(e) + (parts.length > 1 ? ' · ' + parts.length + ' Objects' : '') : hm(ep.t) + ' · ' + n + ' Alerts';
+        const sub = hm(ep.t) + ' · ' + (n === 1 ? durLabel(e) : n + ' Alerts');
         rows += '<button class="fev" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + evImg(e, ep) + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e, ep)) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span></button>';
       }
     });
@@ -3306,6 +3303,17 @@ function viewFull(c, t, f) {
       '<button class="dk sm wide" id="fullstepf" data-act="fstep" data-v="10" aria-label="Forward 10 Seconds"' + (t == null ? ' disabled' : '') + '>+10s</button></div>' : '') +
     (S.fui ? '<div class="fuitop"><button class="dk" data-act="unfull" aria-label="Exit Full Screen">' + I.shrink + '</button><div style="flex:1"></div>' + (Data.source === 'frigate' ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') + '<div class="pillk" id="fullbadge">' + (t == null ? '<span class="dot"></span>Live' : hms(t)) + '</div></div>' : '') +
     '</div>' + side + '</div>';
+}
+/* The objects in a group of alerts on the camera view, newest first. An Interesting alert lists its own objects
+   (the Weee driver, the package; Uninteresting ones too when that filter is on); an Uninteresting alert is one grey item. */
+function focusObjs(g) {
+  const out = [];
+  g.items.forEach(e => {
+    const ps = Arrive.parts(e, S.filt);
+    if (ps.length) ps.forEach(x => out.push({ e, t: x.t, label: x.label, hot: x.hot && e.interesting, img: Frigate.base() + '/api/events/' + x.d + '/thumbnail.webp' }));
+    else { const p = pick(e, S.filt); out.push({ e, t: p.t, label: ico(e, p), hot: e.interesting, img: evImg(e, p) }); }
+  });
+  return out.sort((a, b) => b.t - a.t);
 }
 function fTrack(c) {
   const end = focusEnd(), Y = ms => (end - ms) / MIN * FFPX;
@@ -4533,11 +4541,12 @@ const ACT = {
   rvlive() { S.rv.t = null; rvScrollTo(null); paintReview(); },
   fgrp(d) {     /* tap a group's card or icon: play its newest alert (of that kind, for an icon); a group of several opens into a strip */
     const g = S.focus && S.focus.groups && S.focus.groups[+d.g]; if (!g) return;
-    const e = (d.k && g.items.find(x => pick(x, S.filt).label + (x.interesting ? '+' : '-') === d.k)) || g.items[0];
-    /* a group of alerts, or one alert holding several objects, opens into a strip to pick from */
-    const og = g.items.length > 1 || Arrive.parts(g.items[0], S.filt).length > 1 ? String(g.items[0].t) : null;
+    /* a group of alerts, or one alert holding several objects, opens into a strip to pick from; an icon goes to its object */
+    const objs = focusObjs(g), want = d.k ? objs.filter(o => o.label + (o.hot ? '+' : '-') === d.k) : [];
+    const o = want.length ? want[want.length - 1] : (objs.filter(x => x.hot).pop() || objs[objs.length - 1]);
+    const og = objs.length > 1 ? String(g.items[0].t) : null;
     if (S.focus.og !== og) { S.focus.og = og; render(); }
-    ACT.fjump({ t: pick(e, S.filt).t });
+    ACT.fjump({ t: o ? o.t : pick(g.items[0], S.filt).t });
   },
   fjump(d) {   /* tap a card or rail icon: go to that alert (1 s before it starts) */
     const t = +d.t - 1000, id = S.focus.cam; Dbg.log('tap alert', hms(+d.t));
