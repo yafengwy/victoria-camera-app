@@ -2616,6 +2616,12 @@ function render0() {
   const keep = {}; ['thumbs', 'flist'].forEach(id => { const n = document.getElementById(id); if (n) keep[id] = [n.scrollLeft, n.scrollTop]; });
   /* scrolled lists inside open menus and dialogs keep their place when a tap redraws the page */
   const LISTS = '.ddl,.ddlist,.rvdd,.dbody,.moredd', lk = [...document.querySelectorAll(LISTS)].map(n => n.scrollTop);
+  /* every other scrolled strip or list (day chips, hour rail, alert strips and panels, camera pickers, the review list,
+     dialogs) and the page itself keep their place too: a tap that redraws the page must not make anything jump.
+     The page keeps its place only on the same page (a new page starts at its top as before). */
+  const MORE = ['.days', '.hours', '.fev.fstrip', '.fpl', '.rvlist', '.wgrid', '.rvchips', '.popin', '.dbglog', '.dialog'];
+  const mk = MORE.map(q => [...document.querySelectorAll(q)].map(n => [n.scrollLeft, n.scrollTop]));
+  const vk = [S.view, S.focus ? S.focus.cam : '', S.full ? 1 : 0, S.watch ? 1 : 0].join('|'), wy = window.scrollY, sameV = vk === render0.vk; render0.vk = vk;
   /* alert-card clips: a redraw keeps the clip that is already playing (same element, no reload), and clips that go away
      let go of their video at once (iPhone runs out of memory and reloads the page when old videos pile up) */
   const oldV = [...document.querySelectorAll('video.evv[data-on]')];
@@ -2626,6 +2632,8 @@ function render0() {
   for (const id in keep) { const n = document.getElementById(id); if (n) { n.scrollLeft = keep[id][0]; n.scrollTop = keep[id][1]; } }
   { const fl = document.getElementById('flist'); if (fl) fListDay(fl); }
   document.querySelectorAll(LISTS).forEach((n, i) => { if (lk[i]) n.scrollTop = lk[i]; });
+  MORE.forEach((q, j) => document.querySelectorAll(q).forEach((n, i) => { const v = mk[j][i]; if (v) { if (v[0]) n.scrollLeft = v[0]; if (v[1]) n.scrollTop = v[1]; } }));
+  if (sameV && Math.abs(window.scrollY - wy) > 1) window.scrollTo(0, wy);
   if (fscTop != null) { const n = document.getElementById('fsc'); if (n) fSetScroll(n, fscTop); }
   syncHist();
   document.querySelectorAll('.fov .fname').forEach(n => { let fs = 12; while (n.scrollWidth > n.clientWidth + 1 && fs > 8) { fs -= 0.5; n.style.fontSize = fs + 'px'; } });
@@ -4696,10 +4704,10 @@ const ACT = {
   fuitap(d, e) { if (e && e.target.closest('.fuitop')) return; if (Date.now() - FZ.moved < 400) return; S.fui = !S.fui; if (!S.fui) S.fpanel = false; render(); },
   fkick() { fuiKick(); },
   fpanel() { S.fpanel = !S.fpanel; S.fui = true; render(); fuiKick(); },
-  /* full screen with the alert panel: the page is redrawn to mark the picked alert, and the panel keeps its scroll
-     position (it jumped back to the top after every tap) */
+  /* full screen with the alert panel: the page is redrawn to mark the picked alert; the panel keeps its scroll position
+     (render keeps every scrolled list in place) */
   fseek(d) { Dbg.log('tap alert', hms(+d.t)); S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true;
-    if (S.fpanel) { const pl = document.querySelector('.fpl'), y = pl ? pl.scrollTop : 0; render(); const n = document.querySelector('.fpl'); if (n) n.scrollTop = y; } else { paintFocus(); Playback.sync(); } fuiKick(); },
+    if (S.fpanel) render(); else { paintFocus(); Playback.sync(); } fuiKick(); },
   reconn(d, ev) {
     if (Data.source !== 'frigate' || !Ctl.on(d.id)) { Dbg.log('reconnect skipped', d.id, Data.source, Ctl.on(d.id) ? 'on' : 'off'); return; }
     const ids = [Live.cardSrc(d.id), d.id, d.id + '_sub'].filter((x, i, a) => a.indexOf(x) === i && Live.els[x]);
