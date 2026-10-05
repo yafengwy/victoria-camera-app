@@ -54,12 +54,24 @@ def faststart(body):
     except Exception:
         return body
 
-def gif(body):
+def gif(body, keep=0):
+    # keep: only the last `keep` seconds go into the GIF. The clip is asked for with a few seconds before it, so the
+    # decoder starts on a full picture; a clip that starts between full pictures (HEVC cameras) otherwise decodes to
+    # one frozen frame.
     with tempfile.TemporaryDirectory() as d:
         a, b = os.path.join(d, 'in.mp4'), os.path.join(d, 'out.gif')
         open(a, 'wb').write(body)
+        skip = []
+        if keep:
+            try:
+                dur = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', a],
+                                           capture_output=True, text=True, timeout=10).stdout.strip() or 0)
+                if dur > keep + 0.5:
+                    skip = ['-ss', f'{dur - keep:.2f}']
+            except Exception:
+                pass
         vf = 'fps=8,scale=480:-2:flags=lanczos,split[x][y];[x]palettegen=stats_mode=diff[p];[y][p]paletteuse=dither=bayer:bayer_scale=4'
-        subprocess.run(['ffmpeg', '-v', 'error', '-i', a, '-vf', vf, '-loop', '0', b], check=True, timeout=30)
+        subprocess.run(['ffmpeg', '-v', 'error', '-i', a] + skip + ['-vf', vf, '-loop', '0', b], check=True, timeout=30)
         return open(b, 'rb').read()
 
 def font():
@@ -147,12 +159,13 @@ class H(BaseHTTPRequestHandler):
         # Frigate sometimes can't cut a very short piece right at the edge of a recording segment (some cameras,
         # like Treat Feeder, write longer segments): try the asked seconds, then a slightly wider window once more.
         body, err = None, None
-        for a, b, wait in (((s, e, 0), (s - 1, e + 3, 2)) if ok else ()):
+        pre = 6 if kind == 'clip.gif' else 0   # GIF: start a few seconds early so decoding begins on a full picture
+        for a, b, wait in (((s - pre, e, 0), (s - pre - 1, e + 3, 2)) if ok else ()):
             try:
                 time.sleep(wait)
                 with urllib.request.urlopen(f'{FRIGATE}/api/{cam}/start/{a}/end/{b}/clip.mp4', timeout=30) as r:
                     body = r.read()
-                body = gif(body) if kind == 'clip.gif' else faststart(body) if kind == 'sound.mp4' else silent(body)
+                body = gif(body, b - a - pre) if kind == 'clip.gif' else faststart(body) if kind == 'sound.mp4' else silent(body)
                 break
             except Exception as x:
                 err = x; body = None
