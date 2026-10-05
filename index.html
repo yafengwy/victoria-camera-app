@@ -82,6 +82,8 @@ img.rf{opacity:0}
 .fbside > .cam .frame{flex:1 1 0;height:0;aspect-ratio:auto}
 .fblock .frame img,.fblock .frame .lvh,.fblock .frame .lvc,.fblock .frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .fbside .frame{--bt:5px;--bh:22px}
+.cam.door .frame img,.cam.door .frame video,.fvid.door img,.fvid.door video{object-fit:fill!important}
+.full.door .fvw img,.full.door .fvw video{position:absolute;inset:0;margin:auto;width:auto!important;height:100%!important;max-width:100%;aspect-ratio:3/4;object-fit:fill!important}
 /* the two beside the Doorbell keep the right edge of their picture */
 .fbside .frame img,.fbside .frame video{object-position:right center}
 /* the Doorbell always shows its whole picture: Nest sometimes sends a slightly different shape, which used to crop
@@ -1509,8 +1511,8 @@ const Frigate = {
       'nest_master_bedroom', 'fishtofu_furbo', 'riceball_furbo'];
     const rank = c => { const i = ORDER.indexOf(c.id); return i < 0 ? ORDER.length + Data.cams.indexOf(c) : i; };
     Data.cams = Data.cams.slice().sort((a, b) => rank(a) - rank(b));
-    /* the Doorbell is shown as an upright 3:4 card (its 4:3 picture fills it, centred); the live video and the
-       snapshot are now the same shape, so both are cut the same way and nothing jumps */
+    /* the Doorbell's picture is upright 3:4. Nest's stream carries a wrong "stretch sideways" flag, so browsers show
+       the live video 4:3 and squashed; the .door class stretches it back to 3:4 (img and video fill the 3:4 box). */
     Data.cams.forEach(c => { if (c.id === 'nest_doorbell') c.ar = 0.75; });
     /* cameras whose detect size isn't in Frigate's config (the Doorbell): read the picture shape from a snapshot */
     Data.cams.filter(c => !c.ar).forEach(c => { const im = new Image(); im.onload = () => { if (c.ar || !im.naturalWidth) return; c.ar = im.naturalWidth / im.naturalHeight; Dbg.log('picture shape', c.id, c.ar.toFixed(3)); if (isTall(c) && app.innerHTML) render(); }; im.src = c.img; });
@@ -1869,7 +1871,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.3.7 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.3.8 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -2644,7 +2646,7 @@ function camCard(c, fr, span2) {
   const t = camT(c.id), f = Data.frame(c, t), off = !Ctl.on(c.id);
   const tall = isTall(c), slim = S.layout === 'list' && c.id !== S.expanded;   /* list: no name bar — name bottom left, sound next to Live */
   const snz = Snz.has(c.id) ? '<span class="snzb">' + I.snooze + (Snz.st.mode === 'c' ? 'Clear' : Snz.left()) + '</span>' : '';
-  return '<article class="cam' + (c.id === S.expanded ? ' on' : '') + (off ? ' off' : '') + (tall ? ' tall' : '') + (span2 ? ' span2' : '') + (slim ? ' slim' : '') + '" id="cam-' + c.id + '"' + (tall || fr ? ' style="' + (tall ? '--ar:' + c.ar.toFixed(4) + ';' : '') + (fr ? '--fr:' + fr.toFixed(4) : '') + '"' : '') + '>' +
+  return '<article class="cam' + (c.id === 'nest_doorbell' ? ' door' : '') + (c.id === S.expanded ? ' on' : '') + (off ? ' off' : '') + (tall ? ' tall' : '') + (span2 ? ' span2' : '') + (slim ? ' slim' : '') + '" id="cam-' + c.id + '"' + (tall || fr ? ' style="' + (tall ? '--ar:' + c.ar.toFixed(4) + ';' : '') + (fr ? '--fr:' + fr.toFixed(4) : '') + '"' : '') + '>' +
     (slim ? '' : '<div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button>' + snz +
     (S.layout === 'list' && c.id === S.expanded ? '<div class="chctl">' +
       (Data.source === 'frigate' && !off ? '<button class="ic" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
@@ -3100,7 +3102,7 @@ function viewFocus() {
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
     '<button class="pillk" id="fbadge" data-act="fbadge" aria-label="Live. Tap to reconnect">' + (t == null ? (cs.enabled ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t)) + '</button></div>';
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
-    '<div class="fvid' + (isTall(c) ? ' tall" style="--ar:' + c.ar.toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
+    '<div class="fvid' + (c.id === 'nest_doorbell' ? ' door' : '') + (isTall(c) ? ' tall" style="--ar:' + c.ar.toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fctl" id="fctl">' + (S.fclip && S.fclip.cam === c.id ?
       '<button class="dk" data-act="fclipx" aria-label="Cancel Download">' + I.x + '</button><div class="fclipt"><b>Start</b> ' + (S.fclip.a ? hms(S.fclip.a) : '—') + '<br><b>End</b> ' + (S.fclip.b ? hms(S.fclip.b) : '—') + '</div>' +
       '<button class="dk fbk' + (S.fclip.a ? ' set' : '') + '" data-act="fclipmark" data-v="a" aria-label="Set Start Here">[</button><button class="dk fbk' + (S.fclip.b ? ' set' : '') + '" data-act="fclipmark" data-v="b" aria-label="Set End Here">]</button>' +
@@ -3147,7 +3149,7 @@ function viewFull(c, t, f) {
       '</div>' +
       (S.fpanel ? '' : '<div class="fsb zdesk2"><button class="dk sm" data-act="fzoombtn" data-v="out" aria-label="Show Longer Time">−</button><button class="dk sm" data-act="fzoombtn" data-v="in" aria-label="Show Shorter Time">+</button></div>') + '</aside>';
   }
-  return '<div class="full' + (S.fui ? ' ui' : '') + (fullRot() ? ' rot' : '') + '" id="fullv"><div class="fvw" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
+  return '<div class="full' + (c.id === 'nest_doorbell' ? ' door' : '') + (S.fui ? ' ui' : '') + (fullRot() ? ' rot' : '') + '" id="fullv"><div class="fvw" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
     '<div class="fulltm" id="fulltm">' + dtShort(shownT(c.id, c.id)) + '</div>' +
     (S.fui ? '<div class="fullsteps"><button class="dk sm wide" data-act="fstep" data-v="-10" aria-label="Back 10 Seconds">−10s</button><button class="fstep" data-act="flive" aria-label="Go Live">Live</button>' +
       '<button class="dk sm wide" id="fullstepf" data-act="fstep" data-v="10" aria-label="Forward 10 Seconds"' + (t == null ? ' disabled' : '') + '>+10s</button></div>' : '') +
@@ -3856,7 +3858,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.3.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.3.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -3958,7 +3960,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.3.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.3.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -4818,7 +4820,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.3.7';
+    const BUILD = '2.3.8';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) location.reload(); }).catch(() => {});
     checkVer(); setInterval(checkVer, 120000);
