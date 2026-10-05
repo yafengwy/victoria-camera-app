@@ -78,15 +78,18 @@ def streams(body):
         return repr(x)
 
 def faststart(body):
+    # sound clips for the iPhone: when the recording's sound is already AAC (Entry Room, Treat Feeder...), Frigate's
+    # own clip is sent exactly as it is. That is how the first sound clips came out, and the iPhone showed them
+    # with sound. Re-encoding them (H.264 640 + 44.1 kHz stereo) made the iPhone fail to load the attachment.
+    # Only other sound (e.g. G.711, which the iPhone won't play in an mp4) is turned into AAC, picture copied.
     try:
+        if 'aac:audio' in streams(body):
+            return body
         with tempfile.TemporaryDirectory() as d:
             a, b = os.path.join(d, 'in.mp4'), os.path.join(d, 'out.mp4')
             open(a, 'wb').write(body)
-            # sound clips: sound turned into 44.1 kHz stereo AAC. The cameras record 8/16 kHz sound, which the iPhone
-            # shows as a video with sound but plays silently (same fix as the app's downloads)
-            subprocess.run(['ffmpeg', '-v', 'error', '-i', a, '-map', '0:v:0', '-map', '0:a?', '-vf', "scale='min(640,iw)':-2", '-c:v', 'libx264',
-                            '-preset', 'veryfast', '-crf', '27', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-ar', '44100', '-ac', '2', '-b:a', '128k',
-                            '-movflags', '+faststart', b], check=True, timeout=25)
+            subprocess.run(['ffmpeg', '-v', 'error', '-i', a, '-map', '0:v:0', '-map', '0:a?', '-c:v', 'copy',
+                            '-c:a', 'aac', '-b:a', '96k', '-movflags', '+faststart', b], check=True, timeout=25)
             return open(b, 'rb').read()
     except Exception:
         return body
