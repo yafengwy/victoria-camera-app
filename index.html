@@ -552,7 +552,7 @@ img.rf{opacity:0}
 .ctm{position:absolute;left:6px;top:calc(var(--bt) + var(--bh) / 2);padding:2px 6px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:9px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap;z-index:2;pointer-events:none}
 .grid.compact .tag{top:28px!important}
 .fulltm{position:absolute;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));padding:3px 8px;border-radius:6px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap;z-index:3;pointer-events:none}
-.fov .pillk.ftm{flex:0 0 auto;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:10px;font-weight:400}
+.fclk{position:absolute;left:3px;top:46px;z-index:3;padding:2px 7px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none}
 .cnm{position:absolute;left:0;bottom:0;max-width:72%;padding:3px 8px 3px 8px;border-radius:0 8px 0 0;background:rgba(18,22,24,.66);color:#fff;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:2;pointer-events:none}
 .grid.compact .tag{bottom:auto;top:6px;left:6px;font-size:11px;padding:2px 7px}
 .topicons .ic{width:38px}
@@ -1932,7 +1932,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.7.3 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.7.4 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -3318,17 +3318,18 @@ function viewFocus() {
     body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px"><div class="frail"></div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + FTOP + 'px"></div>';
   }
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
-  const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk fname">' + esc(c.name) + '</div><div class="pillk ftm" id="ftm">' + dtShort(shownT(c.id, c.id)) + '</div><div style="flex:1"></div>' +
+  const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk fname">' + esc(c.name) + '</div><div style="flex:1"></div>' +
     (frig && cs.enabled ? '<button class="dk ctl" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
-    '<button class="pillk" id="fbadge" data-act="fbadge" aria-label="Live. Tap to reconnect">' + (t == null ? (cs.enabled ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t)) + '</button></div>';
+    '<button class="pillk" id="fbadge" data-act="fbadge" aria-label="Live. Tap to reconnect">' + (t == null ? (cs.enabled ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : '<span class="dot idle"></span>Live') + '</button></div>' +
+    '<div class="fclk" id="ftm">' + dtShort(shownT(c.id, c.id)) + '</div>';   /* the one time on the picture: its top-left corner, under the buttons */
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
     '<div class="fvid vfit' + (c.id === 'nest_doorbell' ? ' door' : '') + (isTall(c) ? ' tall' : '') + '" style="--R:' + trueAr(c).toFixed(4) + (isTall(c) ? ';--ar:' + c.ar.toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fctl" id="fctl">' + (S.fclip && S.fclip.cam === c.id ?
       '<button class="dk" data-act="fclipx" aria-label="Cancel Download">' + I.x + '</button><div class="fclipt"><b>Start</b> ' + (S.fclip.a ? hms(S.fclip.a) : '—') + '<br><b>End</b> ' + (S.fclip.b ? hms(S.fclip.b) : '—') + '</div>' +
       '<button class="dk fbk' + (S.fclip.a ? ' set' : '') + '" data-act="fclipmark" data-v="a" aria-label="Set Start Here">[</button><button class="dk fbk' + (S.fclip.b ? ' set' : '') + '" data-act="fclipmark" data-v="b" aria-label="Set End Here">]</button>' +
       '<button class="dk solid" data-act="fclipdl" aria-label="Download"' + (S.fclip.a && S.fclip.b ? '' : ' style="opacity:.45"') + '>' + I.dl + '</button></div>' :
-    '<button class="fday" data-act="fdate">' + I.cal + (S.focus.dayEnd ? dayLabel(S.focus.dayEnd - 1) : 'Today') + '</button><div style="flex:1"></div>' +
+    dtOver('<button class="fday" data-act="fdate">' + I.cal + (S.focus.dayEnd ? dayLabel(S.focus.dayEnd - 1) : 'Today') + '</button>', 'focus') + '<div style="flex:1"></div>' +
     (Data.source === 'frigate' ? '<button class="dk" data-act="fclip" aria-label="Download Video">' + I.dl + '</button>' : '') +
     (S.flist ? '<button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button>' : '') +
     '<button class="dk' + (S.flist ? ' on' : '') + '" data-act="flist" aria-label="' + (S.flist ? 'Show Timeline' : 'Show Alert List') + '">' + (S.flist ? I.tline : I.bellO) + '</button></div>') +
@@ -3564,7 +3565,7 @@ function paintFocus() {
   const label = t == null ? (Ctl.on(c.id) ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t);
   const hv = S.hov && S.hov.id === 'full' ? S.hov.t : undefined;
   fPaintLine();
-  set('fbadge', n => n.innerHTML = label); set('fullbadge', n => n.innerHTML = hv !== undefined ? hms(hv) : label); set('fbub', n => n.textContent = hv !== undefined ? hm(hv) : t == null ? 'Live' : hm(t));
+  set('fbadge', n => n.innerHTML = t == null ? label : '<span class="dot idle"></span>Live');   /* the time is shown once, on the picture; this button just goes Live */ set('fullbadge', n => n.innerHTML = hv !== undefined ? hms(hv) : label); set('fbub', n => n.textContent = hv !== undefined ? hm(hv) : t == null ? 'Live' : hm(t));
   if (S.full && !S.fLock) fullPaintLine();
   set('ftag', n => setTag(n, f));
   set('livepill', n => { n.hidden = t == null; });
@@ -4101,7 +4102,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.7.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.7.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + '</div>' : '') +
@@ -4204,7 +4205,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.7.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.7.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -4654,8 +4655,10 @@ function openFocus(id) {
 }
 /* Date + time (hours and minutes; seconds start at :00). Up to 7 days back. */
 /* what a picked date and time does: Review jumps all cameras there; the open camera seeks there */
-function dtCur(kind) { return kind === 'rv' ? S.rv.t : S.expanded ? camT(S.expanded) : null; }
+function dtCur(kind) { return kind === 'rv' ? S.rv.t : kind === 'focus' ? (S.focus ? camT(S.focus.cam) : null) : S.expanded ? camT(S.expanded) : null; }
 function dtGo(kind) {
+  /* camera view Today button: same as picking a date there before (the iPhone needs the finger on the date box itself) */
+  if (kind === 'focus') return v => { if (!S.focus) return; const d0 = dayStart(v); S.focus.dayEnd = d0 === dayStart(now()) ? null : d0 + DAY; S.camTime[S.focus.cam] = v >= now() - 1000 ? null : v; render(); };
   if (kind === 'rv') return v => { S.rv.t = v >= now() - 1000 ? null : Math.max(rvEnd - RSPAN, v); S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); paintReview(); };
   return v => {
     if (S.expanded) { if (v >= now() - 1000) { S.camTime[S.expanded] = null; S.winEnd = now(); S.pos = 1; } else { S.winEnd = Math.min(now(), v + S.win / 2); seek(S.expanded, v); S.pos = (v - (S.winEnd - S.win)) / S.win; } }
@@ -5096,7 +5099,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.7.3';
+    const BUILD = '2.7.4';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
