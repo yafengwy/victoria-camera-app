@@ -1951,6 +1951,17 @@ const Dbg = {
   },
   text() { return 'Version __VER__ · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
+/* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
+   and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
+const Jank = { last: performance.now(), act: '', slow: 0 };
+setInterval(() => {
+  const t = performance.now(), gap = t - Jank.last; Jank.last = t;
+  if (gap > 1250 && document.visibilityState === 'visible' && !Jank.hidden) {
+    const nLive = Object.values(Live.els || {}).filter(e => e.ws && !e.suspended && e.isConnected).length;
+    Dbg.log('freeze', (gap / 1000).toFixed(1) + 's', 'page ' + (S.focus ? 'camera ' + S.focus.cam : S.view), 'live ' + nLive, 'last tap ' + (Jank.act || '-'), Jank.slow ? 'slowest redraw ' + Jank.slow + 'ms' : '');
+  }
+  Jank.hidden = document.visibilityState !== 'visible'; Jank.slow = 0;
+}, 250);
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
   hlsP: null,
@@ -2564,6 +2575,10 @@ window.addEventListener('popstate', () => {
 let pageReady = false;
 function savePage() { if (!pageReady) return; try { sessionStorage.setItem('vhpage', JSON.stringify({ v: S.view, f: S.focus ? S.focus.cam : null, d: S.evDay || 0 })); } catch (e) {} }
 function render() {
+  const _t0 = performance.now();
+  try { render0(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300) Dbg.log('slow redraw', ms + 'ms', S.view); }
+}
+function render0() {
   document.documentElement.dataset.mark = S.markStyle; savePage();
   document.documentElement.dataset.view = S.view;   /* cover screen: the side icons belong to the home page only */
   applyLook();
@@ -2817,8 +2832,9 @@ function paintTimes() {
 setInterval(paintTimes, 500);
 function agoShort(ms) { const s = Math.max(0, Math.floor(ms / 1000)); if (s < 60) return s + 's'; const m = Math.floor(s / 60); if (m < 60) return m + 'm'; const h = Math.floor(m / 60); return h < 24 ? h + 'h' : Math.floor(h / 24) + 'd'; }
 /* tapping a camera's name reconnects just that camera's live picture (clears a smeared or frozen picture, e.g. the
-   Nest Doorbell after its stream renews); only for a camera that is on, with Frigate */
-function rcnA(id) { return Data.source === 'frigate' && Ctl.on(id) ? ' rcn" data-act="reconn" data-id="' + id + '" role="button" aria-label="Reconnect"' : '"'; }
+   Nest Doorbell after its stream renews). Always on the name: the first screen is drawn before Frigate has answered,
+   and a name drawn then without it opened the panel instead; whether there is anything to reconnect is decided at the tap */
+function rcnA(id) { return ' rcn" data-act="reconn" data-id="' + id + '" role="button" aria-label="Reconnect"'; }
 function badgeHtml(id, t, f) {
   let inner;
   if (t != null) inner = hms(t);
@@ -4610,6 +4626,7 @@ const ACT = {
   fpanel() { S.fpanel = !S.fpanel; S.fui = true; render(); fuiKick(); },
   fseek(d) { Dbg.log('tap alert', hms(+d.t)); S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true; if (S.fpanel) render(); else { paintFocus(); Playback.sync(); } fuiKick(); },
   reconn(d, ev) {
+    if (Data.source !== 'frigate' || !Ctl.on(d.id)) { Dbg.log('reconnect skipped', d.id, Data.source, Ctl.on(d.id) ? 'on' : 'off'); return; }
     const ids = [Live.cardSrc(d.id), d.id, d.id + '_sub'].filter((x, i, a) => a.indexOf(x) === i && Live.els[x]);
     ids.forEach(x => Live.restart(x)); Dbg.log('reconnect', d.id, ids.join(' ')); toast('Reconnecting ' + ((Data.cam(d.id) || {}).name || ''));
     const n = ev && ev.target && ev.target.closest && ev.target.closest('.rcn'); if (n && n.classList) { n.classList.remove('rcnow'); void n.offsetWidth; n.classList.add('rcnow'); }
@@ -4811,6 +4828,7 @@ document.addEventListener('click', e => {
   const scr = e.target.closest('#fsc, #ftsc');
   if (scr && (scr._mv || Date.now() - (scr._scrolled || 0) < 350)) return;
   if (el.dataset.act === 'close' && e.target.closest('[data-stop]') && !e.target.closest('button[data-act="close"]')) return;
+  Jank.act = el.dataset.act + (el.dataset.id ? ' ' + el.dataset.id : '');
   const fn = ACT[el.dataset.act]; if (fn) fn(el.dataset, e);
 });
 (function pullToRefresh() {
