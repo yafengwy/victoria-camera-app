@@ -133,8 +133,17 @@ def health(dead, st, stats):
     L.append('Notification Clips: %d Made · %d Failed' % (cw.count(' made '), cw.count('FAILED') + cw.count('failed')))
     # the last notification clip requests (camera, kind, made/cached, seconds, size or FAILED, who asked) and any
     # clip errors, from the last 3 hours, so a notification without its picture/video can be traced
-    cw3 = [l for l in sh(['docker', 'logs', 'clipwait', '--since', '3h']).splitlines() if l.startswith('wait ') or 'failed' in l.lower() or 'error' in l.lower()]
-    L += ['', '== Notification Clips (Last 15, 3 Hours, Mini PC Time UTC Not Shown) =='] + ([l[:160] for l in cw3[-15:]] or ['None'])
+    cw3 = []
+    for l in sh(['docker', 'logs', '-t', 'clipwait', '--since', '3h']).splitlines():
+        ts, _, msg = l.partition(' ')
+        if not (msg.startswith('wait ') or 'failed' in msg.lower() or 'error' in msg.lower()):
+            continue
+        try:
+            t = datetime.fromtimestamp(calendar.timegm(time.strptime(ts[:19], '%Y-%m-%dT%H:%M:%S')), TZ).strftime('%H:%M:%S')
+        except Exception:
+            t = ts[11:19]
+        cw3.append(t + ' ' + msg[:150])
+    L += ['', '== Notification Clips (Last 15 In 3 Hours) =='] + (cw3[-15:] or ['None'])
     # hourly history: this minute's new log lines added to the hour's bucket
     c1 = counts(sh(['docker', 'logs', 'frigate', '--since', '61s']))
     hist = st.setdefault('hist', {})
