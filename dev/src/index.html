@@ -2076,9 +2076,9 @@ const Playback = {
          and buffered video; several of them got the page ended by the iPhone) */
       const p = this.st[id];
       if (!p.closedAt) { p.closedAt = Date.now(); setTimeout(() => this.sync(), 5500); }
-      else if (Date.now() - p.closedAt > 5000 && (p.v.getAttribute('src') || p.h)) {
+      else if (Date.now() - p.closedAt > 5000 && ((p.v.getAttribute('src') && p.v.getAttribute('src') !== BLANK_MP4) || p.h)) {
         if (p.h) { try { p.h.destroy(); } catch (e) {} p.h = null; }
-        p.v.removeAttribute('src'); try { p.v.load(); } catch (e) {} p.win = null; p.loading = false; p.lastSet = null; p.v._unlocked = false;
+        p.v.removeAttribute('src'); try { p.v.load(); } catch (e) {} p.win = null; p.loading = false; p.lastSet = null;   /* stays unlocked: the iPhone remembers that for the player */
         Dbg.log('released', id);
       }
     }
@@ -5827,7 +5827,8 @@ function wakeVideos() {
   const open = Playback.cams();
   for (const id in Playback.st) {
     const v = Playback.st[id].v; if (v._unlocked) continue;
-    if (v.getAttribute('src') && !open[id]) continue;   /* a player for a camera no longer open: don't start it again (it kept starting and stopping on every tap) */
+    if (!open[id]) continue;   /* a player for a camera that isn't open: leave it alone. Giving the closed ones the blank clip on
+       every tap made them load, get freed a few seconds later and load again on the next tap (19 players, every tap: slow) */
     if (!v.getAttribute('src') && !Playback.st[id].h) { v.src = BLANK_MP4; v.play().then(() => { v.pause(); v._unlocked = true; if (v.src === BLANK_MP4) v.removeAttribute('src'); }).catch(() => {}); }
     else v.play().then(() => { v._unlocked = true; }).catch(() => {});
   }
