@@ -26,7 +26,10 @@ API = 'http://127.0.0.1:5000/api'
 # never count. 2026-10-05: Closet had broken pictures for over an hour (Wi-Fi) and nobody knew.
 HOOK = 'http://192.168.1.252:8123/api/webhook/vh-camera-down-6a53d96d5efbd590'
 DOWN_MIN, DOWN_EVERY = 600, 3 * 3600
-QUIET = {'nest_master_bedroom'}   # turned off in Google Home on purpose; take it out of here when it is back on
+QUIET = {'nest_master_bedroom'}
+# Daily fresh start at 4:00 California time (her choice): the Furbo and Xiaomi bridges, then Frigate, so stuck camera
+# sessions and decoders start clean once a day. All cameras pause about 2 minutes.
+DAILY_HOUR = 4   # turned off in Google Home on purpose; take it out of here when it is back on
 
 
 def get(path):
@@ -222,6 +225,18 @@ def main():
     except Exception:
         st = {}
     st.setdefault('dead_runs', 0); st.setdefault('gpu_runs', 0); st.setdefault('api_runs', 0); st.setdefault('last_restart', 0)
+
+    now_ca = datetime.now(TZ) if TZ else datetime.now()
+    if now_ca.hour == DAILY_HOUR and now_ca.minute < 10 and time.time() - st.get('last_daily', 0) > 20 * 3600:
+        st['last_daily'] = st['last_restart'] = time.time(); json.dump(st, open(STATE, 'w'))   # saved first: never twice
+        log('daily restart: furbo, xiaomi, then frigate')
+        for c in ('furbo', 'xiaomi'):
+            r = subprocess.run(['docker', 'restart', c], capture_output=True, text=True, timeout=120)
+            if r.returncode != 0: log('daily restart %s failed: %s' % (c, (r.stderr or '').strip()[:150]))
+        time.sleep(20)
+        r = subprocess.run(['docker', 'restart', 'frigate'], capture_output=True, text=True, timeout=180)
+        log('daily restart done' if r.returncode == 0 else 'daily restart frigate failed: ' + (r.stderr or '').strip()[:150])
+        return
 
     dead, why, stats = [], '', None
     if started_ago() < 600:          # just (re)started: give it time
