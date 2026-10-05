@@ -2562,7 +2562,7 @@ function render() {
   if (S.modal === 'people') h += modalPeople();
   if (S.modal === 'wpick') h += modalWatchPick();
   const fo = document.getElementById('fsc'), fscTop = fo && S.focus ? fo.scrollTop : null;
-  const keep = {}; ['thumbs'].forEach(id => { const n = document.getElementById(id); if (n) keep[id] = [n.scrollLeft, n.scrollTop]; });
+  const keep = {}; ['thumbs', 'flist'].forEach(id => { const n = document.getElementById(id); if (n) keep[id] = [n.scrollLeft, n.scrollTop]; });
   /* scrolled lists inside open menus and dialogs keep their place when a tap redraws the page */
   const LISTS = '.ddl,.ddlist,.rvdd,.dbody,.moredd', lk = [...document.querySelectorAll(LISTS)].map(n => n.scrollTop);
   /* alert-card clips: a redraw keeps the clip that is already playing (same element, no reload), and clips that go away
@@ -2573,6 +2573,7 @@ function render() {
   document.querySelectorAll('video.evv:not([data-on])').forEach(n => { const o = oldV.find(v => v.dataset.hls === n.dataset.hls && !usedV.has(v)); if (o) { usedV.add(o); n.replaceWith(o); } });
   oldV.forEach(v => { if (!usedV.has(v)) relVideo(v); });
   for (const id in keep) { const n = document.getElementById(id); if (n) { n.scrollLeft = keep[id][0]; n.scrollTop = keep[id][1]; } }
+  { const fl = document.getElementById('flist'); if (fl) fListDay(fl); }
   document.querySelectorAll(LISTS).forEach((n, i) => { if (lk[i]) n.scrollTop = lk[i]; });
   if (fscTop != null) { const n = document.getElementById('fsc'); if (n) fSetScroll(n, fscTop); }
   syncHist();
@@ -3263,7 +3264,9 @@ function fPaintLine() {
 function durLabel(e) { const d = Math.max(1, Math.round(((e.end || e.t) - e.t) / 1000)); return d >= 60 ? Math.floor(d / 60) + ' min ' + (d % 60) + ' sec' : d + ' sec'; }
 function viewFocus() {
   const c = Data.cam(S.focus.cam), t = camT(c.id), f = Data.frame(c, t), end = focusEnd(), span = focusSpan();
-  const evs = camEvents(c.id).filter(e => e.t <= end && e.t > end - span).sort((a, b) => b.t - a.t);
+  /* the alert list (like Google Home) runs back through every loaded day as you scroll; the timeline shows one day */
+  const evs = S.flist ? camEvents(c.id).filter(e => e.t <= now()).sort((a, b) => b.t - a.t).slice(0, 500)
+    : camEvents(c.id).filter(e => e.t <= end && e.t > end - span).sort((a, b) => b.t - a.t);
   let body = '';
   if (S.flist) {
     let lastDay = null;
@@ -3271,7 +3274,7 @@ function viewFocus() {
     body = '<div class="flist" id="flist">' + (evs.length ? '' : '<div class="fday-h" style="color:var(--dark-sub)">No alerts match your filters.</div>');
     evs.forEach(e => {
       const dl = dayStart(e.t) === dayStart(now()) ? 'Today' : dayStart(e.t) === dayStart(now() - DAY) ? 'Yesterday' : dayLabel(e.t);
-      if (dl !== lastDay) { body += '<div class="fday-h">' + dl + '</div>'; lastDay = dl; }
+      if (dl !== lastDay) { body += '<div class="fday-h" data-day="' + dayStart(e.t) + '">' + dl + '</div>'; lastDay = dl; }
       body += '<button class="fitem' + (cur === e ? ' cur' : '') + '" data-act="fpick" data-t="' + e.t + '"><img src="' + e.img + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e)) + '</i>' + esc(lab(e)) + '</b><small>' + hm(e.t) + ' · ' + durLabel(e) + '</small></span></button>';
     });
     body += '</div>';
@@ -3329,7 +3332,7 @@ function viewFocus() {
       '<button class="dk" data-act="fclipx" aria-label="Cancel Download">' + I.x + '</button><div class="fclipt"><b>Start</b> ' + (S.fclip.a ? hms(S.fclip.a) : '—') + '<br><b>End</b> ' + (S.fclip.b ? hms(S.fclip.b) : '—') + '</div>' +
       '<button class="dk fbk' + (S.fclip.a ? ' set' : '') + '" data-act="fclipmark" data-v="a" aria-label="Set Start Here">[</button><button class="dk fbk' + (S.fclip.b ? ' set' : '') + '" data-act="fclipmark" data-v="b" aria-label="Set End Here">]</button>' +
       '<button class="dk solid" data-act="fclipdl" aria-label="Download"' + (S.fclip.a && S.fclip.b ? '' : ' style="opacity:.45"') + '>' + I.dl + '</button></div>' :
-    dtOver('<button class="fday" data-act="fdate">' + I.cal + (S.focus.dayEnd ? dayLabel(S.focus.dayEnd - 1) : 'Today') + '</button>', 'focus') + '<div style="flex:1"></div>' +
+    dtOver('<button class="fday" data-act="fdate">' + I.cal + (S.focus.dayEnd && !S.flist ? dayLabel(S.focus.dayEnd - 1) : 'Today') + '</button>', 'focus') + '<div style="flex:1"></div>' +
     (Data.source === 'frigate' ? '<button class="dk" data-act="fclip" aria-label="Download Video">' + I.dl + '</button>' : '') +
     (S.flist ? '<button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button>' : '') +
     '<button class="dk' + (S.flist ? ' on' : '') + '" data-act="flist" aria-label="' + (S.flist ? 'Show Timeline' : 'Show Alert List') + '">' + (S.flist ? I.tline : I.bellO) + '</button></div>') +
@@ -4655,10 +4658,33 @@ function openFocus(id) {
 }
 /* Date + time (hours and minutes; seconds start at :00). Up to 7 days back. */
 /* what a picked date and time does: Review jumps all cameras there; the open camera seeks there */
+/* alert list: the date button names the day of the alerts at the top of the list while scrolling (Today, Yesterday, Oct 3) */
+const dayWord = d => d === dayStart(now()) ? 'Today' : d === dayStart(now() - DAY) ? 'Yesterday' : dayLabel(d);
+function fListDay(fl) {
+  if (fl._raf) return;
+  fl._raf = requestAnimationFrame(() => {
+    fl._raf = 0;
+    const hs = fl.querySelectorAll('.fday-h[data-day]'); if (!hs.length) return;
+    let d = +hs[0].dataset.day; for (const h of hs) { if (h.offsetTop <= fl.scrollTop + 12) d = +h.dataset.day; else break; }
+    const b = document.querySelector('.focus .fday'); if (!b || b._day === d) return; b._day = d;
+    b.innerHTML = I.cal + dayWord(d);
+  });
+}
+document.addEventListener('scroll', ev => { if (ev.target && ev.target.id === 'flist') fListDay(ev.target); }, { capture: true, passive: true });
+/* picking a date in the alert list scrolls to the first alert at or before that moment */
+function fListGo(v) {
+  const fl = document.getElementById('flist'); if (!fl) return;
+  const it = [...fl.querySelectorAll('.fitem[data-t]')].find(n => +n.dataset.t <= v);
+  if (!it) { fl.scrollTop = fl.scrollHeight; return; }
+  const pv = it.previousElementSibling, to = pv && pv.classList.contains('fday-h') ? pv : it;   /* first alert of its day: show the day name too */
+  fl.scrollTop = Math.max(0, to.offsetTop - 8);
+  fListDay(fl);
+}
 function dtCur(kind) { return kind === 'rv' ? S.rv.t : kind === 'focus' ? (S.focus ? camT(S.focus.cam) : null) : S.expanded ? camT(S.expanded) : null; }
 function dtGo(kind) {
   /* camera view Today button: same as picking a date there before (the iPhone needs the finger on the date box itself) */
-  if (kind === 'focus') return v => { if (!S.focus) return; const d0 = dayStart(v); S.focus.dayEnd = d0 === dayStart(now()) ? null : d0 + DAY; S.camTime[S.focus.cam] = v >= now() - 1000 ? null : v; render(); };
+  if (kind === 'focus') return v => { if (!S.focus) return;
+    if (S.flist) { fListGo(v); return; }   /* alert list: scroll to that day and time instead of cutting the list to one day */ const d0 = dayStart(v); S.focus.dayEnd = d0 === dayStart(now()) ? null : d0 + DAY; S.camTime[S.focus.cam] = v >= now() - 1000 ? null : v; render(); };
   if (kind === 'rv') return v => { S.rv.t = v >= now() - 1000 ? null : Math.max(rvEnd - RSPAN, v); S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); paintReview(); };
   return v => {
     if (S.expanded) { if (v >= now() - 1000) { S.camTime[S.expanded] = null; S.winEnd = now(); S.pos = 1; } else { S.winEnd = Math.min(now(), v + S.win / 2); seek(S.expanded, v); S.pos = (v - (S.winEnd - S.win)) / S.win; } }
