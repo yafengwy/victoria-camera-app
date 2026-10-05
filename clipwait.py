@@ -130,10 +130,22 @@ class H(BaseHTTPRequestHandler):
         t0 = time.time()
         while not covered(cam, s, e) and time.time() - t0 < 25:
             time.sleep(0.5)
+        # Frigate sometimes can't cut a very short piece right at the edge of a recording segment (some cameras,
+        # like Treat Feeder, write longer segments): try the asked seconds, then a slightly wider window once more.
+        body, err = None, None
+        for a, b, wait in ((s, e, 0), (s - 1, e + 3, 3)):
+            try:
+                time.sleep(wait)
+                with urllib.request.urlopen(f'{FRIGATE}/api/{cam}/start/{a}/end/{b}/clip.mp4', timeout=30) as r:
+                    body = r.read()
+                body = gif(body) if kind == 'clip.gif' else faststart(body) if kind == 'sound.mp4' else silent(body)
+                break
+            except Exception as x:
+                err = x; body = None
+                print('clip try failed', cam, a, b, kind, repr(x), flush=True)
         try:
-            with urllib.request.urlopen(f'{FRIGATE}/api/{cam}/start/{s}/end/{e}/clip.mp4', timeout=30) as r:
-                body = r.read()
-            body = gif(body) if kind == 'clip.gif' else faststart(body) if kind == 'sound.mp4' else silent(body)
+            if body is None:
+                raise RuntimeError(err)
             self.send_response(200)
             self.send_header('Content-Type', 'image/gif' if kind == 'clip.gif' else 'video/mp4')
             self.send_header('Content-Length', str(len(body)))
