@@ -2496,8 +2496,11 @@ window.addEventListener('popstate', () => {
   else if (S.view !== 'home') S.view = 'home';
   render();
 });
+/* the page being looked at, so a refresh (pull down, or an app update) comes back to it instead of the home page */
+let pageReady = false;
+function savePage() { if (!pageReady) return; try { sessionStorage.setItem('vhpage', JSON.stringify({ v: S.view, f: S.focus ? S.focus.cam : null, d: S.evDay || 0 })); } catch (e) {} }
 function render() {
-  document.documentElement.dataset.mark = S.markStyle;
+  document.documentElement.dataset.mark = S.markStyle; savePage();
   document.documentElement.dataset.view = S.view;   /* cover screen: the side icons belong to the home page only */
   applyLook();
   detectCover();
@@ -4967,7 +4970,11 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   /* Browsers open one websocket handshake at a time per site, so open the motion feed before the live videos queue theirs */
   if (Data.source === 'frigate') { Motion.connect(); await new Promise(ok => { const t1 = Date.now(), w = setInterval(() => { if (Motion.up || Date.now() - t1 > 1500) { clearInterval(w); ok(); } }, 50); }); }
   try { if (sessionStorage.getItem('vhwatch') === '1') { S.wsel = store.get('wsel', []); S.wlay = store.get('wlay', 'grid'); if (watchIds().length) S.watch = true; } } catch (e) {}
-  render(); Dbg.log('start first screen', (Date.now() - t0) + 'ms', 'motion ' + (Motion.up ? 'up' : 'not yet'));
+  let back = null; try { back = JSON.parse(sessionStorage.getItem('vhpage') || 'null'); } catch (e) {}
+  if (back && ['events', 'review', 'people'].includes(back.v)) { S.view = back.v; if (back.v === 'events') S.evDay = Math.max(0, Math.min(6, +back.d || 0)); }
+  pageReady = true;
+  render(); Dbg.log('start first screen', (Date.now() - t0) + 'ms', 'motion ' + (Motion.up ? 'up' : 'not yet'), back && back.v !== 'home' ? 'back to ' + back.v : '');
+  if (back && back.f && Data.cam(back.f) && !location.hash.includes('cam=')) openFocus(back.f);
   if (Data.evReady) Data.evReady.then(() => { if (Data.source === 'frigate') Motion.seed(); if (!S.dragging && !S.modal) render(); else if (S.expanded) refreshTrack(); });
   if (Data.source === 'frigate') {
     Diag.run();
