@@ -1967,7 +1967,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 2.9.10 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 2.10.1 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -3901,14 +3901,17 @@ ICON_SVG.sound = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 const objIcon = label => { const l = String(label).toLowerCase(); return ICON_SVG[ICON_OF[l] || (AUDIO_LABELS.includes(l) ? 'sound' : 'paw')]; };
 /* what an alert is called on screen: the object, plus the delivery company or the person's name when known */
 /* Alerts page: one alert from Frigate can hold several objects (the Bedroom Furbo saw the cat and a "dog" in the same
-   minute); its title names each picked kind, most important first ("Dog And Cat"), instead of only the first one.
-   A known name or delivery company still replaces the object name, as before. */
+   minute); its title names every Interesting kind in it (an alert label of that camera), most important first
+   ("Dog And Cat", "Person, Dog And Cat"), instead of only the first one. Uninteresting alerts list the kinds the
+   object filter shows. A known name or delivery company still replaces the object name, as before. */
 function labAll(e, p, f) {
   if (e.who) return lab(e, p);
+  const rule = (Data.alertRule || {})[e.cam], hot = e.interesting && rule && rule.labels.length ? o => rule.labels.includes(String(o).toLowerCase()) : null;
   const seen = new Set(), os = [];
-  (e.objs && e.objs.length ? e.objs : [e.label]).forEach(o => { const k = String(o).toLowerCase(); if (!seen.has(k) && (!f || objOn(f, o))) { seen.add(k); os.push(o); } });
+  (e.objs && e.objs.length ? e.objs : [e.label]).forEach(o => { const k = String(o).toLowerCase(); if (!seen.has(k) && (!f || objOn(f, o)) && (!hot || hot(o))) { seen.add(k); os.push(o); } });
   if (os.length < 2) return lab(e, p);
-  return os.sort((a, b) => objRank(a) - objRank(b)).slice(0, 3).map(objName).join(' And ');
+  const n = os.sort((a, b) => objRank(a) - objRank(b)).map(objName);
+  return n.slice(0, -1).join(', ') + ' And ' + n[n.length - 1];
 }
 function lab(e, p) { if (p && p.label !== e.label && !/^(person|car)$/i.test(p.label)) return objName(p.label); return e.who || objName(p ? p.label : e.label); }   /* 'Waste_bin' shows as 'Waste Bin' */   /* a known name or delivery company replaces the object name */
 function ico(e, p) { const L = p ? p.label : e.label; return /^car$/i.test(L) || L === e.label ? (e.logo || L) : L; }
@@ -4206,7 +4209,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.9.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 2.10.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -4302,7 +4305,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 2.9.10');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 2.10.1');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -4319,7 +4322,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 2.9.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 2.10.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5257,7 +5260,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '2.9.10';
+    const BUILD = '2.10.1';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

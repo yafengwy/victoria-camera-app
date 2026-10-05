@@ -3901,14 +3901,17 @@ ICON_SVG.sound = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 const objIcon = label => { const l = String(label).toLowerCase(); return ICON_SVG[ICON_OF[l] || (AUDIO_LABELS.includes(l) ? 'sound' : 'paw')]; };
 /* what an alert is called on screen: the object, plus the delivery company or the person's name when known */
 /* Alerts page: one alert from Frigate can hold several objects (the Bedroom Furbo saw the cat and a "dog" in the same
-   minute); its title names each picked kind, most important first ("Dog And Cat"), instead of only the first one.
-   A known name or delivery company still replaces the object name, as before. */
+   minute); its title names every Interesting kind in it (an alert label of that camera), most important first
+   ("Dog And Cat", "Person, Dog And Cat"), instead of only the first one. Uninteresting alerts list the kinds the
+   object filter shows. A known name or delivery company still replaces the object name, as before. */
 function labAll(e, p, f) {
   if (e.who) return lab(e, p);
+  const rule = (Data.alertRule || {})[e.cam], hot = e.interesting && rule && rule.labels.length ? o => rule.labels.includes(String(o).toLowerCase()) : null;
   const seen = new Set(), os = [];
-  (e.objs && e.objs.length ? e.objs : [e.label]).forEach(o => { const k = String(o).toLowerCase(); if (!seen.has(k) && (!f || objOn(f, o))) { seen.add(k); os.push(o); } });
+  (e.objs && e.objs.length ? e.objs : [e.label]).forEach(o => { const k = String(o).toLowerCase(); if (!seen.has(k) && (!f || objOn(f, o)) && (!hot || hot(o))) { seen.add(k); os.push(o); } });
   if (os.length < 2) return lab(e, p);
-  return os.sort((a, b) => objRank(a) - objRank(b)).slice(0, 3).map(objName).join(' And ');
+  const n = os.sort((a, b) => objRank(a) - objRank(b)).map(objName);
+  return n.slice(0, -1).join(', ') + ' And ' + n[n.length - 1];
 }
 function lab(e, p) { if (p && p.label !== e.label && !/^(person|car)$/i.test(p.label)) return objName(p.label); return e.who || objName(p ? p.label : e.label); }   /* 'Waste_bin' shows as 'Waste Bin' */   /* a known name or delivery company replaces the object name */
 function ico(e, p) { const L = p ? p.label : e.label; return /^car$/i.test(L) || L === e.label ? (e.logo || L) : L; }
