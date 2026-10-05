@@ -1710,8 +1710,17 @@ const Live = {
     if (nLive + '/' + nRec !== this.dbgN) { this.dbgN = nLive + '/' + nRec; Dbg.log('videos running', 'live ' + nLive, 'recordings ' + nRec); }
     for (const src in this.els) {
       const e = this.els[src], v = e.video;
-      if (!v || e.suspended || !e.isConnected || !e.ws || v.closest('[hidden]') || document.hidden) { e.stuck = 0; continue; }
-      if (v.currentTime === e.lastCt) { if (++e.stuck >= 3) { e.stuck = 0; this.restart(src); } } else e.stuck = 0;
+      if (!v || e.suspended || !e.isConnected || !e.ws || v.closest('[hidden]') || document.hidden) { e.stuck = 0; e.wt = 0; continue; }
+      /* a stream still starting (no picture yet) is not frozen: with many cameras connecting at once the first picture
+         can take well over 6 s, and restarting it then sent it back to the start, so the grid never finished loading.
+         It gets 25 s before it is tried again. */
+      if (!(v.currentTime > 0)) {
+        e.stuck = 0; e.wt = e.wt || Date.now();
+        if (Date.now() - e.wt > 25000) { e.wt = 0; Dbg.log('live restart', src, 'no picture in 25 s'); this.restart(src); }
+        continue;
+      }
+      e.wt = 0;
+      if (v.currentTime === e.lastCt) { if (++e.stuck >= 3) { e.stuck = 0; Dbg.log('live restart', src, 'picture stopped'); this.restart(src); } } else e.stuck = 0;
       e.lastCt = v.currentTime;
     }
   },
