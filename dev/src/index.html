@@ -2492,9 +2492,9 @@ function modalDel() {
   const e = evE(S.delId); if (!e) return '';
   const c = Data.cam(e.cam);
   return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm snzd" role="dialog" aria-label="Delete Alert" data-stop="1">' +
-    '<div class="dhead">Delete This Alert?<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
+    '<div class="dhead">' + (e.motion ? 'Delete This Motion?' : 'Delete This Alert?') + '<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
     '<img class="whoimg" src="' + e.img + '" alt="">' +
-    '<div class="wtnote" style="margin:6px 2px 0">' + esc(lab(e)) + ' · ' + esc(c ? c.name : e.cam) + ' · ' + hms(e.t) + '<br>Deletes The Alert, Its Pictures And The Video Of This Time On This Camera From Frigate. This Can&#39;t Be Undone.</div>' +
+    '<div class="wtnote" style="margin:6px 2px 0">' + esc(lab(e)) + ' · ' + esc(c ? c.name : e.cam) + ' · ' + hms(e.t) + (e.end && e.motion ? '–' + hms(e.end) : '') + '<br>' + (e.motion ? 'Deletes The Video Of This Time On This Camera From Frigate (Video With An Alert In It Is Kept). This Can&#39;t Be Undone.' : 'Deletes The Alert, Its Pictures And The Video Of This Time On This Camera From Frigate. This Can&#39;t Be Undone.') + '</div>' +
     '<button class="btn solid snzgo delgo" data-act="evdel">Delete</button>' +
     '<button class="btn snzgo" style="margin-top:6px" data-act="close">Cancel</button>' +
     '</div></div></div>';
@@ -3384,7 +3384,7 @@ function viewEvents() {
         (sel.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(sel.id) + '">' + (sel.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Open Camera" data-act="focusat" data-id="' + esc(sel.cam) + '" data-t="' + sp.t + '">' + I.expand + '</button>' +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(sk) + '">' + I.dl + '</button>' +
-        (Data.source === 'frigate' && !sel.motion ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(sk) + '">' + I.trash + '</button>' : '') +
+        (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(sk) + '">' + I.trash + '</button>' : '') +
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(sk) + '">' + (S.evPlay === sk ? I.pause : I.playO) + '</button></div>' +
         '<div class="evmedia" id="evm-' + esc(sk) + '" data-act="evtap" data-v="' + esc(sk) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(sel, sp)) + ' At ' + hms(sp.t) + ' Full Screen">' + evMedia(sel, sk) + '</div></article>';
     } else h += '<div class="empty">No alerts on this day with the current filters.</div>';
@@ -3407,7 +3407,7 @@ function viewEvents() {
         (isPet(e, k) ? '<button class="whob" data-act="fixopen" data-v="' + esc(k) + '">Fix</button>' : coOf(e) && Data.source === 'frigate' && !e.motion ? '<button class="whob" data-act="cofixopen" data-v="' + esc(k) + '">Fix</button>' : '') +
         (e.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(k) + '">' + I.dl + '</button>' +
-        (Data.source === 'frigate' && !e.motion ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(k) + '">' + I.trash + '</button>' : '') +
+        (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(k) + '">' + I.trash + '</button>' : '') +
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(k) + '">' + (S.evPlay === k ? I.pause : I.playO) + '</button>' +
 '</div>' +
         '<div class="evmedia" id="evm-' + esc(k) + '" data-act="evtap" data-v="' + esc(k) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(e, p)) + ' At ' + hms(p.t) + ' Full Screen">' + evMedia(e, k) + '</div></article>';
@@ -4672,6 +4672,15 @@ const ACT = {
     const e = evE(S.delId); if (!e || S.delBusy) return;
     S.delBusy = true; const h = { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '1' };
     try {
+      /* 3.2.1 a Motion card: its recording pieces for that time on that camera, keeping any piece with an object in it */
+      if (e.motion) {
+        const r = await fetch(Frigate.base() + '/api/recordings/start/' + Math.floor(e.t / 1000) + '/end/' + Math.ceil(e.end / 1000) + '?cameras=' + encodeURIComponent(e.cam) + '&keep=object', { method: 'DELETE', credentials: 'include', headers: h });
+        let j = {}; try { j = await r.json(); } catch (x) {} Dbg.log('motion delete', e.cam, hms(e.t), r.status, j.message || '');
+        if (!r.ok || j.success === false) throw new Error(r.status);
+        if (S.evPlay === S.delId) evStop();
+        Object.values(MotionList.days).forEach(x => { x.segs = x.segs.filter(m => m !== e); });
+        S.modal = null; S.delId = null; S.delBusy = false; render(); toast('Motion Video Deleted'); return;
+      }
       /* the objects first (their snapshots and crops), then the alert itself, which also removes that camera's video of it */
       if (e.dets.length) await fetch(Frigate.base() + '/api/events/', { method: 'DELETE', credentials: 'include', headers: h, body: JSON.stringify({ event_ids: e.dets }) });
       const r = await fetch(Frigate.base() + '/api/reviews/delete', { method: 'POST', credentials: 'include', headers: h, body: JSON.stringify({ ids: [e.id] }) });
