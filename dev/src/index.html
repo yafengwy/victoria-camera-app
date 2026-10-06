@@ -2627,14 +2627,14 @@ function modalPeople() {
     h += '<div class="lbl pfhead">New Faces · ' + tr.length + (tr.length ? '<button class="pfdall" data-act="pfdallask">Delete All</button>' : '') + '</div>';
     if (S.pfDelAll && tr.length) h += '<div class="pfbar pfconf"><b>Delete All ' + People.train().length + ' New Faces?</b><span>They Are Not Saved To Anyone. This Can&#39;t Be Undone.</span>' +
       '<div class="pfcb"><button class="btn" data-act="pfdallno">Cancel</button><button class="btn solid pfred" data-act="pfdall">Delete All</button></div></div>';
+    if (sel && tr.length) {
+      h += '<div class="pfbar ctbar"><div class="cthd"><b>1 Picked</b><button class="ctlk" data-act="pfsel" data-v="' + esc(sel) + '">Unpick</button><button class="ctlk ctred" data-act="pfdel">Delete</button></div><div class="ctsub">This Is</div>' +
+        (names.length ? '<div class="ctnames">' + names.map(n => { const k = Object.keys(f).find(x => niceName(x) === n), ph = k && (f[k] || [])[0];
+          return '<button class="ctname" data-act="pfassign" data-v="' + esc(n) + '">' + (ph ? '<img src="' + Frigate.base() + '/clips/faces/' + encodeURIComponent(k) + '/' + encodeURIComponent(ph) + '" alt="">' : '<i>' + ICON_SVG.person + '</i>') + '<span>' + esc(n) + '</span></button>'; }).join('') + '</div>' : '') +
+        '<div class="pfnew"><input id="pfnew" class="field" type="text" placeholder="New Name" autocomplete="off"><button class="btn solid" data-act="pfassign" data-v="">Add</button></div></div>';
+    }
     if (!tr.length) h += '<div class="wtnote" style="margin:0">No New Faces Yet. Faces Show Up Here After The Cameras See Them.</div>';
     else h += '<div class="pfgrid">' + tr.map(x => '<button class="pf' + (sel === x.f ? ' on' : '') + '" data-act="pfsel" data-v="' + esc(x.f) + '"><img src="' + Frigate.base() + '/clips/faces/train/' + encodeURIComponent(x.f) + '" alt="" loading="lazy"><span>' + (x.guess === 'unknown' ? 'Unknown' : esc(niceName(x.guess)) + ' ' + Math.round(x.score * 100) + '%') + '</span><small>' + (x.ts ? hm(x.ts * 1000) + (dayStart(x.ts * 1000) === dayStart(now()) ? '' : ' ' + dayLabel(x.ts * 1000)) : '') + '</small></button>').join('') + '</div>';
-    if (sel) {
-      h += '<div class="pfbar"><div class="lbl" style="margin-top:0">This Is</div>' + (names.length ? '<div class="chips">' + names.map(n => { const k = Object.keys(f).find(x => niceName(x) === n), ph = k && (f[k] || [])[0];
-          return '<button class="chip pfname" data-act="pfassign" data-v="' + esc(n) + '">' + (ph ? '<img src="' + Frigate.base() + '/clips/faces/' + encodeURIComponent(k) + '/' + encodeURIComponent(ph) + '" alt="">' : '<i>' + ICON_SVG.person + '</i>') + esc(n) + '</button>'; }).join('') + '</div>' : '') +
-        '<div class="pfnew"><input id="pfnew" class="field" type="text" placeholder="New Name" autocomplete="off"><button class="btn solid" data-act="pfassign" data-v="">Add</button></div>' +
-        '<button class="btn" data-act="pfdel">Not Useful · Delete</button></div>';
-    }
   }
   return h + '</div></div></div>';
 }
