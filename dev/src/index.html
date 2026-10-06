@@ -2657,6 +2657,7 @@ const CatPics = {
     const m = encodeURIComponent(CatFix.model);
     try { const r = await Frigate.get('/api/classification/' + m + '/train?_=' + Date.now()); this.train = (Array.isArray(r) ? r : (r && r.files) || []).map(f => typeof f === 'string' ? f : f.filename || f.name).filter(Boolean); } catch (e) { this.train = []; }
     try { const r = await Frigate.get('/api/classification/' + m + '/dataset?_=' + Date.now()); this.ds = (r && r.categories) || {}; } catch (e) { this.ds = {}; }
+    const n = Object.keys(this.ds).filter(x => x.toLowerCase() !== 'none'); if (n.length) { const pref = ['胖胖', '团团']; CatFix.names = n.sort((a, b) => ((pref.indexOf(a) + 1) || 99) - ((pref.indexOf(b) + 1) || 99) || a.localeCompare(b)); }   /* the names come with the page, not only after a Fix */
   },
   /* "<event id>-<time>-<guess>-<score>.webp" (the event id has dashes too) */
   rows() {
