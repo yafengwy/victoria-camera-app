@@ -812,7 +812,8 @@ input,select,textarea{font-size:16px}
 .pfbar{display:flex;flex-direction:column;gap:6px;padding:10px;border-radius:12px;background:var(--track);margin-top:6px}
 .pfbar .chips{display:flex;flex-wrap:wrap;gap:8px}
 .lbl.pfhead{display:flex;align-items:center;gap:10px}
-.pfsort{margin:2px 0 8px;gap:6px}
+.pfsortb{margin-left:auto;height:28px;padding:0 10px;border-radius:14px;display:inline-flex;align-items:center;gap:4px;background:transparent;box-shadow:inset 0 0 0 1.5px var(--line);color:var(--head-fg);font-size:12px;font-weight:700;text-transform:none;letter-spacing:0;white-space:nowrap}
+.pfsortb + .pfdall{margin-left:0}
 .pfdall{margin-left:auto;height:28px;padding:0 12px;border-radius:14px;background:transparent;box-shadow:inset 0 0 0 1.5px #C0392B;color:#C0392B;font-size:12px;font-weight:700;text-transform:none;letter-spacing:0}
 .pfconf b{font-size:15px;color:var(--head-fg)} .pfconf span{font-size:13px;color:var(--sub)}
 .pfcb{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
@@ -2619,7 +2620,9 @@ function pfOrder(rows, k) {
   const sc = x => isFinite(x.score) ? x.score : 0;
   return rows.slice().sort(k === 'new' ? (a, b) => b.ts - a.ts : k === 'high' ? (a, b) => sc(b) - sc(a) || b.ts - a.ts : (a, b) => sc(a) - sc(b) || b.ts - a.ts);
 }
-const pfSortBar = (act, k) => '<div class="chips pfsort">' + [['low', 'Low %'], ['high', 'High %'], ['new', 'Newest']].map(([v, t]) => '<button class="chip sm" data-act="' + act + '" data-v="' + v + '" aria-pressed="' + (k === v) + '">' + t + '</button>').join('') + '</div>';
+/* one button, tap to switch: Low % → High % → Newest */
+const PF_NEXT = { low: 'high', high: 'new', new: 'low' };
+const pfSortBar = (act, k) => '<button class="pfsortb" data-act="' + act + '" data-v="' + PF_NEXT[k] + '" aria-label="Sort"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></svg>' + ({ low: 'Low %', high: 'High %', new: 'Newest' })[k] + '</button>';
 function modalPeople() {
   const f = People.faces, all = pfOrder(People.train(), S.pfSort || 'low'), pn = S.pfN || 120, tr = all.slice(0, pn), names = People.known(), sel = S.pfSel;
   const lib = Object.keys(f || {}).filter(n => n !== 'train').sort((a, b) => a.localeCompare(b));
@@ -2631,7 +2634,7 @@ function modalPeople() {
     h += '<div class="lbl" style="margin-top:0">Known People · ' + lib.length + '</div>';
     h += lib.length ? '<div class="pflist">' + lib.map(n => { const fs = f[n] || []; return '<div class="pfp">' + (fs[0] ? '<img src="' + Frigate.base() + '/clips/faces/' + encodeURIComponent(n) + '/' + encodeURIComponent(fs[0]) + '" alt="">' : '<i class="pfnone">' + ICON_SVG.person + '</i>') + '<span><b>' + esc(niceName(n)) + '</b><small>' + fs.length + (fs.length === 1 ? ' Photo' : ' Photos') + '</small></span></div>'; }).join('') + '</div>'
       : '<div class="wtnote" style="margin:0">Nobody Yet. Pick A New Face Below And Give It A Name.</div>';
-    h += '<div class="lbl pfhead">New Faces · ' + all.length + (tr.length ? '<button class="pfdall" data-act="pfdallask">Delete All</button>' : '') + '</div>' + (tr.length > 1 ? pfSortBar('pfsort', S.pfSort || 'low') : '');
+    h += '<div class="lbl pfhead">New Faces · ' + all.length + (tr.length > 1 ? pfSortBar('pfsort', S.pfSort || 'low') : '') + (tr.length ? '<button class="pfdall" data-act="pfdallask">Delete All</button>' : '') + '</div>';
     if (S.pfDelAll && tr.length) h += '<div class="pfbar pfconf"><b>Delete All ' + People.train().length + ' New Faces?</b><span>They Are Not Saved To Anyone. This Can&#39;t Be Undone.</span>' +
       '<div class="pfcb"><button class="btn" data-act="pfdallno">Cancel</button><button class="btn solid pfred" data-act="pfdall">Delete All</button></div></div>';
     if (sel && tr.length) {
@@ -2693,7 +2696,7 @@ function modalCats() {
   const ds = CatPics.ds || {};
   h += '<div class="lbl" style="margin-top:0">Learned Pictures</div><div class="pflist">' + names.map(c => { const fs = ds[c] || []; return '<div class="pfp">' + (fs[0] ? '<img src="' + Frigate.base() + '/clips/' + encodeURIComponent(CatFix.model) + '/dataset/' + encodeURIComponent(c) + '/' + encodeURIComponent(fs[fs.length - 1]) + '" alt="">' : '<i class="pfnone">' + ICON_SVG.cat + '</i>') + '<span><b>' + esc(c === 'none' ? 'None' : c) + '</b><small>' + fs.length + (fs.length === 1 ? ' Photo' : ' Photos') + '</small></span></div>'; }).join('') + '</div>';
   h += '<button class="btn solid ctrain" data-act="cttrain">Train Model' + (CatPics.filed ? ' · ' + CatPics.filed + ' New' : '') + '</button>';
-  h += '<div class="lbl pfhead">Recent · ' + rows.length + (rows.length ? '<button class="pfdall" data-act="ctdallask">Delete All Left</button>' : '') + '</div>' + (rows.length > 1 ? pfSortBar('ctsort', S.ctSort || 'low') : '');
+  h += '<div class="lbl pfhead">Recent · ' + rows.length + (rows.length > 1 ? pfSortBar('ctsort', S.ctSort || 'low') : '') + (rows.length ? '<button class="pfdall" data-act="ctdallask">Delete All Left</button>' : '') + '</div>';
   if (S.ctDelAll && rows.length) h += '<div class="pfbar pfconf"><b>Delete All ' + (rows.length - picked.length) + ' Pictures Left' + (picked.length ? ' (Not The ' + picked.length + ' Picked)' : '') + '?</b><span>Pictures Already Filed Under A Name Stay. This Can&#39;t Be Undone.</span>' +
     '<div class="pfcb"><button class="btn" data-act="ctdallno">Cancel</button><button class="btn solid pfred" data-act="ctdall">Delete</button></div></div>';
   if (picked.length) h += '<div class="pfbar ctbar"><div class="cthd"><b>' + picked.length + ' Picked</b><button class="ctlk" data-act="ctclear">Unpick</button><button class="ctlk ctred" data-act="ctdel">Delete</button></div><div class="ctsub">File Under</div><div class="ctnames">' +
