@@ -2348,7 +2348,7 @@ const CoFix = {
     let ok = true, taught = 0, sent = 0, files = null;
     if (pick[0] === '-') {
       const l = pick.slice(1);
-      for (const d of all.filter(x => People.lab[x] === l)) { if (People.fp[d]) continue; const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else ok = false; }
+      for (const d of all.filter(x => People.lab[x] === l)) { if (People.fp[d]) continue; const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else { ok = false; Dbg.log('fix refused', d, f.msg); } }
     } else {
       const plus = isLogo(pick), key = plus ? pick.toLowerCase() : pick, cars = all.filter(d => People.lab[d] === 'car'), tgt = cars.length ? cars : all;
       for (const d of tgt) {
@@ -2442,7 +2442,7 @@ const CatFix = {
         if (was !== 'cat' && !People.fp[d]) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; }
       } else {
         if (People.sub[d]) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: '' }); if (r.ok) delete People.sub[d]; }
-        if (!People.fp[d]) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else ok = false; }
+        if (!People.fp[d]) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else { ok = false; Dbg.log('fix refused', d, f.msg); } }
       }
       if (teach && this.model && (this.objs || ['cat']).includes(was)) {
         if (!files) { try { files = await Frigate.get('/api/classification/' + encodeURIComponent(this.model) + '/train'); } catch (x) { files = []; } }
@@ -4768,7 +4768,7 @@ const ACT = {
       for (const d of e.dets || []) {
         if (!People.lab[d]) { try { const r = await Frigate.get('/api/events/' + encodeURIComponent(d)); People.lab[d] = r.label; if (r.false_positive) People.fp[d] = 1; } catch (x) {} }
         if (People.lab[d] !== 'person' || People.fp[d]) continue;
-        const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else ok = false;
+        const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else { ok = false; Dbg.log('fix refused', d, f.msg); }
       }
       People.busy = false; Dbg.log('fix', e.id, 'not person', ok ? 'ok' : 'not all taken');
       fixPets(e); if (e.gone) Data.events = Data.events.filter(x => x !== e);
@@ -6417,7 +6417,9 @@ function wakeVideos() {
     if (!v.getAttribute('src') && !Playback.st[id].h) { v.src = BLANK_MP4; v.play().then(() => { v.pause(); v._unlocked = true; if (v.src === BLANK_MP4) v.removeAttribute('src'); }).catch(() => {}); }
     else v.play().then(() => { v._unlocked = true; }).catch(() => {});
   }
-  for (const id in Playback.st) { const p = Playback.st[id]; if (camT(id) != null && S.playing && p.v.paused && p.v.isConnected && (p.win || p.loading)) p.v.play().catch(() => {}); }
+  /* 3.2.5: only the camera that is open: a closed one (Treat Feeder left at an earlier time) was started on every tap
+     and stopped again by the next sync, dozens of times while scrolling, and the page froze for 13.9 s */
+  for (const id in Playback.st) { const p = Playback.st[id]; if (open[id] && camT(id) != null && S.playing && p.v.paused && p.v.isConnected && (p.win || p.loading)) p.v.play().catch(() => {}); }
 }
 document.addEventListener('touchend', wakeVideos, { capture: true, passive: true });
 document.addEventListener('click', wakeVideos, { capture: true });
