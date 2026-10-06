@@ -6043,6 +6043,14 @@ class LiveCam extends VideoRTC {
        at once (only ~5 are on screen), which froze the iPhone for seconds. It starts when it scrolls into view (the
        stream's own on-screen watcher calls this again then). */
     if (!this.ws && !this.pc) { const r = this.getBoundingClientRect(); if (!(r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight)) { this.want = true; return false; } }
+    /* 2.10.8: new streams start one at a time, 0.3 s apart (12 on screen take ~3.5 s to all start). Starting 12 video
+       decoders in the same moment froze the iPhone for 13.5 s right after opening (no slow redraw, nothing tapped);
+       she prefers pictures coming a little later to any freeze. */
+    if (!this.ws && !this.pc) {
+      const now = Date.now(), wait = (Live.lastStart || 0) + 300 - now;
+      if (wait > 0) { this.want = true; clearTimeout(Live.gTimer); Live.gTimer = setTimeout(() => Live.resume(), wait + 10); return false; }
+      Live.lastStart = now;
+    }
     this.want = false; return super.onconnect();
   }
   oninit() {
