@@ -844,6 +844,9 @@ input,select,textarea{font-size:16px}
 .pfp span{display:flex;flex-direction:column}
 .pfp b{font-size:14px}
 .pfp small{font-size:11px;color:var(--sub)}
+.pflist.pfrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pfrow .pfp{flex-direction:column;gap:4px;text-align:center}
+.pfrow .pfp span{align-items:center}
 .moredd{position:fixed;right:8px;top:calc(env(safe-area-inset-top,0px) + 56px);z-index:41;width:min(320px,calc(100vw - 16px));background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.22);padding:6px}
 .mrow{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 10px;width:100%;border:0;background:none;color:var(--head-fg);font:inherit;text-align:left;border-radius:10px}
 .mrow + .mrow{border-top:1px solid var(--line);border-radius:0}
@@ -2696,7 +2699,7 @@ function modalCats() {
     '<div class="dhead">Cats<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">';
   if (CatPics.train == null) return h + '<div class="wtnote" style="margin:0">Loading…</div></div></div></div>';
   const ds = CatPics.ds || {};
-  h += '<div class="lbl" style="margin-top:0">Learned Pictures</div><div class="pflist">' + names.map(c => { const fs = ds[c] || []; return '<div class="pfp">' + (fs[0] ? '<img src="' + Frigate.base() + '/clips/' + encodeURIComponent(CatFix.model) + '/dataset/' + encodeURIComponent(c) + '/' + encodeURIComponent(fs[fs.length - 1]) + '" alt="">' : '<i class="pfnone">' + ICON_SVG.cat + '</i>') + '<span><b>' + esc(c === 'none' ? 'None' : c) + '</b><small>' + fs.length + (fs.length === 1 ? ' Photo' : ' Photos') + '</small></span></div>'; }).join('') + '</div>';
+  h += '<div class="lbl" style="margin-top:0">Learned Pictures</div><div class="pflist pfrow">' + names.map(c => { const fs = ds[c] || []; return '<div class="pfp">' + (fs[0] ? '<img src="' + Frigate.base() + '/clips/' + encodeURIComponent(CatFix.model) + '/dataset/' + encodeURIComponent(c) + '/' + encodeURIComponent(fs[fs.length - 1]) + '" alt="">' : '<i class="pfnone">' + ICON_SVG.cat + '</i>') + '<span><b>' + esc(c === 'none' ? 'None' : c) + '</b><small>' + fs.length + (fs.length === 1 ? ' Photo' : ' Photos') + '</small></span></div>'; }).join('') + '</div>';
   h += '<button class="btn solid ctrain" data-act="cttrain">Train Model' + (CatPics.filed ? ' · ' + CatPics.filed + ' New' : '') + '</button>';
   h += '<div class="lbl pfhead">Recent · ' + rows.length + (rows.length > 1 ? pfSortBar('ctsort', S.ctSort || 'low') : '') + (rows.length ? '<button class="pfdall" data-act="ctdallask">Delete All Left</button>' : '') + '</div>';
   if (S.ctDelAll && rows.length) h += '<div class="pfbar pfconf"><b>Delete All ' + (rows.length - picked.length) + ' Pictures Left' + (picked.length ? ' (Not The ' + picked.length + ' Picked)' : '') + '?</b><span>Pictures Already Filed Under A Name Stay. This Can&#39;t Be Undone.</span>' +
