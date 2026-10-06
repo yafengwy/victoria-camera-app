@@ -4020,8 +4020,12 @@ const MotionList = {
   },
   ev(cam, t, en) {
     const s0 = Math.floor(t / 1000), s1 = Math.ceil(en / 1000), base = Frigate.base();
+    /* the 30 s motion step can begin before the first kept recording piece (only pieces with motion are kept), so a
+       picture that fails is tried 10 s and 20 s later before giving up (Right Yard Back showed Picture Did Not Load) */
+    const snap = x => base + '/api/' + cam + '/recordings/' + x + '/snapshot.jpg?height=240';
+    Frigate.fb[snap(s0 + 2)] = snap(s0 + 12); Frigate.fb[snap(s0 + 12)] = snap(s0 + 22);
     return { id: 'mo-' + cam + '-' + s0, motion: true, cam, t, end: en, label: 'Motion', objs: [], dets: [], who: '', logo: '', sev: 'motion', subs: [], interesting: false, zones: [],
-      img: base + '/api/' + cam + '/recordings/' + (s0 + 2) + '/snapshot.jpg?height=240',
+      img: snap(s0 + 2),
       vs: s0 - 5, ve: s1 + 5, vod: base + '/vod/' + cam + '/start/' + (s0 - 5) + '/end/' + (s1 + 5) + '/index.m3u8',
       clip: base + '/api/' + cam + '/start/' + (s0 - 1) + '/end/' + (s1 + 2) + '/clip.mp4' };
   }
