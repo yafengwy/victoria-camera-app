@@ -161,6 +161,35 @@ def furbo_fix(dead, st):
     st['furbo_restarts'] = day + [now]; st['furbo_runs'] = 0
 
 
+def cpu_top(n=4):
+    # the busiest programs right now (top's own snapshot, not lifetime averages), named so a person can read them:
+    # an ffmpeg by the camera stream it reads (and whether go2rtc started it to re-encode), Frigate's parts by name.
+    # Camera addresses and passwords never appear (only the stream name after the last slash).
+    out = sh(['top', '-b', '-n', '1', '-c', '-o', '%CPU', '-w', '512'])
+    rows, seen = [], False
+    for line in out.splitlines():
+        if not seen:
+            seen = line.strip().startswith('PID'); continue
+        f = line.split(None, 11)
+        if len(f) < 12: continue
+        try: cpu = float(f[8])
+        except ValueError: continue
+        cmd = f[11]
+        if cmd.startswith('top ') or cpu < 3: continue
+        if 'ffmpeg' in cmd:
+            m = re.findall(r'(?:rtsp://|ffmpeg:)[^ ]*?/?([A-Za-z0-9_]+)(?:[?#][^ ]*)?(?= |$)', cmd)
+            name = 'ffmpeg ' + (m[0] if m else '?') + (' re-encode' if 'go2rtc/ffmpeg' in cmd else '')
+        elif 'go2rtc' in cmd: name = 'go2rtc'
+        elif 'forkserver' in cmd: name = 'frigate cameras'
+        elif cmd.startswith('frigate.'): name = cmd.split()[0]
+        elif 'python3 -u -m frigate' in cmd: name = 'frigate main'
+        elif 'furbo_p2p' in cmd: name = 'furbo bridge'
+        else: name = os.path.basename(cmd.split()[0])
+        rows.append('%s %d%%' % (name, round(cpu)))
+        if len(rows) >= n: break
+    return ', '.join(rows) or '?'
+
+
 def health(dead, st, stats):
     # Mini PC Log for the app (Settings → Mini PC Log → Copy), written every minute, so the mini PC can be checked
     # from the phone without a terminal. Times in California time. Sections: Now, Last 10 Min, Hourly History (30 h),
@@ -201,6 +230,7 @@ def health(dead, st, stats):
         for k, v in ((stats or {}).get('detectors') or {}).items(): L.append('Detector %s %.1f ms' % (k, v.get('inference_speed', 0)))
     except Exception: pass
     L.append('No Frames: ' + (', '.join(dead) if dead else 'None'))
+    L.append('Busiest Now: ' + cpu_top(6))
     t10 = sh(['docker', 'logs', 'frigate', '--since', '10m'])
     c10 = counts(t10)
     down = down_alerts(dead, st, t10)
@@ -227,7 +257,9 @@ def health(dead, st, stats):
     for k in ('dec', 'crash', 'disc'):
         for cam, n in c1[k].items(): h[k][cam] = h[k].get(cam, 0) + n
     h['nofr'] = max(h['nofr'], len(dead))
-    try: h['load'] = max(h['load'], float(la[0]))
+    try:
+        if float(la[0]) >= h['load']:   # at the hour's busiest moment, note which programs were busy
+            h['load'] = float(la[0]); h['top'] = cpu_top()
     except Exception: pass
     if mem: h['mem'] = min(h['mem'], mem['MemAvailable'] // 1024)
     for k in sorted(hist)[:-30]: del hist[k]
@@ -236,7 +268,7 @@ def health(dead, st, stats):
         x = hist[k]
         L.append('%s · Decode %d (%s) · Crashes %d · Discards %d · No Frames Max %d · Load Max %.1f · Memory Free Min %s GB%s' % (
             k, sum(x['dec'].values()), top(x['dec'], 3), sum(x['crash'].values()), sum(x['disc'].values()), x['nofr'], x['load'],
-            x['mem'] if x['mem'] != 999 else '?', ' · Auto Restart' if x.get('rs') else ''))
+            x['mem'] if x['mem'] != 999 else '?', ' · Auto Restart' if x.get('rs') else '') + (' · Busiest: ' + x['top'] if x.get('top') else ''))
     try:
         w = open(LOG).read().strip().splitlines()[-10:]
     except Exception:
