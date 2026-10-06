@@ -1557,6 +1557,7 @@ const Frigate = {
     Data.logos = [].concat(((cfg.objects || {}).track) || [], ...Object.values(cfg.cameras).map(cc => ((cc.objects || {}).track) || [])).some(l => isLogo(l));
     Data.objs = [...new Set([].concat(((cfg.objects || {}).track) || [], ...Object.values(cfg.cameras).map(cc => ((cc.objects || {}).track) || [])).filter(l => !isAttr(l)).map(cap))];
     People.faceOn = !!(cfg.face_recognition && cfg.face_recognition.enabled);
+    CatFix.model = Object.keys(((cfg.classification || {}).custom) || {}).find(k => { const m = cfg.classification.custom[k] || {}; return m.enabled !== false && (((m.object_config || {}).objects) || []).includes('cat'); }) || null;
     /* cameras that look for faces (face in their object list): only there can a picture teach face recognition */
     People.faceCams = Object.keys(cfg.cameras).filter(id => ((((cfg.cameras[id].objects || {}).track) || ((cfg.objects || {}).track) || [])).includes('face'));
     Data.cams = Object.keys(cfg.cameras).map(id => ({
@@ -1614,7 +1615,7 @@ const Frigate = {
         vod: this.base() + '/vod/' + r.camera + '/start/' + (Math.floor(r.start_time) - 60) + '/end/' + (Math.ceil(r.end_time || r.start_time + 20) + 60) + '/index.m3u8',
         clip: this.base() + '/api/' + r.camera + '/start/' + Math.floor(r.start_time - 1) + '/end/' + Math.ceil((r.end_time || r.start_time + 20) + 2) + '/clip.mp4'
       };
-    }).filter((e, i) => e.label !== 'Motion' || !(((rows[i].data || {}).objects || []).includes('waste_bin'))).map(e => Arrive.fix(e)).sort((a, b) => b.t - a.t);
+    }).filter((e, i) => e.label !== 'Motion' || !(((rows[i].data || {}).objects || []).includes('waste_bin'))).map(e => fixPets(Arrive.fix(e))).filter(e => !e.gone).sort((a, b) => b.t - a.t);
   },
   /* New and still-running alerts: every 10 s fetch the last 2 hours and merge them in (the list used to load only at start) */
   async refresh() {
@@ -2266,11 +2267,14 @@ const niceName = n => String(n).replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpp
 /* People: names from Frigate face recognition, plus names given to a person alert in this app (saved in Frigate as the
    person's sub label, so every phone sees them). The Face Library itself lives in Frigate (/api/faces). */
 const People = {
-  sub: {}, person: {}, faces: null, faceOn: false, faceCams: [], busy: false,
+  sub: {}, person: {}, lab: {}, fp: {}, faces: null, faceOn: false, faceCams: [], busy: false,
+  /* 3.1.4: cats and dogs too: their names (the Cats model in Frigate, or Fix here) and the ones marked wrong (Not Cat) */
   async loadSubs() {
     try {
-      const rows = await Frigate.get('/api/events?labels=person&limit=1500&include_thumbnails=0&after=' + Math.floor((now() - 7 * DAY) / 1000));
-      rows.forEach(r => { if (r.label !== 'person') return; this.person[r.id] = 1; const n = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label; if (n && !isLogo(n) && String(n).toLowerCase() !== 'unknown') this.sub[r.id] = n; });
+      const rows = await Frigate.get('/api/events?labels=person,cat,dog&limit=3000&include_thumbnails=0&after=' + Math.floor((now() - 7 * DAY) / 1000));
+      rows.forEach(r => { if (!['person', 'cat', 'dog'].includes(r.label)) return; this.lab[r.id] = r.label; if (r.false_positive) this.fp[r.id] = 1;
+        if (r.label === 'person') this.person[r.id] = 1;
+        const n = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label; if (n && !isLogo(n) && String(n).toLowerCase() !== 'unknown' && String(n).toLowerCase() !== 'none') this.sub[r.id] = n; });
     } catch (e) {}
   },
   /* always a fresh list (a cached answer kept showing faces that were already deleted) */
@@ -2305,6 +2309,59 @@ const People = {
     return { ok, taught };
   }
 };
+/* 3.1.4 Fix on cat / dog alerts: a detection marked Not Cat (false positive, sent to Frigate+) leaves the alert, and an
+   alert with only such detections is hidden; a "dog" given a cat's name here is shown as that cat. */
+function fixPets(e) {
+  const ds = e.dets || []; if (!ds.length || !ds.some(d => People.fp[d] || (People.lab[d] === 'dog' && People.sub[d]))) return e;
+  const kind = d => People.lab[d] === 'dog' && People.sub[d] ? 'cat' : People.lab[d];
+  const pets = ds.filter(d => People.lab[d] === 'cat' || People.lab[d] === 'dog'), keep = new Set(pets.filter(d => !People.fp[d] || People.sub[d]).map(kind));
+  if (pets.length && pets.length === ds.length && !keep.size) { e.gone = true; return e; }
+  const o = (e.objs || []).filter(x => { const l = String(x).toLowerCase(); return !(l === 'cat' || l === 'dog') || keep.has(l); });
+  if (keep.has('cat') && !o.some(x => /^cat$/i.test(x))) o.push('Cat');
+  e.objs = o;
+  if (/^(cat|dog)$/i.test(e.label) && !keep.has(String(e.label).toLowerCase())) e.label = o[0] || (keep.has('cat') ? 'Cat' : e.label);
+  return e;
+}
+const CatFix = {
+  model: null, names: [],
+  /* the Frigate model that names cats (Settings → Classification → Objects, object Cat), and its classes */
+  async loadNames() {
+    if (!this.model) return;
+    try { const r = await Frigate.get('/api/classification/' + encodeURIComponent(this.model) + '/dataset'); const n = Object.keys((r && r.categories) || {}).filter(x => x.toLowerCase() !== 'none'); if (n.length) { const pref = ['胖胖', '团团']; this.names = n.sort((a, b) => ((pref.indexOf(a) + 1) || 99) - ((pref.indexOf(b) + 1) || 99) || a.localeCompare(b)); } } catch (e) {}
+  },
+  /* the cat / dog detections behind one card (a split card only its own part) */
+  async dets(k) {
+    const c = EVK[k], e = evE(k); if (!e) return [];
+    const ds = c && c.g ? c.g.ps.map(x => x.d) : (e.dets || []);
+    for (const d of ds) if (!People.lab[d]) { try { const r = await Frigate.get('/api/events/' + encodeURIComponent(d)); People.lab[d] = r.label; if (r.false_positive) People.fp[d] = 1; } catch (x) {} }
+    return ds.filter(d => People.lab[d] === 'cat' || People.lab[d] === 'dog');
+  },
+  /* pick = a cat's name, or '' for Not Cat. Name: Frigate's sub label (a "dog" is also marked wrong for Frigate+).
+     Not Cat: marked wrong (false positive → Frigate+), name removed. Teach: that detection's saved pictures in the
+     Cats model go to that cat (or none), then the model trains once. */
+  async save(k, pick, teach) {
+    const ds = await this.dets(k); if (!ds.length) return { ok: false, msg: 'No Cat In This Alert' };
+    let ok = true, taught = 0, files = null;
+    for (const d of ds) {
+      const was = People.lab[d];
+      if (pick) {
+        const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: pick }); if (r.ok) People.sub[d] = pick; else ok = false;
+        if (was === 'dog' && !People.fp[d]) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; }
+      } else {
+        if (People.sub[d]) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: '' }); if (r.ok) delete People.sub[d]; }
+        if (!People.fp[d]) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else ok = false; }
+      }
+      if (teach && this.model) {
+        if (!files) { try { files = await Frigate.get('/api/classification/' + encodeURIComponent(this.model) + '/train'); } catch (x) { files = []; } }
+        const mine = (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-2);
+        for (const f of mine) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: pick || 'none', training_file: f }); if (t.ok) taught++; }
+      }
+    }
+    if (taught) await People.post('/api/classification/' + encodeURIComponent(this.model) + '/train');
+    return { ok, taught };
+  }
+};
+function isPet(e, k) { const c = k && EVK[k]; const ls = c && c.g ? c.g.ps.map(x => x.label) : (e.objs && e.objs.length ? e.objs : [e.label]); return !e.motion && Data.source === 'frigate' && !!CatFix.model && ls.some(x => /^(cat|dog)$/i.test(x)); }
 function whoOf(e) {   /* recompute the names shown on one alert after a change here */
   const names = e.dets.map(d => People.sub[d]).filter(Boolean).map(niceName);
   if (/^car$/i.test(e.label) && names.length) { e.logo = ''; e.subs = []; }   /* its own name beats a guessed company */
@@ -2378,6 +2435,19 @@ function modalWho() {
     (People.faceOn && People.faceCams.includes(e.cam) ? '<button class="check" role="checkbox" aria-checked="' + (S.whoTeach === true) + '" data-act="whoteach"><span class="box">' + (S.whoTeach === true ? I.check : '') + '</span>Teach Face Recognition</button>' : '') +
     '<button class="btn solid snzgo" data-act="whosave">Save Name</button>' +
     (e.who && e.dets.some(d => People.sub[d]) ? '<button class="btn snzgo" style="margin-top:6px" data-act="whoclear">Remove Name</button>' : '') +
+    '</div></div></div>';
+}
+function modalFix() {
+  const e = evE(S.fixK); if (!e) return '';
+  const p = evP(S.fixK, S.filt) || pick(e, S.filt), names = CatFix.names.length ? CatFix.names : ['胖胖', '团团'], cur = S.fixPick;
+  const chip = (v, t) => '<button class="chip sm" data-act="fixpick" data-v="' + esc(v) + '" aria-pressed="' + (cur === v) + '">' + esc(t) + '</button>';
+  return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm snzd" role="dialog" aria-label="Fix This Alert" data-stop="1">' +
+    '<div class="dhead">Fix This Alert<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
+    '<img class="whoimg crop" src="' + evImg(e, p) + '" alt="">' +
+    '<div class="lbl" style="margin-top:6px">Which Cat Is It?</div><div class="chips">' + names.map(n => chip(n, niceName(n))).join('') + chip('-', 'Not Cat') + '</div>' +
+    '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Teach The Cats Model</button>' +
+    (cur === '-' ? '<div class="wtnote" style="margin:6px 0 0">Not Cat: Marked Wrong In Frigate And Sent To Frigate+ · This Alert Goes Away</div>' : '') +
+    '<button class="btn solid snzgo" data-act="fixsave"' + (cur ? '' : ' disabled') + '>' + (S.fixBusy ? 'Saving…' : 'Save') + '</button>' +
     '</div></div></div>';
 }
 function modalPeople() {
@@ -2622,6 +2692,7 @@ function render0() {
   if (S.modal === 'snooze') h += modalSnooze();
   if (S.modal === 'wait') h += modalWait();
   if (S.modal === 'who') h += modalWho();
+  if (S.modal === 'fix') h += modalFix();
   if (S.modal === 'del') h += modalDel();
   if (S.modal === 'people') h += modalPeople();
   if (S.modal === 'wpick') h += modalWatchPick();
@@ -3206,6 +3277,7 @@ function viewEvents() {
     if (sel) {
       const sc = Data.cam(sel.cam), sp = evP(sk, f);
       h += '<article class="evcard big' + (sel.interesting || sel.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + (sel.motion ? '<i class="modot"></i>Motion' : '<i class="lico">' + objIcon(ico(sel, sp)) + '</i>' + esc(sc0.g ? labGroup(sc0.g) : labAll(sel, sp, f))) + ' At ' + hms(sp.t) + '</b></div>' +
+        (isPet(sel, sk) ? '<button class="whob" data-act="fixopen" data-v="' + esc(sk) + '">Fix</button>' : '') +
         (sel.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(sel.id) + '">' + (sel.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Open Camera" data-act="focusat" data-id="' + esc(sel.cam) + '" data-t="' + sp.t + '">' + I.expand + '</button>' +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(sk) + '">' + I.dl + '</button>' +
@@ -3229,6 +3301,7 @@ function viewEvents() {
         return;
       }
       h += '<article class="evcard' + (e.interesting || e.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + icn + esc(ttl) + ' At ' + hms(p.t) + '</b></div>' +
+        (isPet(e, k) ? '<button class="whob" data-act="fixopen" data-v="' + esc(k) + '">Fix</button>' : '') +
         (e.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(k) + '">' + I.dl + '</button>' +
         (Data.source === 'frigate' && !e.motion ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(k) + '">' + I.trash + '</button>' : '') +
@@ -4508,6 +4581,19 @@ const ACT = {
     const e = Data.events.find(x => x.id === d.v); if (!e) return;
     S.whoId = e.id; S.whoName = e.dets.map(x => People.sub[x]).filter(Boolean).map(niceName)[0] || ''; S.modal = 'who'; render();
     if (!People.faces) People.loadFaces().then(() => { if (S.modal === 'who') render(); });
+  },
+  fixopen(d) { S.fixK = d.v; const e = evE(d.v); S.fixPick = ((e && e.dets) || []).map(x => People.sub[x]).find(Boolean) || ''; S.fixTeach = true; S.fixBusy = false; S.modal = 'fix'; render();
+    CatFix.loadNames().then(() => { if (S.modal === 'fix') render(); }); },
+  fixpick(d) { S.fixPick = S.fixPick === d.v ? '' : d.v; render(); },
+  fixteach() { S.fixTeach = S.fixTeach === false; render(); },
+  async fixsave() {
+    if (S.fixBusy || !S.fixPick) return; const k = S.fixK, e = evE(k); if (!e) return;
+    S.fixBusy = true; render();
+    const pickv = S.fixPick === '-' ? '' : S.fixPick, r = await CatFix.save(k, pickv, S.fixTeach !== false); S.fixBusy = false;
+    if (!r.ok && r.msg) { toast(r.msg); render(); return; }
+    whoOf(e); fixPets(e); if (e.gone) Data.events = Data.events.filter(x => x !== e);
+    S.modal = null; render();
+    toast((pickv ? 'Saved As ' + niceName(pickv) : 'Marked Not Cat') + (r.taught ? ' · Cats Model Learning' : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
   },
   whopick(d) { S.whoName = S.whoName === d.v ? '' : d.v; const i = document.getElementById('whonew'); if (i) i.value = ''; render(); },
   whoteach() { S.whoTeach = !S.whoTeach; render(); },
