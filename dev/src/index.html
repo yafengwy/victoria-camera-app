@@ -2546,10 +2546,10 @@ function modalFix() {
   return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm snzd" role="dialog" aria-label="Fix This Alert" data-stop="1">' +
     '<div class="dhead">Fix This Alert<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
     '<img class="whoimg crop" src="' + evImg(e, p) + '" alt="">' +
-    '<div class="lbl" style="margin-top:6px">Which Cat Is It?</div><div class="chips">' + names.map(n => chip(n, niceName(n))).join('') + chip('0', 'Not Ours') + chip('-animal', 'Not Animal') + '</div>' +
+    '<div class="lbl" style="margin-top:6px">Which Cat Is It?</div><div class="chips">' + names.map(n => chip(n, niceName(n))).join('') + chip('0', 'Not Ours') + (S.fixKinds || []).map(l => chip('-' + l, 'Not ' + objName(l))).join('') + '</div>' +
     '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Teach The Cats Model</button>' +
     (cur === '0' ? '<div class="wtnote" style="margin:6px 0 0">Not Ours: A Real Animal, But Not 胖胖 Or 团团 · Name Removed, Taught To The Cats Model As None · The Alert Stays</div>' : '') +
-    (cur === '-animal' ? '<div class="wtnote" style="margin:6px 0 0">Not Animal: Every Animal Frigate Saw Here Is Marked Wrong And Sent To Frigate+ Under What It Was Seen As (Dog, Cat…) · This Alert Goes Away</div>' : '') +
+    (cur && cur[0] === '-' ? '<div class="wtnote" style="margin:6px 0 0">Not ' + esc(objName(cur.slice(1))) + ': Wrong Animal Or Not An Animal · Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) + ' (Draw What It Really Is When You Verify There) · This Alert Goes Away</div>' : '') +
     '<button class="btn solid snzgo" data-act="fixsave"' + (cur ? '' : ' disabled') + '>' + (S.fixBusy ? 'Saving…' : 'Save') + '</button>' +
     '</div></div></div>';
 }
