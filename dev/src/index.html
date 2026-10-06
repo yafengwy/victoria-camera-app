@@ -856,6 +856,8 @@ input,select,textarea{font-size:16px}
 .box.rdo{border-radius:50%}
 
 .evmedia{position:relative;display:block;width:100%;aspect-ratio:16/9;background:#1E2226;cursor:pointer}
+.skip5{position:absolute;top:50%;z-index:4;width:44px;height:44px;margin-top:-22px;border:0;border-radius:50%;background:rgba(18,22,24,.55);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.skip5.b{left:10px}.skip5.f{right:10px}.skip5:active{background:rgba(18,22,24,.8)}
 .evclk{position:absolute;left:8px;top:8px;z-index:3;padding:2px 7px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none}
 .evmedia img,.evmedia video{width:100%;height:100%;object-fit:cover;display:block}
 .evmedia .evnm{position:absolute;left:4px;bottom:4px;z-index:3;height:26px;padding:0 9px;border-radius:13px;font-size:12px;font-weight:700;white-space:nowrap;max-width:calc(100% - 8px);overflow:hidden;text-overflow:ellipsis;display:block;line-height:26px;pointer-events:none}
@@ -1341,7 +1343,11 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;'
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const now = () => Date.now();
 
+/* iPhone / iPad (iPadOS says Macintosh, but has touch) */
+const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 const I = {
+  back5: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 7.5A8 8 0 1 1 4 12"/><path d="M5.2 3.6l.3 3.9 3.9-.3"/><text x="12.4" y="15.6" font-size="8.5" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none" font-family="inherit">5</text></svg>',
+  fwd5: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18.5 7.5A8 8 0 1 0 20 12"/><path d="M18.8 3.6l-.3 3.9-3.9-.3"/><text x="11.6" y="15.6" font-size="8.5" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none" font-family="inherit">5</text></svg>',
   reconn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>',
   menu: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
   gear: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>',
@@ -3324,7 +3330,8 @@ function evMedia0(e, k) {
   const playing = S.evPlay === k, p = evP(k, S.filt) || pick(e, S.filt);
   if (Data.source === 'frigate') {
     const at = (p.moved ? p.t : e.t) - 1000;   /* opens 1 s before the alert (or its picked object) */
-    if (playing) return '<img src="' + evImg(e, p) + '" alt="" loading="lazy"><video class="evv" data-hls="' + e.vod + '" data-cam="' + e.cam + '" data-vs="' + e.vs + '" data-ve="' + e.ve + '" data-at="' + at + '" autoplay muted controls playsinline style="opacity:0"></video><div class="evclk" hidden></div>';
+    if (playing) return '<img src="' + evImg(e, p) + '" alt="" loading="lazy"><video class="evv" data-hls="' + e.vod + '" data-cam="' + e.cam + '" data-vs="' + e.vs + '" data-ve="' + e.ve + '" data-at="' + at + '" autoplay muted controls playsinline style="opacity:0"></video><div class="evclk" hidden></div>' +
+      (IOS ? '' : '<button class="skip5 b" data-act="evskip" data-v="-5" aria-label="Back 5 Seconds">' + I.back5 + '</button><button class="skip5 f" data-act="evskip" data-v="5" aria-label="Forward 5 Seconds">' + I.fwd5 + '</button>');   /* iPhone/iPad: its own player has these */
     return '<img src="' + evImg(e, p) + '" alt="" loading="lazy">';
   }
   const dur = Math.max(4000, (e.end || e.t) - e.t);
@@ -4880,6 +4887,13 @@ const ACT = {
     if (S.evSel === d.v) return;
     evStop(); S.evSel = d.v; render();
     ACT.evplay({ v: d.v });
+  },
+  /* computer / Samsung: back or forward 5 s in the playing alert (iPhone's own player has these buttons) */
+  evskip(d, ev) {
+    const m = ev && ev.target.closest('.evmedia'), v = m && m.querySelector('video.evv'); if (!v) return;
+    const end = isFinite(v.duration) ? v.duration - 0.1 : Infinity;
+    v.currentTime = Math.max(0, Math.min(end, v.currentTime + +d.v));
+    Dbg.log('video', 'skip ' + d.v, 'to ' + v.currentTime.toFixed(1));
   },
   evplay(d, ev) {
     if (ev && ev.target && ev.target.tagName === 'VIDEO' && ev.target.controls) return;
