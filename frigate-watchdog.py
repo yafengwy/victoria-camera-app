@@ -30,6 +30,13 @@ QUIET = {'nest_master_bedroom'}
 # Daily fresh start at 4:00 California time (her choice): the Furbo and Xiaomi bridges, then Frigate, so stuck camera
 # sessions and decoders start clean once a day. All cameras pause about 2 minutes.
 DAILY_HOUR = 4   # turned off in Google Home on purpose; take it out of here when it is back on
+# Furbo bridge stuck (her choice, 2026-10-05): Upstairs Furbo stalled with the bridge answering 409 (stream_busy, "a
+# viewer is already streaming") and timeouts while the camera itself was fine on the network. When a Furbo camera has
+# no picture, Frigate keeps trying, and the furbo container's log shows those errors, for 10 checks in a row, restart
+# only the furbo container (all 4 Furbo cameras pause ~1 min; Frigate reconnects by itself). At most once an hour and
+# 3 times a day, because each restart logs in to the Furbo cloud again.
+FURBO_ERR = ('409', 'stream_busy', 'already streaming', 'p2p_unavailable', 'timed out', 'timeout')
+FURBO_RUNS, FURBO_GAP, FURBO_DAY = 10, 3600, 3
 
 
 def get(path):
@@ -125,6 +132,33 @@ def down_alerts(dead, st, t10):
     del hist[:-10]
     cur = ['Down Now: ' + ', '.join('%s since %s' % (c, tz(dn[c])) for c in sorted(dn))] if dn else ['Down Now: None']
     return cur + hist
+
+
+def furbo_fix(dead, st):
+    # restarts the furbo container when a Furbo camera is stuck (see FURBO_* above); returns nothing, logs what it did
+    fd = [c for c in dead if 'furbo' in c]
+    if not fd:
+        st['furbo_runs'] = 0; return
+    t10 = sh(['docker', 'logs', 'frigate', '--since', '10m'])
+    trying = [c for c in fd if ('watchdog.%s ' % c) in t10 or ('ffmpeg.%s.' % c) in t10 or (': %s:' % c) in t10]
+    fl = sh(['docker', 'logs', 'furbo', '--since', '2m']).lower()
+    if not trying or not any(k in fl for k in FURBO_ERR):
+        st['furbo_runs'] = 0; return
+    st['furbo_runs'] = st.get('furbo_runs', 0) + 1
+    if st['furbo_runs'] < FURBO_RUNS:
+        return
+    now = time.time(); day = [t for t in st.get('furbo_restarts', []) if now - t < 86400]
+    if day and now - day[-1] < FURBO_GAP:
+        return
+    if len(day) >= FURBO_DAY:
+        if not st.get('furbo_noted'):
+            log('furbo stuck again (%s), not restarted: already 3 restarts today' % ', '.join(trying)); st['furbo_noted'] = 1
+        return
+    st['furbo_noted'] = 0
+    log('restart furbo: no picture on %s, bridge errors for %d min' % (', '.join(trying), st['furbo_runs']))
+    r = subprocess.run(['docker', 'restart', 'furbo'], capture_output=True, text=True, timeout=120)
+    log('restart furbo done' if r.returncode == 0 else 'restart furbo failed: ' + (r.stderr or '').strip()[:150])
+    st['furbo_restarts'] = day + [now]; st['furbo_runs'] = 0
 
 
 def health(dead, st, stats):
@@ -276,6 +310,8 @@ def main():
         st['noted'] = 1
     if not why:
         st['noted'] = 0
+    if stats is not None and not why:
+        furbo_fix(dead, st)
     health(dead, st, stats)
     json.dump(st, open(STATE, 'w'))
 
