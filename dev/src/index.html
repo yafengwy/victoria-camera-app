@@ -1690,6 +1690,10 @@ const Motion = {
 const Pic = {
   z: {}, shown: {},
   no(id) { return Data.source === 'frigate' && Ctl.on(id) && !!this.z[id] && now() - this.z[id] > 60000; },
+  /* the app's own live video can still play (it comes straight from the camera's stream) while Frigate gets nothing it
+     can use (the Doorbell sends only scraps of video): then the pill says Not Recording instead of No Picture */
+  live(id) { const e = Live.els[Live.cardSrc(id)] || Live.els[id], v = e && e.video; return !!(v && e.isConnected && !e.suspended && !v.paused && v.readyState >= 2); },
+  pill(id) { return '<span class="dot nopic"></span>' + (this.live(id) ? 'Not Recording' : 'No Picture'); },
   async poll() {
     if (Data.source !== 'frigate' || document.hidden) return;
     try {
@@ -1697,7 +1701,7 @@ const Pic = {
       for (const id in (d.cameras || {})) {
         if ((d.cameras[id].camera_fps || 0) < 1) { if (!this.z[id]) this.z[id] = t; } else delete this.z[id];
         /* repaint only a camera whose pill changes (compared with what was last shown) */
-        const n = this.no(id); if (n !== !!this.shown[id]) { this.shown[id] = n; Dbg.log(n ? 'no picture' : 'picture back', id); if (S.view === 'home' && !S.focus) paintCam(id); }
+        const n = this.no(id) ? (this.live(id) ? 'L' : 'N') : ''; if (n !== (this.shown[id] || '')) { this.shown[id] = n; Dbg.log(n ? (n === 'L' ? 'not recording' : 'no picture') : 'picture back', id); if (S.view === 'home' && !S.focus) paintCam(id); }
       }
     } catch (e) {}
   }
@@ -2684,7 +2688,7 @@ function moreMenu() {
 function watchIds() { return (S.wsel || []).filter(id => Data.cam(id)).slice(0, 9); }
 function stillInner(id) {
   if (!Ctl.on(id)) return '<span class="dot idle"></span>Off';
-  if (Pic.no(id)) return '<span class="dot nopic"></span>No Picture';
+  if (Pic.no(id)) return Pic.pill(id);
   if (S.forced[id] && S.forced[id] > now()) return '<span class="dot forced"></span>Live';
   const m = Data.motion(id);
   return (m.active || (m.last != null && now() - m.last < 5000)) ? '<span class="dot busy"></span>Live' : '<span class="dot idle"></span>Still' + (m.last != null ? ' ' + agoShort(now() - m.last) : '');
@@ -2868,7 +2872,7 @@ function badgeHtml(id, t, f) {
   let inner;
   if (t != null) inner = hms(t);
   else if (!Ctl.on(id)) inner = '<span class="dot idle"></span>Off';
-  else if (Pic.no(id)) inner = '<span class="dot nopic"></span>No Picture';
+  else if (Pic.no(id)) inner = Pic.pill(id);
   else if (S.forced[id] && S.forced[id] > now()) inner = '<span class="dot forced"></span>Live';
   else { const m = Data.motion(id); inner = (m.active || (m.last != null && now() - m.last < 5000)) ? '<span class="dot busy"></span>Live' : '<span class="dot idle"></span>Still' + (m.last != null ? ' ' + agoShort(now() - m.last) : ''); }
   const rc = '';
