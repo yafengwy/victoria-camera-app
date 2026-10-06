@@ -2637,7 +2637,7 @@ function modalPeople() {
   else if (!f) h += '<div class="wtnote" style="margin:0">Loading…</div>';
   else {
     h += '<div class="lbl" style="margin-top:0">Known People · ' + lib.length + '</div>';
-    h += lib.length ? '<div class="pflist">' + lib.map(n => { const fs = f[n] || []; return '<div class="pfp">' + (fs[0] ? '<img src="' + Frigate.base() + '/clips/faces/' + encodeURIComponent(n) + '/' + encodeURIComponent(fs[0]) + '" alt="">' : '<i class="pfnone">' + ICON_SVG.person + '</i>') + '<span><b>' + esc(niceName(n)) + '</b><small>' + fs.length + (fs.length === 1 ? ' Photo' : ' Photos') + '</small></span></div>'; }).join('') + '</div>'
+    h += lib.length ? '<div class="pflist pfrow">' + lib.map(n => { const fs = f[n] || []; return '<div class="pfp">' + (fs[0] ? '<img src="' + Frigate.base() + '/clips/faces/' + encodeURIComponent(n) + '/' + encodeURIComponent(fs[0]) + '" alt="">' : '<i class="pfnone">' + ICON_SVG.person + '</i>') + '<span><b>' + esc(niceName(n)) + '</b><small>' + fs.length + (fs.length === 1 ? ' Photo' : ' Photos') + '</small></span></div>'; }).join('') + '</div>'
       : '<div class="wtnote" style="margin:0">Nobody Yet. Pick A New Face Below And Give It A Name.</div>';
     h += '<div class="lbl pfhead">New Faces · ' + all.length + (tr.length > 1 ? pfSortBar('pfsort', S.pfSort || 'low') : '') + (tr.length ? '<button class="pfdall" data-act="pfdallask">Delete All</button>' : '') + '</div>';
     if (S.pfDelAll && tr.length) h += '<div class="pfbar pfconf"><b>Delete All ' + People.train().length + ' New Faces?</b><span>They Are Not Saved To Anyone. This Can&#39;t Be Undone.</span>' +
