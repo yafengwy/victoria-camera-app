@@ -1984,7 +1984,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 3.1.7 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 3.1.8 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -2534,10 +2534,12 @@ function modalCoFix() {
   return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm snzd" role="dialog" aria-label="Fix This Alert" data-stop="1">' +
     '<div class="dhead">Fix This Alert<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
     '<img class="whoimg crop" src="' + evImg(e, p) + '" alt="">' +
-    '<div class="lbl" style="margin-top:6px">Which Company?</div><div class="chips">' + CoFix.all().map(n => chip(n, isLogo(n) ? coName(n) : n)).join('') + '</div>' +
+    '<div class="lbl" style="margin-top:6px">Which Company?</div><div class="chips">' + CoFix.all().map(n => chip(n, isLogo(n) ? coName(n) : n)).join('') + (CoFix.model ? chip('+', '＋ New Company') : '') + '</div>' +
+    (cur === '+' ? '<input id="conew" class="field" type="text" placeholder="Company Name, E.g. Instacart" autocomplete="off" value="' + esc(S.coNew || '') + '">' : '') +
     ((S.fixKinds || []).length ? '<div class="lbl">Or Wrong Object</div><div class="chips">' + S.fixKinds.map(l => chip('-' + l, 'Not ' + objName(l))).join('') + '</div>' : '') +
     (plus ? '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Send To Frigate+</button>' : '') +
-    (cur ? '<div class="wtnote" style="margin:6px 0 0">' + (cur[0] === '-' ? 'Not ' + esc(objName(cur.slice(1))) + ': Marked Wrong In Frigate And Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) + ' · This Alert Goes Away'
+    (cur === '+' ? '<div class="wtnote" style="margin:6px 0 0">Adds This Company To Your Car Model In Frigate And Teaches It With This Car</div>' : '') +
+    (cur && cur !== '+' ? '<div class="wtnote" style="margin:6px 0 0">' + (cur[0] === '-' ? 'Not ' + esc(objName(cur.slice(1))) + ': Marked Wrong In Frigate And Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) + ' · This Alert Goes Away'
       : plus ? esc(coName(cur)) + ': Frigate Renames It Now' + (S.fixTeach !== false ? ' · The Picture Waits In Frigate+ For You To Verify' : '')
       : esc(cur) + ': Frigate Renames It Now · Your Car Model Learns It Right Away') + '</div>' : '') +
     '<button class="btn solid snzgo" data-act="cofixsave"' + (cur ? '' : ' disabled') + '>' + (S.fixBusy ? 'Saving…' : 'Save') + '</button>' +
@@ -4498,7 +4500,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 3.1.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 3.1.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -4594,7 +4596,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 3.1.7');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 3.1.8');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -4611,7 +4613,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 3.1.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 3.1.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -4684,14 +4686,31 @@ const ACT = {
     Promise.all([CoFix.loadNames(), CoFix.kinds(d.v).then(ks => { S.fixKinds = ks; })]).then(() => { if (S.modal === 'cofix') render(); }); },
   async cofixsave() {
     if (S.fixBusy || !S.fixPick) return; const k = S.fixK, e = evE(k); if (!e) return;
+    let v = S.fixPick;
+    /* 3.1.8 New Company: a new class in her car model (Frigate keeps classes as folders; this makes the folder) */
+    if (v === '+') {
+      const n = ((document.getElementById('conew') || {}).value || '').trim().replace(/\s+/g, ' ');
+      if (!n) { toast('Type The Company Name'); return; }
+      S.coNew = n;
+      const known = CoFix.all().find(x => (isLogo(x) ? coName(x) : x).toLowerCase() === n.toLowerCase());
+      if (known) v = known;
+      else {
+        S.fixBusy = true; render();
+        const c = await People.post('/api/classification/' + encodeURIComponent(CoFix.model) + '/dataset/' + encodeURIComponent(n) + '/create');
+        Dbg.log('new company', n, c.ok ? 'ok' : c.msg);
+        if (!c.ok && !/exist/i.test(c.msg)) { S.fixBusy = false; render(); toast('Could Not Add ' + n + ' · ' + c.msg); return; }
+        if (!CoFix.names.includes(n)) CoFix.names.push(n);
+        v = n;
+      }
+    }
     S.fixBusy = true; render();
-    const v = S.fixPick, r = await CoFix.save(k, v, S.fixTeach !== false); S.fixBusy = false;
+    const r = await CoFix.save(k, v, S.fixTeach !== false); S.fixBusy = false; S.coNew = '';
     if (!r.ok && r.msg) { toast(r.msg); render(); return; }
     e.co = ''; coFix(e); fixPets(e); if (e.gone) Data.events = Data.events.filter(x => x !== e);
     S.modal = null; render();
     toast((v[0] === '-' ? 'Marked Not ' + objName(v.slice(1)) : 'Saved As ' + (isLogo(v) ? coName(v) : v)) + (r.sent ? ' · Sent To Frigate+' : '') + (r.taught ? ' · Car Model Learning' : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
   },
-  fixpick(d) { S.fixPick = S.fixPick === d.v ? '' : d.v; render(); },
+  fixpick(d) { const i = document.getElementById('conew'); if (i) S.coNew = i.value; S.fixPick = S.fixPick === d.v ? '' : d.v; render(); if (S.fixPick === '+') { const n = document.getElementById('conew'); if (n) n.focus(); } },
   fixteach() { S.fixTeach = S.fixTeach === false; render(); },
   async fixsave() {
     if (S.fixBusy || !S.fixPick) return; const k = S.fixK, e = evE(k); if (!e) return;
@@ -5587,7 +5606,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '3.1.7';
+    const BUILD = '3.1.8';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
