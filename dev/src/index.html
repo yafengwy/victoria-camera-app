@@ -2575,11 +2575,10 @@ function modalCoFix() {
     '<img class="whoimg crop" src="' + evImg(e, p) + '" alt="">' +
     '<div class="lbl" style="margin-top:6px">Which Company?</div><div class="chips">' + CoFix.all().map(n => chip(n, isLogo(n) ? coName(n) : n)).join('') + (CoFix.model ? chip('+', '＋ New Company') : '') + '</div>' +
     (cur === '+' ? '<input id="conew" class="field" type="text" placeholder="Company Name, E.g. Instacart" autocomplete="off" value="' + esc(S.coNew || '') + '">' : '') +
-    '<div class="lbl">Or No Company</div><div class="chips">' + chip('=car', 'Just A Car') + '</div>' +
-    ((S.fixKinds || []).length ? '<div class="lbl">Or Wrong Object</div><div class="chips">' + S.fixKinds.map(l => chip('-' + l, 'Not ' + objName(l))).join('') + '</div>' : '') +
+    '<div class="lbl">Or</div><div class="chips">' + chip('=car', 'Mark As Car') + (S.fixKinds || []).map(l => chip('-' + l, 'Not ' + objName(l))).join('') + '</div>' +
     (plus ? '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Send To Frigate+</button>' : '') +
     (cur === '+' ? '<div class="wtnote" style="margin:6px 0 0">Adds This Company To Your Car Model In Frigate And Teaches It With This Car</div>' : '') +
-    (cur && cur !== '+' ? '<div class="wtnote" style="margin:6px 0 0">' + (cur === '=car' ? 'Just A Car: The Company Name Is Removed · Not Sent To Frigate+, Nothing Is Learned' : cur[0] === '-' ? 'Not ' + esc(objName(cur.slice(1))) + ': Marked Wrong In Frigate And Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) + ' · This Alert Goes Away'
+    (cur && cur !== '+' && cur !== '=car' ? '<div class="wtnote" style="margin:6px 0 0">' + (cur[0] === '-' ? 'Not ' + esc(objName(cur.slice(1))) + ': Marked Wrong In Frigate And Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) + ' · This Alert Goes Away'
       : plus ? esc(coName(cur)) + ': Frigate Renames It Now' + (S.fixTeach !== false ? ' · The Picture Waits In Frigate+ For You To Verify' : '')
       : esc(cur) + ': Frigate Renames It Now · Your Car Model Learns It Right Away') + '</div>' : '') +
     '<button class="btn solid snzgo" data-act="cofixsave"' + (cur ? '' : ' disabled') + '>' + (S.fixBusy ? 'Saving…' : 'Save') + '</button>' +
@@ -4763,7 +4762,7 @@ const ACT = {
     e.co = ''; coFix(e); fixPets(e); if (e.gone) Data.events = Data.events.filter(x => x !== e);
     S.modal = null; render();
     if (v === '=car') (EVK[k] && EVK[k].g ? EVK[k].g.ps.map(x => x.d) : (e.dets || [])).forEach(d => { const a = Arrive.det[d]; if (a && a.l === 'car') a.sub = 'Car'; });
-    toast((v === '=car' ? 'Saved As Just A Car' : v[0] === '-' ? 'Marked Not ' + objName(v.slice(1)) : 'Saved As ' + (isLogo(v) ? coName(v) : v)) + (r.sent ? ' · Sent To Frigate+' : '') + (r.taught ? ' · Car Model Learning' : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
+    toast((v === '=car' ? 'Marked As Car' : v[0] === '-' ? 'Marked Not ' + objName(v.slice(1)) : 'Saved As ' + (isLogo(v) ? coName(v) : v)) + (r.sent ? ' · Sent To Frigate+' : '') + (r.taught ? ' · Car Model Learning' : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
   },
   fixpick(d) { const i = document.getElementById('conew'); if (i) S.coNew = i.value; S.fixPick = S.fixPick === d.v ? '' : d.v; render(); if (S.fixPick === '+') { const n = document.getElementById('conew'); if (n) n.focus(); } },
   fixteach() { S.fixTeach = S.fixTeach === false; render(); },
