@@ -1440,12 +1440,17 @@ function objChips(f, act, grpAct, anyAct) {
 }
 /* cameras the same way: All Cameras and each group "Only" on top (filled), then each group's cameras on its own row
    (picked = outlined). on(id) says whether a camera is picked; state is 'all', a group name, or 'custom' */
+const camAllMode = f => !Data.cams.some(c => f.off[c.id]) && !f.camTick;
 function camChips(on, state, quickAct, camAct, idAttr, noQuick) {
   const groups = [...new Set(Data.cams.map(c => c.group))];
   const b = (cls, a, attr, v, pressed, label) => '<button class="chip sm' + cls + '" data-act="' + a + '" ' + attr + '="' + esc(v) + '" aria-pressed="' + pressed + '">' + esc(label) + '</button>';
-  return '<div class="objchips">' + (noQuick ? '' : b(' oany', quickAct, 'data-v', quickAct === 'allcams' ? '1' : 'all', state === 'all', 'All Cameras') +
-    groups.map(g => b(' ogrp', quickAct, 'data-v', quickAct === 'allcams' ? 'g:' + g : g, state === g, g + ' Only')).join('')) +
-    groups.map((g, i) => (noQuick && !i ? '' : '<i class="objbr' + (i ? '' : ' objdiv') + '"></i>') + Data.cams.filter(c => c.group === g).map(c => b(' oone', camAct, idAttr, c.id, state !== 'all' && on(c.id), c.name)).join('')).join('') + '</div>';
+  /* 3.2.10 Alerts: Outside / Inside can both be on (each ticks its cameras, so some can then be unticked); All Cameras
+     ticks nothing and the first camera tapped is picked alone, as before */
+  const al = quickAct === 'allcams', allMode = al ? camAllMode(S.filt) : state === 'all';
+  const gOn = g => al ? !allMode && Data.cams.filter(c => c.group === g).every(c => on(c.id)) : state === g;
+  return '<div class="objchips">' + (noQuick ? '' : b(' oany', quickAct, 'data-v', al ? '1' : 'all', allMode, 'All Cameras') +
+    groups.map(g => b(' ogrp', quickAct, 'data-v', al ? 'g:' + g : g, gOn(g), al ? g : g + ' Only')).join('')) +
+    groups.map((g, i) => (noQuick && !i ? '' : '<i class="objbr' + (i ? '' : ' objdiv') + '"></i>') + Data.cams.filter(c => c.group === g).map(c => b(' oone', camAct, idAttr, c.id, !allMode && on(c.id), c.name)).join('')).join('') + '</div>';
 }
 function objGroupChips(f, act) {
   const list = OBJS(), all = list.every(o => objOn(f, o));
@@ -4682,7 +4687,7 @@ const ACT = {
   moreclose() { S.more = false; render(); },
   layoutset(d) { S.layout = d.v; store.set('layout', S.layout); S.more = false; render(); },
   soon() { toast('Coming Soon'); },
-  filtreset() { S.filt.objs = {}; S.filt.off = {}; S.filt.zones = {}; S.filt.int = true; S.filt.unint = false; S.filt.motion = false; MotionList.n = 50; saveFilt(); render(); toast('Filters Reset'); },
+  filtreset() { S.filt.objs = {}; S.filt.off = {}; S.filt.camTick = false; S.filt.zones = {}; S.filt.int = true; S.filt.unint = false; S.filt.motion = false; MotionList.n = 50; saveFilt(); render(); toast('Filters Reset'); },
   boxes() { Box.set(!Box.on); document.querySelectorAll('[data-act="boxes"]').forEach(b => b.setAttribute('aria-pressed', String(Box.on))); toast(Box.on ? 'Object Boxes On' : 'Object Boxes Off'); },
   snzopen() {
     S.more = false; S.snzPick = {}; if (Snz.active()) (Snz.st.cams.includes('all') ? Data.cams.map(c => c.id) : Snz.st.cams).forEach(id => { S.snzPick[id] = true; });
@@ -5008,15 +5013,20 @@ const ACT = {
   },
   /* "All" shows no boxes ticked: the first tap starts a pick with just that camera; unticking the last one goes back to All */
   camf(d) {
-    const f = S.filt, all = !Data.cams.some(c => f.off[c.id]);
-    if (all) { f.off = {}; Data.cams.forEach(c => { if (c.id !== d.id) f.off[c.id] = true; }); }
-    else { f.off[d.id] = !f.off[d.id]; if (Data.cams.every(c => f.off[c.id])) f.off = {}; }
+    const f = S.filt;
+    if (camAllMode(f)) { f.off = {}; Data.cams.forEach(c => { if (c.id !== d.id) f.off[c.id] = true; }); }
+    else { f.off[d.id] = !f.off[d.id]; if (Data.cams.every(c => f.off[c.id])) { f.off = {}; f.camTick = false; } else if (!Data.cams.some(c => f.off[c.id])) f.camTick = true; }
     saveFilt(); render();
   },
   allcams(d) {
-    S.filt.off = {};
-    if (d.v === '0') Data.cams.forEach(c => { S.filt.off[c.id] = true; });
-    else if (String(d.v).startsWith('g:')) { const g = d.v.slice(2); Data.cams.forEach(c => { if (c.group !== g) S.filt.off[c.id] = true; }); }
+    const f = S.filt;
+    if (String(d.v).startsWith('g:')) {
+      /* Outside / Inside: each turns its own cameras on or off; both on = every camera ticked */
+      const gc = Data.cams.filter(c => c.group === d.v.slice(2));
+      if (camAllMode(f)) { f.off = {}; Data.cams.forEach(c => { if (!gc.includes(c)) f.off[c.id] = true; }); f.camTick = false; }
+      else if (gc.every(c => !f.off[c.id])) { gc.forEach(c => { f.off[c.id] = true; }); if (Data.cams.every(c => f.off[c.id])) { f.off = {}; f.camTick = false; } }
+      else { gc.forEach(c => { delete f.off[c.id]; }); f.camTick = !Data.cams.some(c => f.off[c.id]); }
+    } else { f.off = {}; f.camTick = false; if (d.v === '0') Data.cams.forEach(c => { f.off[c.id] = true; }); }
     saveFilt(); render();
   },
   filters() { S.filtersOpen = !S.filtersOpen; render(); },
