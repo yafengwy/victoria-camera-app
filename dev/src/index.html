@@ -1561,6 +1561,8 @@ const Frigate = {
     /* her own car model's companies (Weee…) are known only once the config is in: look up those cars then */
     if (CoFix.model) Promise.all([Data.evReady, CoFix.loadCars()]).then(() => { let ch = false; (Data.events || []).forEach(e => { const w = e.who; coFix(e); if (e.who !== w) ch = true; }); if (ch && !S.modal) render(); }).catch(() => {});
     CatFix.model = Object.keys(((cfg.classification || {}).custom) || {}).find(k => { const m = cfg.classification.custom[k] || {}; return m.enabled !== false && (((m.object_config || {}).objects) || []).includes('cat'); }) || null;
+    /* the objects the cats model looks at (cat, and dog too once added there): Fix teaches it from those */
+    CatFix.objs = CatFix.model ? ((cfg.classification.custom[CatFix.model].object_config || {}).objects || ['cat']).map(x => String(x).toLowerCase()) : ['cat'];
     /* cameras that look for faces (face in their object list): only there can a picture teach face recognition */
     People.faceCams = Object.keys(cfg.cameras).filter(id => ((((cfg.cameras[id].objects || {}).track) || ((cfg.objects || {}).track) || [])).includes('face'));
     Data.cams = Object.keys(cfg.cameras).map(id => ({
@@ -2390,7 +2392,7 @@ function fixPets(e) {
   return e;
 }
 const CatFix = {
-  model: null, names: [],
+  model: null, names: [], objs: ['cat'],
   /* the Frigate model that names cats (Settings → Classification → Objects, object Cat), and its classes */
   async loadNames() {
     if (!this.model) return;
@@ -2425,7 +2427,7 @@ const CatFix = {
         if (People.sub[d]) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: '' }); if (r.ok) delete People.sub[d]; }
         if (!People.fp[d]) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else ok = false; }
       }
-      if (teach && this.model && was === 'cat') {
+      if (teach && this.model && (this.objs || ['cat']).includes(was)) {
         if (!files) { try { files = await Frigate.get('/api/classification/' + encodeURIComponent(this.model) + '/train'); } catch (x) { files = []; } }
         const mine = (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-2);
         for (const f of mine) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: pick || 'none', training_file: f }); if (t.ok) taught++; }
