@@ -1622,7 +1622,7 @@ const Frigate = {
       const who = [...new Set([...subs.map(coName), ...names])].join(' · ');
       return {
         id: r.id, cam: r.camera, t: r.start_time * 1000, end: (r.end_time || r.start_time) * 1000, label, objs: allObjs, dets, who, logo: subs[0] || '',
-        sev: r.severity, subs, interesting: r.severity === 'alert' || Wait.hit(r.start_time * 1000, subs),
+        sev: r.severity, subs, interesting: r.severity === 'alert' || Wait.hit(r.start_time * 1000, subs) || coCam(r.camera, subs),
         zones: ((r.data && r.data.zones) || []).map(z => z.replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase())),
         img: Frigate.thumb(r, det),
         preview: this.base() + '/api/review/' + r.id + '/preview?format=mp4',
@@ -2276,6 +2276,10 @@ const Snz = {
    Kept in Home Assistant as input_text.camera_waiting: "FROM|UNTIL|ups,fedex" (seconds). Empty = not waiting.
    Each phone also remembers past waits for 30 days, so those deliveries stay marked after the wait ends. */
 const WAIT_CO = [['amazon', 'Amazon'], ['fedex', 'FedEx'], ['ups', 'UPS'], ['usps', 'USPS'], ['dhl', 'DHL']];
+/* 3.3.1: on Front Door, Driveway and Doorbell any of the five carriers is Interesting (shown, no phone notification;
+   Today's Waiting still notifies through HA "Camera Waiting Delivery") */
+const CO_CAMS = ['front_door', 'driveway', 'nest_doorbell'];
+const coCam = (cam, subs) => CO_CAMS.includes(cam) && (subs || []).some(x => isLogo(x));
 const coName = k => (WAIT_CO.find(c => c[0] === String(k).toLowerCase()) || [0, k])[1];
 const isLogo = l => WAIT_CO.some(c => c[0] === String(l).toLowerCase());
 /* Frigate+ attribute labels: attached to a person or car, never an alert of their own */
@@ -2388,7 +2392,7 @@ function coFix(e) {
   if (isLogo(co)) { e.subs = [co.toLowerCase()]; e.logo = co.toLowerCase(); e.who = [coName(co), ...names].join(' · '); }
   else { e.subs = []; e.logo = ''; e.who = [co, ...names].join(' · '); }
   e.co = isLogo(co) ? coName(co) : co;
-  e.interesting = e.sev === 'alert' || Wait.hit(e.t, e.subs);
+  e.interesting = e.sev === 'alert' || Wait.hit(e.t, e.subs) || coCam(e.cam, e.subs);
   return e;
 }
 const coOf = e => e.co || (e.logo ? coName(e.logo) : String(e.who || '').split(' · ').find(x => CoFix.isCo(x)) || '');
@@ -2498,7 +2502,7 @@ const Wait = {
   },
   apply() {           /* re-mark loaded alerts after the wait changed */
     let ch = false;
-    (Data.events || []).forEach(e => { if (e.sev == null) return; const v = e.sev === 'alert' || this.hit(e.t, e.subs); if (v !== e.interesting) { e.interesting = v; ch = true; } });
+    (Data.events || []).forEach(e => { if (e.sev == null) return; const v = e.sev === 'alert' || this.hit(e.t, e.subs) || coCam(e.cam, e.subs); if (v !== e.interesting) { e.interesting = v; ch = true; } });
     return ch;
   },
   async get() {
@@ -3238,7 +3242,7 @@ const Arrive = {
     if (drop.has(String(e.label).toLowerCase()) && e.objs.length) e.label = e.objs[0];
     const names = [...String(e.who || '').split(' · ').filter(x => x && !WAIT_CO.some(c => c[1] === x)), ...carNames.map(niceName)];
     e.who = [...new Set([...e.subs.map(coName), ...names])].join(' · ');
-    e.interesting = e.sev === 'alert' || Wait.hit(e.t, e.subs);
+    e.interesting = e.sev === 'alert' || Wait.hit(e.t, e.subs) || coCam(e.cam, e.subs);
     return e;
   },
   recheck(evs) {
