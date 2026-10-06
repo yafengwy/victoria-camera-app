@@ -2416,7 +2416,7 @@ const CatFix = {
   async save(k, pick, teach) {
     const all = await this.dets(k); if (!all.length) return { ok: false, msg: 'No Animal In This Alert' };
     const notL = pick && pick[0] === '-' ? pick.slice(1) : null; if (notL) pick = '';
-    const ds = notL ? all.filter(d => People.lab[d] === notL) : all;
+    const ds = notL && notL !== 'animal' ? all.filter(d => People.lab[d] === notL) : all;   /* 3.2.2 Not Animal: every animal in the card */
     let ok = true, taught = 0, files = null;
     for (const d of ds) {
       const was = People.lab[d];
@@ -2529,9 +2529,9 @@ function modalFix() {
   return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm snzd" role="dialog" aria-label="Fix This Alert" data-stop="1">' +
     '<div class="dhead">Fix This Alert<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
     '<img class="whoimg crop" src="' + evImg(e, p) + '" alt="">' +
-    '<div class="lbl" style="margin-top:6px">Which Cat Is It?</div><div class="chips">' + names.map(n => chip(n, niceName(n))).join('') + (S.fixKinds || []).map(l => chip('-' + l, 'Not ' + objName(l))).join('') + '</div>' +
+    '<div class="lbl" style="margin-top:6px">Which Cat Is It?</div><div class="chips">' + names.map(n => chip(n, niceName(n))).join('') + chip('-animal', 'Not Animal') + '</div>' +
     '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Teach The Cats Model</button>' +
-    (cur && cur[0] === '-' ? '<div class="wtnote" style="margin:6px 0 0">Not ' + esc(objName(cur.slice(1))) + ': Marked Wrong In Frigate And Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) + '</div>' : '') +
+    (cur === '-animal' ? '<div class="wtnote" style="margin:6px 0 0">Not Animal: Every Animal Frigate Saw Here Is Marked Wrong And Sent To Frigate+ Under What It Was Seen As (Dog, Cat…) · This Alert Goes Away</div>' : '') +
     '<button class="btn solid snzgo" data-act="fixsave"' + (cur ? '' : ' disabled') + '>' + (S.fixBusy ? 'Saving…' : 'Save') + '</button>' +
     '</div></div></div>';
 }
@@ -4736,7 +4736,7 @@ const ACT = {
     if (!r.ok && r.msg) { toast(r.msg); render(); return; }
     whoOf(e); fixPets(e); if (e.gone) Data.events = Data.events.filter(x => x !== e);
     S.modal = null; render();
-    toast((pickv[0] !== '-' ? 'Saved As ' + niceName(pickv) : 'Marked Not ' + objName(pickv.slice(1))) + (r.taught ? ' · Cats Model Learning' : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
+    toast((pickv[0] !== '-' ? 'Saved As ' + niceName(pickv) : pickv === '-animal' ? 'Marked Not Animal' : 'Marked Not ' + objName(pickv.slice(1))) + (r.taught ? ' · Cats Model Learning' : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
   },
   whopick(d) { const i = document.getElementById('whonew'); if (i) S.whoNew = i.value; S.whoName = S.whoName === d.v ? '' : d.v;
     if (S.whoName === '+' && S.whoTeach !== false) S.whoTeach = true;   /* a new person is meant to be learned */
