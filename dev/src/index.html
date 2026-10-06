@@ -2314,13 +2314,15 @@ const People = {
     } catch (e) {}
     FpQ.ids().forEach(d => { this.fp[d] = 1; });   /* 3.3.5: marked wrong here, still waiting for Frigate's snapshot */
     await CoFix.loadCars();
+    if (!CoFix.names.length || !CatFix.names.length) await Promise.all([CoFix.loadNames(), CatFix.loadNames()]);   /* 3.4.2: so People never offers a company or a cat */
   },
   /* always a fresh list (a cached answer kept showing faces that were already deleted) */
   async loadFaces() { try { this.faces = await Frigate.get('/api/faces?_=' + Date.now()); } catch (e) { this.faces = {}; } },
   dropTrain(ids) { if (this.faces && this.faces.train) this.faces.train = this.faces.train.filter(x => !ids.includes(x)); },
   known() {
     const set = new Set(Object.keys(this.faces || {}).filter(n => n !== 'train').map(niceName));
-    Object.entries(this.sub).forEach(([d, n]) => { if (this.person[d]) set.add(niceName(n)); });   /* 3.2.7: people only, not the cats' names */
+    const pets = new Set([...CatFix.names, '胖胖', '团团'].map(x => String(x).toLowerCase()));
+    Object.entries(this.sub).forEach(([d, n]) => { if (this.person[d] && !CoFix.isCo(n) && !pets.has(String(n).toLowerCase())) set.add(niceName(n)); });   /* 3.2.7: people only; 3.4.2: never a cat's name (an old wrong face match) or a company (Weee) */
     return [...set].sort((a, b) => a.localeCompare(b));
   },
   /* faces Frigate saved for training: "<event id>-<time>-<best guess>-<score>.webp" (the event id has dashes too) */
