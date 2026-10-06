@@ -3347,7 +3347,7 @@ function evMedia0(e, k) {
   if (Data.source === 'frigate') {
     const at = S.evAt && S.evAt.k === k ? S.evAt.t : (p.moved ? p.t : e.t) - 1000;   /* opens 1 s before the alert (or its picked object, or a title word tapped) */
     if (playing) return '<img src="' + evImg(e, p) + '" alt="" loading="lazy"><video class="evv" data-hls="' + e.vod + '" data-cam="' + e.cam + '" data-vs="' + e.vs + '" data-ve="' + e.ve + '" data-at="' + at + '" autoplay muted controls playsinline style="opacity:0"></video><div class="evclk" hidden></div>' +
-      (IOS ? '' : '<button class="skip5 b" data-act="evskip" data-v="-5" aria-label="Back 5 Seconds">' + I.back5 + '</button><button class="skip5 f" data-act="evskip" data-v="5" aria-label="Forward 5 Seconds">' + I.fwd5 + '</button>');   /* iPhone/iPad: its own player has these */
+      '<button class="skip5 b" data-act="evskip" data-v="-5" aria-label="Back 5 Seconds">' + I.back5 + '</button><button class="skip5 f" data-act="evskip" data-v="5" aria-label="Forward 5 Seconds">' + I.fwd5 + '</button>';   /* 3.3.2: on iPhone too (its inline player has no skip buttons; only full screen does) */
     return '<img src="' + evImg(e, p) + '" alt="" loading="lazy">';
   }
   const dur = Math.max(4000, (e.end || e.t) - e.t);
