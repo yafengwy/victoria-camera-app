@@ -2358,6 +2358,9 @@ const CatFix = {
       }
     }
     if (taught) await People.post('/api/classification/' + encodeURIComponent(this.model) + '/train');
+    /* split cards read each part from Arrive: update those too, so the card's title changes right away */
+    ds.forEach(d => { const a = Arrive.det[d]; if (!a) return; a.sub = People.sub[d] || ''; if (People.fp[d]) a.fp = true; });
+    Dbg.log('fix', k, pick || 'not cat', 'parts ' + ds.join(','), ok ? 'ok' : 'not all taken', 'taught ' + taught);
     return { ok, taught };
   }
 };
@@ -3075,8 +3078,9 @@ const Arrive = {
      Interesting = an alert label of this camera inside its required zones; Uninteresting ones only with that filter */
   parts(e, f) {
     const rule = Data.alertRule[e.cam] || { labels: [], zones: [] };
-    return (e.dets || []).map(d => this.det[d] && Object.assign({ d }, this.det[d])).filter(x => x && !x.fp && x.t >= e.t - 1000).map(x => {
-      const L = x.l.replace(/^\w/, m => m.toUpperCase());
+    /* 3.1.5: a part marked wrong stays out, unless it was given a cat's name with Fix (a "dog" that is 团团 shows as Cat) */
+    return (e.dets || []).map(d => this.det[d] && Object.assign({ d }, this.det[d])).filter(x => x && (!x.fp || (x.sub && x.l === 'dog')) && x.t >= e.t - 1000).map(x => {
+      const L = (x.l === 'dog' && x.sub && People.sub[x.d] ? 'cat' : x.l).replace(/^\w/, m => m.toUpperCase());
       return { d: x.d, t: x.t, en: x.en, label: L, sub: x.sub, hot: rule.labels.includes(x.l) && (!rule.zones.length || x.z.some(z => rule.zones.includes(z))) };
     }).filter(x => objOn(f, x.label) && (x.hot ? f.int : f.unint)).sort((a, b) => a.t - b.t);
   },
