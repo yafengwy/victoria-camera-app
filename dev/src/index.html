@@ -856,6 +856,7 @@ input,select,textarea{font-size:16px}
 .box.rdo{border-radius:50%}
 
 .evmedia{position:relative;display:block;width:100%;aspect-ratio:16/9;background:#1E2226;cursor:pointer}
+.tj{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;text-decoration-thickness:1px}
 .skip5{position:absolute;top:50%;z-index:4;width:44px;height:44px;margin-top:-22px;border:0;border-radius:50%;background:rgba(18,22,24,.55);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
 .skip5.b{left:10px}.skip5.f{right:10px}.skip5:active{background:rgba(18,22,24,.8)}
 .evclk{position:absolute;left:8px;top:8px;z-index:3;padding:2px 7px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none}
@@ -2294,7 +2295,7 @@ const People = {
   dropTrain(ids) { if (this.faces && this.faces.train) this.faces.train = this.faces.train.filter(x => !ids.includes(x)); },
   known() {
     const set = new Set(Object.keys(this.faces || {}).filter(n => n !== 'train').map(niceName));
-    Object.values(this.sub).forEach(n => set.add(niceName(n)));
+    Object.entries(this.sub).forEach(([d, n]) => { if (this.person[d]) set.add(niceName(n)); });   /* 3.2.7: people only, not the cats' names */
     return [...set].sort((a, b) => a.localeCompare(b));
   },
   /* faces Frigate saved for training: "<event id>-<time>-<best guess>-<score>.webp" (the event id has dashes too) */
@@ -2463,6 +2464,7 @@ const CatFix = {
     return { ok, taught };
   }
 };
+const hasPerson = e => !e.motion && (e.label === 'Person' || (e.objs || []).some(o => /^person$/i.test(o)));
 function isPet(e, k) { const c = k && EVK[k]; const ls = c && c.g ? c.g.ps.map(x => x.label) : (e.objs && e.objs.length ? e.objs : [e.label]); return !e.motion && Data.source === 'frigate' && !!CatFix.model && ls.some(isAnimal); }
 function whoOf(e) {   /* recompute the names shown on one alert after a change here */
   const names = e.dets.map(d => People.sub[d]).filter(Boolean).map(niceName);
@@ -3329,7 +3331,7 @@ function evMedia(e, k) { const c = Data.cam(e.cam); return evMedia0(e, k == null
 function evMedia0(e, k) {
   const playing = S.evPlay === k, p = evP(k, S.filt) || pick(e, S.filt);
   if (Data.source === 'frigate') {
-    const at = (p.moved ? p.t : e.t) - 1000;   /* opens 1 s before the alert (or its picked object) */
+    const at = S.evAt && S.evAt.k === k ? S.evAt.t : (p.moved ? p.t : e.t) - 1000;   /* opens 1 s before the alert (or its picked object, or a title word tapped) */
     if (playing) return '<img src="' + evImg(e, p) + '" alt="" loading="lazy"><video class="evv" data-hls="' + e.vod + '" data-cam="' + e.cam + '" data-vs="' + e.vs + '" data-ve="' + e.ve + '" data-at="' + at + '" autoplay muted controls playsinline style="opacity:0"></video><div class="evclk" hidden></div>' +
       (IOS ? '' : '<button class="skip5 b" data-act="evskip" data-v="-5" aria-label="Back 5 Seconds">' + I.back5 + '</button><button class="skip5 f" data-act="evskip" data-v="5" aria-label="Forward 5 Seconds">' + I.fwd5 + '</button>');   /* iPhone/iPad: its own player has these */
     return '<img src="' + evImg(e, p) + '" alt="" loading="lazy">';
@@ -3406,9 +3408,9 @@ function viewEvents() {
     h += '<div class="evwrap wide"><div class="evplayer" id="evplayer">';
     if (sel) {
       const sc = Data.cam(sel.cam), sp = evP(sk, f);
-      h += '<article class="evcard big' + (sel.interesting || sel.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + (sel.motion ? '<i class="modot"></i>Motion' : '<i class="lico">' + objIcon(ico(sel, sp)) + '</i>' + esc(sc0.g ? labGroup(sc0.g) : labAll(sel, sp, f))) + ' At ' + hms(sp.t) + '</b></div>' +
+      h += '<article class="evcard big' + (sel.interesting || sel.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + (sel.motion ? '<i class="modot"></i>Motion' : '<i class="lico">' + objIcon(ico(sel, sp)) + '</i>' + ttlHtml(sk, sc0.g ? labGroup(sc0.g) : labAll(sel, sp, f))) + ' At ' + hms(sp.t) + '</b></div>' +
         (isPet(sel, sk) ? '<button class="whob" data-act="fixopen" data-v="' + esc(sk) + '">Fix</button>' : coOf(sel) && Data.source === 'frigate' && !sel.motion ? '<button class="whob" data-act="cofixopen" data-v="' + esc(sk) + '">Fix</button>' : '') +
-        (sel.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(sel.id) + '">' + (sel.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
+        (hasPerson(sel) && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(sel.id) + '">' + (sel.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Open Camera" data-act="focusat" data-id="' + esc(sel.cam) + '" data-t="' + sp.t + '">' + I.expand + '</button>' +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(sk) + '">' + I.dl + '</button>' +
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(sk) + '">' + I.trash + '</button>' : '') +
@@ -3430,9 +3432,9 @@ function viewEvents() {
           '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(k) + '">' + I.dl + '</button></article>';
         return;
       }
-      h += '<article class="evcard' + (e.interesting || e.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + icn + esc(ttl) + ' At ' + hms(p.t) + '</b></div>' +
+      h += '<article class="evcard' + (e.interesting || e.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + icn + (e.motion ? esc(ttl) : ttlHtml(k, ttl)) + ' At ' + hms(p.t) + '</b></div>' +
         (isPet(e, k) ? '<button class="whob" data-act="fixopen" data-v="' + esc(k) + '">Fix</button>' : coOf(e) && Data.source === 'frigate' && !e.motion ? '<button class="whob" data-act="cofixopen" data-v="' + esc(k) + '">Fix</button>' : '') +
-        (e.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
+        (hasPerson(e) && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(k) + '">' + I.dl + '</button>' +
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(k) + '">' + I.trash + '</button>' : '') +
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(k) + '">' + (S.evPlay === k ? I.pause : I.playO) + '</button>' +
@@ -4148,6 +4150,10 @@ const objIcon = label => { const l = String(label).toLowerCase(); return ICON_SV
    minute); its title names every Interesting kind in it (an alert label of that camera), most important first
    ("Dog And Cat", "Person, Dog And Cat"), instead of only the first one. Uninteresting alerts list the kinds the
    object filter shows. A known name or delivery company still replaces the object name, as before. */
+/* 3.2.7: each name / object in an alert's title can be tapped: the video jumps to when Frigate first saw it */
+function ttlHtml(k, s) {
+  return String(s).split(/(, | And )/).map(w => w === ', ' || w === ' And ' || !w ? esc(w) : '<span class="tj" data-act="evjump" data-v="' + esc(k) + '" data-w="' + esc(w) + '">' + esc(w) + '</span>').join('');
+}
 const andJoin = n => n.length < 2 ? (n[0] || '') : n.slice(0, -1).join(', ') + ' And ' + n[n.length - 1];
 function labAll(e, p, f) {
   const co = coOf(e); if (co) return co;   /* 3.1.7: a delivery shows just the company (FedEx), car or person alike */
@@ -4895,8 +4901,24 @@ const ACT = {
     v.currentTime = Math.max(0, Math.min(end, v.currentTime + +d.v));
     Dbg.log('video', 'skip ' + d.v, 'to ' + v.currentTime.toFixed(1));
   },
+  async evjump(d) {
+    const k = d.v, w = String(d.w || ''), c = EVK[k], e = evE(k); if (!e) return;
+    const ds = c && c.g ? c.g.ps.map(x => x.d) : (e.dets || []);
+    await Promise.all(ds.filter(x => !Arrive.det[x]).slice(0, 12).map(x => Frigate.get('/api/events/' + encodeURIComponent(x)).then(r => { if (r) Arrive.det[x] = Arrive.row(r); }).catch(() => {})));
+    const xs = ds.map(x => Arrive.det[x] && Object.assign({ d: x }, Arrive.det[x])).filter(Boolean), W = w.toLowerCase();
+    const names = x => [x.sub, People.sub[x.d]].filter(n => n && String(n).toLowerCase() !== 'unknown').map(n => niceName(isLogo(String(n).toLowerCase()) ? coName(n) : n).toLowerCase());
+    let hit = xs.filter(x => names(x).includes(W)), byName = hit.length > 0;
+    if (!byName) hit = xs.filter(x => objName(x.l).toLowerCase() === W || (W === 'cat' && x.sub && isAnimal(x.l)));
+    if (!hit.length) { toast('No Time Found For ' + w); Dbg.log('jump', k, w, 'not found', xs.map(x => x.l + ':' + x.sub).join(',')); return; }
+    hit.sort((a, b) => a.t - b.t); const x = hit.find(h => h.t >= e.t - 1000) || hit[0];
+    toast(w + (byName ? ' = ' + objName(x.l) : '') + ' · ' + hms(x.t));
+    Dbg.log('jump', k, w, x.d, x.l, hms(x.t));
+    if (S.evPlay === k) { const m = document.getElementById('evm-' + k), v = m && m.querySelector('video.evv'); if (v && v.readyState > 0) { v.currentTime = vodAt(v, x.t - 1000); return; } }
+    S.evAt = { k, t: x.t - 1000 }; if (S.evPlay === k) evStop(); ACT.evplay({ v: k, jump: 1 });
+  },
   evplay(d, ev) {
     if (ev && ev.target && ev.target.tagName === 'VIDEO' && ev.target.controls) return;
+    if (!d.jump) S.evAt = null;   /* a plain play starts where it always did */
     const was = S.evPlay; evStop();
     if (was === d.v) { const m = document.getElementById('evm-' + d.v); const e = evE(d.v); if (m && e) { relIn(m); m.innerHTML = evMedia(e, d.v); } evIcons(); return; }
     if (was) { const om = document.getElementById('evm-' + was), oe = evE(was); if (om && oe) { relIn(om); om.innerHTML = evMedia(oe, was); } }   /* the one that was playing goes back to its picture */
