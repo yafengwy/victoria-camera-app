@@ -987,6 +987,12 @@ input,select,textarea{font-size:16px}
 .fico svg{width:15px;height:15px}
 .lico,.fev i.lico{display:inline-flex;vertical-align:-2px;margin-right:4px;font-style:normal;width:auto;height:auto;background:none;border-radius:0}
 .lico svg{width:1.05em;height:1.05em}
+.modot{display:inline-block;width:.6em;height:.6em;border-radius:50%;background:#F2C230;margin-right:6px;vertical-align:.05em;flex:none;font-style:normal}
+.molo{padding:10px 14px;color:var(--sub);font-size:13px;font-weight:700}
+.btn.momore{display:block;width:calc(100% - 16px);margin:6px 8px 14px}
+.fpanel2 .frow .mrow.tight{width:auto;flex:0 1 auto;border-top:0;white-space:nowrap;gap:6px;font-size:15px}
+.fpanel2 .frow:has(> .mrow.tight){flex-wrap:wrap;justify-content:space-between;row-gap:0}
+.mrow .modot,.check .modot{margin-right:0}
 .fmark.ico{left:54px;width:18px;height:18px;border-radius:9px;background:var(--dark-bg);color:#B9CCFF;display:flex;align-items:center;justify-content:center;box-shadow:none;border:0}
 .fmark.ico.dim{color:#7C858E;background:var(--dark-bg)}
 .fmark.ico svg{width:14px;height:14px}
@@ -3172,6 +3178,14 @@ function viewEvents() {
   h += '<div class="days">' + days.map(d => '<button class="day" data-act="day" data-v="' + d.i + '" aria-pressed="' + (S.evDay === d.i) + '">' + dayLabel(d.d0) + '<b>' + d.n + '</b></button>').join('') + '</div></div>';
   for (const k in EVK) delete EVK[k];
   const cards = [];
+  let moLeft = 0, moWait = false;
+  if (f.motion && Data.source === 'frigate') {
+    if (MotionList.stale(d0)) MotionList.load(d0);
+    const all = (MotionList.get(d0) || []).filter(m => !f.off[m.cam]);
+    moWait = !MotionList.get(d0);
+    all.slice(0, MotionList.n).forEach(m => { EVK[m.id] = { e: m, g: null }; cards.push({ k: m.id, e: m, g: null, st: m.t }); });
+    moLeft = Math.max(0, all.length - MotionList.n);
+  }
   list.forEach(e => { const gs = evGroups(e, f);
     if (!gs) { EVK[e.id] = { e, g: null }; cards.push({ k: e.id, e, g: null, st: e.t }); }
     else gs.forEach((g, i) => { const k = e.id + '~' + i; EVK[k] = { e, g }; cards.push({ k, e, g, st: g.t }); }); });
@@ -3187,37 +3201,39 @@ function viewEvents() {
     h += '<div class="evwrap wide"><div class="evplayer" id="evplayer">';
     if (sel) {
       const sc = Data.cam(sel.cam), sp = evP(sk, f);
-      h += '<article class="evcard big' + (sel.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(sel, sp)) + '</i>' + esc(sc0.g ? labGroup(sc0.g) : labAll(sel, sp, f)) + ' At ' + hms(sp.t) + '</b></div>' +
+      h += '<article class="evcard big' + (sel.interesting || sel.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + (sel.motion ? '<i class="modot"></i>Motion' : '<i class="lico">' + objIcon(ico(sel, sp)) + '</i>' + esc(sc0.g ? labGroup(sc0.g) : labAll(sel, sp, f))) + ' At ' + hms(sp.t) + '</b></div>' +
         (sel.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(sel.id) + '">' + (sel.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Open Camera" data-act="focusat" data-id="' + esc(sel.cam) + '" data-t="' + sp.t + '">' + I.expand + '</button>' +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(sk) + '">' + I.dl + '</button>' +
-        (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(sk) + '">' + I.trash + '</button>' : '') +
+        (Data.source === 'frigate' && !sel.motion ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(sk) + '">' + I.trash + '</button>' : '') +
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(sk) + '">' + (S.evPlay === sk ? I.pause : I.playO) + '</button></div>' +
         '<div class="evmedia" id="evm-' + esc(sk) + '" data-act="evtap" data-v="' + esc(sk) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(sel, sp)) + ' At ' + hms(sp.t) + ' Full Screen">' + evMedia(sel, sk) + '</div></article>';
     } else h += '<div class="empty">No alerts on this day with the current filters.</div>';
     h += '</div><div class="evlist">';
   } else h += '<div class="evwrap"><div class="evlist">';
-  if (!cards.length && !wide) h += '<div class="empty">No alerts on this day with the current filters.</div>';
+  if (moWait) h += '<div class="molo">Loading Motion…</div>';
+  if (!cards.length && !wide && !moWait) h += '<div class="empty">No alerts on this day with the current filters.</div>';
   Object.keys(byHour).map(Number).sort((a, b) => b - a).forEach(hr => {
     h += '<div class="hourh" id="hour-' + hr + '"></div>';
     byHour[hr].forEach(cd => {
-      const e = cd.e, k = cd.k, cam = Data.cam(e.cam), p = evP(k, f), ttl = cd.g ? labGroup(cd.g) : labAll(e, p, f);
+      const e = cd.e, k = cd.k, cam = Data.cam(e.cam), p = evP(k, f), ttl = cd.g ? labGroup(cd.g) : e.motion ? 'Motion' : labAll(e, p, f), icn = e.motion ? '<i class="modot"></i>' : '<i class="lico">' + objIcon(ico(e, p)) + '</i>';
       const dur = cd.g ? (s => s >= 60 ? Math.floor(s / 60) + ' min ' + (s % 60) + ' sec' : s + ' sec')(Math.max(1, Math.round((cd.g.en - cd.g.t) / 1000))) : durLabel(e);
       if (wide) {
-        h += '<article class="evrow' + (e.interesting ? '' : ' dim') + (S.evSel === k ? ' sel' : '') + '" data-act="evsel" data-v="' + esc(k) + '"><img src="' + evImg(e, p) + '" alt="" loading="lazy">' +
-          '<div class="evt"><b><i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(ttl) + ' At ' + hms(p.t) + '</b><span>' + esc(cam ? cam.name : e.cam) + ' · ' + dur + '</span></div>' +
+        h += '<article class="evrow' + (e.interesting || e.motion ? '' : ' dim') + (S.evSel === k ? ' sel' : '') + '" data-act="evsel" data-v="' + esc(k) + '"><img src="' + evImg(e, p) + '" alt="" loading="lazy">' +
+          '<div class="evt"><b>' + icn + esc(ttl) + ' At ' + hms(p.t) + '</b><span>' + esc(cam ? cam.name : e.cam) + ' · ' + dur + '</span></div>' +
           '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(k) + '">' + I.dl + '</button></article>';
         return;
       }
-      h += '<article class="evcard' + (e.interesting ? '' : ' dim') + '"><div class="evh"><div class="evt"><b><i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(ttl) + ' At ' + hms(p.t) + '</b></div>' +
+      h += '<article class="evcard' + (e.interesting || e.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + icn + esc(ttl) + ' At ' + hms(p.t) + '</b></div>' +
         (e.label === 'Person' && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(k) + '">' + I.dl + '</button>' +
-        (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(k) + '">' + I.trash + '</button>' : '') +
+        (Data.source === 'frigate' && !e.motion ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(k) + '">' + I.trash + '</button>' : '') +
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(k) + '">' + (S.evPlay === k ? I.pause : I.playO) + '</button>' +
 '</div>' +
         '<div class="evmedia" id="evm-' + esc(k) + '" data-act="evtap" data-v="' + esc(k) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(e, p)) + ' At ' + hms(p.t) + ' Full Screen">' + evMedia(e, k) + '</div></article>';
     });
   });
+  if (moLeft) h += '<button class="btn momore" data-act="momore">Load More Motion · ' + moLeft + ' Left</button>';
   const maxN = Math.max(1, ...Object.values(byHour).map(v => v.length));
   h += '</div><div class="hours">';
   for (let hr = 23; hr >= 0; hr--) {
@@ -3277,7 +3293,7 @@ function evDropdown() {
     const grpOn = [...new Set(Data.cams.map(c => c.group))].find(g => { const gc = Data.cams.filter(c => c.group === g); return gc.length === camsOn.length && gc.every(c => camsOn.includes(c)); });
     h += camChips(id => !f.off[id], camsOn.length === Data.cams.length ? 'all' : grpOn || 'custom', 'allcams', 'camf', 'data-id');
   } else {
-    h += '<div class="rvddh">Alert Level</div><div class="rvsevrow">' + ck(f.int, 'int', 'Interesting') + ck(f.unint, 'unint', 'Uninteresting') + '</div>' +
+    h += '<div class="rvddh">Alert Level</div><div class="rvsevrow">' + ck(f.int, 'int', 'Interesting') + ck(f.unint, 'unint', 'Uninteresting') + (Data.source === 'frigate' ? ck(!!f.motion, 'motion', '<i class="modot"></i>Motion') : '') + '</div>' +
       '<input class="objq in" type="text" data-objq="objl4" placeholder="Objects · Type To Find" autocomplete="off" autocorrect="off" spellcheck="false"><div id="objl4">' + objChips(f, 'obj', 'objgrp', 'anyobj') + '</div>';
   }
   return h + '</div></div>';
@@ -3319,7 +3335,8 @@ function filterPanel() {
     h += '<div class="ddl">' + camChips(id => !f.off[id], st, 'allcams', 'camf', 'data-id') + '</div>';
   }
   h += '<div class="frow"><button class="mrow tight" data-act="chk" data-v="int">' + mini(f.int) + 'Interesting</button>' +
-    '<button class="mrow tight" data-act="chk" data-v="unint">' + mini(f.unint) + 'Uninteresting</button></div></div>';
+    '<button class="mrow tight" data-act="chk" data-v="unint">' + mini(f.unint) + 'Uninteresting</button>' +
+    (Data.source === 'frigate' ? '<button class="mrow tight" data-act="chk" data-v="motion">' + mini(!!f.motion) + '<i class="modot"></i>Motion</button>' : '') + '</div></div>';
   return h;
 }
 function checkRow(k, label, on) {
@@ -3962,6 +3979,49 @@ function evP(k, f) {
   const e = evE(k); return e ? pick(e, f) : null;
 }
 function evEnd(k) { const c = EVK[k], e = evE(k); return c && c.g ? c.g.en : (e && (e.end || e.t + 20000)); }
+/* 2.10.9 Motion on the Alerts page (Alert Level → Motion, off by default): stretches of plain motion with no alert,
+   from Frigate's own motion record (/api/review/activity/motion, 30 s steps, one camera per request, 3 at a time).
+   Loaded only while Motion is ticked and only for the day shown; today's list refreshes at most once a minute.
+   Steps less than 1 min apart join into one card (at most 10 min each); any part covered by an alert of that camera
+   (2 s before to 8 s after) is cut out, so nothing shows twice. Pictures are a frame from the recording at the start,
+   loaded only when scrolled to; the video loads only when played. The newest 50 show first, Load More adds 50. */
+const MotionList = {
+  days: {}, busy: {}, n: 50,
+  key(d0) { return String(d0); },
+  get(d0) { const x = this.days[this.key(d0)]; return x ? x.segs : null; },
+  stale(d0) { const x = this.days[this.key(d0)], today = dayStart(now()); return !x || (d0 === today && now() - x.at > 60000); },
+  async load(d0) {
+    const k = this.key(d0); if (this.busy[k] || Data.source !== 'frigate') return; this.busy[k] = 1;
+    const a = Math.floor(d0 / 1000), b = Math.floor(Math.min(d0 + DAY, now()) / 1000), cams = Data.cams.map(c => c.id), rows = {};
+    try {
+      let i = 0;
+      const one = async () => { while (i < cams.length) { const id = cams[i++];
+        try { rows[id] = await Frigate.get('/api/review/activity/motion?cameras=' + encodeURIComponent(id) + '&after=' + a + '&before=' + b + '&scale=30'); } catch (e) { rows[id] = []; } } };
+      await Promise.all([one(), one(), one()]);
+      const segs = [];
+      cams.forEach(id => {
+        const ts = (rows[id] || []).filter(r => r && r.camera).map(r => +r.start_time * 1000).sort((x, y) => x - y), runs = [];
+        ts.forEach(t => { const r = runs[runs.length - 1]; if (r && t - r.en <= MIN && t + 30000 - r.t <= 10 * MIN) r.en = t + 30000; else runs.push({ t, en: t + 30000 }); });
+        const evs = Data.events.filter(e => e.cam === id).map(e => [e.t - 2000, (e.end || e.t + 20000) + 8000]);
+        runs.forEach(r => {
+          let parts = [[r.t, r.en]];
+          evs.forEach(([x, y]) => { parts = parts.flatMap(([p, q]) => y <= p || x >= q ? [[p, q]] : [[p, x], [y, q]].filter(([u, v]) => v - u >= 5000)); });
+          parts.forEach(([p, q]) => segs.push(this.ev(id, p, q)));
+        });
+      });
+      segs.sort((x, y) => y.t - x.t);
+      this.days[k] = { at: now(), segs };
+    } finally { delete this.busy[k]; }
+    if (S.view === 'events' && S.filt.motion) render();
+  },
+  ev(cam, t, en) {
+    const s0 = Math.floor(t / 1000), s1 = Math.ceil(en / 1000), base = Frigate.base();
+    return { id: 'mo-' + cam + '-' + s0, motion: true, cam, t, end: en, label: 'Motion', objs: [], dets: [], who: '', logo: '', sev: 'motion', subs: [], interesting: false, zones: [],
+      img: base + '/api/' + cam + '/recordings/' + (s0 + 2) + '/snapshot.jpg?height=240',
+      vs: s0 - 5, ve: s1 + 5, vod: base + '/vod/' + cam + '/start/' + (s0 - 5) + '/end/' + (s1 + 5) + '/index.m3u8',
+      clip: base + '/api/' + cam + '/start/' + (s0 - 1) + '/end/' + (s1 + 2) + '/clip.mp4' };
+  }
+};
 function lab(e, p) { if (p && p.label !== e.label && !/^(person|car)$/i.test(p.label)) return objName(p.label); return e.who || objName(p ? p.label : e.label); }   /* 'Waste_bin' shows as 'Waste Bin' */   /* a known name or delivery company replaces the object name */
 function ico(e, p) { const L = p ? p.label : e.label; return /^car$/i.test(L) || L === e.label ? (e.logo || L) : L; }
 const OBJ_ICON = new Proxy({}, { get: (_, k) => objIcon(k) });
@@ -4618,8 +4678,10 @@ const ACT = {
     if (ov && ov.showPicker) { const k = ov.dataset.dt; ov.max = dtIso(now()); ov.min = dtIso(now() - 7 * DAY); ov.value = dtIso(dtCur(k) == null ? now() : dtCur(k)); try { ov.showPicker(); return; } catch (x) { } }
     if (b && inp) { const r = b.getBoundingClientRect(); Object.assign(inp.style, { position: 'fixed', left: r.left + 'px', top: (r.bottom - 1) + 'px', width: r.width + 'px', height: '1px' }); }
     openDateTime(dtCur(d.v === 'rv' ? 'rv' : 'home'), dtGo(d.v === 'rv' ? 'rv' : 'home')); },
+  momore() { MotionList.n += 50; render(); },
   chk(d) {
     if (d.v === 'demo') { S.demo = !S.demo; render(); return; }
+    if (d.v === 'motion') MotionList.n = 50;
     S.filt[d.v] = !S.filt[d.v]; saveFilt(); render();
   },
   /* Any Object shows no boxes ticked: the first tap picks just that object; unticking the last one goes back to Any */
