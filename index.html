@@ -1993,7 +1993,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 3.2.7 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 3.2.8 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -2339,7 +2339,7 @@ const CoFix = {
   /* cars renamed to a company (so a change made here or in Frigate shows after a restart) and cars marked wrong */
   async loadCars() {
     const after = Math.floor((now() - 7 * DAY) / 1000);
-    try { await this.loadNames(); const cos = this.all(); if (cos.length) (await Frigate.get('/api/events?labels=car&sub_labels=' + encodeURIComponent(cos.join(',')) + '&limit=1000&include_thumbnails=0&after=' + after)).forEach(r => { const n = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label; if (n) { People.co[r.id] = n; People.lab[r.id] = 'car'; } }); } catch (e) {}
+    try { await this.loadNames(); const cos = [...this.all(), 'Car']; if (cos.length) (await Frigate.get('/api/events?labels=car&sub_labels=' + encodeURIComponent(cos.join(',')) + '&limit=1000&include_thumbnails=0&after=' + after)).forEach(r => { const n = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label; if (n) { People.co[r.id] = n; People.lab[r.id] = 'car'; } }); } catch (e) {}
     try { (await Frigate.get('/api/events?labels=car&is_submitted=1&limit=1000&include_thumbnails=0&after=' + after)).forEach(r => { People.lab[r.id] = 'car'; if (r.false_positive) People.fp[r.id] = 1; }); } catch (e) {}
   },
   async dets(k) {
@@ -2353,7 +2353,11 @@ const CoFix = {
   async save(k, pick, send) {
     const all = await this.dets(k); if (!all.length) return { ok: false, msg: 'No Car Or Person In This Alert' };
     let ok = true, taught = 0, sent = 0, files = null;
-    if (pick[0] === '-') {
+    if (pick === '=car') {
+      /* 3.2.8 Just A Car: a car the model guessed as a delivery company. Frigate's sub label becomes "Car" (so the guess
+         is gone after a restart too); nothing is sent to Frigate+ and the car model is not taught */
+      for (const d of all.filter(x => People.lab[x] === 'car')) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: 'Car' }); if (r.ok) People.co[d] = 'Car'; else ok = false; }
+    } else if (pick[0] === '-') {
       const l = pick.slice(1);
       for (const d of all.filter(x => People.lab[x] === l)) { if (People.fp[d]) continue; const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else { ok = false; Dbg.log('fix refused', d, f.msg); } }
     } else {
@@ -2374,7 +2378,8 @@ const CoFix = {
 };
 function coFix(e) {
   const co = (e.dets || []).map(d => People.co[d]).find(Boolean); if (!co) return e;
-  const names = String(e.who || '').split(' · ').filter(x => x && !CoFix.isCo(x) && !isLogo(x));
+  const names = String(e.who || '').split(' · ').filter(x => x && !CoFix.isCo(x) && !isLogo(x) && x !== 'Car');
+  if (co === 'Car') { e.subs = []; e.logo = ''; e.who = names.join(' · '); e.co = ''; e.interesting = e.sev === 'alert'; return e; }   /* Just A Car */
   if (isLogo(co)) { e.subs = [co.toLowerCase()]; e.logo = co.toLowerCase(); e.who = [coName(co), ...names].join(' · '); }
   else { e.subs = []; e.logo = ''; e.who = [co, ...names].join(' · '); }
   e.co = isLogo(co) ? coName(co) : co;
@@ -2570,10 +2575,11 @@ function modalCoFix() {
     '<img class="whoimg crop" src="' + evImg(e, p) + '" alt="">' +
     '<div class="lbl" style="margin-top:6px">Which Company?</div><div class="chips">' + CoFix.all().map(n => chip(n, isLogo(n) ? coName(n) : n)).join('') + (CoFix.model ? chip('+', '＋ New Company') : '') + '</div>' +
     (cur === '+' ? '<input id="conew" class="field" type="text" placeholder="Company Name, E.g. Instacart" autocomplete="off" value="' + esc(S.coNew || '') + '">' : '') +
+    '<div class="lbl">Or No Company</div><div class="chips">' + chip('=car', 'Just A Car') + '</div>' +
     ((S.fixKinds || []).length ? '<div class="lbl">Or Wrong Object</div><div class="chips">' + S.fixKinds.map(l => chip('-' + l, 'Not ' + objName(l))).join('') + '</div>' : '') +
     (plus ? '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Send To Frigate+</button>' : '') +
     (cur === '+' ? '<div class="wtnote" style="margin:6px 0 0">Adds This Company To Your Car Model In Frigate And Teaches It With This Car</div>' : '') +
-    (cur && cur !== '+' ? '<div class="wtnote" style="margin:6px 0 0">' + (cur[0] === '-' ? 'Not ' + esc(objName(cur.slice(1))) + ': Marked Wrong In Frigate And Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) + ' · This Alert Goes Away'
+    (cur && cur !== '+' ? '<div class="wtnote" style="margin:6px 0 0">' + (cur === '=car' ? 'Just A Car: The Company Name Is Removed · Not Sent To Frigate+, Nothing Is Learned' : cur[0] === '-' ? 'Not ' + esc(objName(cur.slice(1))) + ': Marked Wrong In Frigate And Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) + ' · This Alert Goes Away'
       : plus ? esc(coName(cur)) + ': Frigate Renames It Now' + (S.fixTeach !== false ? ' · The Picture Waits In Frigate+ For You To Verify' : '')
       : esc(cur) + ': Frigate Renames It Now · Your Car Model Learns It Right Away') + '</div>' : '') +
     '<button class="btn solid snzgo" data-act="cofixsave"' + (cur ? '' : ' disabled') + '>' + (S.fixBusy ? 'Saving…' : 'Save') + '</button>' +
@@ -4539,7 +4545,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 3.2.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 3.2.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -4635,7 +4641,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 3.2.7');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 3.2.8');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -4652,7 +4658,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 3.2.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 3.2.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -4756,7 +4762,8 @@ const ACT = {
     if (!r.ok && r.msg) { toast(r.msg); render(); return; }
     e.co = ''; coFix(e); fixPets(e); if (e.gone) Data.events = Data.events.filter(x => x !== e);
     S.modal = null; render();
-    toast((v[0] === '-' ? 'Marked Not ' + objName(v.slice(1)) : 'Saved As ' + (isLogo(v) ? coName(v) : v)) + (r.sent ? ' · Sent To Frigate+' : '') + (r.taught ? ' · Car Model Learning' : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
+    if (v === '=car') (EVK[k] && EVK[k].g ? EVK[k].g.ps.map(x => x.d) : (e.dets || [])).forEach(d => { const a = Arrive.det[d]; if (a && a.l === 'car') a.sub = 'Car'; });
+    toast((v === '=car' ? 'Saved As Just A Car' : v[0] === '-' ? 'Marked Not ' + objName(v.slice(1)) : 'Saved As ' + (isLogo(v) ? coName(v) : v)) + (r.sent ? ' · Sent To Frigate+' : '') + (r.taught ? ' · Car Model Learning' : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
   },
   fixpick(d) { const i = document.getElementById('conew'); if (i) S.coNew = i.value; S.fixPick = S.fixPick === d.v ? '' : d.v; render(); if (S.fixPick === '+') { const n = document.getElementById('conew'); if (n) n.focus(); } },
   fixteach() { S.fixTeach = S.fixTeach === false; render(); },
@@ -5692,7 +5699,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '3.2.7';
+    const BUILD = '3.2.8';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
