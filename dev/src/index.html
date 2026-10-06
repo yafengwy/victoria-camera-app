@@ -2299,6 +2299,7 @@ const People = {
         if (r.label === 'person') this.person[r.id] = 1;
         const n = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label; if (n && !isLogo(n) && String(n).toLowerCase() !== 'unknown' && String(n).toLowerCase() !== 'none') this.sub[r.id] = n; });
     } catch (e) {}
+    FpQ.ids().forEach(d => { this.fp[d] = 1; });   /* 3.3.5: marked wrong here, still waiting for Frigate's snapshot */
     await CoFix.loadCars();
   },
   /* always a fresh list (a cached answer kept showing faces that were already deleted) */
@@ -2314,10 +2315,15 @@ const People = {
     return ((this.faces && this.faces.train) || []).map(f => { const p = f.replace(/\.webp$/i, '').split('-'); const score = +p.pop(), guess = p.pop(), ts = +p.pop(); return { f, ev: p.join('-'), ts, guess, score }; })
       .sort((a, b) => b.ts - a.ts);
   },
-  async post(path, body) {
+  async post(path, body, noQueue) {
     /* 3.3.3: Frigate 0.18 takes "false positive" as PUT (POST answered 405, so Not Person / Not Dog were never saved) */
-    const r = await fetch(Frigate.base() + path, { method: /\/false_positive$/.test(path) ? 'PUT' : 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '1' }, body: JSON.stringify(body || {}) });
-    let j = {}; try { j = await r.json(); } catch (e) {} return { ok: r.ok && j.success !== false, msg: j.message || String(r.status) };
+    const fp = /\/false_positive$/.test(path);
+    const r = await fetch(Frigate.base() + path, { method: fp ? 'PUT' : 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '1' }, body: JSON.stringify(body || {}) });
+    let j = {}; try { j = await r.json(); } catch (e) {} const res = { ok: r.ok && j.success !== false, msg: j.message || String(r.status) };
+    /* 3.3.5: an object still being tracked (a pillow seen as a dog stays "there") has no snapshot until it ends, and
+       Frigate+ needs that snapshot: such a "not this" is kept on this phone and sent again every 2 min until it goes */
+    if (fp && !noQueue && !res.ok && /clean snapshot/i.test(res.msg)) { FpQ.add(path); return { ok: true, msg: 'queued' }; }
+    return res;
   },
   key: n => String(n).trim().replace(/\s+/g, '_'),
   /* give the person(s) in an alert a name; optionally teach face recognition from that picture */
@@ -2624,6 +2630,25 @@ function modalPeople() {
 /* 3.3.4 Cats page (More → Cats), like People: every picture the Cats model saved (Frigate's Recent Classifications,
    newest first, 120 at a time), several can be picked and filed under 胖胖 / 团团 / None, or deleted; Delete All Left
    clears the rest; Train Model makes the model learn what was filed. Pictures load only while this page is open. */
+const FpQ = {
+  key: 'vhfpq',
+  list() { try { return JSON.parse(localStorage.getItem(this.key) || '[]'); } catch (e) { return []; } },
+  save(l) { try { localStorage.setItem(this.key, JSON.stringify(l)); } catch (e) {} },
+  add(path) { const l = this.list().filter(x => x.p !== path); l.push({ p: path, at: Date.now() }); this.save(l); Dbg.log('not-this waits for snapshot', path.split('/')[3]); },
+  async run() {
+    const l = this.list(); if (!l.length || Data.source !== 'frigate') return;
+    const keep = [];
+    for (const x of l) {
+      const r = await People.post(x.p, null, true);
+      if (r.ok || /already/i.test(r.msg)) Dbg.log('not-this sent', x.p.split('/')[3]);
+      else if (/clean snapshot/i.test(r.msg) && Date.now() - x.at < 2 * DAY) keep.push(x);
+      else Dbg.log('not-this dropped', x.p.split('/')[3], r.msg);
+    }
+    this.save(keep);
+  },
+  /* detections waiting here count as marked wrong already, so their alerts stay hidden */
+  ids() { return this.list().map(x => decodeURIComponent(x.p.split('/')[3] || '')); }
+};
 const CatPics = {
   train: null, ds: {}, filed: 0,
   url: (f) => Frigate.base() + '/clips/' + encodeURIComponent(CatFix.model) + '/train/' + encodeURIComponent(f),
@@ -5786,7 +5811,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
     Diag.run();
     setInterval(() => Motion.ensure(), 3000); setInterval(() => Live.watch(), 2000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) { Motion.ensure(); Frigate.refresh(); HA.get(); Snz.get(); Wait.get(); } });
-    window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); HA.get(); setInterval(() => HA.get(), 10000); if (store.get('boxes', false)) Box.set(true); if (!Playback.native()) Playback.hls().catch(() => {}); Snz.get(); setInterval(() => Snz.get(), 15000); Wait.get(); setInterval(() => Wait.get(), 15000);
+    window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); HA.get(); setInterval(() => HA.get(), 10000); if (store.get('boxes', false)) Box.set(true); if (!Playback.native()) Playback.hls().catch(() => {}); Snz.get(); setInterval(() => Snz.get(), 15000); Wait.get(); setInterval(() => Wait.get(), 15000); FpQ.run(); setInterval(() => FpQ.run(), 120000);
     setInterval(() => { if (S.view === 'home' && !S.modal && (Snz.active() || Wait.active() || document.querySelector('.snzban'))) render(); }, 60000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000); Pic.poll(); setInterval(() => Pic.poll(), 15000);
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
