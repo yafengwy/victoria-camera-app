@@ -228,7 +228,7 @@ img.rf{opacity:0}
 .focus{position:fixed;inset:0;z-index:40;background:var(--dark-bg);color:var(--dark-fg);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
 .fvid{position:relative;flex-shrink:0;width:100%;max-width:900px;margin:0 auto;aspect-ratio:16/9;background:#000}
 .fvid img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-.fvid{min-height:0}
+.fvid{min-height:0;overflow:hidden}   /* 3.3.3: a 4:3 camera (Treat Feeder) gets a 4:3 box; nothing spills over the buttons under it */
 .fvid.tall{aspect-ratio:var(--ar);width:min(100%,calc(64vh * var(--ar)));max-height:none}
 .fov{position:absolute;top:4px;left:10px;right:10px;display:flex;align-items:center;gap:8px;z-index:3}
 .pillk{height:36px;padding:0 13px;border-radius:18px;background:rgba(0,0,0,.6);display:flex;align-items:center;gap:6px;font-size:13px;font-weight:800;font-variant-numeric:tabular-nums}
@@ -2313,7 +2313,8 @@ const People = {
       .sort((a, b) => b.ts - a.ts);
   },
   async post(path, body) {
-    const r = await fetch(Frigate.base() + path, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '1' }, body: JSON.stringify(body || {}) });
+    /* 3.3.3: Frigate 0.18 takes "false positive" as PUT (POST answered 405, so Not Person / Not Dog were never saved) */
+    const r = await fetch(Frigate.base() + path, { method: /\/false_positive$/.test(path) ? 'PUT' : 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '1' }, body: JSON.stringify(body || {}) });
     let j = {}; try { j = await r.json(); } catch (e) {} return { ok: r.ok && j.success !== false, msg: j.message || String(r.status) };
   },
   key: n => String(n).trim().replace(/\s+/g, '_'),
@@ -3678,7 +3679,7 @@ function viewFocus() {
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
     '</div><div class="pillk fnmbr' + rcnA(c.id) + '>' + esc(c.name) + '</div>';   /* top row: back, the picture's time, buttons; the camera name sits in the picture's bottom-left corner (Loading shows bottom-right), the object tag just above it */
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
-    '<div class="fvid vfit' + (c.id === 'nest_doorbell' ? ' door' : '') + (isTall(c) ? ' tall' : '') + '" style="--R:' + trueAr(c).toFixed(4) + (isTall(c) ? ';--ar:' + c.ar.toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
+    '<div class="fvid vfit' + (c.id === 'nest_doorbell' ? ' door' : '') + (isTall(c) ? ' tall' : '') + '" style="--R:' + trueAr(c).toFixed(4) + (isTall(c) ? ';--ar:' + c.ar.toFixed(4) : trueAr(c) >= 1.2 && trueAr(c) < 1.7 ? ';aspect-ratio:' + trueAr(c).toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fctl" id="fctl">' + (S.fclip && S.fclip.cam === c.id ?
       '<button class="dk" data-act="fclipx" aria-label="Cancel Download">' + I.x + '</button><div class="fclipt"><b>Start</b> ' + (S.fclip.a ? hms(S.fclip.a) : '—') + '<br><b>End</b> ' + (S.fclip.b ? hms(S.fclip.b) : '—') + '</div>' +
       '<button class="dk fbk' + (S.fclip.a ? ' set' : '') + '" data-act="fclipmark" data-v="a" aria-label="Set Start Here">[</button><button class="dk fbk' + (S.fclip.b ? ' set' : '') + '" data-act="fclipmark" data-v="b" aria-label="Set End Here">]</button>' +
