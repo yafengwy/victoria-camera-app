@@ -818,6 +818,17 @@ input,select,textarea{font-size:16px}
 .btn.ctrain{width:100%;margin-top:8px}
 .ctbar{position:sticky;top:0;z-index:2;box-shadow:0 2px 8px rgba(0,0,0,.12)}
 .btn.pfred{background:#C0392B;color:#fff}
+.ctbar{gap:8px;padding:12px;background:var(--card);box-shadow:0 4px 14px rgba(0,0,0,.14),inset 0 0 0 1px var(--line)}
+.cthd{display:flex;align-items:center;gap:4px}
+.cthd b{flex:1;font-size:15px;color:var(--head-fg)}
+.ctlk{height:30px;padding:0 10px;border-radius:15px;font-size:13px;font-weight:700;color:var(--sub);background:var(--track)}
+.ctlk.ctred{color:#C0392B}
+.ctsub{font-size:12px;font-weight:700;color:var(--sub)}
+.ctnames{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ctname{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 4px;border-radius:12px;background:var(--track);color:var(--head-fg);font-size:13px;font-weight:700;line-height:1.2;text-align:center}
+.ctname img,.ctname i{width:36px;height:36px;border-radius:18px;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;background:var(--card);color:var(--sub)}
+.ctname i svg{width:20px;height:20px}
+.ctname:active{background:var(--accent,#233A6E);color:#fff}
 .pfbar .chip.pfname{height:38px;padding:0 16px 0 6px;border-radius:19px;background:var(--card);color:var(--head-fg);box-shadow:inset 0 0 0 1.5px var(--line);font-size:16px;font-weight:700;display:inline-flex;align-items:center;gap:8px}
 .pfbar .chip.pfname img,.pfbar .chip.pfname i{width:28px;height:28px;border-radius:14px;object-fit:cover;display:inline-flex;align-items:center;justify-content:center}
 .pfbar .btn[data-act="pfdel"]{font-size:13px;height:34px;padding:0 14px;align-self:center}
@@ -2677,9 +2688,8 @@ function modalCats() {
   h += '<div class="lbl pfhead">Recent · ' + rows.length + (rows.length ? '<button class="pfdall" data-act="ctdallask">Delete All Left</button>' : '') + '</div>';
   if (S.ctDelAll && rows.length) h += '<div class="pfbar pfconf"><b>Delete All ' + (rows.length - picked.length) + ' Pictures Left' + (picked.length ? ' (Not The ' + picked.length + ' Picked)' : '') + '?</b><span>Pictures Already Filed Under A Name Stay. This Can&#39;t Be Undone.</span>' +
     '<div class="pfcb"><button class="btn" data-act="ctdallno">Cancel</button><button class="btn solid pfred" data-act="ctdall">Delete</button></div></div>';
-  if (picked.length) h += '<div class="pfbar ctbar"><div class="lbl" style="margin-top:0">' + picked.length + ' Picked · File Under</div><div class="chips">' +
-    names.map(c => '<button class="chip pfname" data-act="ctfile" data-v="' + esc(c) + '">' + esc(c === 'none' ? 'None' : c) + '</button>').join('') + '</div>' +
-    '<div class="pfcb"><button class="btn" data-act="ctclear">Unpick</button><button class="btn" data-act="ctdel">Delete Picked</button></div></div>';
+  if (picked.length) h += '<div class="pfbar ctbar"><div class="cthd"><b>' + picked.length + ' Picked</b><button class="ctlk" data-act="ctclear">Unpick</button><button class="ctlk ctred" data-act="ctdel">Delete</button></div><div class="ctsub">File Under</div><div class="ctnames">' +
+    names.map(c => { const fs = ds[c] || []; return '<button class="ctname" data-act="ctfile" data-v="' + esc(c) + '">' + (fs.length ? '<img src="' + Frigate.base() + '/clips/' + encodeURIComponent(CatFix.model) + '/dataset/' + encodeURIComponent(c) + '/' + encodeURIComponent(fs[fs.length - 1]) + '" alt="">' : '<i>' + ICON_SVG.cat + '</i>') + '<span>' + esc(c === 'none' ? 'None' : c) + '</span></button>'; }).join('') + '</div></div>';
   if (!rows.length) h += '<div class="wtnote" style="margin:0">No Pictures Yet. They Show Up Here After The Cameras See A Cat.</div>';
   else h += '<div class="pfgrid">' + rows.slice(0, n).map(x => '<button class="pf' + (sel[x.f] ? ' on' : '') + '" data-act="ctsel" data-v="' + esc(x.f) + '"><img src="' + CatPics.url(x.f) + '" alt="" loading="lazy"><span>' + (x.guess === 'none' ? 'None' : esc(x.guess)) + (isFinite(x.score) ? ' ' + Math.round(x.score * 100) + '%' : '') + '</span><small>' + (x.ts ? hm(x.ts * 1000) + (dayStart(x.ts * 1000) === dayStart(now()) ? '' : ' ' + dayLabel(x.ts * 1000)) : '') + '</small></button>').join('') + '</div>' +
     (rows.length > n ? '<button class="btn momore" data-act="ctmore">Show More · ' + (rows.length - n) + ' Left</button>' : '');
