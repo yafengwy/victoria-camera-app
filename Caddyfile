@@ -12,7 +12,7 @@ cam.victoriashome.app {
 	# Phone notifications: the alert picture and video, reachable without signing in only through a secret link
 	# (VH_NOTIFY, a 32-character key kept in caddy.env on the mini PC). Without that key nothing here is public.
 	@notify {
-		path_regexp notify ^/n/{$VH_NOTIFY}/(api/events/[A-Za-z0-9.\-]+/snapshot\.jpg|api/[a-z0-9_]+/latest\.jpg|api/[a-z0-9_]+/start/[0-9.]+/end/[0-9.]+/clip\.mp4)$
+		path_regexp notify ^/n/{$VH_NOTIFY}/(api/events/[A-Za-z0-9.\-]+/(?:snapshot|thumbnail)\.jpg|api/[a-z0-9_]+/latest\.jpg|api/[a-z0-9_]+/start/[0-9.]+/end/[0-9.]+/clip\.mp4)$
 		not path /n//*
 	}
 	handle @notify {
