@@ -77,14 +77,37 @@ def streams(body):
     except Exception as x:
         return repr(x)
 
+def big(body):
+    # the picture's width (0 when it can't be read)
+    try:
+        with tempfile.TemporaryDirectory() as d:
+            a = os.path.join(d, 'in.mp4'); open(a, 'wb').write(body)
+            return int(subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width', '-of', 'csv=p=0', a],
+                                      capture_output=True, text=True, timeout=10).stdout.strip() or 0)
+    except Exception:
+        return 0
+
 def faststart(body):
     # sound clips for the iPhone: when the recording's sound is already AAC (Entry Room, Treat Feeder...), Frigate's
     # own clip is sent exactly as it is. That is how the first sound clips came out, and the iPhone showed them
     # with sound. Re-encoding them (H.264 640 + 44.1 kHz stereo) made the iPhone fail to load the attachment.
     # Only other sound (e.g. G.711, which the iPhone won't play in an mp4) is turned into AAC, picture copied.
+    # Big pictures (Garage2 records 2304x1296 at level 5.1, an 8 s clip was 8.4 MB) made the iPhone say "Unrecognized
+    # attachment file type": then only the picture is made smaller (1280 wide, H.264 level 4.1); the sound is copied
+    # exactly as it is (AAC untouched, that is what the iPhone plays).
     try:
         if 'aac:audio' in streams(body):
-            return body
+            if len(body) <= 3_000_000 and big(body) <= 1920:
+                return body
+            with tempfile.TemporaryDirectory() as d:
+                a, b = os.path.join(d, 'in.mp4'), os.path.join(d, 'out.mp4')
+                open(a, 'wb').write(body)
+                subprocess.run(['ffmpeg', '-v', 'error', '-i', a, '-map', '0:v:0', '-map', '0:a?', '-vf', "scale='min(1280,iw)':-2",
+                                '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-profile:v', 'high', '-level:v', '4.1',
+                                '-pix_fmt', 'yuv420p', '-tag:v', 'avc1', '-c:a', 'copy', '-movflags', '+faststart', '-y', b],
+                               check=True, timeout=25)
+                print('sound clip made smaller', len(body), '->', os.path.getsize(b), flush=True)
+                return open(b, 'rb').read()
         with tempfile.TemporaryDirectory() as d:
             a, b = os.path.join(d, 'in.mp4'), os.path.join(d, 'out.mp4')
             open(a, 'wb').write(body)
