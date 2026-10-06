@@ -2507,10 +2507,16 @@ function modalWho() {
     /* the person's own snapshot (cropped to them), at the size Frigate's face recognition works with: what you see here
        is what it would learn from, so a blurry face here means "don't teach" */
     '<img class="whoimg crop" src="' + (pd ? Frigate.base() + '/api/events/' + encodeURIComponent(pd) + '/snapshot.jpg?crop=1&bbox=0&timestamp=0&height=480' : e.img) + '" alt="" onerror="this.onerror=null;this.src=\'' + e.img + '\'">' +
-    (names.length ? '<div class="lbl" style="margin-top:6px">People</div><div class="chips">' + names.map(n => '<button class="chip sm" data-act="whopick" data-v="' + esc(n) + '" aria-pressed="' + (cur === n) + '">' + esc(n) + '</button>').join('') + '</div>' : '') +
-    '<div class="lbl">' + (names.length ? 'Or A New Name' : 'Name') + '</div><input id="whonew" class="field" type="text" placeholder="E.g. UPS Driver" autocomplete="off" value="' + (names.includes(cur) ? '' : esc(cur)) + '">' +
-    (People.faceOn && People.faceCams.includes(e.cam) ? '<button class="check" role="checkbox" aria-checked="' + (S.whoTeach === true) + '" data-act="whoteach"><span class="box">' + (S.whoTeach === true ? I.check : '') + '</span>Teach Face Recognition</button>' : '') +
-    '<button class="btn solid snzgo" data-act="whosave">Save Name</button>' +
+    /* 3.1.9: Who Is It? = known people, + New Person (a new name: taught to face recognition it becomes a new person
+       there, learned from this face), or Not Person (marked wrong for Frigate+, the alert goes away) */
+    '<div class="lbl" style="margin-top:6px">Who Is It?</div><div class="chips">' + names.map(n => '<button class="chip sm" data-act="whopick" data-v="' + esc(n) + '" aria-pressed="' + (cur === n) + '">' + esc(n) + '</button>').join('') +
+      '<button class="chip sm" data-act="whopick" data-v="+" aria-pressed="' + (cur === '+') + '">＋ New Person</button></div>' +
+    (cur === '+' ? '<input id="whonew" class="field" type="text" placeholder="Name, E.g. Ayi" autocomplete="off" value="' + esc(S.whoNew || '') + '">' : '') +
+    '<div class="lbl">Or Wrong Object</div><div class="chips"><button class="chip sm" data-act="whopick" data-v="-person" aria-pressed="' + (cur === '-person') + '">Not Person</button></div>' +
+    (cur !== '-person' && People.faceOn && People.faceCams.includes(e.cam) ? '<button class="check" role="checkbox" aria-checked="' + (S.whoTeach === true) + '" data-act="whoteach"><span class="box">' + (S.whoTeach === true ? I.check : '') + '</span>Teach Face Recognition</button>' : '') +
+    (cur === '-person' ? '<div class="wtnote" style="margin:6px 0 0">Not Person: Marked Wrong In Frigate And Sent To Frigate+ As A Wrong Person · This Alert Goes Away</div>'
+      : cur === '+' ? '<div class="wtnote" style="margin:6px 0 0">New Person: ' + (S.whoTeach === true && People.faceOn ? 'Adds Them To Face Recognition In Frigate With This Face' : 'Names This Alert · Tick Teach Face Recognition To Add Them There') + '</div>' : '') +
+    '<button class="btn solid snzgo" data-act="whosave"' + (cur ? '' : ' disabled') + '>Save</button>' +
     (e.who && e.dets.some(d => People.sub[d]) ? '<button class="btn snzgo" style="margin-top:6px" data-act="whoclear">Remove Name</button>' : '') +
     '</div></div></div>';
 }
@@ -4677,7 +4683,7 @@ const ACT = {
   },
   whoopen(d) {
     const e = Data.events.find(x => x.id === d.v); if (!e) return;
-    S.whoId = e.id; S.whoName = e.dets.map(x => People.sub[x]).filter(Boolean).map(niceName)[0] || ''; S.modal = 'who'; render();
+    S.whoId = e.id; S.whoName = e.dets.map(x => People.sub[x]).filter(Boolean).map(niceName)[0] || ''; S.whoNew = ''; S.whoTeach = undefined; S.modal = 'who'; render();
     if (!People.faces) People.loadFaces().then(() => { if (S.modal === 'who') render(); });
   },
   fixopen(d) { S.fixK = d.v; const e = evE(d.v); S.fixPick = ((e && e.dets) || []).map(x => People.sub[x]).find(Boolean) || ''; S.fixTeach = true; S.fixBusy = false; S.fixKinds = []; S.modal = 'fix'; render();
@@ -4721,12 +4727,26 @@ const ACT = {
     S.modal = null; render();
     toast((pickv[0] !== '-' ? 'Saved As ' + niceName(pickv) : 'Marked Not ' + objName(pickv.slice(1))) + (r.taught ? ' · Cats Model Learning' : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
   },
-  whopick(d) { S.whoName = S.whoName === d.v ? '' : d.v; const i = document.getElementById('whonew'); if (i) i.value = ''; render(); },
+  whopick(d) { const i = document.getElementById('whonew'); if (i) S.whoNew = i.value; S.whoName = S.whoName === d.v ? '' : d.v;
+    if (S.whoName === '+' && S.whoTeach !== false) S.whoTeach = true;   /* a new person is meant to be learned */
+    render(); if (S.whoName === '+') { const n = document.getElementById('whonew'); if (n) n.focus(); } },
   whoteach() { S.whoTeach = !S.whoTeach; render(); },
   async whosave() {
     const e = Data.events.find(x => x.id === S.whoId); if (!e || People.busy) return;
-    const typed = (document.getElementById('whonew') || {}).value || '', n = (typed.trim() || S.whoName || '').trim();
-    if (!n) { toast('Pick Or Type A Name'); return; }
+    if (S.whoName === '-person') {   /* Not Person: every person detection in this alert marked wrong (Frigate+) */
+      People.busy = true; let ok = true;
+      for (const d of e.dets || []) {
+        if (!People.lab[d]) { try { const r = await Frigate.get('/api/events/' + encodeURIComponent(d)); People.lab[d] = r.label; if (r.false_positive) People.fp[d] = 1; } catch (x) {} }
+        if (People.lab[d] !== 'person' || People.fp[d]) continue;
+        const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else ok = false;
+      }
+      People.busy = false; Dbg.log('fix', e.id, 'not person', ok ? 'ok' : 'not all taken');
+      fixPets(e); if (e.gone) Data.events = Data.events.filter(x => x !== e);
+      S.modal = null; render(); toast('Marked Not Person' + (ok ? '' : ' · Frigate Did Not Take All Of It')); return;
+    }
+    const typed = S.whoName === '+' ? ((document.getElementById('whonew') || {}).value || '') : '', n = (S.whoName === '+' ? typed : S.whoName || '').trim();
+    if (!n) { toast(S.whoName === '+' ? 'Type The Name' : 'Pick A Name'); return; }
+    S.whoNew = '';
     const teach = S.whoTeach === true && People.faceCams.includes(e.cam);
     People.busy = true; const r = await People.name(e, n, teach); People.busy = false;
     if (!r.ok) { toast(r.msg || 'Could Not Save The Name'); return; }
