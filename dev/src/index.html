@@ -5453,7 +5453,7 @@ const ACT = {
   toast(d) { toast(d.v); },
   tap(d) {
     const t = Date.now();
-    if (lastTap.id === d.id && t - lastTap.at < 320) { clearTimeout(tapTimer); lastTap = { id: null, at: 0 }; openFocus(d.id); return; }
+    if (lastTap.id === d.id && t - lastTap.at < 320) { clearTimeout(tapTimer); lastTap = { id: null, at: 0 }; S.camTime[d.id] = null; openFocus(d.id); return; }   /* 4.1.5: opens on Live, not where the card was paused */
     lastTap = { id: d.id, at: t };
     clearTimeout(tapTimer);
     tapTimer = setTimeout(() => {
@@ -5463,7 +5463,7 @@ const ACT = {
       const el = document.getElementById('cam-' + d.id); if (el && S.expanded) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     }, 260);
   },
-  focus(d) { openFocus(d.id); },
+  focus(d) { S.camTime[d.id] = null; openFocus(d.id); },
   evtap(d, ev) {
     const e = evE(d.v); if (!e) return;
     const t = Date.now();
