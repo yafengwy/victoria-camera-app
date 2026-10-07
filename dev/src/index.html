@@ -4590,8 +4590,10 @@ function rvLayout(t) {
   const cams = rvCams(), hits = rvHits(cams, t);
   const top = hits[0] && !hits[0].np ? hits[0].c.id : null, lp = rvLp(t, cams);
   if (lp) S.rv.feat = lp;                                            /* an alert picked in the list keeps the big picture */
-  else if (top && top !== S.rv.autoFeat) { S.rv.feat = top; }       /* a new alert under the line takes the big picture */
-  S.rv.autoFeat = top || null;
+  /* 4.2.3: while playing, the big picture changes camera at most every 4 s (1-second car alerts on several cameras
+     swapped it every second, before any picture had loaded); dragging the timeline still changes it at once */
+  else if (top && top !== S.rv.autoFeat && (!S.playing || S.rv.t == null || Date.now() - (S.rv.featAt || 0) > 4000)) { if (S.rv.feat !== top) S.rv.featAt = Date.now(); S.rv.feat = top; S.rv.autoFeat = top; }
+  if (!top) S.rv.autoFeat = null;
   if (!S.rv.feat || !cams.some(c => c.id === S.rv.feat)) S.rv.feat = cams[0] && cams[0].id;
   const side = hits.map(x => x.c.id).filter(id => id !== S.rv.feat);
   /* narrow phone: the big picture takes the full width, everything else 2 per row */
@@ -6286,7 +6288,10 @@ setInterval(() => {
   });
   if (S.view === 'home') Data.cams.forEach(c => { if (c.id !== S.expanded) paintCam(c.id); });
   if (S.view === 'review') {
-    if (S.playing && S.rv.t != null) { const nt = S.rv.t + 1000 * S.speed; S.rv.t = nt >= now() - 1000 ? null : nt; S.rvLock = true; drawRvTrack(false); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); }
+    /* 4.2.3: playing waits (up to 4 s) while the big picture for this second is still loading, so each moment is seen */
+    const fi = S.rv.feat && document.querySelector('#rv-' + S.rv.feat + ' img'), wait = fi && (fi.dataset.busy === '1' || fi.dataset.ld === '1') && Date.now() - (S.rvWait || 0) < 4000;
+    if (!wait) S.rvWait = Date.now();
+    if (S.playing && S.rv.t != null && !wait) { const nt = S.rv.t + 1000 * S.speed; S.rv.t = nt >= now() - 1000 ? null : nt; S.rvLock = true; drawRvTrack(false); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); }
     paintReview();
   }
 }, 1000);
