@@ -3782,7 +3782,8 @@ function viewFocus() {
       const e = g.items.find(x => !x.motion) || g.items[0], key = String(e.t), ep = pick(e, S.filt);   /* the card shows the alert, not a motion piece next to it */
       if (objs.length > 1 && S.focus.og === key) {
         /* opened: every object in these alerts, newest first; tap one to go to when it showed up */
-        rows += '<div class="fev fstrip" style="top:' + (y - 32) + 'px">' + objs.map(o => {
+        /* 3.6.3: Interesting ones first (newest first among them), then Uninteresting (newest first) */
+        rows += '<div class="fev fstrip" style="top:' + (y - 32) + 'px">' + objs.slice().sort((a, b) => (b.hot ? 1 : 0) - (a.hot ? 1 : 0) || b.t - a.t).map(o => {
           const on = curT != null && Math.abs(curT - (o.t - 1000)) < 1500;
           return '<button class="fsi' + (on ? ' cur' : '') + (o.hot ? ' hot' : ' un') + '" data-act="fjump" data-t="' + o.t + '" aria-label="' + esc(objName(o.label)) + ' ' + hms(o.t) + '"><img src="' + o.img + '" alt="" loading="lazy"><span><i class="lico">' + objIcon(o.label) + '</i>' + hms(o.t) + '</span></button>';
         }).join('') + '</div>';
