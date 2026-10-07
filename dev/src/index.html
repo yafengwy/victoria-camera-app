@@ -1801,14 +1801,15 @@ const Live = {
   freeze(src, e) {
     const v = e.video, im = document.getElementById('img-' + this.cam(src));
     if (!v || !im || v.readyState < 2 || !v.videoWidth) return;
-    try { const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight; c.getContext('2d').drawImage(v, 0, 0); im.src = c.toDataURL('image/jpeg', 0.85); im.dataset.frozen = '1'; } catch (x) {}
+    try { const k = Math.min(1, 640 / v.videoWidth), c = document.createElement('canvas'); c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); im.src = c.toDataURL('image/jpeg', 0.85); im.dataset.frozen = '1'; } catch (x) {}
   },
   idle(src) { return PHONE_LIVE() && S.view === 'home' && !S.watch && !this.wantLive(this.cam(src)); },
   on() { return Data.source === 'frigate' && !!(window.customElements && customElements.get('live-cam')); },
   cam(src) { return String(src).replace(/_sub$/, ''); },
-  /* grid cards are small: use the camera's light "_sub" stream (fast to start, cheap to decode); list cards,
+  /* 3.8.5: on phones every home card (opened one and list too) uses the light stream; 4K main streams froze the iPhone 5-9 s when a card opened. Full view stays HD.
+     grid cards are small: use the camera's light "_sub" stream (fast to start, cheap to decode); list cards,
      the opened card, full view and full screen use the HD stream */
-  cardSrc(id) { return S.layout === 'grid' && S.expanded !== id && Frigate.streams && Frigate.streams[id + '_sub'] ? id + '_sub' : id; },
+  cardSrc(id) { return (PHONE_LIVE() || S.layout === 'grid' && S.expanded !== id) && Frigate.streams && Frigate.streams[id + '_sub'] ? id + '_sub' : id; },
   holder(src, hide, id) { return Data.source === 'frigate' && Ctl.on(this.cam(src)) ? '<div class="lvh"' + (id ? ' id="' + id + '"' : '') + ' data-live="' + esc(src) + '"' + (hide ? ' hidden' : '') + '></div>' : ''; },
   el(src) {
     let e = this.els[src];
