@@ -1322,7 +1322,7 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .dvlights{gap:6px}
 .dvpill{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:5px;height:26px;border-radius:13px;background:var(--track);color:var(--head-fg);font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden}
 .dvpill .dvi{width:14px;height:14px}.dvpill .dvi svg{width:14px;height:14px}
-.dvpill.on{background:#F5B400;color:#1a1200}.dvpill.on .dvi{color:#1a1200}
+.dvpill.on .dvi{color:#F5B400}   /* lights: only the bulb turns yellow */
 .pctl.g3 .pfixb{order:4}.pctl.g3 .o-pw{order:4}.pctl.g3 .o-dt{order:5}.pctl.g3 .o-bx{order:6}.pctl.g3 .o-sn{order:7}.pctl.g3 .o-lv{order:8}
 .pctl.g3 .pg{display:contents}
 @media (max-width:600px){
@@ -3266,10 +3266,11 @@ const DEV_ICON = {
 };
 /* lock: Lock / Unlock (green when locked, red when not); lights: several lights in one row; cover: fixed positions
    (shut = at or under "shut"; coloured whenever it is open). Unlock and Open Gate ask for a second tap. */
+const DEV_GATE = { type: 'cover', icon: 'gate', e: 'cover.garage_gate', name: 'Garage Gate', shut: 2, opts: [['g_gate_close', 'Close', 0], ['g_gate_open', 'Open', 80, 1]] };
 const DEV_GARAGE = [
   { type: 'lock', e: 'lock.garage_door_lock', name: 'Garage Door Lock', lock: 'g_lock', unlock: 'g_unlock' },
-  { type: 'lights', items: [{ e: 'light.garage_light', name: 'Garage Light', on: 'g_light_on', off: 'g_light_off' }, { e: 'light.garage_gate_light', name: 'Gate Light', on: 'g_gatelight_on', off: 'g_gatelight_off' }] },
-  { type: 'cover', icon: 'gate', e: 'cover.garage_gate', name: 'Garage Gate', shut: 2, opts: [['g_gate_close', 'Close', 0], ['g_gate_open', 'Open', 80, 1]] }
+  DEV_GATE,
+  { type: 'lights', items: [{ e: 'light.garage_light', name: 'Garage Light', on: 'g_light_on', off: 'g_light_off' }, { e: 'light.garage_gate_light', name: 'Gate Light', on: 'g_gatelight_on', off: 'g_gatelight_off' }] }
 ];
 const DEV_FRONT = [
   { type: 'lock', e: 'lock.front_door_deadbolt', name: 'Deadbolt', lock: 'fd_lock', unlock: 'fd_unlock' },
@@ -3278,8 +3279,11 @@ const DEV_FRONT = [
 const DEV = {
   nest_doorbell: DEV_FRONT,
   front_door: DEV_FRONT,
+  driveway: [DEV_GATE, { type: 'lights', items: [{ e: 'light.front_yard_light', name: 'Front Yard Light', on: 'fy_light_on', off: 'fy_light_off' }] }],
+  nest_backyard: [{ type: 'lights', items: [{ e: 'light.back_yard_light', name: 'Back Yard Light', on: 'by_light_on', off: 'by_light_off' }, { e: 'light.philips_hue_outdoor_wall', name: 'Outdoor Wall', on: 'hue_wall_on', off: 'hue_wall_off' }] }],
+  left_yard: [{ type: 'lights', items: [{ e: 'light.left_yard_light', name: 'Left Yard Light', on: 'ly_light_on', off: 'ly_light_off' }] }],
   california_room: [
-    { type: 'light', e: 'light.california_room_light', name: 'California Room Light', on: 'cr_light_on', off: 'cr_light_off' },
+    { type: 'lights', items: [{ e: 'light.california_room_light', name: 'California Room Light', on: 'cr_light_on', off: 'cr_light_off' }] },
     { type: 'cover', icon: 'cover', e: 'cover.california_curtain_r', name: 'California Curtain', shut: 10, opts: [['cr_curtain_6', 'Close', 6], ['cr_curtain_40', '40%', 40], ['cr_curtain_75', '75%', 75]] }
   ],
   garage1: DEV_GARAGE,
