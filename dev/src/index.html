@@ -1825,7 +1825,7 @@ const Live = {
   /* 3.8.6 phones: the moment a Still card's picture is from: the last motion, or the last live frame kept when it froze (a tapped card) */
   stillAt(id) { const m = Data.motion(id), f = this.fz[id]; const t = Math.max(m.last || 0, f ? f.at : 0); return t || null; },
   pic(id, img) { const f = PHONE_LIVE() && S.view === 'home' && this.fz[id]; return f && f.at >= (Data.motion(id).last || 0) ? f.src : img; },   /* newer motion since: Frigate's picture is newer */
-  wantLive(id) { const m = Data.motion(id); return m.active || (m.last != null && now() - m.last < 60000) || (S.forced[id] && S.forced[id] > now()) || S.expanded === id || !!(S.focus && S.focus.cam === id); },
+  wantLive(id) { const m = Data.motion(id); return m.active || (m.last != null && now() - m.last < 60000) || (S.forced[id] && S.forced[id] > now()) || S.expanded === id || !!(S.focus && S.focus.cam === id) || !!this.sw.act[id]; },
   /* the card keeps the live stream's last frame (the last moment anything moved), not a newer snapshot */
   freeze(src, e, quiet) {
     const v = e.video, im = document.getElementById('img-' + this.cam(src));
@@ -1836,6 +1836,28 @@ const Live = {
   /* 3.8.8: a reload, a new version or leaving the app also keeps each playing card's last frame (a card watched and then
      reloaded within its minute never froze, so nothing was kept) */
   keepAll() { if (!PHONE_LIVE() || S.view !== 'home') return; for (const src in this.els) { const e = this.els[src]; if (!e.suspended && e.isConnected && e.video && e.video.readyState >= 2) this.freeze(src, e); } },
+  /* 3.9.5 phones (her rule): on opening the app, coming back to it or pulling down to reload, every camera fetches a
+     fresh live picture, 4 at a time, the ones on screen first (top to bottom; scrolling brings the next ones in).
+     Each plays until it has a full picture (6 s of play) and is then let go: no motion = Still on that picture, motion
+     = stays live. Cards not done yet keep their last kept picture. Up to 25 s per camera. */
+  sw: { pend: new Set(), act: {} },
+  sweepStart(why) { if (!PHONE_LIVE() || !this.on()) return; this.sw.pend = new Set(Data.cams.filter(c => Ctl.on(c.id)).map(c => c.id)); this.sw.act = {}; Dbg.log('refresh pictures', why, this.sw.pend.size + ' cameras'); this.sweep(); },
+  sweep() {
+    const sw = this.sw; if (!PHONE_LIVE() || (!sw.pend.size && !Object.keys(sw.act).length)) return;
+    const t = now();
+    for (const id in sw.act) { const e = this.els[this.cardSrc(id)];
+      if (e && e.okSince && t - e.okSince > 6500) { Dbg.log('refreshed', id, ((t - sw.act[id]) / 1000).toFixed(1) + 's'); delete sw.act[id]; }
+      else if (t - sw.act[id] > 25000) { Dbg.log('refresh gave up', id, 'no picture in 25 s'); delete sw.act[id]; } }
+    if (S.view !== 'home' || document.hidden || S.focus) { this.policy(); return; }
+    const top = id => { const n = document.getElementById('cam-' + id); if (!n) return null; const r = n.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.width > 0 ? r.top : null; };
+    const cand = [];
+    for (const id of sw.pend) { const m = Data.motion(id);
+      if (m.active || (m.last != null && t - m.last < 60000)) { sw.pend.delete(id); continue; }   /* live anyway (motion) */
+      const y = top(id); if (y != null) cand.push([y, id]); }
+    cand.sort((a, b) => a[0] - b[0]);
+    while (Object.keys(sw.act).length < 4 && cand.length) { const id = cand.shift()[1]; sw.pend.delete(id); sw.act[id] = t; }
+    this.policy();
+  },
   idle(src) { return PHONE_LIVE() && S.view === 'home' && !S.watch && !this.wantLive(this.cam(src)); },
   on() { return Data.source === 'frigate' && !!(window.customElements && customElements.get('live-cam')); },
   cam(src) { return String(src).replace(/_sub$/, ''); },
@@ -1865,7 +1887,7 @@ const Live = {
   },
   /* a stream whose picture stops moving for 6 s is restarted on its own */
   watch() {
-    this.policy();   /* 3.8.3: the 1-minute Still rule on phones */
+    this.sweep(); this.policy();   /* 3.8.3: the 1-minute Still rule on phones; 3.9.5 refresh pictures 4 at a time */
     /* 3.8.9 phones: while a card plays, its picture is kept every 5 s, so whatever ends it (reload, the phone closing
        the page for memory, leaving the app) the card still shows what the live video last showed */
     /* 3.8.10: how long each stream takes from connecting to a moving picture goes to the log; a frame is only kept once
@@ -2427,8 +2449,18 @@ const isAttr = l => isLogo(l) || ['face', 'license_plate'].includes(String(l).to
 const niceName = n => String(n).replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase());
 /* People: names from Frigate face recognition, plus names given to a person alert in this app (saved in Frigate as the
    person's sub label, so every phone sees them). The Face Library itself lives in Frigate (/api/faces). */
+/* 3.9.5 her rule: "Not X" goes to Frigate+ only with Send To Frigate+ ticked; unticked it is only hidden in this app
+   (kept on this phone) and nothing is sent or learned */
+const NotX = {
+  ids: (() => { try { return JSON.parse(localStorage.getItem('vhnotx') || '[]'); } catch (e) { return []; } })(),
+  add(d) { if (!this.ids.includes(d)) { this.ids.push(d); if (this.ids.length > 3000) this.ids.splice(0, this.ids.length - 3000); try { localStorage.setItem('vhnotx', JSON.stringify(this.ids)); } catch (e) {} } }
+};
+async function markWrong(d, send) {
+  if (!send) { NotX.add(d); People.fp[d] = 1; return { ok: true, msg: 'app only' }; }
+  return People.post('/api/events/' + encodeURIComponent(d) + '/false_positive');
+}
 const People = {
-  sub: {}, person: {}, lab: {}, fp: {}, co: {}, faces: null, faceOn: false, faceCams: [], busy: false,
+  sub: {}, person: {}, lab: {}, fp: Object.fromEntries(NotX.ids.map(d => [d, 1])), co: {}, faces: null, faceOn: false, faceCams: [], busy: false,
   /* 3.1.4: cats and dogs too: their names (the Cats model in Frigate, or Fix here) and the ones marked wrong (Not Cat) */
   async loadSubs() {
     try {
@@ -2517,7 +2549,7 @@ const CoFix = {
       for (const d of all.filter(x => People.lab[x] === 'car')) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: 'Car' }); if (r.ok) People.co[d] = 'Car'; else ok = false; }
     } else if (pick[0] === '-') {
       const l = pick.slice(1);
-      for (const d of all.filter(x => People.lab[x] === l)) { if (People.fp[d]) continue; const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else { ok = false; Dbg.log('fix refused', d, f.msg); } }
+      for (const d of all.filter(x => People.lab[x] === l)) { if (People.fp[d]) continue; const f = await markWrong(d, send); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else { ok = false; Dbg.log('fix refused', d, f.msg); } }
     } else {
       const plus = isLogo(pick), key = plus ? pick.toLowerCase() : pick, cars = all.filter(d => People.lab[d] === 'car'), tgt = cars.length ? cars : all;
       for (const d of tgt) {
@@ -2586,7 +2618,7 @@ const CatFix = {
   /* pick = a cat's name, or '-<label>' for Not <label>: only that kind's detections are marked wrong. Frigate+ files a
      false positive under the detection's own label (dog under dog), so it learns that one. A non-cat animal given a
      cat's name is marked wrong too (it was a cat, not a dog). */
-  async save(k, pick, teach) {
+  async save(k, pick, teach, plus) {
     const all = await this.dets(k); if (!all.length) return { ok: false, msg: 'No Animal In This Alert' };
     /* 3.2.3 Not Ours ('0'): a real animal that is not one of the cats: name removed, its pictures taught as none */
     if (pick === '0') {
@@ -2610,10 +2642,10 @@ const CatFix = {
       const was = People.lab[d];
       if (pick) {
         const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: pick }); if (r.ok) People.sub[d] = pick; else ok = false;
-        if (was !== 'cat' && !People.fp[d]) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; }
+        if (was !== 'cat' && !People.fp[d] && plus) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; }
       } else {
         if (People.sub[d]) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: '' }); if (r.ok) delete People.sub[d]; }
-        if (!People.fp[d]) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else { ok = false; Dbg.log('fix refused', d, f.msg); } }
+        if (!People.fp[d]) { const f = await markWrong(d, plus); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else { ok = false; Dbg.log('fix refused', d, f.msg); } }
       }
       if (teach && this.model && (this.objs || ['cat']).includes(was)) {
         if (!files) { try { files = await Frigate.get('/api/classification/' + encodeURIComponent(this.model) + '/train'); } catch (x) { files = []; } }
@@ -2705,7 +2737,7 @@ function modalWho() {
     (cur === '+' ? '<input id="whonew" class="field" type="text" placeholder="Name, E.g. Ayi" autocomplete="off" value="' + esc(S.whoNew || '') + '">' : '') +
     '<div class="lbl">Or Wrong Object</div><div class="chips"><button class="chip sm" data-act="whopick" data-v="-person" aria-pressed="' + (cur === '-person') + '">Not Person</button></div>' +
     (cur !== '-person' && People.faceOn && People.faceCams.includes(e.cam) ? '<button class="check" role="checkbox" aria-checked="' + (S.whoTeach === true) + '" data-act="whoteach"><span class="box">' + (S.whoTeach === true ? I.check : '') + '</span>Teach Face Recognition</button>' : '') +
-    (cur === '-person' ? '<div class="wtnote" style="margin:6px 0 0">Not Person: Marked Wrong In Frigate And Sent To Frigate+ As A Wrong Person · This Alert Goes Away</div>'
+    (cur === '-person' ? '<button class="check" role="checkbox" aria-checked="' + (S.fixPlus !== false) + '" data-act="fixplus"><span class="box">' + (S.fixPlus !== false ? I.check : '') + '</span>Send To Frigate+</button>' + '<div class="wtnote" style="margin:6px 0 0">Not Person: ' + (S.fixPlus !== false ? 'Marked Wrong In Frigate And Sent To Frigate+ As A Wrong Person' : 'Hidden In This App Only · Nothing Sent Or Learned') + ' · This Alert Goes Away</div>'
       : cur === '+' ? '<div class="wtnote" style="margin:6px 0 0">New Person: ' + (S.whoTeach === true && People.faceOn ? 'Adds Them To Face Recognition In Frigate With This Face' : 'Names This Alert · Tick Teach Face Recognition To Add Them There') + '</div>' : '') +
     '<button class="btn solid snzgo" data-act="whosave"' + (cur ? '' : ' disabled') + '>Save</button>' +
     (e.who && e.dets.some(d => People.sub[d]) ? '<button class="btn snzgo" style="margin-top:6px" data-act="whoclear">Remove Name</button>' : '') +
@@ -2721,7 +2753,7 @@ function modalFix() {
     '<div class="lbl" style="margin-top:6px">Which Cat Is It?</div><div class="chips">' + names.map(n => chip(n, niceName(n))).join('') + chip('0', 'Not Ours') + (S.fixKinds || []).map(l => chip('-' + l, 'Not ' + objName(l))).join('') + '</div>' +
     '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Teach The Cats Model</button>' +
     (cur === '0' ? '<div class="wtnote" style="margin:6px 0 0">Not Ours: A Real Animal, But Not 胖胖 Or 团团 · Name Removed, Taught To The Cats Model As None · The Alert Stays</div>' : '') +
-    (cur && cur[0] === '-' ? '<div class="wtnote" style="margin:6px 0 0">Not ' + esc(objName(cur.slice(1))) + ': Wrong Animal Or Not An Animal · Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) + ' (Draw What It Really Is When You Verify There) · This Alert Goes Away</div>' : '') +
+    (cur && cur[0] === '-' ? '<button class="check" role="checkbox" aria-checked="' + (S.fixPlus !== false) + '" data-act="fixplus"><span class="box">' + (S.fixPlus !== false ? I.check : '') + '</span>Send To Frigate+</button>' + '<div class="wtnote" style="margin:6px 0 0">Not ' + esc(objName(cur.slice(1))) + ': Wrong Animal Or Not An Animal · ' + (S.fixPlus !== false ? 'Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) + ' (Draw What It Really Is When You Verify There)' : 'Hidden In This App Only · Nothing Sent Or Learned') + ' · This Alert Goes Away</div>' : '') +
     '<button class="btn solid snzgo" data-act="fixsave"' + (cur ? '' : ' disabled') + '>' + (S.fixBusy ? 'Saving…' : 'Save') + '</button>' +
     '</div></div></div>';
 }
@@ -2738,8 +2770,9 @@ function modalCoFix() {
     '<div class="lbl"' + (car ? '' : ' style="margin-top:6px"') + '>' + (car ? 'Or' : 'This Is Wrong') + '</div><div class="chips">' + (car ? chip('=car', 'Mark As Car') : '') + (S.fixKinds || []).map(l => chip('-' + l, 'Not ' + objName(l))).join('') + '</div>' +
     (plus ? '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Send To Frigate+</button>' : '') +
     (cur && cur[0] !== '-' && cur !== '=car' && !plus && CoFix.model ? '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Teach The Car Model</button>' : '') +
+    (cur && cur[0] === '-' ? '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Send To Frigate+</button>' : '') +
     (cur === '+' ? '<div class="wtnote" style="margin:6px 0 0">' + (S.fixTeach !== false ? 'Adds This Company To Your Car Model In Frigate And Teaches It With This Car' : 'Renamed In The App Only · Your Car Model Learns Nothing') + '</div>' : '') +
-    (cur && cur !== '+' && cur !== '=car' ? '<div class="wtnote" style="margin:6px 0 0">' + (cur[0] === '-' ? 'Not ' + esc(objName(cur.slice(1))) + ': Marked Wrong In Frigate And Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) + ' · This Alert Goes Away'
+    (cur && cur !== '+' && cur !== '=car' ? '<div class="wtnote" style="margin:6px 0 0">' + (cur[0] === '-' ? 'Not ' + esc(objName(cur.slice(1))) + ': ' + (S.fixTeach !== false ? 'Marked Wrong In Frigate And Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) : 'Hidden In This App Only · Nothing Sent Or Learned') + ' · This Alert Goes Away'
       : plus ? esc(coName(cur)) + ': Frigate Renames It Now' + (S.fixTeach !== false ? ' · The Picture Waits In Frigate+ For You To Verify' : '')
       : esc(cur) + ': Frigate Renames It Now' + (S.fixTeach !== false ? ' · Your Car Model Learns It Right Away' : ' · Your Car Model Learns Nothing')) + '</div>' : '') +
     '<button class="btn solid snzgo" data-act="cofixsave"' + (cur ? '' : ' disabled') + '>' + (S.fixBusy ? 'Saving…' : 'Save') + '</button>' +
@@ -5148,10 +5181,11 @@ const ACT = {
   },
   fixpick(d) { const i = document.getElementById('conew'); if (i) S.coNew = i.value; S.fixPick = S.fixPick === d.v ? '' : d.v; render(); if (S.fixPick === '+') { const n = document.getElementById('conew'); if (n) n.focus(); } },
   fixteach() { S.fixTeach = S.fixTeach === false; render(); },
+  fixplus() { S.fixPlus = S.fixPlus === false; render(); },
   async fixsave() {
     if (S.fixBusy || !S.fixPick) return; const k = S.fixK, e = evE(k); if (!e) return;
     S.fixBusy = true; render();
-    const pickv = S.fixPick, r = await CatFix.save(k, pickv, S.fixTeach !== false); S.fixBusy = false;
+    const pickv = S.fixPick, r = await CatFix.save(k, pickv, S.fixTeach !== false, S.fixPlus !== false); S.fixBusy = false;
     if (!r.ok && r.msg) { toast(r.msg); render(); return; }
     whoOf(e); fixPets(e); if (e.gone) Data.events = Data.events.filter(x => x !== e);
     S.modal = null; render();
@@ -5169,7 +5203,7 @@ const ACT = {
       for (const d of e.dets || []) {
         if (!People.lab[d]) { try { const r = await Frigate.get('/api/events/' + encodeURIComponent(d)); People.lab[d] = r.label; if (r.false_positive) People.fp[d] = 1; } catch (x) {} }
         if (People.lab[d] !== 'person' || People.fp[d]) continue;
-        const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else { ok = false; Dbg.log('fix refused', d, f.msg); }
+        const f = await markWrong(d, S.fixPlus !== false); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else { ok = false; Dbg.log('fix refused', d, f.msg); }
       }
       People.busy = false; Dbg.log('fix', e.id, 'not person', ok ? 'ok' : 'not all taken');
       fixPets(e); if (e.gone) Data.events = Data.events.filter(x => x !== e);
@@ -6121,13 +6155,14 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   if (back && ['events', 'review', 'people'].includes(back.v)) { S.view = back.v; if (back.v === 'events') S.evDay = Math.max(0, Math.min(6, +back.d || 0)); }
   pageReady = true;
   render(); Dbg.log('start first screen', (Date.now() - t0) + 'ms', 'motion ' + (Motion.up ? 'up' : 'not yet'), back && back.v !== 'home' ? 'back to ' + back.v : '');
+  if (PHONE_LIVE()) setTimeout(() => Live.sweepStart('start'), 300);
   if (PHONE_LIVE()) Dbg.log('kept frames', Object.keys(Live.fz).length + ' saved', document.querySelectorAll('img[data-frozen]').length + ' shown');
   if (back && back.f && Data.cam(back.f) && !location.hash.includes('cam=')) openFocus(back.f);
   if (Data.evReady) Data.evReady.then(() => { if (Data.source === 'frigate') { Motion.seed(); LastMo.load(); } if (!S.dragging && !S.modal) render(); else if (S.expanded) refreshTrack(); });
   if (Data.source === 'frigate') {
     Diag.run();
     setInterval(() => Motion.ensure(), 3000); setInterval(() => Live.watch(), 2000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) { Motion.ensure(); Frigate.refresh(); LastMo.load(); HA.get(); Snz.get(); Wait.get(); } });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { Motion.ensure(); Frigate.refresh(); LastMo.load(); Live.sweepStart('back to app'); HA.get(); Snz.get(); Wait.get(); } });
     window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); HA.get(); setInterval(() => HA.get(), 10000); if (store.get('boxes', false)) Box.set(true); if (!Playback.native()) Playback.hls().catch(() => {}); Snz.get(); setInterval(() => Snz.get(), 15000); Wait.get(); setInterval(() => Wait.get(), 15000); FpQ.run(); setInterval(() => FpQ.run(), 120000);
     setInterval(() => { if (S.view === 'home' && !S.modal && (Snz.active() || Wait.active() || document.querySelector('.snzban'))) render(); }, 60000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000); Pic.poll(); setInterval(() => Pic.poll(), 15000);
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
