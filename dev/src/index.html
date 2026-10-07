@@ -2314,8 +2314,8 @@ const People = {
   /* 3.1.4: cats and dogs too: their names (the Cats model in Frigate, or Fix here) and the ones marked wrong (Not Cat) */
   async loadSubs() {
     try {
-      const rows = await Frigate.get('/api/events?labels=person,' + PETL.join(',') + '&limit=3000&include_thumbnails=0&after=' + Math.floor((now() - 7 * DAY) / 1000));
-      rows.forEach(r => { if (r.label !== 'person' && !isAnimal(r.label)) return; this.lab[r.id] = r.label; if (r.false_positive) this.fp[r.id] = 1;
+      const rows = await Frigate.get('/api/events?labels=person,package,' + PETL.join(',') + '&limit=3000&include_thumbnails=0&after=' + Math.floor((now() - 7 * DAY) / 1000));
+      rows.forEach(r => { if (r.label !== 'person' && r.label !== 'package' && !isAnimal(r.label)) return; this.lab[r.id] = r.label; if (r.false_positive) this.fp[r.id] = 1; if (r.label === 'package') return;   /* 3.5.10: packages only for Not Package */
         if (r.label === 'person') this.person[r.id] = 1;
         const n = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label; if (n && !isLogo(n) && String(n).toLowerCase() !== 'unknown' && String(n).toLowerCase() !== 'none') this.sub[r.id] = n; });
     } catch (e) {}
@@ -2386,12 +2386,12 @@ const CoFix = {
     const c = EVK[k], e = evE(k); if (!e) return [];
     const ds = c && c.g ? c.g.ps.map(x => x.d) : (e.dets || []);
     for (const d of ds) if (!People.lab[d]) { try { const r = await Frigate.get('/api/events/' + encodeURIComponent(d)); People.lab[d] = r.label; if (r.false_positive) People.fp[d] = 1; } catch (x) {} }
-    return ds.filter(d => People.lab[d] === 'car' || People.lab[d] === 'person');
+    return ds.filter(d => People.lab[d] === 'car' || People.lab[d] === 'person' || People.lab[d] === 'package');   /* 3.5.10: package too (Not Package) */
   },
   async kinds(k) { const ds = await this.dets(k); return [...new Set(ds.map(d => People.lab[d]))].sort((a, b) => objRank(a) - objRank(b)); },
-  /* pick = a company, or '-car' / '-person' */
+  /* pick = a company, or '-car' / '-person' / '-package' */
   async save(k, pick, send) {
-    const all = await this.dets(k); if (!all.length) return { ok: false, msg: 'No Car Or Person In This Alert' };
+    const all = await this.dets(k); if (!all.length) return { ok: false, msg: 'Nothing To Fix In This Alert' };
     let ok = true, taught = 0, sent = 0, files = null;
     if (pick === '=car') {
       /* 3.2.8 Just A Car: a car the model guessed as a delivery company. Frigate's sub label becomes "Car" (so the guess
@@ -2426,6 +2426,7 @@ function coFix(e) {
   e.interesting = e.sev === 'alert' || Wait.hit(e.t, e.subs) || coCam(e.cam, e.subs);
   return e;
 }
+const hasPkg = e => !e.motion && Data.source === 'frigate' && [e.label, ...(e.objs || [])].some(o => /^package$/i.test(String(o)));   /* 3.5.10: Fix → Not Package */
 const coOf = e => e.co || (e.logo ? coName(e.logo) : String(e.who || '').split(' · ').find(x => CoFix.isCo(x)) || '');
 const PETL = ['cat', 'dog', 'raccoon', 'rabbit', 'squirrel', 'fox', 'bird', 'deer', 'bear', 'horse', 'skunk', 'opossum'];
 const isAnimal = l => PETL.includes(String(l || '').toLowerCase());
@@ -2609,13 +2610,14 @@ function modalFix() {
 function modalCoFix() {
   const e = evE(S.fixK); if (!e) return '';
   const p = evP(S.fixK, S.filt) || pick(e, S.filt), cur = S.fixPick, plus = cur && cur[0] !== '-' && isLogo(cur);
+  const car = coOf(e) || (S.fixKinds || []).includes('car');   /* 3.5.10: a package-only alert just gets Not Package */
   const chip = (v, t) => '<button class="chip sm" data-act="fixpick" data-v="' + esc(v) + '" aria-pressed="' + (cur === v) + '">' + esc(t) + '</button>';
   return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm snzd" role="dialog" aria-label="Fix This Alert" data-stop="1">' +
     '<div class="dhead">Fix This Alert<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
     '<img class="whoimg crop" src="' + evImg(e, p) + '" alt="">' +
-    '<div class="lbl" style="margin-top:6px">Which Company?</div><div class="chips">' + CoFix.all().map(n => chip(n, isLogo(n) ? coName(n) : n)).join('') + (CoFix.model ? chip('+', '＋ New Company') : '') + '</div>' +
+    (car ? '<div class="lbl" style="margin-top:6px">Which Company?</div><div class="chips">' + CoFix.all().map(n => chip(n, isLogo(n) ? coName(n) : n)).join('') + (CoFix.model ? chip('+', '＋ New Company') : '') + '</div>' : '') +
     (cur === '+' ? '<input id="conew" class="field" type="text" placeholder="Company Name, E.g. Instacart" autocomplete="off" value="' + esc(S.coNew || '') + '">' : '') +
-    '<div class="lbl">Or</div><div class="chips">' + chip('=car', 'Mark As Car') + (S.fixKinds || []).map(l => chip('-' + l, 'Not ' + objName(l))).join('') + '</div>' +
+    '<div class="lbl"' + (car ? '' : ' style="margin-top:6px"') + '>' + (car ? 'Or' : 'This Is Wrong') + '</div><div class="chips">' + (car ? chip('=car', 'Mark As Car') : '') + (S.fixKinds || []).map(l => chip('-' + l, 'Not ' + objName(l))).join('') + '</div>' +
     (plus ? '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Send To Frigate+</button>' : '') +
     (cur === '+' ? '<div class="wtnote" style="margin:6px 0 0">Adds This Company To Your Car Model In Frigate And Teaches It With This Car</div>' : '') +
     (cur && cur !== '+' && cur !== '=car' ? '<div class="wtnote" style="margin:6px 0 0">' + (cur[0] === '-' ? 'Not ' + esc(objName(cur.slice(1))) + ': Marked Wrong In Frigate And Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) + ' · This Alert Goes Away'
@@ -3541,7 +3543,7 @@ function viewEvents() {
     if (sel) {
       const sc = Data.cam(sel.cam), sp = evP(sk, f);
       h += '<article class="evcard big' + (sel.interesting || sel.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + (sel.motion ? '<i class="modot"></i>Motion' : '<i class="lico">' + objIcon(ico(sel, sp)) + '</i>' + ttlHtml(sk, sc0.g ? labGroup(sc0.g) : labAll(sel, sp, f))) + ' At ' + hms(sp.t) + '</b></div>' +
-        (isPet(sel, sk) ? '<button class="whob" data-act="fixopen" data-v="' + esc(sk) + '">Fix</button>' : coOf(sel) && Data.source === 'frigate' && !sel.motion ? '<button class="whob" data-act="cofixopen" data-v="' + esc(sk) + '">Fix</button>' : '') +
+        (isPet(sel, sk) ? '<button class="whob" data-act="fixopen" data-v="' + esc(sk) + '">Fix</button>' : (coOf(sel) && Data.source === 'frigate' && !sel.motion) || hasPkg(sel) ? '<button class="whob" data-act="cofixopen" data-v="' + esc(sk) + '">Fix</button>' : '') +
         (hasPerson(sel) && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(sel.id) + '">' + (sel.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Open Camera" data-act="focusat" data-id="' + esc(sel.cam) + '" data-t="' + sp.t + '">' + I.expand + '</button>' +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(sk) + '">' + I.dl + '</button>' +
@@ -3565,7 +3567,7 @@ function viewEvents() {
         return;
       }
       h += '<article class="evcard' + (e.interesting || e.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + icn + (e.motion ? esc(ttl) : ttlHtml(k, ttl)) + ' At ' + hms(p.t) + '</b></div>' +
-        (isPet(e, k) ? '<button class="whob" data-act="fixopen" data-v="' + esc(k) + '">Fix</button>' : coOf(e) && Data.source === 'frigate' && !e.motion ? '<button class="whob" data-act="cofixopen" data-v="' + esc(k) + '">Fix</button>' : '') +
+        (isPet(e, k) ? '<button class="whob" data-act="fixopen" data-v="' + esc(k) + '">Fix</button>' : (coOf(e) && Data.source === 'frigate' && !e.motion) || hasPkg(e) ? '<button class="whob" data-act="cofixopen" data-v="' + esc(k) + '">Fix</button>' : '') +
         (hasPerson(e) && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(k) + '">' + I.dl + '</button>' +
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(k) + '">' + I.trash + '</button>' : '') +
@@ -4328,7 +4330,7 @@ function focusFix(cid, cls) {
   const evs = Data.events.filter(e => e.cam === cid && !e.motion && t >= e.t - 3000 && t <= (e.end || e.t + 20000) + 3000);
   if (!evs.length) return '';
   const e = evs.sort((a, b) => (b.interesting ? 1 : 0) - (a.interesting ? 1 : 0) || Math.abs(t - a.t) - Math.abs(t - b.t))[0];
-  return isPet(e, e.id) ? '<button class="' + cls + '" data-act="fixopen" data-v="' + esc(e.id) + '">Fix</button>' : coOf(e) ? '<button class="' + cls + '" data-act="cofixopen" data-v="' + esc(e.id) + '">Fix</button>' : '';
+  return isPet(e, e.id) ? '<button class="' + cls + '" data-act="fixopen" data-v="' + esc(e.id) + '">Fix</button>' : coOf(e) || hasPkg(e) ? '<button class="' + cls + '" data-act="cofixopen" data-v="' + esc(e.id) + '">Fix</button>' : '';
 }
 function evE(k) { const c = EVK[k]; if (c) return c.e; const id = String(k).split('~')[0]; return Data.events.find(x => x.id === id); }
 function evP(k, f) {
