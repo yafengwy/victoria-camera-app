@@ -2523,7 +2523,7 @@ const CoFix = {
       for (const d of tgt) {
         const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: key }); if (r.ok) People.co[d] = key; else ok = false;
         if (plus && send) { const p = await People.post('/api/events/' + encodeURIComponent(d) + '/plus', { include_annotation: 1 }); if (p.ok || /already/i.test(p.msg)) sent++; }
-        if (!plus && this.model && People.lab[d] === 'car') {
+        if (!plus && send && this.model && People.lab[d] === 'car') {   /* 3.9.3 her rule: the car model folder only with Teach ticked */
           if (!files) { try { files = await Frigate.get('/api/classification/' + encodeURIComponent(this.model) + '/train'); } catch (x) { files = []; } }
           for (const f of (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-2)) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: key, training_file: f }); if (t.ok) taught++; }
         }
@@ -2737,10 +2737,11 @@ function modalCoFix() {
     (cur === '+' ? '<input id="conew" class="field" type="text" placeholder="Company Name, E.g. Instacart" autocomplete="off" value="' + esc(S.coNew || '') + '">' : '') +
     '<div class="lbl"' + (car ? '' : ' style="margin-top:6px"') + '>' + (car ? 'Or' : 'This Is Wrong') + '</div><div class="chips">' + (car ? chip('=car', 'Mark As Car') : '') + (S.fixKinds || []).map(l => chip('-' + l, 'Not ' + objName(l))).join('') + '</div>' +
     (plus ? '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Send To Frigate+</button>' : '') +
-    (cur === '+' ? '<div class="wtnote" style="margin:6px 0 0">Adds This Company To Your Car Model In Frigate And Teaches It With This Car</div>' : '') +
+    (cur && cur[0] !== '-' && cur !== '=car' && !plus && CoFix.model ? '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Teach The Car Model</button>' : '') +
+    (cur === '+' ? '<div class="wtnote" style="margin:6px 0 0">' + (S.fixTeach !== false ? 'Adds This Company To Your Car Model In Frigate And Teaches It With This Car' : 'Renamed In The App Only · Your Car Model Learns Nothing') + '</div>' : '') +
     (cur && cur !== '+' && cur !== '=car' ? '<div class="wtnote" style="margin:6px 0 0">' + (cur[0] === '-' ? 'Not ' + esc(objName(cur.slice(1))) + ': Marked Wrong In Frigate And Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) + ' · This Alert Goes Away'
       : plus ? esc(coName(cur)) + ': Frigate Renames It Now' + (S.fixTeach !== false ? ' · The Picture Waits In Frigate+ For You To Verify' : '')
-      : esc(cur) + ': Frigate Renames It Now · Your Car Model Learns It Right Away') + '</div>' : '') +
+      : esc(cur) + ': Frigate Renames It Now' + (S.fixTeach !== false ? ' · Your Car Model Learns It Right Away' : ' · Your Car Model Learns Nothing')) + '</div>' : '') +
     '<button class="btn solid snzgo" data-act="cofixsave"' + (cur ? '' : ' disabled') + '>' + (S.fixBusy ? 'Saving…' : 'Save') + '</button>' +
     '</div></div></div>';
 }
