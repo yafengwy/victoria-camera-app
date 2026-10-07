@@ -471,6 +471,7 @@ img.rf{opacity:0}
 .rvcams.big3 .rvcam.nr{opacity:.5}
 .rvcam{position:relative;border-radius:10px;overflow:hidden;background:#1E2226;aspect-ratio:16/9}
 .rvcam img{width:100%;height:100%;object-fit:cover;display:block}
+.rvcam > video.rvv{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;pointer-events:none;background:transparent}
 .rvcam .nm{position:absolute;top:6px;left:6px;padding:3px 8px;border-radius:999px;background:rgba(18,22,24,.7);color:#fff;font-size:11px;font-weight:700}
 .rvcam .tm{position:absolute;top:5px;right:5px;padding:2px 6px;border-radius:999px;background:rgba(18,22,24,.6);color:#fff;font-size:10px;font-weight:500;font-variant-numeric:tabular-nums;pointer-events:none}
 .rvcam .tm[hidden]{display:none}
@@ -2209,7 +2210,7 @@ const Dbg = {
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
   save() { clearTimeout(this.tm); try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} },
-  text() { return 'Version 4.2.6 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 4.2.7 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -4938,12 +4939,68 @@ function rvMovingNow() { const rv = document.getElementById('rvsc'); return !!(r
 function rvSettle() { const rv = document.getElementById('rvsc'); if (rv && rv._touch) return; S.rvMoving = 0; if (S.view === 'review') paintReview(); }
 /* 4.1.2 Review, Big layout: pinch the big picture to zoom into it (one finger moves it while zoomed, double tap goes
    back). Only the picture on this phone is enlarged: nothing extra is asked of the mini PC. */
+/* 4.2.7 Review, Big layout: the big picture plays the camera's real recording (smooth video) while Review plays;
+   the small pictures keep following its time. The video sets the time; dragging the timeline or picking an alert moves
+   the video there. Sending a recording is lighter for the mini PC than decoding a picture for every second. */
+const RVid = {
+  v: null, h: null, cam: null, win: null, seq: 0, loading: false, ok: false, t0: 0, lastSet: null,
+  on(id) { return this.cam === id && this.ok && !!this.v && this.v.style.opacity === '1'; },
+  el() {
+    if (this.v) return this.v;
+    const v = document.createElement('video'); v.className = 'rvv'; v.muted = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto'; v.disableRemotePlayback = true;
+    v.addEventListener('playing', () => { if (!this.ok && this.cam) Dbg.log('review video playing', this.cam, ((performance.now() - this.t0) / 1000).toFixed(1) + 's'); this.ok = true; v.style.opacity = '1'; });
+    v.addEventListener('error', () => Dbg.log('review video error', this.cam || '', v.error ? v.error.code : ''));
+    return (this.v = v);
+  },
+  stop(why) {
+    this.seq++; if (!this.v) { this.cam = null; return; }
+    try { this.v.pause(); } catch (e) {} if (this.h) { try { this.h.destroy(); } catch (e) {} this.h = null; }
+    if (this.cam && why) Dbg.log('review video stop', this.cam, why);
+    this.v.removeAttribute('src'); try { this.v.load(); } catch (e) {} this.v.style.opacity = '0';
+    this.cam = null; this.win = null; this.ok = false; this.loading = false; this.lastSet = null;
+  },
+  mount() { const box = this.cam && document.getElementById('rv-' + this.cam); if (box && this.v && this.v.parentNode !== box) box.insertBefore(this.v, box.querySelector('.nm')); },
+  async load(id, t) {
+    this.stop(); const seq = this.seq; this.cam = id; this.loading = true; this.t0 = performance.now(); this.lastSet = t;
+    let a = Math.floor(t / 1000) - 5; const b = Math.min(Math.floor(now() / 1000), a + 300);
+    Dbg.log('review video load', id, hms(t));
+    try {
+      const rows = await Frigate.get('/api/' + id + '/recordings?after=' + (a - 60) + '&before=' + b); if (seq !== this.seq) return;
+      const hold = rows.filter(r => r.start_time <= a + 1 && r.end_time > a).sort((x, y) => y.start_time - x.start_time)[0]; if (hold) a = Math.floor(hold.start_time);
+      const segs = rows.filter(r => r.end_time > a).map(r => [Math.max(a, r.start_time), Math.min(b, r.end_time)]).filter(g => g[1] > g[0]).sort((x, y) => x[0] - y[0]);
+      this.win = { a, b, segs };
+      if (!segs.length) { this.loading = false; Dbg.log('review video none here', id, hms(t)); return; }
+      const v = this.el(); v.style.opacity = '0'; this.mount(); v.playbackRate = S.speed || 1;
+      const vt = Playback.vtime({ win: this.win }, t) || 0, url = Frigate.base() + '/vod/' + id + '/start/' + a + '/end/' + b + '/index.m3u8';
+      if (Playback.native()) { v.src = url; v.currentTime = vt; v.play().catch(() => {}); }
+      else { const H = await Playback.hls(); if (seq !== this.seq) return; this.h = new H({ startPosition: vt, maxBufferLength: 8, maxMaxBufferLength: 20, backBufferLength: 10 }); hlsLog(this.h, H, 'review video ' + id); this.h.loadSource(url); this.h.attachMedia(v); v.play().catch(() => {}); }
+    } catch (e) { if (seq === this.seq) Dbg.log('review video load error', id, String(e && e.message || e)); }
+    if (seq === this.seq) this.loading = false;
+  },
+  /* each second from the Review loop: true when the video is setting the time */
+  sync() {
+    const id = S.rv.feat, t = S.rv.t;
+    if (Data.source !== 'frigate' || S.view !== 'review' || rvLay() === 'grid' || !id || t == null) { if (this.cam) this.stop(S.view !== 'review' ? 'left review' : 'live or no big picture'); return false; }
+    this.mount();
+    if (this.cam !== id) { this.load(id, t); return false; }
+    if (this.loading || !this.win) return false;
+    const vt = Playback.vtime({ win: this.win }, t);
+    if (!this.win.segs.length || vt == null || t / 1000 < this.win.a) { if (!this.win.segs.length && t / 1000 >= this.win.a && t / 1000 < this.win.b - 3 && performance.now() - this.t0 < 5000) return false; this.load(id, t); return false; }
+    const v = this.v; v.playbackRate = S.speed || 1;
+    if (this.lastSet != null && Math.abs(t - this.lastSet) > 1500) { v.currentTime = vt; this.lastSet = t; if (S.playing) v.play().catch(() => {}); return false; }   /* moved by the user */
+    if (!S.playing) { if (!v.paused) v.pause(); return false; }
+    if (v.paused) v.play().catch(() => {});
+    if (!this.ok || v.readyState < 2) return false;
+    const w = Playback.wall({ win: this.win }, v.currentTime); if (w == null) return false;
+    S.rv.t = w >= now() - 1500 ? null : w; this.lastSet = S.rv.t; return true;
+  }
+};
 const RZ = {
   s: 1, x: 0, y: 0, id: null,
   tile() { return S.view === 'review' && rvLay() !== 'grid' && S.rv.feat ? document.getElementById('rv-' + S.rv.feat) : null; },
   apply() {
     if (this.id !== S.rv.feat) { this.id = S.rv.feat; this.s = 1; this.x = 0; this.y = 0; }
-    document.querySelectorAll('.rvcam > img').forEach(im => { const on = this.s > 1.01 && im.parentNode.id === 'rv-' + this.id;
+    document.querySelectorAll('.rvcam > img, .rvcam > video.rvv').forEach(im => { const on = this.s > 1.01 && im.parentNode.id === 'rv-' + this.id;
       const v = on ? 'translate(' + this.x + 'px,' + this.y + 'px) scale(' + this.s + ')' : ''; if (im.style.transform !== v) { im.style.transform = v; im.style.transformOrigin = on ? '0 0' : ''; } });
   },
   wire() {
@@ -4979,7 +5036,7 @@ const RZ = {
 };
 RZ.wire();
 function paintReview() {
-  RZ.apply();
+  RZ.apply(); RVid.mount();
   const t = S.rv.t, ht = S.hov && S.hov.id === 'rv' ? S.hov.t : undefined;
   rvCams().slice().sort((a, b) => (b.id === S.rv.feat) - (a.id === S.rv.feat)).forEach(c => {   /* the big picture is asked for first */
     const f = Data.frame(c, t), box = document.getElementById('rv-' + c.id); if (!box) return;
@@ -4996,6 +5053,7 @@ function paintReview() {
         /* only ask Frigate for pictures that can be seen: each one costs it a video decode, and on a small screen most
            tiles are scrolled away. Scrolling brings them in (paintReview runs on scroll). */
         const r = box.getBoundingClientRect(); if (r.bottom < -40 || r.top > innerHeight + 40) { rvMark(box, c, ht !== undefined ? ht : t); return; }
+        if (big && ht === undefined && RVid.on(c.id)) { rvMark(box, c, t); return; }   /* 4.2.7 the video shows it: no picture asked */
         if (ht === undefined && tt != null && rvMovingNow()) {
           const ev = rvAt(c, tt);
           if (ev && ev.img && img.getAttribute('src') !== ev.img && img.dataset.busy !== '1') { img.dataset.thumb = '1'; img.dataset.ld = ''; img.dataset.nrt = ''; img.src = ev.img; }
@@ -5103,7 +5161,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.2.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.2.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -5202,7 +5260,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.2.6');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.2.7');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5219,7 +5277,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.2.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.2.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -6300,9 +6358,10 @@ setInterval(() => {
     /* 4.2.3: playing waits (up to 4 s) while the big picture for this second is still loading, so each moment is seen */
     const fi = S.rv.feat && document.querySelector('#rv-' + S.rv.feat + ' img'), wait = fi && (fi.dataset.busy === '1' || fi.dataset.ld === '1') && Date.now() - (S.rvWait || 0) < 4000;
     if (!wait) S.rvWait = Date.now();
-    if (S.playing && S.rv.t != null && !wait) { const nt = S.rv.t + 1000 * S.speed; S.rv.t = nt >= now() - 1000 ? null : nt; S.rvLock = true; drawRvTrack(false); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); }
+    const vid = RVid.sync();
+    if (S.playing && S.rv.t != null && (vid || !wait)) { if (!vid) { const nt = S.rv.t + 1000 * S.speed; S.rv.t = nt >= now() - 1000 ? null : nt; } S.rvLock = true; drawRvTrack(false); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); }
     paintReview();
-  }
+  } else if (RVid.cam) RVid.stop('left review');
 }, 1000);
 
 document.addEventListener('visibilitychange', () => { if (document.hidden) { Live.keepAll(); S.forced = {}; } });
@@ -6357,7 +6416,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.2.6';
+    const BUILD = '4.2.7';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
