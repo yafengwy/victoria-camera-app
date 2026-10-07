@@ -2429,7 +2429,7 @@ function coFix(e) {
   e.interesting = e.sev === 'alert' || Wait.hit(e.t, e.subs) || coCam(e.cam, e.subs);
   return e;
 }
-const hasPkg = e => !e.motion && Data.source === 'frigate' && [e.label, ...(e.objs || [])].some(o => /^package$/i.test(String(o)));   /* 3.5.10: Fix → Not Package */
+const hasPkg = e => !e.motion && Data.source === 'frigate' && [e.label, ...(e.objs || [])].some(o => /^(package|car)$/i.test(String(o)));   /* 3.5.10: Fix → Not Package; 3.6.2: any car too (pick its company, Mark As Car, Not Car) */
 const coOf = e => e.co || (e.logo ? coName(e.logo) : String(e.who || '').split(' · ').find(x => CoFix.isCo(x)) || '');
 const PETL = ['cat', 'dog', 'raccoon', 'rabbit', 'squirrel', 'fox', 'bird', 'deer', 'bear', 'horse', 'skunk', 'opossum'];
 const isAnimal = l => PETL.includes(String(l || '').toLowerCase());
