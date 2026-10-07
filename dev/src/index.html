@@ -5061,9 +5061,9 @@ const ACT = {
     if (!byName) hit = xs.filter(x => objName(x.l).toLowerCase() === W || (W === 'cat' && x.sub && isAnimal(x.l)));
     if (!hit.length) { toast('No Time Found For ' + w); Dbg.log('jump', k, w, 'not found', xs.map(x => x.l + ':' + x.sub).join(',')); return; }
     hit.sort((a, b) => a.t - b.t); const x = hit.find(h => h.t >= e.t - 1000) || hit[0];
-    /* 3.4.6: already there before this alert (a parked car tracked since 18:48): go to this alert's start, not the clip's first frame; 3.4.7: no "since" time (two cars parked one after another in the same spot can share one tracking) */
+    /* 3.4.6: already there before this alert (a parked car tracked since 18:48): go to this alert's start, not the clip's first frame; 3.4.8: back to There Since (her pick) */
     const early = x.t < e.t - 1000, at = early ? e.t : x.t;
-    toast(w + (byName ? ' = ' + objName(x.l) : '') + (early ? ' · Already There' : ' · ' + hms(x.t)));
+    toast(w + (byName ? ' = ' + objName(x.l) : '') + (early ? ' · There Since ' + hms(x.t) : ' · ' + hms(x.t)));
     Dbg.log('jump', k, w, x.d, x.l, hms(x.t), early ? 'early, to ' + hms(at) : '');
     if (S.evPlay === k) { const m = document.getElementById('evm-' + k), v = m && m.querySelector('video.evv'); if (v && v.readyState > 0) { v.currentTime = vodAt(v, at - 1000); return; } }
     S.evAt = { k, t: at - 1000 }; if (S.evPlay === k) evStop(); ACT.evplay({ v: k, jump: 1 });
