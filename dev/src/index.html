@@ -371,6 +371,8 @@ img.rf{opacity:0}
 .fullsteps .fstep{height:40px;min-width:56px;font-size:14px;background:rgba(0,0,0,.6)}
 .fullsteps .dk.wide{height:40px;min-width:56px;padding:0 14px;font-size:14px}
 .fullsteps .dk.wide[disabled]{opacity:.35}
+/* 3.10.7: −10s / +10s on the picture: dark like Live (they were see-through white, unreadable on a bright picture) */
+.fullsteps .dk.sm{background:rgba(0,0,0,.6);color:#fff}
 .livepill{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:5;height:52px;padding:0 24px;border-radius:26px;background:#B9CCFF;color:#13223F;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px;box-shadow:0 6px 16px rgba(0,0,0,.35)}
 /* Wide screens: video on the left, date bar + timeline/list on the right */
 @media (min-width:1000px) and (min-height:560px){
