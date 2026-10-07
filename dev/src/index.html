@@ -242,6 +242,7 @@ img.rf{opacity:0}
 .fnmbr{position:absolute;left:4px;bottom:4px;z-index:3;height:30px;padding:0 10px;border-radius:15px;font-size:12px;font-weight:700;white-space:nowrap;display:flex;align-items:center;pointer-events:none}
 #ptr{position:fixed;left:50%;top:0;width:36px;height:36px;margin-left:-18px;border-radius:18px;background:var(--card);color:var(--text);box-shadow:0 2px 10px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;z-index:60;transform:translateY(-44px);pointer-events:none;transition:opacity .2s}
 #ptr svg{width:20px;height:20px}
+#ptr.armed,#ptr.go{background:var(--accent);color:#fff}
 #ptr.go svg{animation:ptrspin .8s linear infinite}
 @keyframes ptrspin{to{transform:rotate(360deg)}}
 .fov .dk,.fov .dk.ctl{width:32px;height:32px;border-radius:16px}
@@ -5835,13 +5836,17 @@ document.addEventListener('click', e => {
     const dy = e.touches[0].clientY - y0, dx = e.touches[0].clientX - x0;
     if (window.scrollY > 0 || (d === 0 && Math.abs(dx) > Math.abs(dy))) { stop(); hide(); return; }
     d = Math.max(0, dy); const n = show(), k = Math.min(d, 140);
-    n.style.transform = 'translateY(' + (k * 0.6 - 30) + 'px) rotate(' + k * 2.4 + 'deg)'; n.style.opacity = Math.min(1, k / 80);
+    n.style.transform = 'translateY(' + (k * 0.6 - 30) + 'px) rotate(' + k * 2.4 + 'deg)' + (armed() ? ' scale(1.25)' : ''); n.style.opacity = Math.min(1, k / 80);
+    n.classList.toggle('armed', armed());   /* 3.10.2: it turns blue and grows once letting go will refresh */
   }
   function end() {
-    const ok = y0 != null && d > 160 && Date.now() - t0 > 450 && ind; stop();
+    const ok = y0 != null && armed() && ind; stop();
     if (ok) { ind.classList.add('go'); ind.style.transform = 'translateY(40px)'; setTimeout(() => { try { sessionStorage.setItem('vhreload', 'pull down'); } catch (e) {} Live.keepAll(); Dbg.save(); location.reload(); }, 150); }
     else hide();
   }
+  /* 3.10.2: ready at 110 px of pull and 250 ms (was 160 px and 450 ms with no sign of it, so a release often did nothing);
+     a quick flick is still ignored */
+  function armed() { return y0 != null && d > 110 && Date.now() - t0 > 250; }
   function cancel() { stop(); hide(); }
   document.addEventListener('touchstart', e => {
     stop();

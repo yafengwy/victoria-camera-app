@@ -242,6 +242,7 @@ img.rf{opacity:0}
 .fnmbr{position:absolute;left:4px;bottom:4px;z-index:3;height:30px;padding:0 10px;border-radius:15px;font-size:12px;font-weight:700;white-space:nowrap;display:flex;align-items:center;pointer-events:none}
 #ptr{position:fixed;left:50%;top:0;width:36px;height:36px;margin-left:-18px;border-radius:18px;background:var(--card);color:var(--text);box-shadow:0 2px 10px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;z-index:60;transform:translateY(-44px);pointer-events:none;transition:opacity .2s}
 #ptr svg{width:20px;height:20px}
+#ptr.armed,#ptr.go{background:var(--accent);color:#fff}
 #ptr.go svg{animation:ptrspin .8s linear infinite}
 @keyframes ptrspin{to{transform:rotate(360deg)}}
 .fov .dk,.fov .dk.ctl{width:32px;height:32px;border-radius:16px}
@@ -2180,7 +2181,7 @@ const Dbg = {
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
   save() { clearTimeout(this.tm); try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} },
-  text() { return 'Version 3.10.1 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 3.10.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -5008,7 +5009,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 3.10.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 3.10.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -5107,7 +5108,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 3.10.1');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 3.10.2');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5124,7 +5125,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 3.10.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 3.10.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5835,13 +5836,17 @@ document.addEventListener('click', e => {
     const dy = e.touches[0].clientY - y0, dx = e.touches[0].clientX - x0;
     if (window.scrollY > 0 || (d === 0 && Math.abs(dx) > Math.abs(dy))) { stop(); hide(); return; }
     d = Math.max(0, dy); const n = show(), k = Math.min(d, 140);
-    n.style.transform = 'translateY(' + (k * 0.6 - 30) + 'px) rotate(' + k * 2.4 + 'deg)'; n.style.opacity = Math.min(1, k / 80);
+    n.style.transform = 'translateY(' + (k * 0.6 - 30) + 'px) rotate(' + k * 2.4 + 'deg)' + (armed() ? ' scale(1.25)' : ''); n.style.opacity = Math.min(1, k / 80);
+    n.classList.toggle('armed', armed());   /* 3.10.2: it turns blue and grows once letting go will refresh */
   }
   function end() {
-    const ok = y0 != null && d > 160 && Date.now() - t0 > 450 && ind; stop();
+    const ok = y0 != null && armed() && ind; stop();
     if (ok) { ind.classList.add('go'); ind.style.transform = 'translateY(40px)'; setTimeout(() => { try { sessionStorage.setItem('vhreload', 'pull down'); } catch (e) {} Live.keepAll(); Dbg.save(); location.reload(); }, 150); }
     else hide();
   }
+  /* 3.10.2: ready at 110 px of pull and 250 ms (was 160 px and 450 ms with no sign of it, so a release often did nothing);
+     a quick flick is still ignored */
+  function armed() { return y0 != null && d > 110 && Date.now() - t0 > 250; }
   function cancel() { stop(); hide(); }
   document.addEventListener('touchstart', e => {
     stop();
@@ -6221,7 +6226,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '3.10.1';
+    const BUILD = '3.10.2';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
