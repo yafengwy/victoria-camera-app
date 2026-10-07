@@ -5375,8 +5375,8 @@ const ACT = {
   },
   live1(d) {   /* tap: this camera goes live. Second tap within 0.45 s (double tap): every camera goes live */
     const tn = Date.now(), dbl = ACT.live1.last && tn - ACT.live1.last < 450; ACT.live1.last = dbl ? 0 : tn;
-    if (PHONE_LIVE() && S.view === 'home') { syncAll(null); allLive1(); render(); return; }   /* 3.8.9 phones: one tap = every camera live 1 min */
-    if (dbl) { syncAll(null); toast('All cameras are live'); } else seek(d.id, null);
+    /* her rule: one tap = this camera live; double tap = every camera live (phones: every camera live 1 min) */
+    if (dbl) { syncAll(null); if (PHONE_LIVE() && S.view === 'home') allLive1(); else toast('All cameras are live'); } else seek(d.id, null);
     render();
   },
   seek(d, ev) {   /* tap an alert under the camera: play it without rebuilding the row (keeps its scroll position) */
