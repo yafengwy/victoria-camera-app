@@ -151,6 +151,9 @@ img.rf{opacity:0}
 .panel{grid-column:1/-1;border-radius:14px;overflow:hidden;background:var(--chip)}
 .pctl{display:flex;align-items:center;justify-content:space-between;padding:12px 14px}
 .round{width:50px;height:50px;border-radius:25px;background:var(--strong);color:var(--strong-fg);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+/* 4.2.8: a pressed button shows it at once, and Live has a bigger touch area */
+.round:active,.trio button:active{transform:scale(.9);filter:brightness(1.2)}
+.o-lv{position:relative}.o-lv::after{content:"";position:absolute;inset:-8px}
 .round.ghost{background:var(--card);color:var(--head-fg)}
 .trio{display:flex;gap:6px;padding:5px;border-radius:30px;background:var(--strong)}
 .trio button{width:42px;height:42px;border-radius:21px;background:rgba(255,255,255,.24);color:var(--strong-fg);display:flex;align-items:center;justify-content:center}
@@ -5616,7 +5619,7 @@ const ACT = {
   live1(d) {   /* tap: this camera goes live. Second tap within 0.45 s (double tap): every camera goes live */
     const tn = Date.now(), dbl = ACT.live1.last && tn - ACT.live1.last < 450; ACT.live1.last = dbl ? 0 : tn;
     /* her rule: one tap = this camera live; double tap = every camera live (phones: every camera live 1 min) */
-    if (dbl) { syncAll(null); if (S.view === 'home') allLive1(); else toast('All cameras are live'); } else { seek(d.id, null); if (S.view === 'home') { S.forced[d.id] = now() + MIN; Live.policy(); } }
+    if (dbl) { syncAll(null); if (S.view === 'home') allLive1(); else toast('All cameras are live'); } else { const was = camT(d.id); seek(d.id, null); if (S.view === 'home') { S.forced[d.id] = now() + MIN; Live.policy(); } Dbg.log('tap live', d.id, was == null ? 'was live' : 'from ' + hms(was)); toast(was == null ? 'Live' : 'Back To Live'); }   /* 4.2.8: says at once that the tap landed (the video takes a moment) */
     render();
   },
   seek(d, ev) {   /* tap an alert under the camera: play it without rebuilding the row (keeps its scroll position) */
