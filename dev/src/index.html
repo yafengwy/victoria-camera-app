@@ -1827,10 +1827,10 @@ const Live = {
   pic(id, img) { const f = PHONE_LIVE() && S.view === 'home' && this.fz[id]; return f && f.at >= (Data.motion(id).last || 0) ? f.src : img; },   /* newer motion since: Frigate's picture is newer */
   wantLive(id) { const m = Data.motion(id); return m.active || (m.last != null && now() - m.last < 60000) || (S.forced[id] && S.forced[id] > now()) || S.expanded === id || !!(S.focus && S.focus.cam === id); },
   /* the card keeps the live stream's last frame (the last moment anything moved), not a newer snapshot */
-  freeze(src, e) {
+  freeze(src, e, quiet) {
     const v = e.video, im = document.getElementById('img-' + this.cam(src));
-    if (!v || !im || v.readyState < 2 || !v.videoWidth) { Dbg.log('kept frame', this.cam(src), 'none', !v ? 'no video' : !im ? 'no card' : 'not ready ' + v.readyState); return; }
-    try { const k = Math.min(1, 640 / v.videoWidth), c = document.createElement('canvas'); c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); const u = c.toDataURL('image/jpeg', 0.75); this.fz[this.cam(src)] = { src: u, at: now() }; this.fzSave(); im.src = u; im.dataset.frozen = '1'; Dbg.log('kept frame', this.cam(src), c.width + 'x' + c.height, Math.round(u.length / 1024) + ' KB'); } catch (x) { Dbg.log('kept frame', this.cam(src), 'failed', String(x && x.message || x)); }
+    if (!v || !im || v.readyState < 2 || !v.videoWidth) { if (!quiet) Dbg.log('kept frame', this.cam(src), 'none', !v ? 'no video' : !im ? 'no card' : 'not ready ' + v.readyState); return; }
+    try { const k = Math.min(1, 640 / v.videoWidth), c = document.createElement('canvas'); c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); const u = c.toDataURL('image/jpeg', 0.75); this.fz[this.cam(src)] = { src: u, at: now() }; this.fzSave(); if (quiet) { if (!e.kLog) { e.kLog = 1; Dbg.log('kept frame', this.cam(src), 'live', c.width + 'x' + c.height, Math.round(u.length / 1024) + ' KB'); } return; } im.src = u; im.dataset.frozen = '1'; Dbg.log('kept frame', this.cam(src), c.width + 'x' + c.height, Math.round(u.length / 1024) + ' KB'); } catch (x) { if (!e.kErr) { e.kErr = 1; Dbg.log('kept frame', this.cam(src), 'failed', String(x && x.message || x)); } }
   },
   /* 3.8.8: a reload, a new version or leaving the app also keeps each playing card's last frame (a card watched and then
      reloaded within its minute never froze, so nothing was kept) */
@@ -1865,6 +1865,10 @@ const Live = {
   /* a stream whose picture stops moving for 6 s is restarted on its own */
   watch() {
     this.policy();   /* 3.8.3: the 1-minute Still rule on phones */
+    /* 3.8.9 phones: while a card plays, its picture is kept every 5 s, so whatever ends it (reload, the phone closing
+       the page for memory, leaving the app) the card still shows what the live video last showed */
+    if (PHONE_LIVE() && S.view === 'home' && !document.hidden) for (const src in this.els) { const e = this.els[src], v = e.video;
+      if (!e.suspended && e.isConnected && v && v.readyState >= 2 && !v.paused && v.currentTime > 0 && !(now() - (e.kAt || 0) < 5000)) { e.kAt = now(); this.freeze(src, e, true); } }
     const nLive = Object.values(this.els).filter(e => e.ws && !e.suspended && e.isConnected).length, nRec = Object.values(Playback.st || {}).filter(p => p.on || p.loading).length;
     if (nLive + '/' + nRec !== this.dbgN) { this.dbgN = nLive + '/' + nRec; Dbg.log('videos running', 'live ' + nLive, 'recordings ' + nRec); }
     for (const src in this.els) {
@@ -2091,6 +2095,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
+  save() { clearTimeout(this.tm); try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} },
   text() { return 'Version __VER__ · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -5352,7 +5357,8 @@ const ACT = {
   },
   live1(d) {   /* tap: this camera goes live. Second tap within 0.45 s (double tap): every camera goes live */
     const tn = Date.now(), dbl = ACT.live1.last && tn - ACT.live1.last < 450; ACT.live1.last = dbl ? 0 : tn;
-    if (dbl) { syncAll(null); if (PHONE_LIVE() && S.view === 'home') allLive1(); else toast('All cameras are live'); } else seek(d.id, null);
+    if (PHONE_LIVE() && S.view === 'home') { syncAll(null); allLive1(); render(); return; }   /* 3.8.9 phones: one tap = every camera live 1 min */
+    if (dbl) { syncAll(null); toast('All cameras are live'); } else seek(d.id, null);
     render();
   },
   seek(d, ev) {   /* tap an alert under the camera: play it without rebuilding the row (keeps its scroll position) */
@@ -5728,7 +5734,7 @@ document.addEventListener('click', e => {
   }
   function end() {
     const ok = y0 != null && d > 160 && Date.now() - t0 > 450 && ind; stop();
-    if (ok) { ind.classList.add('go'); ind.style.transform = 'translateY(40px)'; setTimeout(() => { try { sessionStorage.setItem('vhreload', 'pull down'); } catch (e) {} Live.keepAll(); location.reload(); }, 150); }
+    if (ok) { ind.classList.add('go'); ind.style.transform = 'translateY(40px)'; setTimeout(() => { try { sessionStorage.setItem('vhreload', 'pull down'); } catch (e) {} Live.keepAll(); Dbg.save(); location.reload(); }, 150); }
     else hide();
   }
   function cancel() { stop(); hide(); }
@@ -6061,7 +6067,7 @@ setInterval(() => {
 }, 1000);
 
 document.addEventListener('visibilitychange', () => { if (document.hidden) { Live.keepAll(); S.forced = {}; } });
-window.addEventListener('pagehide', () => Live.keepAll());
+window.addEventListener('pagehide', () => { Live.keepAll(); Dbg.save(); });
 let resizeTimer, lastCols = null;
 /* Turning the phone sideways while a camera is open goes full screen; turning it back returns to the camera view. */
 function fullRot() { return window.innerHeight > window.innerWidth && window.innerWidth < 560; }
@@ -6096,6 +6102,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   if (back && ['events', 'review', 'people'].includes(back.v)) { S.view = back.v; if (back.v === 'events') S.evDay = Math.max(0, Math.min(6, +back.d || 0)); }
   pageReady = true;
   render(); Dbg.log('start first screen', (Date.now() - t0) + 'ms', 'motion ' + (Motion.up ? 'up' : 'not yet'), back && back.v !== 'home' ? 'back to ' + back.v : '');
+  if (PHONE_LIVE()) Dbg.log('kept frames', Object.keys(Live.fz).length + ' saved', document.querySelectorAll('img[data-frozen]').length + ' shown');
   if (back && back.f && Data.cam(back.f) && !location.hash.includes('cam=')) openFocus(back.f);
   if (Data.evReady) Data.evReady.then(() => { if (Data.source === 'frigate') { Motion.seed(); LastMo.load(); } if (!S.dragging && !S.modal) render(); else if (S.expanded) refreshTrack(); });
   if (Data.source === 'frigate') {
