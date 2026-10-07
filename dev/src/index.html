@@ -6537,7 +6537,8 @@ class VideoRTC extends HTMLElement {
 
         this.ws = new WebSocket(this.wsURL);
         this.ws.binaryType = 'arraybuffer';
-        this.ws.addEventListener('open', () => this.onopen());
+        const ws0 = this.ws;   /* 3.9.10: a socket closed before it opened no longer runs onopen (this.ws was already null) */
+        this.ws.addEventListener('open', () => { if (this.ws === ws0) this.onopen(); else try { ws0.close(); } catch (e) {} });
         this.ws.addEventListener('close', () => this.onclose());
 
         return true;
