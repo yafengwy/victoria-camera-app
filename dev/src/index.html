@@ -3210,7 +3210,18 @@ function clipBand(id, start) {
   if (cl.b && inWin(cl.b)) h += '<div class="brk b clipm" style="left:' + (pos(cl.b) * 100).toFixed(2) + '%"></div>';
   return h;
 }
-function camEvents(id) { return Data.events.filter(e => e.cam === id && passes(e)); }
+function camEvents(id) { const base = Data.events.filter(e => e.cam === id && passes(e)), m = camMotion(id); return m.length ? base.concat(m).sort((a, b) => b.t - a.t) : base; }
+/* 3.5.3: Motion (Alert Settings on the home page and the camera view) adds this camera's motion pieces, the same ones as
+   on the Alerts page; asked from Frigate only while Motion is on (today's list again each minute while open) */
+function camMotion(id) {
+  if (!S.filt.motion || Data.source !== 'frigate') return [];
+  const at = camT(id) == null ? now() : camT(id), out = [];
+  new Set([dayStart(now()), dayStart(at), dayStart(at - 3 * HOUR)]).forEach(d => {
+    if (d > now()) return; if (MotionList.stale(d)) MotionList.load(d);
+    (MotionList.get(d) || []).forEach(m => { if (m.cam === id) out.push(m); });
+  });
+  return out;
+}
 function panel(c, col) {
   const t = camT(c.id), live = t == null;
   const start = S.winEnd - S.win;
@@ -3382,7 +3393,7 @@ function pick(e, f) {
 /* Alerts on the small track: alerts closer than ~20px are merged into one icon (most common object) with a count.
    Tapping the track (no drag) snaps to the nearest alert within reach and plays it from its start. */
 function trackMarks(evs, start, win, widthPx) {
-  const near = evs.filter(e => (e.end || e.t) >= start && e.t <= start + win); Arrive.want(near);
+  const near = evs.filter(e => !e.motion && (e.end || e.t) >= start && e.t <= start + win); Arrive.want(near);   /* 3.5.3: motion pieces show in the list, not as track icons */
   const pk = new Map(near.map(e => [e, pick(e, S.filt)])), T = e => pk.get(e).t;
   const list = near.filter(e => T(e) >= start && T(e) <= start + win).sort((a, b) => T(a) - T(b));
   const lanes = S.markStyle === 'b';
@@ -3754,7 +3765,7 @@ function viewFocus() {
         const hot = kd.o.hot, ln = lane[hot ? '+' : '-']++; if (ln > 2) return;
         rows += '<button class="fmark ico' + (hot ? '' : ' dim') + '" style="top:' + (y - 9 + (hot ? 0 : 24)) + 'px;--ln:' + ln + '" data-act="fgrp" data-g="' + gi + '" data-k="' + esc(kd.k) + '" aria-label="' + esc(objName(kd.o.label)) + ' ' + hm(kd.o.t) + (kd.n > 1 ? ', ' + kd.n : '') + '">' + objIcon(kd.o.label) + (kd.n > 1 ? '<b class="segn"><i>' + kd.n + '</i></b>' : '') + '</button>';
       });
-      const e = g.items[0], key = String(e.t), ep = pick(e, S.filt);
+      const e = g.items.find(x => !x.motion) || g.items[0], key = String(e.t), ep = pick(e, S.filt);   /* the card shows the alert, not a motion piece next to it */
       if (objs.length > 1 && S.focus.og === key) {
         /* opened: every object in these alerts, newest first; tap one to go to when it showed up */
         rows += '<div class="fev fstrip" style="top:' + (y - 32) + 'px">' + objs.map(o => {
@@ -4349,7 +4360,7 @@ const MotionList = {
       segs.sort((x, y) => y.t - x.t);
       this.days[k] = { at: now(), segs };
     } finally { delete this.busy[k]; }
-    if (S.view === 'events' && S.filt.motion) render();
+    if (S.filt.motion) render();
   },
   ev(cam, t, en) {
     const s0 = Math.floor(t / 1000), s1 = Math.ceil(en / 1000), base = Frigate.base();
@@ -4633,7 +4644,7 @@ function modalFilter() {
   const summary = all ? 'All Objects' : picked.length ? picked.map(objName).join(', ') : 'Select Objects';
   return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm" role="dialog" aria-label="Alert Settings" data-stop="1">' +
     '<div class="dhead">Alert Settings<span class="dhbtns"><button class="ic" style="color:var(--head-fg)" data-act="filtreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button><button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></span></div><div class="dbody">' +
-    '<div class="lbl" style="margin-top:0">Show Me</div>' + checkRow('int', 'Interesting Alerts', f.int) + checkRow('unint', 'Uninteresting Alerts', f.unint) +
+    '<div class="lbl" style="margin-top:0">Show Me</div>' + checkRow('int', 'Interesting Alerts', f.int) + checkRow('unint', 'Uninteresting Alerts', f.unint) + (Data.source === 'frigate' ? checkRow('motion', 'Motion', !!f.motion) : '') +
     '<div class="lbl">That Involve</div>' +
     '<div class="dd objqbox"><input class="objq" type="text" data-objq="objl1" data-open="objOpen" placeholder="' + esc(summary) + '" autocomplete="off" autocorrect="off" spellcheck="false"><button class="objqdd" data-act="objdd" aria-label="Show Objects" aria-expanded="' + S.objOpen + '">' + (S.objOpen ? I.up : I.down) + '</button></div>' +
     '<div class="ddlist" id="objl1"' + (S.objOpen ? '' : ' hidden') + '>' + objChips(f, 'obj', 'objgrp', 'anyobj') + '</div>' +
