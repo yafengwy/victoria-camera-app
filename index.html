@@ -2044,7 +2044,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 3.7.10 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 3.8.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -2064,6 +2064,18 @@ function hlsLog(h, H, tag) {
   let f = 0; h.on(H.Events.FRAG_LOADED, (ev, d) => { if (f++ < 2) Dbg.log(tag, 'part ' + d.frag.sn + ' loaded', Math.round(d.frag.stats.loading.end - d.frag.stats.loading.start) + 'ms', Math.round((d.frag.stats.total || 0) / 1024) + ' KB'); });
 }
 const Playback = {
+  /* 3.7.11: on an iPhone the hls.js player sometimes gets the video but never shows it (ready 0, no error), and the
+     phone's live views stop at the same time. If a part has come in and nothing shows within 5 s, this iPhone goes
+     back to the built-in player until the app is reopened. */
+  guard(v, h, fallback, tag) {
+    if (!/iP(hone|ad|od)/.test(navigator.userAgent) && !(/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)) return;
+    let got = false; h.on(window.Hls.Events.FRAG_LOADED, () => { got = true; });
+    setTimeout(() => {
+      if (!got || v.readyState > 0 || this._nat || h.media !== v || !v.isConnected) return;   /* gone or replaced meanwhile: leave it */
+      Dbg.log(tag, 'hls.js got video but shows nothing, built-in player from now on');
+      this._nat = true; try { h.destroy(); } catch (x) {} fallback();
+    }, 5000);
+  },
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
   hlsP: null,
   /* Built-in HLS only on Apple (iPhone/iPad/Mac Safari). Android Chrome now also says it can play HLS itself, but with
@@ -2138,6 +2150,7 @@ const Playback = {
         p.h = new H({ startPosition: vt0 != null ? vt0 : -1, maxBufferLength: 8, maxMaxBufferLength: 20, backBufferLength: 10, startFragPrefetch: true, manifestLoadingTimeOut: 8000, fragLoadingTimeOut: 8000 });
         v.disableRemotePlayback = true;   /* ManagedMediaSource on iPhone needs this (no AirPlay of recordings) */
         hlsLog(p.h, H, 'video ' + id);
+        this.guard(v, p.h, () => { p.h = null; this.load(id, t); }, 'video ' + id);
         p.h.loadSource(url); p.h.attachMedia(v); v.play().catch(() => {});
         await new Promise(ok => { const f = () => { v.removeEventListener('loadedmetadata', f); ok(); }; v.addEventListener('loadedmetadata', f); setTimeout(ok, 4000); });
         if (gone()) return;
@@ -2209,7 +2222,8 @@ const Playback = {
       ['loadedmetadata', 'playing', 'stalled', 'error'].forEach(ev => v.addEventListener(ev, () => Dbg.log('alert clip', ev, tag, ev === 'error' && v.error ? 'code ' + v.error.code + ' ' + (v.error.message || '') : 'at ' + v.currentTime.toFixed(1))));
       fetch(u, { credentials: 'include' }).then(r => r.text().then(t => Dbg.log('alert clip list', tag, r.status, (t.match(/#EXTINF/g) || []).length + ' parts'))).catch(e => Dbg.log('alert clip list', tag, 'failed'));
       if (this.native()) { v.src = u; v.play().catch(() => {}); }
-      else this.hls().then(H => { const h = new H(); v._hls = h; v.disableRemotePlayback = true; hlsLog(h, H, 'alert clip ' + tag); h.loadSource(u); h.attachMedia(v); v.play().catch(() => {}); }).catch(() => { v.src = u; });
+      else this.hls().then(H => { const h = new H(); v._hls = h; v.disableRemotePlayback = true; hlsLog(h, H, 'alert clip ' + tag); h.loadSource(u); h.attachMedia(v); v.play().catch(() => {});
+        Playback.guard(v, h, () => { v._hls = null; v.src = u; v.play().catch(() => {}); }, 'alert clip ' + tag); }).catch(() => { v.src = u; });
     });
     const want = this.cams();
     for (const id in this.st) if (!want[id]) {
@@ -4832,7 +4846,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 3.7.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 3.8.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -4928,7 +4942,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 3.7.10');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 3.8.2');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -4945,7 +4959,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 3.7.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 3.8.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -6034,7 +6048,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '3.7.10';
+    const BUILD = '3.8.2';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
