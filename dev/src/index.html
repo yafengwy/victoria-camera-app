@@ -3236,7 +3236,7 @@ function watchIds() { return (S.wsel || []).filter(id => Data.cam(id)).slice(0, 
 function stillInner(id) {
   if (!Ctl.on(id)) return '<span class="dot idle"></span>Off';
   if (Pic.no(id)) return Pic.pill(id);
-  if (S.forced[id] && S.forced[id] > now()) return '<span class="dot forced"></span>Live';
+  if (S.forced[id] && S.forced[id] > now()) return '<span class="dot busy"></span>Live';
   const m = Data.motion(id);
   return (m.active || (m.last != null && now() - m.last < 5000)) ? '<span class="dot busy"></span>Live' : '<span class="dot idle"></span>Still' + (m.last != null ? ' ' + agoShort(now() - m.last) : '');
 }
@@ -3430,7 +3430,7 @@ function badgeHtml(id, t, f) {
     const e = Live.els[Live.cardSrc(id)], m = Data.motion(id);
     const sa = Live.stillAt(id); if (Snap.on(id)) inner = !Live.wantLive(id) ? '<span class="dot idle"></span>Still' + (sa != null ? ' ' + agoShort(now() - sa) : '') : Snap.at[id] && now() - Snap.at[id] < 3000 ? '<span class="dot busy"></span>Live' : '<span class="dot forced"></span>Connecting'; else inner = !e || e.suspended ? '<span class="dot idle"></span>Still' + (sa != null ? ' ' + agoShort(now() - sa) : '') : Pic.live(id) ? '<span class="dot busy"></span>Live' : '<span class="dot forced"></span>Connecting';
   }
-  else if (S.forced[id] && S.forced[id] > now()) inner = '<span class="dot forced"></span>Live';
+  else if (S.forced[id] && S.forced[id] > now()) inner = '<span class="dot busy"></span>Live';
   else { const m = Data.motion(id); inner = (m.active || (m.last != null && now() - m.last < 5000)) ? '<span class="dot busy"></span>Live' : '<span class="dot idle"></span>Still' + (m.last != null ? ' ' + agoShort(now() - m.last) : ''); }
   const rc = '';
   return '<button class="badge' + (t == null ? '' : ' past') + '" id="badge-' + id + '" data-act="badge" data-id="' + id + '" aria-label="' + (t == null ? 'Live. Tap to put every camera on live' : 'Playing ' + hms(t) + '. Tap to move every camera to this time') + '">' + rc + inner + '</button>';
@@ -4391,7 +4391,7 @@ function paintFocus() {
   Live.show(document.getElementById('flive'), t == null);
   Live.show(document.getElementById('fulllive'), t == null && fh === f);
   Live.show(document.getElementById('foff'), t == null);
-  const label = t == null ? (Ctl.on(c.id) ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t);
+  const label = t == null ? (Ctl.on(c.id) ? '<span class="dot busy"></span>Live' : 'Off') : hms(t);
   const hv = S.hov && S.hov.id === 'full' ? S.hov.t : undefined;
   fPaintLine();
   set('fbadge', n => n.innerHTML = t == null ? label : '<span class="dot idle"></span>Live');   /* the time is shown once, on the picture; this button just goes Live */ set('fullbadge', n => n.innerHTML = hv !== undefined ? hms(hv) : label); set('fbub', n => n.textContent = hv !== undefined ? hm(hv) : t == null ? 'Live' : hm(t));

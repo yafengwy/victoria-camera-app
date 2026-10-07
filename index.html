@@ -2191,7 +2191,7 @@ const Dbg = {
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
   save() { clearTimeout(this.tm); try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} },
-  text() { return 'Version 4.1.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 4.1.3 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -3236,7 +3236,7 @@ function watchIds() { return (S.wsel || []).filter(id => Data.cam(id)).slice(0, 
 function stillInner(id) {
   if (!Ctl.on(id)) return '<span class="dot idle"></span>Off';
   if (Pic.no(id)) return Pic.pill(id);
-  if (S.forced[id] && S.forced[id] > now()) return '<span class="dot forced"></span>Live';
+  if (S.forced[id] && S.forced[id] > now()) return '<span class="dot busy"></span>Live';
   const m = Data.motion(id);
   return (m.active || (m.last != null && now() - m.last < 5000)) ? '<span class="dot busy"></span>Live' : '<span class="dot idle"></span>Still' + (m.last != null ? ' ' + agoShort(now() - m.last) : '');
 }
@@ -3430,7 +3430,7 @@ function badgeHtml(id, t, f) {
     const e = Live.els[Live.cardSrc(id)], m = Data.motion(id);
     const sa = Live.stillAt(id); if (Snap.on(id)) inner = !Live.wantLive(id) ? '<span class="dot idle"></span>Still' + (sa != null ? ' ' + agoShort(now() - sa) : '') : Snap.at[id] && now() - Snap.at[id] < 3000 ? '<span class="dot busy"></span>Live' : '<span class="dot forced"></span>Connecting'; else inner = !e || e.suspended ? '<span class="dot idle"></span>Still' + (sa != null ? ' ' + agoShort(now() - sa) : '') : Pic.live(id) ? '<span class="dot busy"></span>Live' : '<span class="dot forced"></span>Connecting';
   }
-  else if (S.forced[id] && S.forced[id] > now()) inner = '<span class="dot forced"></span>Live';
+  else if (S.forced[id] && S.forced[id] > now()) inner = '<span class="dot busy"></span>Live';
   else { const m = Data.motion(id); inner = (m.active || (m.last != null && now() - m.last < 5000)) ? '<span class="dot busy"></span>Live' : '<span class="dot idle"></span>Still' + (m.last != null ? ' ' + agoShort(now() - m.last) : ''); }
   const rc = '';
   return '<button class="badge' + (t == null ? '' : ' past') + '" id="badge-' + id + '" data-act="badge" data-id="' + id + '" aria-label="' + (t == null ? 'Live. Tap to put every camera on live' : 'Playing ' + hms(t) + '. Tap to move every camera to this time') + '">' + rc + inner + '</button>';
@@ -4391,7 +4391,7 @@ function paintFocus() {
   Live.show(document.getElementById('flive'), t == null);
   Live.show(document.getElementById('fulllive'), t == null && fh === f);
   Live.show(document.getElementById('foff'), t == null);
-  const label = t == null ? (Ctl.on(c.id) ? '<span class="dot' + (f.busy ? ' busy' : '') + '"></span>Live' : 'Off') : hms(t);
+  const label = t == null ? (Ctl.on(c.id) ? '<span class="dot busy"></span>Live' : 'Off') : hms(t);
   const hv = S.hov && S.hov.id === 'full' ? S.hov.t : undefined;
   fPaintLine();
   set('fbadge', n => n.innerHTML = t == null ? label : '<span class="dot idle"></span>Live');   /* the time is shown once, on the picture; this button just goes Live */ set('fullbadge', n => n.innerHTML = hv !== undefined ? hms(hv) : label); set('fbub', n => n.textContent = hv !== undefined ? hm(hv) : t == null ? 'Live' : hm(t));
@@ -5082,7 +5082,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.1.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.1.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -5181,7 +5181,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.1.2');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.1.3');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5198,7 +5198,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.1.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.1.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -6320,7 +6320,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.1.2';
+    const BUILD = '4.1.3';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
