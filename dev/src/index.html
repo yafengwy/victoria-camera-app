@@ -1305,9 +1305,8 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .pctl.g3{justify-content:flex-start;gap:6px}
 .pctl.g3 .psp{flex:1 1 0;min-width:0}
 .pctl.g3 .pl{order:1}.pctl.g3 .trio{order:2}.pctl.g3 .pr{order:3}
-.devbox{display:flex;flex-direction:column;padding:2px 4px 4px}
-.dvrow{display:flex;align-items:center;gap:8px;padding:5px 4px;border-top:1px solid var(--line)}
-.dvrow:first-child{border-top:0}
+.devbox{flex:1;min-height:0;align-self:stretch;display:flex;flex-direction:column;justify-content:space-evenly;padding:0 4px}   /* rows spread evenly over the tab's height */
+.dvrow{display:flex;align-items:center;gap:8px;padding:0 2px}
 .dvn{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--head-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dvi{display:inline-flex;flex:none;width:16px;height:16px;color:var(--sub)}.dvi svg{width:16px;height:16px}.dvi.on{color:#F5B400}
 .dvtg{width:38px;height:22px;border-radius:11px;background:var(--track);position:relative;flex:none;box-shadow:inset 0 0 0 1px var(--line)}
@@ -1319,15 +1318,15 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .dvseg .chip.dvok[aria-pressed="true"]{background:#2E9E5B;color:#fff;box-shadow:none}
 .dvseg .chip.dvbad[aria-pressed="true"]{background:#D64545;color:#fff;box-shadow:none}
 .dvseg .chip.dvarm{background:#D64545;color:#fff;box-shadow:none}
-.dvlights{gap:6px}
+.dvlights{gap:22px;justify-content:flex-start}
 .dvl{flex:none;width:76px}
 .dvbri{flex:1;min-width:0;accent-color:#F5B400;height:20px;margin:0}
 .dvpct{flex:none;width:34px;text-align:right;font-size:11px;font-weight:700;color:var(--sub)}
 .dvsc{display:flex;gap:10px;flex:1}
 .dvdot{width:24px;height:24px;border-radius:12px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
 .dvdot.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--accent,#233A6E)}
-.dvpill{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:5px;height:26px;border-radius:13px;background:var(--track);color:var(--head-fg);font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden}
-.dvpill .dvi{width:14px;height:14px}.dvpill .dvi svg{width:14px;height:14px}
+.dvpill{flex:none;min-width:0;display:flex;align-items:center;gap:6px;height:26px;padding:0;background:none;color:var(--head-fg);font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden}
+.dvpill .dvi{width:16px;height:16px}.dvpill .dvi svg{width:16px;height:16px}
 .dvpill.on .dvi{color:#F5B400}   /* lights: only the bulb turns yellow */
 .pctl.g3 .pfixb{order:4}.pctl.g3 .o-pw{order:4}.pctl.g3 .o-dt{order:5}.pctl.g3 .o-bx{order:6}.pctl.g3 .o-sn{order:7}.pctl.g3 .o-lv{order:8}
 .pctl.g3 .pg{display:contents}
