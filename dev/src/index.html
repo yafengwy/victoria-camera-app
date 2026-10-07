@@ -1717,7 +1717,7 @@ const Frigate = {
    Fallback while the websocket is down: /api/stats (a camera running object detection is moving). */
 const Motion = {
   sock: null, up: false, n: 0, nm: 0,
-  set(id, on) { const m = Data.motion(id); if (on) { m.active = true; m.last = now(); } else { if (m.active) m.last = now(); m.active = false; } },
+  set(id, on) { const m = Data.motion(id), was = m.active; if (on) { m.active = true; m.last = now(); } else { if (m.active) m.last = now(); m.active = false; } if (!was && on && typeof Live !== 'undefined') Live.policy(); },   /* 3.8.3: motion starts → that phone card goes live at once */
   seed() { Data.events.forEach(e => { const m = Data.motion(e.cam); const t = e.end || e.t; if (m.last == null || t > m.last) m.last = t; }); },
   /* Phones drop the connection when the app goes to the background; reconnect as soon as it is needed again */
   ensure() {
@@ -1789,8 +1789,21 @@ Frigate.pollStats = async function () {
 /* Live video in Frigate mode: go2rtc stream over WebSocket (MSE; HLS/MJPEG fallback) via Frigate's /live/mse/.
    One player per stream is kept and moved back in after every render, so re-rendering does not restart the video.
    Players pause on their own while scrolled off screen or the page is hidden. */
+/* 3.8.3 phones (her rule, keep it): on the home page a card's live stream follows Frigate motion. Any motion = live; it
+   stops (Still: stream closed, last picture shown) only after one full minute without any motion, and goes live again
+   the moment motion comes. A tap on a Still card = live for 1 minute, then the same rule. The opened card, full view
+   and Watch stay live. 10–14 open streams (Still ones too) froze the iPhone for 5–7 s and got the page killed. */
+const PHONE_LIVE = () => Math.min(screen.width, screen.height) < 600 && !!(window.matchMedia && matchMedia('(pointer:coarse)').matches);
 const Live = {
   els: {},
+  wantLive(id) { const m = Data.motion(id); return m.active || (m.last != null && now() - m.last < 60000) || (S.forced[id] && S.forced[id] > now()) || S.expanded === id || !!(S.focus && S.focus.cam === id); },
+  /* the card keeps the live stream's last frame (the last moment anything moved), not a newer snapshot */
+  freeze(src, e) {
+    const v = e.video, im = document.getElementById('img-' + this.cam(src));
+    if (!v || !im || v.readyState < 2 || !v.videoWidth) return;
+    try { const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight; c.getContext('2d').drawImage(v, 0, 0); im.src = c.toDataURL('image/jpeg', 0.85); im.dataset.frozen = '1'; } catch (x) {}
+  },
+  idle(src) { return PHONE_LIVE() && S.view === 'home' && !S.watch && !this.wantLive(this.cam(src)); },
   on() { return Data.source === 'frigate' && !!(window.customElements && customElements.get('live-cam')); },
   cam(src) { return String(src).replace(/_sub$/, ''); },
   /* grid cards are small: use the camera's light "_sub" stream (fast to start, cheap to decode); list cards,
@@ -1818,6 +1831,7 @@ const Live = {
   },
   /* a stream whose picture stops moving for 6 s is restarted on its own */
   watch() {
+    this.policy();   /* 3.8.3: the 1-minute Still rule on phones */
     const nLive = Object.values(this.els).filter(e => e.ws && !e.suspended && e.isConnected).length, nRec = Object.values(Playback.st || {}).filter(p => p.on || p.loading).length;
     if (nLive + '/' + nRec !== this.dbgN) { this.dbgN = nLive + '/' + nRec; Dbg.log('videos running', 'live ' + nLive, 'recordings ' + nRec); }
     for (const src in this.els) {
@@ -1856,10 +1870,10 @@ const Live = {
     if (!this.on()) return;
     const busy = !!S.focus || Object.keys(Playback.st).some(id => Playback.st[id].on || Playback.st[id].loading);
     for (const src in this.els) {
-      const e = this.els[src], keep = !busy || (S.focus && S.focus.cam === src) || !!(S.full && S.focus && S.focus.cam === src);
-      if (!keep && !e.suspended) { e.suspended = true; try { e.ondisconnect(); } catch (x) {} }
+      const e = this.els[src], keep = (!busy || (S.focus && S.focus.cam === src) || !!(S.full && S.focus && S.focus.cam === src)) && !this.idle(src);
+      if (!keep && !e.suspended) { if (this.idle(src)) this.freeze(src, e); e.suspended = true; try { e.ondisconnect(); } catch (x) {} }
       else if (keep && e.suspended) {
-        e.suspended = false;
+        e.suspended = false; { const im = document.getElementById('img-' + this.cam(src)); if (im) delete im.dataset.frozen; }
         const r = e.getBoundingClientRect(), vis = e.isConnected && r.bottom > 0 && r.top < innerHeight && r.width > 0;
         if (vis) try { e.onconnect(); } catch (x) {}
       }
@@ -3220,7 +3234,8 @@ function shownT(id, src) {
   const t = camT(id); if (t != null) return t;
   /* the camera shows Still (nothing moving): the time stays on the moment it went still, like the Still badge counts from */
   const mo = Data.motion(id), forced = S.forced[id] && S.forced[id] > now();
-  if (Ctl.on(id) && !forced && !(mo.active || (mo.last != null && now() - mo.last < 5000)) && mo.last != null) return mo.last;
+  const ph = PHONE_LIVE() && S.view === 'home', pe = ph && Live.els[src];
+  if (Ctl.on(id) && !forced && (ph ? !(pe && !pe.suspended && pe.video && pe.video.readyState >= 2) : !(mo.active || (mo.last != null && now() - mo.last < 5000))) && mo.last != null) return mo.last;   /* 3.8.3 phones: the time runs while the stream is really open */
   const e = Live.els[src], v = e && e.video;
   if (v && v.readyState >= 2 && !v.closest('[hidden]')) {
     if (v.currentTime !== e._tmCt && !v.paused) { e._tmCt = v.currentTime; e._tmAt = now(); }
@@ -3254,6 +3269,10 @@ function badgeHtml(id, t, f) {
   if (t != null) inner = hms(t);
   else if (!Ctl.on(id)) inner = '<span class="dot idle"></span>Off';
   else if (Pic.no(id)) inner = Pic.pill(id);
+  else if (PHONE_LIVE() && S.view === 'home') {   /* 3.8.3: says what the card really does: Still (closed), Connecting, Live */
+    const e = Live.els[Live.cardSrc(id)], m = Data.motion(id);
+    inner = !e || e.suspended ? '<span class="dot idle"></span>Still' + (m.last != null ? ' ' + agoShort(now() - m.last) : '') : Pic.live(id) ? '<span class="dot busy"></span>Live' : '<span class="dot forced"></span>Connecting';
+  }
   else if (S.forced[id] && S.forced[id] > now()) inner = '<span class="dot forced"></span>Live';
   else { const m = Data.motion(id); inner = (m.active || (m.last != null && now() - m.last < 5000)) ? '<span class="dot busy"></span>Live' : '<span class="dot idle"></span>Still' + (m.last != null ? ' ' + agoShort(now() - m.last) : ''); }
   const rc = '';
@@ -3438,7 +3457,7 @@ function paintCam(id) {
   const t = camT(id), f = Data.frame(c, t);
   const img = document.getElementById('img-' + id);
   const fi = S.hov && S.hov.id === id ? Data.frame(c, S.hov.t) : f;     /* mouse hovering the timeline: preview that moment */
-  if (img && !(fi === f && Playback.showing(id))) { if (Data.source === 'frigate') setImg(img, fi.img); else if (img.getAttribute('src') !== fi.img) img.src = fi.img; }
+  if (img && !(fi === f && Playback.showing(id)) && !(img.dataset.frozen && t == null && fi === f)) { if (Data.source === 'frigate') setImg(img, fi.img); else if (img.getAttribute('src') !== fi.img) img.src = fi.img; }
   Live.show(document.querySelector('#cam-' + id + ' .lvh'), t == null && fi === f);
   Live.show(document.getElementById('off-' + id), t == null && fi === f);
   const b = document.getElementById('badge-' + id);
@@ -5285,7 +5304,10 @@ const ACT = {
   focusat(d) { S.camTime[d.id] = +d.t - 1000; openFocus(d.id); },
   badge(d) {
     const t = camT(d.id);
-    const m = Data.motion(d.id), still = t == null && !(m.active || (m.last != null && now() - m.last < 5000)) && !(S.forced[d.id] > now());
+    const m = Data.motion(d.id);
+    if (PHONE_LIVE() && S.view === 'home' && t == null) { const e = Live.els[Live.cardSrc(d.id)];   /* 3.8.3: a Still card goes live for 1 minute */
+      if (!e || e.suspended) { S.forced[d.id] = now() + MIN; Live.policy(); paintCam(d.id); toast('Live For 1 Minute'); return; } }
+    const still = !PHONE_LIVE() && t == null && !(m.active || (m.last != null && now() - m.last < 5000)) && !(S.forced[d.id] > now());
     if (still) { S.forced[d.id] = now() + 5 * MIN; paintCam(d.id); toast('Live video for 5 minutes'); return; }
     if (t == null) { syncAll(null); toast('All cameras are live'); }
     else { syncAll(t); toast('All cameras moved to ' + hms(t)); }
