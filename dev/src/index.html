@@ -4282,6 +4282,10 @@ const FZ = {
     if (this.cam !== (S.focus && S.focus.cam)) { this.cam = S.focus && S.focus.cam; this.s = 1; this.x = 0; this.y = 0; }
     w.style.setProperty('--zs', this.s); w.style.setProperty('--zx', this.x + 'px'); w.style.setProperty('--zy', this.y + 'px');
     w.classList.toggle('zoomed', this.s > 1.01);
+    /* 3.10.11: every layer zooms around the same point (the picture box's corner). The picture sits centred inside the
+       box (letterbox), and zooming it around its own corner put it off from the video above it: a doubled strip showed. */
+    for (const n of w.children) { if (n.classList.contains('fuitop') || n.classList.contains('fulltm') || n.classList.contains('fullsteps')) continue;
+      const o = (-n.offsetLeft) + 'px ' + (-n.offsetTop) + 'px'; if (n.style.transformOrigin !== o) n.style.transformOrigin = o; }
   },
   reset() { this.s = 1; this.x = 0; this.y = 0; this.apply(); },
   local(w, cx, cy) { const r = w.getBoundingClientRect(); return w.closest('.rot') ? [cy - r.top, r.right - cx] : [cx - r.left, cy - r.top]; },
