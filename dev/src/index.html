@@ -5377,7 +5377,7 @@ const ACT = {
   live1(d) {   /* tap: this camera goes live. Second tap within 0.45 s (double tap): every camera goes live */
     const tn = Date.now(), dbl = ACT.live1.last && tn - ACT.live1.last < 450; ACT.live1.last = dbl ? 0 : tn;
     /* her rule: one tap = this camera live; double tap = every camera live (phones: every camera live 1 min) */
-    if (dbl) { syncAll(null); if (PHONE_LIVE() && S.view === 'home') allLive1(); else toast('All cameras are live'); } else seek(d.id, null);
+    if (dbl) { syncAll(null); if (PHONE_LIVE() && S.view === 'home') allLive1(); else toast('All cameras are live'); } else { seek(d.id, null); if (PHONE_LIVE() && S.view === 'home') { S.forced[d.id] = now() + MIN; Live.policy(); } }
     render();
   },
   seek(d, ev) {   /* tap an alert under the camera: play it without rebuilding the row (keeps its scroll position) */
@@ -6618,13 +6618,16 @@ class VideoRTC extends HTMLElement {
                     }
                 }
 
-                if (!sb.updating && sb.buffered && sb.buffered.length) {
-                    const end = sb.buffered.end(sb.buffered.length - 1);
+                /* 3.9.4: on the iPhone these threw (InvalidStateError after the stream closed, TypeError from
+                   setLiveSeekableRange) and the rest never ran, so the video was never moved to the newest second */
+                if (ms.readyState !== 'open') return;
+                let ok = false; try { ok = !sb.updating && sb.buffered && sb.buffered.length > 0; } catch (e) { return; }
+                if (ok) {
+                    let end, start0; try { end = sb.buffered.end(sb.buffered.length - 1); start0 = sb.buffered.start(0); } catch (e) { return; }
                     const start = end - 5;
-                    const start0 = sb.buffered.start(0);
                     if (start > start0) {
-                        sb.remove(start0, start);
-                        ms.setLiveSeekableRange(start, end);
+                        try { sb.remove(start0, start); } catch (e) {}
+                        try { if (ms.setLiveSeekableRange) ms.setLiveSeekableRange(Math.max(0, start), end); } catch (e) {}
                     }
                     if (this.video.currentTime < start) {
                         this.video.currentTime = start;
