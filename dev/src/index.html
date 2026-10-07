@@ -1818,16 +1818,19 @@ Frigate.pollStats = async function () {
    and Watch stay live. 10–14 open streams (Still ones too) froze the iPhone for 5–7 s and got the page killed. */
 const PHONE_LIVE = () => Math.min(screen.width, screen.height) < 600 && !!(window.matchMedia && matchMedia('(pointer:coarse)').matches);
 const Live = {
-  els: {}, fz: {},
+  els: {}, fz: (() => { try { return JSON.parse(localStorage.getItem('vhfz') || '{}'); } catch (e) { return {}; } })(),
+  /* 3.8.7: the kept frames are saved on the phone, so a reload / reopen still shows the last live picture, not Frigate's older one */
+  fzSave() { const k = Object.keys(this.fz).sort((a, b) => this.fz[b].at - this.fz[a].at);
+    for (let n = k.length; n >= 0; n--) { try { const o = {}; k.slice(0, n).forEach(i => { o[i] = this.fz[i]; }); localStorage.setItem('vhfz', JSON.stringify(o)); return; } catch (e) {} } },
   /* 3.8.6 phones: the moment a Still card's picture is from: the last motion, or the last live frame kept when it froze (a tapped card) */
   stillAt(id) { const m = Data.motion(id), f = this.fz[id]; const t = Math.max(m.last || 0, f ? f.at : 0); return t || null; },
-  pic(id, img) { const f = PHONE_LIVE() && S.view === 'home' && this.fz[id]; return f ? f.src : img; },
+  pic(id, img) { const f = PHONE_LIVE() && S.view === 'home' && this.fz[id]; return f && f.at >= (Data.motion(id).last || 0) ? f.src : img; },   /* newer motion since: Frigate's picture is newer */
   wantLive(id) { const m = Data.motion(id); return m.active || (m.last != null && now() - m.last < 60000) || (S.forced[id] && S.forced[id] > now()) || S.expanded === id || !!(S.focus && S.focus.cam === id); },
   /* the card keeps the live stream's last frame (the last moment anything moved), not a newer snapshot */
   freeze(src, e) {
     const v = e.video, im = document.getElementById('img-' + this.cam(src));
     if (!v || !im || v.readyState < 2 || !v.videoWidth) return;
-    try { const k = Math.min(1, 640 / v.videoWidth), c = document.createElement('canvas'); c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); const u = c.toDataURL('image/jpeg', 0.85); this.fz[this.cam(src)] = { src: u, at: now() }; im.src = u; im.dataset.frozen = '1'; } catch (x) {}
+    try { const k = Math.min(1, 640 / v.videoWidth), c = document.createElement('canvas'); c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); const u = c.toDataURL('image/jpeg', 0.75); this.fz[this.cam(src)] = { src: u, at: now() }; this.fzSave(); im.src = u; im.dataset.frozen = '1'; } catch (x) {}
   },
   idle(src) { return PHONE_LIVE() && S.view === 'home' && !S.watch && !this.wantLive(this.cam(src)); },
   on() { return Data.source === 'frigate' && !!(window.customElements && customElements.get('live-cam')); },
@@ -1900,7 +1903,7 @@ const Live = {
       const e = this.els[src], keep = (!busy || (S.focus && S.focus.cam === src) || !!(S.full && S.focus && S.focus.cam === src)) && !this.idle(src);
       if (!keep && !e.suspended) { if (this.idle(src)) this.freeze(src, e); e.suspended = true; try { e.ondisconnect(); } catch (x) {} }
       else if (keep && e.suspended) {
-        e.suspended = false; { const im = document.getElementById('img-' + this.cam(src)); if (im) delete im.dataset.frozen; delete this.fz[this.cam(src)]; }
+        e.suspended = false; { const im = document.getElementById('img-' + this.cam(src)); if (im) delete im.dataset.frozen; if (this.fz[this.cam(src)]) { delete this.fz[this.cam(src)]; this.fzSave(); } }
         const r = e.getBoundingClientRect(), vis = e.isConnected && r.bottom > 0 && r.top < innerHeight && r.width > 0;
         if (vis) try { e.onconnect(); } catch (x) {}
       }
