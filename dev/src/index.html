@@ -1926,7 +1926,9 @@ const Live = {
     while (Object.keys(sw.act).length < 4 && cand.length) { const id = cand.shift()[1]; sw.pend.delete(id); sw.act[id] = t; }
     this.policy();
   },
-  idle(src) { return PHONE_LIVE() && S.view === 'home' && !S.watch && (!this.wantLive(this.cam(src)) || Snap.on(this.cam(src))); },
+  /* 4.2.2 (her choice B): the motion rule on computers too: video while there is motion (and 1 min after), Still on the
+     last frame after that; phones show pictures instead of video (Snap) */
+  idle(src) { return S.view === 'home' && !S.watch && (!this.wantLive(this.cam(src)) || Snap.on(this.cam(src))); },
   on() { return Data.source === 'frigate' && !!(window.customElements && customElements.get('live-cam')); },
   cam(src) { return String(src).replace(/_sub$/, ''); },
   /* 3.8.5: on phones every home card (opened one and list too) uses the light stream; 4K main streams froze the iPhone 5-9 s when a card opened. Full view stays HD.
@@ -3397,7 +3399,7 @@ function shownT(id, src) {
   const t = camT(id); if (t != null) return t;
   /* the camera shows Still (nothing moving): the time stays on the moment it went still, like the Still badge counts from */
   const mo = Data.motion(id), forced = S.forced[id] && S.forced[id] > now();
-  const ph = PHONE_LIVE() && S.view === 'home', pe = ph && Live.els[src];
+  const ph = S.view === 'home', pe = ph && Live.els[src];
   const sa = ph ? Live.stillAt(id) : mo.last;
   if (ph && Ctl.on(id) && Snap.on(id)) { if (Live.wantLive(id) && Snap.at[id]) return Snap.at[id]; if (sa != null) return sa; }   /* 3.9.9 picture mode: the picture's own time */
   if (Ctl.on(id) && !forced && (ph ? !(pe && !pe.suspended && pe.video && pe.video.readyState >= 2) : !(mo.active || (mo.last != null && now() - mo.last < 5000))) && sa != null) return sa;   /* 3.8.3 phones: the time runs while the stream is really open */
@@ -3434,7 +3436,7 @@ function badgeHtml(id, t, f) {
   if (t != null) inner = hms(t);
   else if (!Ctl.on(id)) inner = '<span class="dot idle"></span>Off';
   else if (Pic.no(id)) inner = Pic.pill(id);
-  else if (PHONE_LIVE() && S.view === 'home') {   /* 3.8.3: says what the card really does: Still (closed), Connecting, Live */
+  else if (S.view === 'home') {   /* 3.8.3 (4.2.2 computers too): says what the card really does: Still (closed), Connecting, Live */
     const e = Live.els[Live.cardSrc(id)], m = Data.motion(id);
     const sa = Live.stillAt(id); if (Snap.on(id)) inner = !Live.wantLive(id) ? '<span class="dot idle"></span>Still' + (sa != null ? ' ' + agoShort(now() - sa) : '') : Snap.at[id] && now() - Snap.at[id] < 3000 ? '<span class="dot busy"></span>Live' : '<span class="dot forced"></span>Connecting'; else inner = !e || e.suspended ? '<span class="dot idle"></span>Still' + (sa != null ? ' ' + agoShort(now() - sa) : '') : Pic.live(id) ? '<span class="dot busy"></span>Live' : '<span class="dot forced"></span>Connecting';
   }
@@ -5534,18 +5536,18 @@ const ACT = {
   badge(d) {
     const t = camT(d.id);
     const m = Data.motion(d.id);
-    if (PHONE_LIVE() && S.view === 'home' && t == null) { const e = Live.els[Live.cardSrc(d.id)];   /* 3.8.3: a Still card goes live for 1 minute */
+    if (S.view === 'home' && t == null) { const e = Live.els[Live.cardSrc(d.id)];   /* 3.8.3: a Still card goes live for 1 minute */
       if (!e || e.suspended) { S.forced[d.id] = now() + MIN; Live.policy(); paintCam(d.id); toast('Live For 1 Minute'); return; } }
     const still = !PHONE_LIVE() && t == null && !(m.active || (m.last != null && now() - m.last < 5000)) && !(S.forced[d.id] > now());
     if (still) { S.forced[d.id] = now() + 5 * MIN; paintCam(d.id); toast('Live video for 5 minutes'); return; }
-    if (t == null) { syncAll(null); if (PHONE_LIVE() && S.view === 'home') { allLive1(); return; } toast('All cameras are live'); }
+    if (t == null) { syncAll(null); if (S.view === 'home') { allLive1(); return; } toast('All cameras are live'); }
     else { syncAll(t); toast('All cameras moved to ' + hms(t)); }
     render();
   },
   live1(d) {   /* tap: this camera goes live. Second tap within 0.45 s (double tap): every camera goes live */
     const tn = Date.now(), dbl = ACT.live1.last && tn - ACT.live1.last < 450; ACT.live1.last = dbl ? 0 : tn;
     /* her rule: one tap = this camera live; double tap = every camera live (phones: every camera live 1 min) */
-    if (dbl) { syncAll(null); if (PHONE_LIVE() && S.view === 'home') allLive1(); else toast('All cameras are live'); } else { seek(d.id, null); if (PHONE_LIVE() && S.view === 'home') { S.forced[d.id] = now() + MIN; Live.policy(); } }
+    if (dbl) { syncAll(null); if (S.view === 'home') allLive1(); else toast('All cameras are live'); } else { seek(d.id, null); if (S.view === 'home') { S.forced[d.id] = now() + MIN; Live.policy(); } }
     render();
   },
   seek(d, ev) {   /* tap an alert under the camera: play it without rebuilding the row (keeps its scroll position) */
