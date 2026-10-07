@@ -2831,7 +2831,10 @@ function passes(e) {
   if (f.off[e.cam]) return false;
   return true;
 }
-function saveFilt() { store.set('filt3', S.filt); }
+function saveFilt() { store.set('filt3', Object.assign({}, S.filt, { motion: false })); }   /* 3.5.5: Motion is never remembered */
+S.filt.motion = false;
+/* 3.5.5: Motion turns itself off when leaving the page it was turned on in (Alerts page, camera view, or that camera's card) */
+const moCtx = () => S.view === 'events' ? 'events' : S.focus ? 'focus:' + S.focus.cam : S.expanded ? 'card:' + S.expanded : 'home';
 
 /* ===== Time control ===== */
 function isLive(id) { return S.camTime[id] == null; }
@@ -2918,6 +2921,7 @@ function render() {
   try { render0(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300) Dbg.log('slow redraw', ms + 'ms', S.view); }
 }
 function render0() {
+  if (S.filt.motion && S.moCtx && moCtx() !== S.moCtx) { S.filt.motion = false; S.moCtx = null; }
   document.documentElement.dataset.mark = S.markStyle; savePage();
   document.documentElement.dataset.view = S.view;   /* cover screen: the side icons belong to the home page only */
   applyLook();
@@ -5165,7 +5169,7 @@ const ACT = {
   chk(d) {
     if (d.v === 'demo') { S.demo = !S.demo; render(); return; }
     if (d.v === 'motion') MotionList.n = 50;
-    S.filt[d.v] = !S.filt[d.v]; saveFilt(); render();
+    S.filt[d.v] = !S.filt[d.v]; if (d.v === 'motion') S.moCtx = S.filt.motion ? moCtx() : null; saveFilt(); render();
   },
   /* Any Object shows no boxes ticked: the first tap picks just that object; unticking the last one goes back to Any */
   obj(d) {
