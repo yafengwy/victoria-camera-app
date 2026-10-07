@@ -1305,7 +1305,7 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .pctl.g3{justify-content:flex-start;gap:6px}
 .pctl.g3 .psp{flex:1 1 0;min-width:0}
 .pctl.g3 .pl{order:1}.pctl.g3 .trio{order:2}.pctl.g3 .pr{order:3}
-.devbox{display:flex;flex-direction:column;padding:2px 4px 6px}
+.devbox{display:flex;flex-direction:column;padding:8px 4px 6px}
 .dvrow{display:flex;align-items:center;gap:10px;padding:10px 4px;border-top:1px solid var(--line)}
 .dvrow:first-child{border-top:0}
 .dvn{flex:1;min-width:0;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--head-fg)}
@@ -1314,6 +1314,14 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .dvtg::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
 .dvtg.on{background:#F5B400;box-shadow:none}.dvtg.on::after{left:21px}
 .dvseg{display:flex;gap:6px;flex:none}
+.dvi.ok{color:#2E9E5B}.dvi.bad{color:#D64545}
+.dvseg .chip.dvok[aria-pressed="true"]{background:#2E9E5B;color:#fff;box-shadow:none}
+.dvseg .chip.dvbad[aria-pressed="true"]{background:#D64545;color:#fff;box-shadow:none}
+.dvseg .chip.dvarm{background:#D64545;color:#fff;box-shadow:none}
+.dvlights{gap:8px}
+.dvpill{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:6px;height:38px;border-radius:19px;background:var(--track);color:var(--head-fg);font-size:13px;font-weight:700;white-space:nowrap}
+.dvpill .dvi{width:18px;height:18px}.dvpill .dvi svg{width:18px;height:18px}
+.dvpill.on{background:#F5B400;color:#1a1200}.dvpill.on .dvi{color:#1a1200}
 .pctl.g3 .pfixb{order:4}.pctl.g3 .o-pw{order:4}.pctl.g3 .o-dt{order:5}.pctl.g3 .o-bx{order:6}.pctl.g3 .o-sn{order:7}.pctl.g3 .o-lv{order:8}
 .pctl.g3 .pg{display:contents}
 @media (max-width:600px){
@@ -2030,7 +2038,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 3.7.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 3.7.4 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -3250,19 +3258,32 @@ function camMotion(id) {
    States are asked only while the Home tab is open (every 5 s). */
 const DEV_ICON = {
   light: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg>',
-  cover: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18M5 4v16M19 4v16M5 20h14M8 4c0 5 1 9 4 11M16 4c0 5-1 9-4 11"/></svg>'
+  cover: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18M5 4v16M19 4v16M5 20h14M8 4c0 5 1 9 4 11M16 4c0 5-1 9-4 11"/></svg>',
+  gate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21V9l9-5 9 5v12M6 21v-9h12v9M6 15h12M6 18h12"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+  unlock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg>'
 };
+/* lock: Lock / Unlock (green when locked, red when not); lights: several lights in one row; cover: fixed positions
+   (shut = at or under "shut"; coloured whenever it is open). Unlock and Open Gate ask for a second tap. */
+const DEV_GARAGE = [
+  { type: 'lock', e: 'lock.garage_door_lock', name: 'Garage Door Lock', lock: 'g_lock', unlock: 'g_unlock' },
+  { type: 'lights', items: [{ e: 'light.garage_light', name: 'Garage Light', on: 'g_light_on', off: 'g_light_off' }, { e: 'light.garage_gate_light', name: 'Gate Light', on: 'g_gatelight_on', off: 'g_gatelight_off' }] },
+  { type: 'cover', icon: 'gate', e: 'cover.garage_gate', name: 'Garage Gate', shut: 2, opts: [['g_gate_close', 'Close', 0], ['g_gate_open', 'Open', 80, 1]] }
+];
 const DEV = {
   california_room: [
-    { e: 'light.california_room_light', name: 'California Room Light', type: 'light', on: 'cr_light_on', off: 'cr_light_off' },
-    { e: 'cover.california_curtain_r', name: 'California Curtain', type: 'cover', opts: [['cr_curtain_6', 'Close', 6], ['cr_curtain_40', '40%', 40], ['cr_curtain_75', '75%', 75]] }
-  ]
+    { type: 'light', e: 'light.california_room_light', name: 'California Room Light', on: 'cr_light_on', off: 'cr_light_off' },
+    { type: 'cover', icon: 'cover', e: 'cover.california_curtain_r', name: 'California Curtain', shut: 10, opts: [['cr_curtain_6', 'Close', 6], ['cr_curtain_40', '40%', 40], ['cr_curtain_75', '75%', 75]] }
+  ],
+  garage1: DEV_GARAGE,
+  garage2: DEV_GARAGE
 };
 const Dev = {
-  st: {}, busy: {}, timer: null,
+  st: {}, busy: {}, timer: null, arm: null,
   of(cam) { return Data.source === 'frigate' && DEV[cam] && DEV[cam].length ? DEV[cam] : null; },
+  ents(cam) { return (DEV[cam] || []).flatMap(d => d.items ? d.items.map(x => x.e) : [d.e]); },
   async load(cam) {
-    await Promise.all((DEV[cam] || []).map(async d => { try { const r = await fetch(Frigate.base() + '/ha/dev/st/' + d.e, { credentials: 'include', cache: 'no-store' }); if (r.ok) { const j = await r.json(); this.st[d.e] = { s: j.state, pos: j.attributes && j.attributes.current_position }; } } catch (x) {} }));
+    await Promise.all(this.ents(cam).map(async e => { try { const r = await fetch(Frigate.base() + '/ha/dev/st/' + e, { credentials: 'include', cache: 'no-store' }); if (r.ok) { const j = await r.json(); this.st[e] = { s: j.state, pos: j.attributes && j.attributes.current_position }; } } catch (x) {} }));
     if (S.tab === 'home' && S.expanded === cam) { const b = document.getElementById('devbox'); if (b) b.outerHTML = this.html(cam); }
   },
   /* while the Home tab is open: ask every 5 s; stops by itself when it is closed */
@@ -3270,24 +3291,38 @@ const Dev = {
     if (this.timer) return;
     this.timer = setInterval(() => { if (S.tab === 'home' && S.expanded && this.of(S.expanded) && !document.hidden) this.load(S.expanded); else { clearInterval(this.timer); this.timer = null; } }, 5000);
   },
+  btn(k, e, to, label, on, cls, cf) {
+    const armed = this.arm && this.arm.k === k && this.arm.until > Date.now();
+    return '<button class="chip sm' + (cls ? ' ' + cls : '') + (armed ? ' dvarm' : '') + '" data-act="devdo" data-v="' + k + '" data-e="' + e + '" data-to="' + to + '"' + (cf ? ' data-cf="1"' : '') + ' aria-pressed="' + !!on + '">' + (armed ? 'Tap Again' : label) + '</button>';
+  },
   html(cam) {
     const ds = DEV[cam] || [];
-    if (!ds.some(d => this.st[d.e]) && !this.busy['_l' + cam]) { this.busy['_l' + cam] = 1; this.load(cam).finally(() => { delete this.busy['_l' + cam]; }); }
+    if (!this.ents(cam).some(e => this.st[e]) && !this.busy['_l' + cam]) { this.busy['_l' + cam] = 1; this.load(cam).finally(() => { delete this.busy['_l' + cam]; }); }
     this.watch();
+    const name = (ic, cls, t) => '<span class="dvn"><i class="dvi' + (cls ? ' ' + cls : '') + '">' + DEV_ICON[ic] + '</i>' + esc(t) + '</span>';
     return '<div class="devbox" id="devbox">' + ds.map(d => {
-      const st = this.st[d.e], on = st && st.s === 'on';
-      const left = '<span class="dvn"><i class="dvi' + (d.type === 'light' && on ? ' on' : '') + '">' + DEV_ICON[d.type] + '</i>' + esc(d.name) + '</span>';
-      if (d.type === 'light') return '<div class="dvrow">' + left + '<button class="dvtg' + (on ? ' on' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(d.name) + '" data-act="devdo" data-v="' + (on ? d.off : d.on) + '" data-e="' + d.e + '" data-to="' + (on ? 'off' : 'on') + '"></button></div>';
-      const pos = st && st.pos != null ? +st.pos : null;
-      return '<div class="dvrow">' + left + '<div class="dvseg">' + d.opts.map(([k, t, v]) => '<button class="chip sm" data-act="devdo" data-v="' + k + '" data-e="' + d.e + '" data-to="' + v + '" aria-pressed="' + (pos != null && Math.abs(pos - v) <= 3) + '">' + t + '</button>').join('') + '</div></div>';
+      if (d.type === 'lights') return '<div class="dvrow dvlights">' + d.items.map(x => { const on = (this.st[x.e] || {}).s === 'on';
+        return '<button class="dvpill' + (on ? ' on' : '') + '" data-act="devdo" data-v="' + (on ? x.off : x.on) + '" data-e="' + x.e + '" data-to="' + (on ? 'off' : 'on') + '" aria-pressed="' + on + '"><i class="dvi' + (on ? ' on' : '') + '">' + DEV_ICON.light + '</i>' + esc(x.name) + '</button>'; }).join('') + '</div>';
+      const st = this.st[d.e] || {};
+      if (d.type === 'light') { const on = st.s === 'on';
+        return '<div class="dvrow">' + name('light', on ? 'on' : '', d.name) + '<button class="dvtg' + (on ? ' on' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(d.name) + '" data-act="devdo" data-v="' + (on ? d.off : d.on) + '" data-e="' + d.e + '" data-to="' + (on ? 'off' : 'on') + '"></button></div>'; }
+      if (d.type === 'lock') { const lk = st.s === 'locked', un = !!st.s && !lk;
+        return '<div class="dvrow">' + name(lk || !st.s ? 'lock' : 'unlock', lk ? 'ok' : un ? 'bad' : '', d.name + (st.s && !/^(locked|unlocked)$/.test(st.s) ? ' · ' + niceName(st.s) : '')) + '<div class="dvseg">' +
+          this.btn(d.lock, d.e, 'locked', 'Lock', lk, 'dvok') + this.btn(d.unlock, d.e, 'unlocked', 'Unlock', st.s === 'unlocked', 'dvbad', 1) + '</div></div>'; }
+      const pos = st.pos != null ? +st.pos : st.s === 'closed' ? 0 : null, open = pos != null ? pos > d.shut : st.s === 'open' || st.s === 'opening';
+      return '<div class="dvrow">' + name(d.icon || 'cover', open ? 'on' : '', d.name) + '<div class="dvseg">' + d.opts.map(([k, t, v, cf]) => this.btn(k, d.e, v, t, pos != null && (v <= d.shut ? pos <= d.shut : Math.abs(pos - v) <= 3), '', cf)).join('') + '</div></div>';
     }).join('') + '</div>';
   },
-  async run(k, e, to) {
+  async run(k, e, to, cf) {
+    if (cf && !(this.arm && this.arm.k === k && this.arm.until > Date.now())) {   /* Unlock / Open Gate: tap twice */
+      this.arm = { k, until: Date.now() + 3000 }; render(); setTimeout(() => { if (this.arm && this.arm.k === k) { this.arm = null; render(); } }, 3100); return;
+    }
+    this.arm = null;
     const st = this.st[e] = this.st[e] || {};
-    if (to === 'on' || to === 'off') st.s = to; else st.pos = +to;   /* show it at once, then read it back */
+    if (to === 'on' || to === 'off' || to === 'locked' || to === 'unlocked') st.s = to; else st.pos = +to;   /* show it at once, then read it back */
     render();
     try { const r = await fetch(Frigate.base() + '/ha/dev/do/' + k, { method: 'POST', credentials: 'include' }); Dbg.log('home', k, r.status); if (!r.ok) toast('Home Assistant Did Not Answer'); } catch (x) { toast('Home Assistant Did Not Answer'); }
-    const cam = S.expanded; setTimeout(() => this.load(cam), 1500); setTimeout(() => this.load(cam), 6000);
+    const cam = S.expanded; setTimeout(() => this.load(cam), 1500); setTimeout(() => this.load(cam), 6000); setTimeout(() => this.load(cam), 20000);
   }
 };
 function panel(c, col) {
@@ -4754,7 +4789,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 3.7.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 3.7.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -4850,7 +4885,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 3.7.2');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 3.7.4');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -4867,7 +4902,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 3.7.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 3.7.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5223,7 +5258,7 @@ const ACT = {
   playpause() { S.playing = !S.playing; render(); },
   speed(d) { S.speed = +d.v; render(); },
   tab(d) { S.tab = d.v; render(); },
-  devdo(d) { Dev.run(d.v, d.e, d.to); },
+  devdo(d) { Dev.run(d.v, d.e, d.to, d.cf); },
   clipmark(d) {
     const id = S.expanded; if (!id) return;
     const t = camT(id) == null ? now() : camT(id);
@@ -5956,7 +5991,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '3.7.2';
+    const BUILD = '3.7.4';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
