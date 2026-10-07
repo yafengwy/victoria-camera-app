@@ -4883,7 +4883,7 @@ const ACT = {
     S.whoId = e.id; S.whoName = e.dets.map(x => People.sub[x]).filter(Boolean).map(niceName)[0] || ''; S.whoNew = ''; S.whoTeach = undefined; S.modal = 'who'; render();
     if (!People.faces) People.loadFaces().then(() => { if (S.modal === 'who') render(); });
   },
-  fixopen(d) { S.fixK = d.v; const e = evE(d.v); S.fixPick = ((e && e.dets) || []).map(x => People.sub[x]).find(Boolean) || ''; S.fixTeach = false;   /* 3.6.6: Teach off unless ticked */ S.fixBusy = false; S.fixKinds = []; S.modal = 'fix'; render();
+  fixopen(d) { S.fixK = d.v; const e = evE(d.v); S.fixPick = ((e && e.dets) || []).map(x => People.sub[x]).find(Boolean) || ''; S.fixTeach = true; S.fixBusy = false; S.fixKinds = []; S.modal = 'fix'; render();
     Promise.all([CatFix.loadNames(), CatFix.kinds(d.v).then(ks => { S.fixKinds = ks; })]).then(() => { if (S.modal === 'fix') render(); }); },
   cofixopen(d) { S.fixK = d.v; S.fixPick = ''; S.fixTeach = true; S.fixBusy = false; S.fixKinds = []; S.modal = 'cofix'; render();
     Promise.all([CoFix.loadNames(), CoFix.kinds(d.v).then(ks => { S.fixKinds = ks; })]).then(() => { if (S.modal === 'cofix') render(); }); },
