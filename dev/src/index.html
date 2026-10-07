@@ -6162,7 +6162,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   if (Data.source === 'frigate') {
     Diag.run();
     setInterval(() => Motion.ensure(), 3000); setInterval(() => Live.watch(), 2000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) { Motion.ensure(); Frigate.refresh(); LastMo.load(); Live.sweepStart('back to app'); HA.get(); Snz.get(); Wait.get(); } });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) Live.hidAt = now(); if (!document.hidden) { Motion.ensure(); Frigate.refresh(); LastMo.load(); if (now() - (Live.hidAt || 0) > 60000) Live.sweepStart('back to app'); HA.get(); Snz.get(); Wait.get(); } });
     window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); HA.get(); setInterval(() => HA.get(), 10000); if (store.get('boxes', false)) Box.set(true); if (!Playback.native()) Playback.hls().catch(() => {}); Snz.get(); setInterval(() => Snz.get(), 15000); Wait.get(); setInterval(() => Wait.get(), 15000); FpQ.run(); setInterval(() => FpQ.run(), 120000);
     setInterval(() => { if (S.view === 'home' && !S.modal && (Snz.active() || Wait.active() || document.querySelector('.snzban'))) render(); }, 60000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000); Pic.poll(); setInterval(() => Pic.poll(), 15000);
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
