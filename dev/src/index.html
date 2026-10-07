@@ -282,6 +282,10 @@ img.rf{opacity:0}
 .pullhint{position:absolute;left:50%;top:4px;width:40px;height:4px;margin-left:-20px;border-radius:2px;background:#3A3F44;z-index:2}
 .full{position:fixed;inset:0;z-index:45;background:#000;display:flex;align-items:center;justify-content:center}
 .full.rot .ftsc,.full.rot .fpl{touch-action:none}
+/* 3.10.6: turned sideways on an upright phone, the timeline's outer edge is the phone's bottom edge (the swipe-home bar):
+   keep a gap there so dragging the timeline doesn't move the whole app */
+.full.rot .fside{flex-basis:calc(92px + 22px + env(safe-area-inset-bottom,0px));padding-right:calc(22px + env(safe-area-inset-bottom,0px))}
+.full.rot .fside.wide{flex-basis:calc(150px + 22px + env(safe-area-inset-bottom,0px))}
 .full.rot{inset:auto;top:0;left:var(--vpw,100vw);width:var(--vph,100vh);height:var(--vpw,100vw);transform-origin:0 0;transform:rotate(90deg)}
 @media (orientation:landscape){.full:not(.ui) .fvw img{object-fit:cover}}
 .full .fov{top:calc(12px + env(safe-area-inset-top,0px))}
@@ -4250,7 +4254,7 @@ function rotDrag(el) {
   el.addEventListener('touchmove', e => {
     if (x0 == null || e.touches.length !== 1) return;
     const x = e.touches[0].clientX, dx = x - x0; if (!moved && Math.abs(dx) < 6) return;
-    moved = true; e.preventDefault(); el.scrollTop = s0 + dx;
+    moved = true; e.preventDefault(); el._want = s0 + dx; if (!el._raf) el._raf = requestAnimationFrame(() => { el._raf = 0; el.scrollTop = el._want; });
     const n = performance.now(); v = (x - lastX) / Math.max(8, n - lastT); lastX = x; lastT = n;
   }, { passive: false });
   el.addEventListener('touchend', () => {
@@ -4336,7 +4340,13 @@ function wireFull() {
     if (S.fLock) return; sc._scrolled = Date.now();
     const y = sc.scrollTop + fFullY() - VTOP;
     S.camTime[S.focus.cam] = (y < 3 && !S.focus.dayEnd) ? null : focusEnd() - y / FFPX * MIN;
-    paintFocus();
+    /* 3.10.6: while dragging, only the time labels follow the finger at once; the picture and the video follow at most
+       4 times a second and once more when the finger stops (redrawing everything on each move made the drag stick) */
+    const t = camT(S.focus.cam), bub = document.getElementById('fbub'), ft = document.getElementById('fulltm');
+    if (bub) bub.textContent = t == null ? 'Live' : hm(t); if (ft) ft.textContent = t == null ? '' : dtShort(t);
+    clearTimeout(sc._pf); const n = performance.now();
+    if (n - (sc._pfAt || 0) > 250) { sc._pfAt = n; paintFocus(); }
+    else sc._pf = setTimeout(() => { sc._pfAt = performance.now(); if (S.focus) paintFocus(); }, 140);
   }, { passive: true });
   sc.addEventListener('click', e => {           /* tap an empty spot on the rail: go to that time */
     if (e.target.closest('button')) return;
