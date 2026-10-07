@@ -803,6 +803,8 @@ img.rf{opacity:0}
 /* clip, not hidden: hidden on html+body made the body its own scroll box, which quietly switched off every sticky
    header (Alerts title and filters, hour rail, Review top bar) */
 html,body{overflow-x:clip;max-width:100vw;overscroll-behavior-x:none;touch-action:manipulation}
+/* 4.1.2: no Safari pull-to-refresh anywhere on the page (it reloaded from any spot); only the app's own pull on the top bars */
+html,body{overscroll-behavior-y:none}
 input,select,textarea{font-size:16px}
 .objq{flex:1;min-width:0;border:0;background:transparent;color:var(--head-fg);font:inherit;font-size:16px;padding:10px 0;outline:none}
 .objq:focus,.objq:focus-visible{outline:none !important;box-shadow:none}
@@ -4913,7 +4915,50 @@ const RecMap = {
    the others keep what they show. Once the timeline stops for a moment, the exact frames for that second are fetched. */
 function rvMovingNow() { const rv = document.getElementById('rvsc'); return !!(rv && rv._touch) || Date.now() - (S.rvMoving || 0) < 240; }
 function rvSettle() { const rv = document.getElementById('rvsc'); if (rv && rv._touch) return; S.rvMoving = 0; if (S.view === 'review') paintReview(); }
+/* 4.1.2 Review, Big layout: pinch the big picture to zoom into it (one finger moves it while zoomed, double tap goes
+   back). Only the picture on this phone is enlarged: nothing extra is asked of the mini PC. */
+const RZ = {
+  s: 1, x: 0, y: 0, id: null,
+  tile() { return S.view === 'review' && rvLay() !== 'grid' && S.rv.feat ? document.getElementById('rv-' + S.rv.feat) : null; },
+  apply() {
+    if (this.id !== S.rv.feat) { this.id = S.rv.feat; this.s = 1; this.x = 0; this.y = 0; }
+    document.querySelectorAll('.rvcam > img').forEach(im => { const on = this.s > 1.01 && im.parentNode.id === 'rv-' + this.id;
+      const v = on ? 'translate(' + this.x + 'px,' + this.y + 'px) scale(' + this.s + ')' : ''; if (im.style.transform !== v) { im.style.transform = v; im.style.transformOrigin = on ? '0 0' : ''; } });
+  },
+  wire() {
+    let g = null, lastTap = 0;
+    const loc = (n, x, y) => { const r = n.getBoundingClientRect(); return [x - r.left, y - r.top]; };
+    const fit = n => { const W = n.clientWidth, H = n.clientHeight; this.x = Math.min(0, Math.max(W - W * this.s, this.x)); this.y = Math.min(0, Math.max(H - H * this.s, this.y)); };
+    document.addEventListener('touchstart', e => {
+      const n = this.tile(); if (!n || !e.target.closest || !n.contains(e.target)) { g = null; return; }
+      if (this.id !== S.rv.feat) this.apply();
+      const t = e.touches;
+      if (t.length === 2) { const m = loc(n, (t[0].clientX + t[1].clientX) / 2, (t[0].clientY + t[1].clientY) / 2); g = { pinch: true, n, d0: Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY) || 1, m0: m, s0: this.s, x0: this.x, y0: this.y }; }
+      else if (t.length === 1 && this.s > 1.01) g = { pinch: false, n, p0: loc(n, t[0].clientX, t[0].clientY), x0: this.x, y0: this.y, moved: false };
+      else g = null;
+    }, { passive: true });
+    document.addEventListener('touchmove', e => {
+      if (!g) return; const t = e.touches; e.preventDefault();
+      if (g.pinch && t.length === 2) {
+        const m = loc(g.n, (t[0].clientX + t[1].clientX) / 2, (t[0].clientY + t[1].clientY) / 2), s = clamp(g.s0 * Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY) / g.d0, 1, 6);
+        const cx = (g.m0[0] - g.x0) / g.s0, cy = (g.m0[1] - g.y0) / g.s0; this.s = s; this.x = m[0] - cx * s; this.y = m[1] - cy * s; fit(g.n); this.apply();
+      } else if (!g.pinch && t.length === 1) {
+        const p = loc(g.n, t[0].clientX, t[0].clientY), dx = p[0] - g.p0[0], dy = p[1] - g.p0[1]; if (!g.moved && Math.hypot(dx, dy) < 6) return;
+        g.moved = true; this.x = g.x0 + dx; this.y = g.y0 + dy; fit(g.n); this.apply();
+      }
+    }, { passive: false });
+    document.addEventListener('touchend', e => {
+      if (!g) return;
+      if (g.pinch && e.touches.length === 1 && this.s > 1.01) { const t = e.touches[0]; g = { pinch: false, n: g.n, p0: loc(g.n, t.clientX, t.clientY), x0: this.x, y0: this.y, moved: true }; return; }
+      if (e.touches.length) return;
+      if (this.s < 1.03) { this.s = 1; this.x = 0; this.y = 0; this.apply(); }
+      const nt = Date.now(); if (this.s > 1.01 && nt - lastTap < 320) { this.s = 1; this.x = 0; this.y = 0; this.apply(); } lastTap = nt; g = null;
+    }, { passive: true });
+  }
+};
+RZ.wire();
 function paintReview() {
+  RZ.apply();
   const t = S.rv.t, ht = S.hov && S.hov.id === 'rv' ? S.hov.t : undefined;
   rvCams().slice().sort((a, b) => (b.id === S.rv.feat) - (a.id === S.rv.feat)).forEach(c => {   /* the big picture is asked for first */
     const f = Data.frame(c, t), box = document.getElementById('rv-' + c.id); if (!box) return;
@@ -5848,7 +5893,7 @@ document.addEventListener('touchstart', e => { const t = e.touches[0]; TG.t0 = t
 document.addEventListener('touchmove', e => { const t = e.touches[0]; if (e.touches.length > 1 || (TG.t0 && t && Math.hypot(t.clientX - TG.t0[0], t.clientY - TG.t0[1]) > 10)) TG.mv = true; }, { capture: true, passive: true });
 document.addEventListener('touchend', e => { if (!e.touches.length) TG.end = Date.now(); }, { capture: true, passive: true });
 document.addEventListener('click', e => {
-  if (TG.mv && Date.now() - TG.end < 800 && e.target.closest && e.target.closest('.focus, .full, #fsc, #ftsc')) {
+  if (TG.mv && Date.now() - TG.end < 800 && e.target.closest && e.target.closest('.focus, .full, #fsc, #ftsc, .rvcam')) {
     const a = e.target.closest('[data-act]'); if (a) Dbg.log('drag end not a tap', a.dataset.act);
     e.stopPropagation(); e.preventDefault(); TG.mv = false;
   }
