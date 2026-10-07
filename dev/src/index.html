@@ -2041,7 +2041,9 @@ const Playback = {
   native() {
     if (this._nat != null) return this._nat;
     const ua = navigator.userAgent, apple = /iP(hone|ad|od)/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) || (/Safari/.test(ua) && /Macintosh/.test(ua) && !/Chrome|Chromium|Edg|Firefox/.test(ua));
-    return (this._nat = apple && !!document.createElement('video').canPlayType('application/vnd.apple.mpegurl'));
+    /* 3.5.11: iPhone with ManagedMediaSource (iOS 17.1+) uses hls.js too: its built-in player stalled on recordings the
+       Samsung (hls.js) played at once, same alert, same place, same time */
+    return (this._nat = apple && !!document.createElement('video').canPlayType('application/vnd.apple.mpegurl') && !('ManagedMediaSource' in window));
   },
   hls() {
     if (window.Hls) return Promise.resolve(window.Hls);
@@ -2104,6 +2106,7 @@ const Playback = {
         const H = await this.hls(); if (gone()) return; if (!H.isSupported()) throw 0;
         const vt0 = this.vtime(p, camT(id) == null ? t : camT(id));
         p.h = new H({ startPosition: vt0 != null ? vt0 : -1, maxBufferLength: 8, maxMaxBufferLength: 20, backBufferLength: 10, startFragPrefetch: true, manifestLoadingTimeOut: 8000, fragLoadingTimeOut: 8000 });
+        v.disableRemotePlayback = true;   /* ManagedMediaSource on iPhone needs this (no AirPlay of recordings) */
         p.h.loadSource(url); p.h.attachMedia(v); v.play().catch(() => {});
         await new Promise(ok => { const f = () => { v.removeEventListener('loadedmetadata', f); ok(); }; v.addEventListener('loadedmetadata', f); setTimeout(ok, 4000); });
         if (gone()) return;
@@ -2175,7 +2178,7 @@ const Playback = {
       ['loadedmetadata', 'playing', 'stalled', 'error'].forEach(ev => v.addEventListener(ev, () => Dbg.log('alert clip', ev, tag, ev === 'error' && v.error ? 'code ' + v.error.code + ' ' + (v.error.message || '') : 'at ' + v.currentTime.toFixed(1))));
       fetch(u, { credentials: 'include' }).then(r => r.text().then(t => Dbg.log('alert clip list', tag, r.status, (t.match(/#EXTINF/g) || []).length + ' parts'))).catch(e => Dbg.log('alert clip list', tag, 'failed'));
       if (this.native()) { v.src = u; v.play().catch(() => {}); }
-      else this.hls().then(H => { const h = new H(); v._hls = h; h.loadSource(u); h.attachMedia(v); v.play().catch(() => {}); }).catch(() => { v.src = u; });
+      else this.hls().then(H => { const h = new H(); v._hls = h; v.disableRemotePlayback = true; h.loadSource(u); h.attachMedia(v); v.play().catch(() => {}); }).catch(() => { v.src = u; });
     });
     const want = this.cams();
     for (const id in this.st) if (!want[id]) {
