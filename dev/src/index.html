@@ -6133,9 +6133,19 @@ function wire() {
       if (gi >= 0) { ACT.fgrp({ g: gi }); return; }
       S.camTime[S.focus.cam] = (!S.focus.dayEnd && y < FTOP + 4) ? null : t; S.playing = true; paintFocus(); Playback.sync();
     });
+    /* 4.1.11: only a scroll the user makes moves the time. The list also scrolls by itself (pictures loading, the page
+       redrawing, the browser putting back an old position); at the top that counted as "go Live" and stopped an
+       alert that had just started playing (09:12 played half a second, then jumped to Live) */
+    const user = () => sc._touch || sc._ptr || Date.now() - Math.max(sc._wheelAt || 0, sc._upAt || 0) < 1200;
+    sc.addEventListener('wheel', () => { sc._wheelAt = Date.now(); }, { passive: true });
+    sc.addEventListener('pointerdown', () => { sc._ptr = true; }, { passive: true });
+    window.addEventListener('pointerup', () => { if (sc._ptr) { sc._ptr = false; sc._upAt = Date.now(); } }, { passive: true });
+    sc.addEventListener('touchend', () => { sc._upAt = Date.now(); }, { passive: true });
     sc.addEventListener('scroll', () => {
       if (S.focus.progTop != null && Math.abs(sc.scrollTop - S.focus.progTop) < 2) { S.focus.progTop = null; return; }
-      S.focus.progTop = null; sc._scrolled = Date.now();
+      S.focus.progTop = null;
+      if (!user()) { fPaintLine(); return; }
+      sc._scrolled = Date.now();
       const ly = S.focus.lineY == null ? FTOP : S.focus.lineY, y = sc.scrollTop + ly;
       S.camTime[S.focus.cam] = (!S.focus.dayEnd && y < FTOP + 2) ? null : focusEnd() - (y - FTOP) / FPX * MIN;
       paintFocus();
