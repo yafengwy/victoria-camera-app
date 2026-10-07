@@ -1305,22 +1305,23 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .pctl.g3{justify-content:flex-start;gap:6px}
 .pctl.g3 .psp{flex:1 1 0;min-width:0}
 .pctl.g3 .pl{order:1}.pctl.g3 .trio{order:2}.pctl.g3 .pr{order:3}
-.devbox{display:flex;flex-direction:column;padding:8px 4px 6px}
-.dvrow{display:flex;align-items:center;gap:10px;padding:10px 4px;border-top:1px solid var(--line)}
+.devbox{display:flex;flex-direction:column;padding:2px 4px 4px}
+.dvrow{display:flex;align-items:center;gap:8px;padding:5px 4px;border-top:1px solid var(--line)}
 .dvrow:first-child{border-top:0}
-.dvn{flex:1;min-width:0;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--head-fg)}
-.dvi{display:inline-flex;width:22px;height:22px;color:var(--sub)}.dvi svg{width:22px;height:22px}.dvi.on{color:#F5B400}
-.dvtg{width:46px;height:28px;border-radius:14px;background:var(--track);position:relative;flex:none;box-shadow:inset 0 0 0 1px var(--line)}
-.dvtg::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
-.dvtg.on{background:#F5B400;box-shadow:none}.dvtg.on::after{left:21px}
-.dvseg{display:flex;gap:6px;flex:none}
+.dvn{flex:1;min-width:0;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--head-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dvi{display:inline-flex;flex:none;width:16px;height:16px;color:var(--sub)}.dvi svg{width:16px;height:16px}.dvi.on{color:#F5B400}
+.dvtg{width:38px;height:22px;border-radius:11px;background:var(--track);position:relative;flex:none;box-shadow:inset 0 0 0 1px var(--line)}
+.dvtg::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:9px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
+.dvtg.on{background:#F5B400;box-shadow:none}.dvtg.on::after{left:18px}
+.dvseg{display:flex;gap:4px;flex:none}
+.dvseg .chip.sm{height:24px;padding:0 10px;font-size:11px;border-radius:12px}
 .dvi.ok{color:#2E9E5B}.dvi.bad{color:#D64545}
 .dvseg .chip.dvok[aria-pressed="true"]{background:#2E9E5B;color:#fff;box-shadow:none}
 .dvseg .chip.dvbad[aria-pressed="true"]{background:#D64545;color:#fff;box-shadow:none}
 .dvseg .chip.dvarm{background:#D64545;color:#fff;box-shadow:none}
-.dvlights{gap:8px}
-.dvpill{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:6px;height:38px;border-radius:19px;background:var(--track);color:var(--head-fg);font-size:13px;font-weight:700;white-space:nowrap}
-.dvpill .dvi{width:18px;height:18px}.dvpill .dvi svg{width:18px;height:18px}
+.dvlights{gap:6px}
+.dvpill{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:5px;height:26px;border-radius:13px;background:var(--track);color:var(--head-fg);font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden}
+.dvpill .dvi{width:14px;height:14px}.dvpill .dvi svg{width:14px;height:14px}
 .dvpill.on{background:#F5B400;color:#1a1200}.dvpill.on .dvi{color:#1a1200}
 .pctl.g3 .pfixb{order:4}.pctl.g3 .o-pw{order:4}.pctl.g3 .o-dt{order:5}.pctl.g3 .o-bx{order:6}.pctl.g3 .o-sn{order:7}.pctl.g3 .o-lv{order:8}
 .pctl.g3 .pg{display:contents}
@@ -3270,7 +3271,13 @@ const DEV_GARAGE = [
   { type: 'lights', items: [{ e: 'light.garage_light', name: 'Garage Light', on: 'g_light_on', off: 'g_light_off' }, { e: 'light.garage_gate_light', name: 'Gate Light', on: 'g_gatelight_on', off: 'g_gatelight_off' }] },
   { type: 'cover', icon: 'gate', e: 'cover.garage_gate', name: 'Garage Gate', shut: 2, opts: [['g_gate_close', 'Close', 0], ['g_gate_open', 'Open', 80, 1]] }
 ];
+const DEV_FRONT = [
+  { type: 'lock', e: 'lock.front_door_deadbolt', name: 'Deadbolt', lock: 'fd_lock', unlock: 'fd_unlock' },
+  { type: 'lights', items: [{ e: 'light.front_door_light', name: 'Front Door Light', on: 'fd_light_on', off: 'fd_light_off' }, { e: 'light.front_yard_light', name: 'Front Yard Light', on: 'fy_light_on', off: 'fy_light_off' }] }
+];
 const DEV = {
+  nest_doorbell: DEV_FRONT,
+  front_door: DEV_FRONT,
   california_room: [
     { type: 'light', e: 'light.california_room_light', name: 'California Room Light', on: 'cr_light_on', off: 'cr_light_off' },
     { type: 'cover', icon: 'cover', e: 'cover.california_curtain_r', name: 'California Curtain', shut: 10, opts: [['cr_curtain_6', 'Close', 6], ['cr_curtain_40', '40%', 40], ['cr_curtain_75', '75%', 75]] }
