@@ -1795,6 +1795,7 @@ const Pic = {
     try {
       const d = await Frigate.get('/api/stats'), t = now();
       for (const id in (d.cameras || {})) {
+        Snap.fresh[id] = (d.cameras[id].process_fps || 0) >= 1;   /* 3.9.9: Frigate is reading it now, so its picture is current */
         if ((d.cameras[id].camera_fps || 0) < 1) { if (!this.z[id]) this.z[id] = t; } else delete this.z[id];
         /* repaint only a camera whose pill changes (compared with what was last shown) */
         const n = this.no(id) ? (this.live(id) ? 'L' : 'N') : ''; if (n !== (this.shown[id] || '')) { this.shown[id] = n; Dbg.log(n ? (n === 'L' ? 'not recording' : 'no picture') : 'picture back', id); if (S.view === 'home' && !S.focus) paintCam(id); }
@@ -1816,6 +1817,36 @@ Frigate.pollStats = async function () {
    stops (Still: stream closed, last picture shown) only after one full minute without any motion, and goes live again
    the moment motion comes. A tap on a Still card = live for 1 minute, then the same rule. The opened card, full view
    and Watch stay live. 10–14 open streams (Still ones too) froze the iPhone for 5–7 s and got the page killed. */
+/* 3.9.9 (her choice A): on phones the home cards show Frigate's current picture once a second instead of a video while
+   they are live (any motion, the 1-minute rule, a tap, Live, the open-app refresh). 9-13 videos at once made every one
+   take 8-36 s on the iPhone. The opened card, full view and Watch keep real video. A camera Frigate is not reading
+   right now (no frames in its stats, e.g. detection off) keeps the video, since its picture would be old. */
+const Snap = {
+  at: {}, busy: {}, fresh: {},
+  on(id) { return PHONE_LIVE() && S.view === 'home' && !S.watch && !S.focus && S.expanded !== id && this.fresh[id] !== false; },
+  url(id) { return Frigate.base() + '/api/' + id + '/latest.webp?height=360&ts=' + Date.now(); },
+  tick() {
+    if (Data.source !== 'frigate' || document.hidden || !PHONE_LIVE() || S.view !== 'home') return;
+    const t = now();
+    for (const c of Data.cams) { const id = c.id;
+      if (!Ctl.on(id) || !this.on(id) || !Live.wantLive(id) || this.busy[id] || t - (this.at[id] || 0) < 950) continue;
+      const im = document.getElementById('img-' + id); if (!im) continue;
+      const r = im.getBoundingClientRect(); if (!(r.bottom > 0 && r.top < innerHeight && r.width > 0)) continue;
+      this.busy[id] = 1; const u = this.url(id), pre = new Image(), t0 = performance.now();
+      pre.onload = () => { this.busy[id] = 0; this.at[id] = now(); const n = document.getElementById('img-' + id);
+        if (n) { n.src = u; delete n.dataset.frozen; }
+        if (Live.fz[id]) { delete Live.fz[id]; Live.fzSave(); }
+        if (!this.first) { this.first = 1; Dbg.log('picture mode first picture', id, Math.round(performance.now() - t0) + 'ms'); } };
+      pre.onerror = () => { this.busy[id] = 0; this.at[id] = this.at[id] || 0; this.errN = (this.errN || 0) + 1; if (this.errN < 5) Dbg.log('picture mode failed', id); };
+      setTimeout(() => { if (this.busy[id] && performance.now() - t0 > 8000) this.busy[id] = 0; }, 8100);
+      pre.src = u;
+    }
+    /* the pill follows the picture: Connecting until the first one, Live while they come, Still after */
+    for (const c of Data.cams) { if (!this.on(c.id) || camT(c.id) != null) continue; const b = document.getElementById('badge-' + c.id); if (!b) continue;
+      const h = badgeHtml(c.id, null, null); if (b._h !== h) { b._h = h; b.outerHTML = h; const nb = document.getElementById('badge-' + c.id); if (nb) nb._h = h; } }
+  }
+};
+setInterval(() => { try { Snap.tick(); } catch (e) {} }, 250);
 const PHONE_LIVE = () => Math.min(screen.width, screen.height) < 600 && !!(window.matchMedia && matchMedia('(pointer:coarse)').matches);
 const Live = {
   els: {}, fz: (() => { try { const o = JSON.parse(localStorage.getItem('vhfz') || '{}'); for (const k in o) if (!o[k] || !o[k].src || o[k].src.length < 16000) delete o[k]; return o; } catch (e) { return {}; } })(),
@@ -1823,7 +1854,7 @@ const Live = {
   fzSave() { const k = Object.keys(this.fz).sort((a, b) => this.fz[b].at - this.fz[a].at);
     for (let n = k.length; n >= 0; n--) { try { const o = {}; k.slice(0, n).forEach(i => { o[i] = this.fz[i]; }); localStorage.setItem('vhfz', JSON.stringify(o)); return; } catch (e) {} } },
   /* 3.8.6 phones: the moment a Still card's picture is from: the last motion, or the last live frame kept when it froze (a tapped card) */
-  stillAt(id) { const m = Data.motion(id), f = this.fz[id]; const t = Math.max(m.last || 0, f ? f.at : 0); return t || null; },
+  stillAt(id) { const m = Data.motion(id), f = this.fz[id]; const t = Math.max(m.last || 0, f ? f.at : 0, Snap.at[id] || 0); return t || null; },
   pic(id, img) { const f = PHONE_LIVE() && S.view === 'home' && this.fz[id]; return f && f.at >= (Data.motion(id).last || 0) ? f.src : img; },   /* newer motion since: Frigate's picture is newer */
   wantLive(id) { const m = Data.motion(id); return m.active || (m.last != null && now() - m.last < 60000) || (S.forced[id] && S.forced[id] > now()) || S.expanded === id || !!(S.focus && S.focus.cam === id) || !!this.sw.act[id]; },
   /* the card keeps the live stream's last frame (the last moment anything moved), not a newer snapshot */
@@ -1846,7 +1877,7 @@ const Live = {
     const sw = this.sw; if (!PHONE_LIVE() || (!sw.pend.size && !Object.keys(sw.act).length)) return;
     const t = now();
     for (const id in sw.act) { const e = this.els[this.cardSrc(id)];
-      if (e && e.okSince && t - e.okSince > 6500) { Dbg.log('refreshed', id, ((t - sw.act[id]) / 1000).toFixed(1) + 's'); delete sw.act[id]; }
+      if ((Snap.on(id) && Snap.at[id] > sw.act[id]) || (e && e.okSince && t - e.okSince > 6500)) { Dbg.log('refreshed', id, ((t - sw.act[id]) / 1000).toFixed(1) + 's'); delete sw.act[id]; }
       else if (t - sw.act[id] > 25000) { Dbg.log('refresh gave up', id, 'no picture in 25 s'); delete sw.act[id]; } }
     if (S.view !== 'home' || document.hidden || S.focus) { this.policy(); return; }
     const top = id => { const n = document.getElementById('cam-' + id); if (!n) return null; const r = n.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.width > 0 ? r.top : null; };
@@ -1858,7 +1889,7 @@ const Live = {
     while (Object.keys(sw.act).length < 4 && cand.length) { const id = cand.shift()[1]; sw.pend.delete(id); sw.act[id] = t; }
     this.policy();
   },
-  idle(src) { return PHONE_LIVE() && S.view === 'home' && !S.watch && !this.wantLive(this.cam(src)); },
+  idle(src) { return PHONE_LIVE() && S.view === 'home' && !S.watch && (!this.wantLive(this.cam(src)) || Snap.on(this.cam(src))); },
   on() { return Data.source === 'frigate' && !!(window.customElements && customElements.get('live-cam')); },
   cam(src) { return String(src).replace(/_sub$/, ''); },
   /* 3.8.5: on phones every home card (opened one and list too) uses the light stream; 4K main streams froze the iPhone 5-9 s when a card opened. Full view stays HD.
@@ -3326,6 +3357,7 @@ function shownT(id, src) {
   const mo = Data.motion(id), forced = S.forced[id] && S.forced[id] > now();
   const ph = PHONE_LIVE() && S.view === 'home', pe = ph && Live.els[src];
   const sa = ph ? Live.stillAt(id) : mo.last;
+  if (ph && Ctl.on(id) && Snap.on(id)) { if (Live.wantLive(id) && Snap.at[id]) return Snap.at[id]; if (sa != null) return sa; }   /* 3.9.9 picture mode: the picture's own time */
   if (Ctl.on(id) && !forced && (ph ? !(pe && !pe.suspended && pe.video && pe.video.readyState >= 2) : !(mo.active || (mo.last != null && now() - mo.last < 5000))) && sa != null) return sa;   /* 3.8.3 phones: the time runs while the stream is really open */
   const e = Live.els[src], v = e && e.video;
   if (v && v.readyState >= 2 && !v.closest('[hidden]')) {
@@ -3362,7 +3394,7 @@ function badgeHtml(id, t, f) {
   else if (Pic.no(id)) inner = Pic.pill(id);
   else if (PHONE_LIVE() && S.view === 'home') {   /* 3.8.3: says what the card really does: Still (closed), Connecting, Live */
     const e = Live.els[Live.cardSrc(id)], m = Data.motion(id);
-    const sa = Live.stillAt(id); inner = !e || e.suspended ? '<span class="dot idle"></span>Still' + (sa != null ? ' ' + agoShort(now() - sa) : '') : Pic.live(id) ? '<span class="dot busy"></span>Live' : '<span class="dot forced"></span>Connecting';
+    const sa = Live.stillAt(id); if (Snap.on(id)) inner = !Live.wantLive(id) ? '<span class="dot idle"></span>Still' + (sa != null ? ' ' + agoShort(now() - sa) : '') : Snap.at[id] && now() - Snap.at[id] < 3000 ? '<span class="dot busy"></span>Live' : '<span class="dot forced"></span>Connecting'; else inner = !e || e.suspended ? '<span class="dot idle"></span>Still' + (sa != null ? ' ' + agoShort(now() - sa) : '') : Pic.live(id) ? '<span class="dot busy"></span>Live' : '<span class="dot forced"></span>Connecting';
   }
   else if (S.forced[id] && S.forced[id] > now()) inner = '<span class="dot forced"></span>Live';
   else { const m = Data.motion(id); inner = (m.active || (m.last != null && now() - m.last < 5000)) ? '<span class="dot busy"></span>Live' : '<span class="dot idle"></span>Still' + (m.last != null ? ' ' + agoShort(now() - m.last) : ''); }
@@ -3548,7 +3580,7 @@ function paintCam(id) {
   const t = camT(id), f = Data.frame(c, t);
   const img = document.getElementById('img-' + id);
   const fi = S.hov && S.hov.id === id ? Data.frame(c, S.hov.t) : f;     /* mouse hovering the timeline: preview that moment */
-  if (img && !(fi === f && Playback.showing(id)) && !(img.dataset.frozen && t == null && fi === f)) { if (Data.source === 'frigate') setImg(img, fi.img); else if (img.getAttribute('src') !== fi.img) img.src = fi.img; }
+  if (img && !(fi === f && Playback.showing(id)) && !(img.dataset.frozen && t == null && fi === f) && !(t == null && fi === f && Snap.on(id) && Snap.at[id])) { if (Data.source === 'frigate') setImg(img, fi.img); else if (img.getAttribute('src') !== fi.img) img.src = fi.img; }
   Live.show(document.querySelector('#cam-' + id + ' .lvh'), t == null && fi === f);
   Live.show(document.getElementById('off-' + id), t == null && fi === f);
   const b = document.getElementById('badge-' + id);
