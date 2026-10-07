@@ -1320,6 +1320,12 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .dvseg .chip.dvbad[aria-pressed="true"]{background:#D64545;color:#fff;box-shadow:none}
 .dvseg .chip.dvarm{background:#D64545;color:#fff;box-shadow:none}
 .dvlights{gap:6px}
+.dvl{flex:none;width:76px}
+.dvbri{flex:1;min-width:0;accent-color:#F5B400;height:20px;margin:0}
+.dvpct{flex:none;width:34px;text-align:right;font-size:11px;font-weight:700;color:var(--sub)}
+.dvsc{display:flex;gap:10px;flex:1}
+.dvdot{width:24px;height:24px;border-radius:12px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.dvdot.on{box-shadow:0 0 0 2px var(--card),0 0 0 4px var(--accent,#233A6E)}
 .dvpill{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:5px;height:26px;border-radius:13px;background:var(--track);color:var(--head-fg);font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden}
 .dvpill .dvi{width:14px;height:14px}.dvpill .dvi svg{width:14px;height:14px}
 .dvpill.on .dvi{color:#F5B400}   /* lights: only the bulb turns yellow */
@@ -3257,6 +3263,9 @@ function camMotion(id) {
 /* 3.7.1 Home tab: lights and curtains of Home Assistant that belong to a camera. Each button is one fixed action on the
    mini PC (/ha/dev/do/<key>, its body is set in app-nginx.conf), so only these exact things can be done from here.
    States are asked only while the Home tab is open (every 5 s). */
+document.addEventListener('input', ev => { const t = ev.target; if (t.classList && t.classList.contains('dvbri')) { Dev.drag = true; const n = document.getElementById('dvpct'); if (n) n.textContent = t.value + '%'; } });
+document.addEventListener('pointerup', () => { if (Dev.drag) setTimeout(() => { Dev.drag = false; }, 400); }, true);
+document.addEventListener('change', ev => { const t = ev.target; if (t.classList && t.classList.contains('dvbri')) { Dev.drag = false; Dev.bri(t.dataset.k, t.dataset.e, +t.value); } });
 const DEV_ICON = {
   light: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg>',
   cover: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18M5 4v16M19 4v16M5 20h14M8 4c0 5 1 9 4 11M16 4c0 5-1 9-4 11"/></svg>',
@@ -3280,7 +3289,10 @@ const DEV = {
   nest_doorbell: DEV_FRONT,
   front_door: DEV_FRONT,
   driveway: [DEV_GATE, { type: 'lights', items: [{ e: 'light.front_yard_light', name: 'Front Yard Light', on: 'fy_light_on', off: 'fy_light_off' }] }],
-  nest_backyard: [{ type: 'lights', items: [{ e: 'light.back_yard_light', name: 'Back Yard Light', on: 'by_light_on', off: 'by_light_off' }, { e: 'light.philips_hue_outdoor_wall', name: 'Outdoor Wall', on: 'hue_wall_on', off: 'hue_wall_off' }] }],
+  nest_backyard: [{ type: 'lights', items: [{ e: 'light.back_yard_light', name: 'Back Yard Light', on: 'by_light_on', off: 'by_light_off' }, { e: 'light.philips_hue_outdoor_wall', name: 'Outdoor Wall', on: 'hue_wall_on', off: 'hue_wall_off', hue: { bri: 'hue_wall', scenes: [
+      ['hue_relax', 'Relax', 'scene.philips_hue_outdoor_wall_relax', 'linear-gradient(135deg,#FFD08A,#FFB25C)'],
+      ['hue_tropical', 'Tropical Twilight', 'scene.philips_hue_outdoor_wall_tropical_twilight', 'linear-gradient(135deg,#FF6F61,#8E44AD)'],
+      ['hue_arctic', 'Arctic Aurora', 'scene.philips_hue_outdoor_wall_arctic_aurora', 'linear-gradient(135deg,#3FD0C9,#3B6FE0)']] } }] }],
   left_yard: [{ type: 'lights', items: [{ e: 'light.left_yard_light', name: 'Left Yard Light', on: 'ly_light_on', off: 'ly_light_off' }] }],
   california_room: [
     { type: 'lights', items: [{ e: 'light.california_room_light', name: 'California Room Light', on: 'cr_light_on', off: 'cr_light_off' }] },
@@ -3292,15 +3304,28 @@ const DEV = {
 const Dev = {
   st: {}, busy: {}, timer: null, arm: null,
   of(cam) { return Data.source === 'frigate' && DEV[cam] && DEV[cam].length ? DEV[cam] : null; },
-  ents(cam) { return (DEV[cam] || []).flatMap(d => d.items ? d.items.map(x => x.e) : [d.e]); },
+  ents(cam) { return (DEV[cam] || []).flatMap(d => d.items ? d.items.flatMap(x => [x.e, ...(x.hue ? x.hue.scenes.map(c => c[2]) : [])]) : [d.e]); },
   async load(cam) {
-    await Promise.all(this.ents(cam).map(async e => { try { const r = await fetch(Frigate.base() + '/ha/dev/st/' + e, { credentials: 'include', cache: 'no-store' }); if (r.ok) { const j = await r.json(); this.st[e] = { s: j.state, pos: j.attributes && j.attributes.current_position }; } } catch (x) {} }));
+    await Promise.all(this.ents(cam).map(async e => { try { const r = await fetch(Frigate.base() + '/ha/dev/st/' + e, { credentials: 'include', cache: 'no-store' }); if (r.ok) { const j = await r.json(); this.st[e] = { s: j.state, pos: j.attributes && j.attributes.current_position, bri: j.attributes && j.attributes.brightness }; } } catch (x) {} }));
+    if (this.drag) return;   /* never redraw under a finger on the brightness bar */
     if (S.tab === 'home' && S.expanded === cam) { const b = document.getElementById('devbox'); if (b) b.outerHTML = this.html(cam); }
   },
   /* while the Home tab is open: ask every 5 s; stops by itself when it is closed */
   watch() {
     if (this.timer) return;
     this.timer = setInterval(() => { if (S.tab === 'home' && S.expanded && this.of(S.expanded) && !document.hidden) this.load(S.expanded); else { clearInterval(this.timer); this.timer = null; } }, 5000);
+  },
+  /* 3.7.7 Philips Hue: brightness bar (sent when let go) and its Hue scenes as colours; shown while the light is on */
+  hueRows(x) {
+    const st = this.st[x.e] || {}, pct = st.bri != null ? Math.max(1, Math.round(st.bri / 2.55)) : 100;
+    const last = x.hue.scenes.map(c => [c, Date.parse((this.st[c[2]] || {}).s) || 0]).sort((a, b) => b[1] - a[1])[0];
+    return '<div class="dvrow"><span class="dvn dvl">Brightness</span><input class="dvbri" type="range" min="1" max="100" step="1" value="' + pct + '" data-k="' + x.hue.bri + '" data-e="' + x.e + '" aria-label="Brightness"><span class="dvpct" id="dvpct">' + pct + '%</span></div>' +
+      '<div class="dvrow"><span class="dvn dvl">Color</span><div class="dvsc">' + x.hue.scenes.map(c => '<button class="dvdot' + (last && last[1] && last[0] === c ? ' on' : '') + '" style="background:' + c[3] + '" data-act="devdo" data-v="' + c[0] + '" data-e="' + c[2] + '" data-to="scene" aria-label="' + esc(c[1]) + '" title="' + esc(c[1]) + '"></button>').join('') + '</div></div>';
+  },
+  async bri(k, e, v) {
+    const st = this.st[e] = this.st[e] || {}; st.bri = Math.round(v * 2.55);
+    try { const r = await fetch(Frigate.base() + '/ha/dev/bri/' + k + '/' + v, { method: 'POST', credentials: 'include' }); Dbg.log('home', k, v, r.status); if (!r.ok) toast('Home Assistant Did Not Answer'); } catch (x) { toast('Home Assistant Did Not Answer'); }
+    const cam = S.expanded; setTimeout(() => this.load(cam), 1500);
   },
   btn(k, e, to, label, on, cls, cf) {
     const armed = this.arm && this.arm.k === k && this.arm.until > Date.now();
@@ -3313,7 +3338,8 @@ const Dev = {
     const name = (ic, cls, t) => '<span class="dvn"><i class="dvi' + (cls ? ' ' + cls : '') + '">' + DEV_ICON[ic] + '</i>' + esc(t) + '</span>';
     return '<div class="devbox" id="devbox">' + ds.map(d => {
       if (d.type === 'lights') return '<div class="dvrow dvlights">' + d.items.map(x => { const on = (this.st[x.e] || {}).s === 'on';
-        return '<button class="dvpill' + (on ? ' on' : '') + '" data-act="devdo" data-v="' + (on ? x.off : x.on) + '" data-e="' + x.e + '" data-to="' + (on ? 'off' : 'on') + '" aria-pressed="' + on + '"><i class="dvi' + (on ? ' on' : '') + '">' + DEV_ICON.light + '</i>' + esc(x.name) + '</button>'; }).join('') + '</div>';
+        return '<button class="dvpill' + (on ? ' on' : '') + '" data-act="devdo" data-v="' + (on ? x.off : x.on) + '" data-e="' + x.e + '" data-to="' + (on ? 'off' : 'on') + '" aria-pressed="' + on + '"><i class="dvi' + (on ? ' on' : '') + '">' + DEV_ICON.light + '</i>' + esc(x.name) + '</button>'; }).join('') + '</div>' +
+        d.items.filter(x => x.hue && (this.st[x.e] || {}).s === 'on').map(x => this.hueRows(x)).join('');
       const st = this.st[d.e] || {};
       if (d.type === 'light') { const on = st.s === 'on';
         return '<div class="dvrow">' + name('light', on ? 'on' : '', d.name) + '<button class="dvtg' + (on ? ' on' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(d.name) + '" data-act="devdo" data-v="' + (on ? d.off : d.on) + '" data-e="' + d.e + '" data-to="' + (on ? 'off' : 'on') + '"></button></div>'; }
@@ -3330,7 +3356,7 @@ const Dev = {
     }
     this.arm = null;
     const st = this.st[e] = this.st[e] || {};
-    if (to === 'on' || to === 'off' || to === 'locked' || to === 'unlocked') st.s = to; else st.pos = +to;   /* show it at once, then read it back */
+    if (to === 'scene') st.s = new Date().toISOString(); else if (to === 'on' || to === 'off' || to === 'locked' || to === 'unlocked') st.s = to; else st.pos = +to;   /* show it at once, then read it back */
     render();
     try { const r = await fetch(Frigate.base() + '/ha/dev/do/' + k, { method: 'POST', credentials: 'include' }); Dbg.log('home', k, r.status); if (!r.ok) toast('Home Assistant Did Not Answer'); } catch (x) { toast('Home Assistant Did Not Answer'); }
     const cam = S.expanded; setTimeout(() => this.load(cam), 1500); setTimeout(() => this.load(cam), 6000); setTimeout(() => this.load(cam), 20000);
