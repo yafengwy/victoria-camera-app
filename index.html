@@ -1832,9 +1832,16 @@ Frigate.pollStats = async function () {
    take 8-36 s on the iPhone. The opened card, full view and Watch keep real video. A camera Frigate is not reading
    right now (no frames in its stats, e.g. detection off) keeps the video, since its picture would be old. */
 const Snap = {
-  at: {}, busy: {}, fresh: {},
+  at: {}, busy: {}, fresh: {}, src: {},
   on(id) { return PHONE_LIVE() && S.view === 'home' && !S.watch && !S.focus && S.expanded !== id && this.fresh[id] !== false; },
   url(id) { return Frigate.base() + '/api/' + id + '/latest.webp?height=360&ts=' + Date.now(); },
+  /* 4.1.6: back from a camera watched live: its card shows the newest picture and Still counts from now */
+  refreshOne(id) {
+    if (Data.source !== 'frigate' || !Ctl.on(id)) return;
+    const u = this.url(id), pre = new Image();
+    pre.onload = () => { this.at[id] = now(); const n = document.getElementById('img-' + id); this.src[id] = u; if (n) { n.dataset.next = ''; n.src = u; delete n.dataset.frozen; } if (Live.fz[id]) { delete Live.fz[id]; Live.fzSave(); } if (typeof paintCam === 'function' && S.view === 'home') paintCam(id); };
+    pre.src = u;
+  },
   focusTick(t) {
     /* 3.9.11: camera view / full screen live: until its video plays, Frigate's current picture (larger) every second,
        so the scene shows in about a second (the iPhone took ~6 s to start the main video, Android ~2 s) */
@@ -1863,7 +1870,7 @@ const Snap = {
       const r = im.getBoundingClientRect(); if (!(r.bottom > 0 && r.top < innerHeight && r.width > 0)) continue;
       this.busy[id] = 1; const u = this.url(id), pre = new Image(), t0 = performance.now();
       pre.onload = () => { this.busy[id] = 0; this.at[id] = now(); const n = document.getElementById('img-' + id);
-        if (n) { n.src = u; delete n.dataset.frozen; }
+        this.src[id] = u; if (n) { n.dataset.next = ''; n.src = u; delete n.dataset.frozen; }
         if (Live.fz[id]) { delete Live.fz[id]; Live.fzSave(); }
         if (!this.first) { this.first = 1; Dbg.log('picture mode first picture', id, Math.round(performance.now() - t0) + 'ms'); } };
       pre.onerror = () => { this.busy[id] = 0; this.at[id] = this.at[id] || 0; this.errN = (this.errN || 0) + 1; if (this.errN < 5) Dbg.log('picture mode failed', id); };
@@ -1884,7 +1891,8 @@ const Live = {
     for (let n = k.length; n >= 0; n--) { try { const o = {}; k.slice(0, n).forEach(i => { o[i] = this.fz[i]; }); localStorage.setItem('vhfz', JSON.stringify(o)); return; } catch (e) {} } },
   /* 3.8.6 phones: the moment a Still card's picture is from: the last motion, or the last live frame kept when it froze (a tapped card) */
   stillAt(id) { const m = Data.motion(id), f = this.fz[id]; const t = Math.max(m.last || 0, f ? f.at : 0, Snap.at[id] || 0); return t || null; },
-  pic(id, img) { const f = PHONE_LIVE() && S.view === 'home' && this.fz[id]; return f && f.at >= (Data.motion(id).last || 0) ? f.src : img; },   /* newer motion since: Frigate's picture is newer */
+  pic(id, img) { if (Snap.on(id) && Snap.src[id] && !(this.fz[id] && this.fz[id].at > (Snap.at[id] || 0))) return Snap.src[id];   /* 4.1.9: a redraw keeps the newest picture */
+    const f = PHONE_LIVE() && S.view === 'home' && this.fz[id]; return f && f.at >= (Data.motion(id).last || 0) ? f.src : img; },   /* newer motion since: Frigate's picture is newer */
   wantLive(id) { const m = Data.motion(id); return m.active || (m.last != null && now() - m.last < 60000) || (S.forced[id] && S.forced[id] > now()) || S.expanded === id || !!(S.focus && S.focus.cam === id) || !!this.sw.act[id]; },
   /* the card keeps the live stream's last frame (the last moment anything moved), not a newer snapshot */
   freeze(src, e, quiet) {
@@ -2191,7 +2199,7 @@ const Dbg = {
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
   save() { clearTimeout(this.tm); try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} },
-  text() { return 'Version 4.1.5 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 4.1.10 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -3131,7 +3139,7 @@ window.addEventListener('popstate', () => {
   else if (S.watch && S.wbig) S.wbig = null;
   else if (S.watch) { S.watch = false; try { sessionStorage.removeItem('vhwatch'); } catch (e) {} }
   else if (S.focus && S.full) { S.full = false; S.autoFull = false; S.fpanel = false; }
-  else if (S.focus) { S.focus = null; S.full = false; }
+  else if (S.focus) { const fid = S.focus.cam; if (camT(fid) == null) setTimeout(() => Snap.refreshOne(fid), 0); S.focus = null; S.full = false; }
   else if (S.view !== 'home') S.view = 'home';
   render();
 });
@@ -5082,7 +5090,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.1.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.1.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -5181,7 +5189,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.1.5');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.1.10');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5198,7 +5206,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.1.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.1.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5667,7 +5675,7 @@ const ACT = {
     store.set('server', S.server); store.set('demo', S.demo); S.modal = null;
     await Data.load(); S.camTime = {}; S.expanded = null; render(); toast(Data.source === 'demo' ? 'Showing demo data' : 'Connected to Frigate');
   },
-  unfocus() { S.focus = null; S.full = false; S.fclip = null; render(); },
+  unfocus() { const id = S.focus && S.focus.cam, live = id && camT(id) == null; S.focus = null; S.full = false; S.fclip = null; render(); if (live) Snap.refreshOne(id); },
   /* camera view download: start = the second being watched (Live: the last 30 s); end defaults to 30 s later and
      can be set by moving to the end and tapping Set End */
   /* the download button starts a clip at the second being watched; [ and ] move the start / end to the second being
@@ -5822,7 +5830,10 @@ function openFocus(id) {
   S.focus = { cam: id, dayEnd: null }; S.full = false; S.fui = false; S.fpanel = false;
   if (isLand()) { S.full = true; S.autoFull = true; }   /* phone held sideways: open straight into full screen */
   render();
-  fShow(camT(id));
+  /* 4.1.7: opened on Live: the list goes to the top (Live). The page put back the list's old scroll position, and that
+     moved the time back to where it was the last time (12:56) right after opening */
+  if (camT(id) == null) { S.focus.lineY = FTOP; const sc = document.getElementById('fsc'); if (sc) { fSetScroll(sc, 0); fPaintLine(); } }
+  else fShow(camT(id));
 }
 /* Date + time (hours and minutes; seconds start at :00). Up to 7 days back. */
 /* what a picked date and time does: Review jumps all cameras there; the open camera seeks there */
@@ -6308,7 +6319,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   render(); Dbg.log('start first screen', (Date.now() - t0) + 'ms', 'motion ' + (Motion.up ? 'up' : 'not yet'), back && back.v !== 'home' ? 'back to ' + back.v : '');
   if (PHONE_LIVE()) setTimeout(() => Live.sweepStart('start'), 300);
   if (PHONE_LIVE()) Dbg.log('kept frames', Object.keys(Live.fz).length + ' saved', document.querySelectorAll('img[data-frozen]').length + ' shown');
-  if (back && back.f && Data.cam(back.f) && !location.hash.includes('cam=')) openFocus(back.f);
+  if (back && back.f && Data.cam(back.f) && !location.hash.includes('cam=')) { S.camTime[back.f] = null; openFocus(back.f); }
   if (Data.evReady) Data.evReady.then(() => { if (Data.source === 'frigate') { Motion.seed(); LastMo.load(); } if (!S.dragging && !S.modal) render(); else if (S.expanded) refreshTrack(); });
   if (Data.source === 'frigate') {
     Diag.run();
@@ -6320,7 +6331,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.1.5';
+    const BUILD = '4.1.10';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
