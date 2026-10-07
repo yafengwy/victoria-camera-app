@@ -162,7 +162,8 @@ img.rf{opacity:0}
 .seg{position:absolute;top:9px;bottom:9px;width:8px;margin-left:-4px;border-radius:4px;pointer-events:none}
 .head-mk{position:absolute;top:-6px;bottom:-6px;width:14px;margin-left:-7px;border-radius:7px;background:#fff;border:2px solid var(--head-fg);pointer-events:none}
 .readout{text-align:center;font-size:12px;font-weight:600;color:var(--sub)}
-.tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:var(--head)}
+.tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);background:var(--head)}
+.tabs:has(> :nth-child(4)){grid-template-columns:repeat(4,minmax(0,1fr))}
 .tabs button{height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:13px;font-weight:700;color:var(--head-fg)}
 .tabs button[aria-selected="true"]{background:var(--chip);font-weight:800}
 .tabbody{padding:10px 12px 12px;display:flex;flex-direction:column;gap:10px}
@@ -1304,6 +1305,15 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .pctl.g3{justify-content:flex-start;gap:6px}
 .pctl.g3 .psp{flex:1 1 0;min-width:0}
 .pctl.g3 .pl{order:1}.pctl.g3 .trio{order:2}.pctl.g3 .pr{order:3}
+.devbox{display:flex;flex-direction:column;padding:2px 4px 6px}
+.dvrow{display:flex;align-items:center;gap:10px;padding:10px 4px;border-top:1px solid var(--line)}
+.dvrow:first-child{border-top:0}
+.dvn{flex:1;min-width:0;display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;color:var(--head-fg)}
+.dvi{display:inline-flex;width:22px;height:22px;color:var(--sub)}.dvi svg{width:22px;height:22px}.dvi.on{color:#F5B400}
+.dvtg{width:46px;height:28px;border-radius:14px;background:var(--track);position:relative;flex:none;box-shadow:inset 0 0 0 1px var(--line)}
+.dvtg::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:11px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
+.dvtg.on{background:#F5B400;box-shadow:none}.dvtg.on::after{left:21px}
+.dvseg{display:flex;gap:6px;flex:none}
 .pctl.g3 .pfixb{order:4}.pctl.g3 .o-pw{order:4}.pctl.g3 .o-dt{order:5}.pctl.g3 .o-bx{order:6}.pctl.g3 .o-sn{order:7}.pctl.g3 .o-lv{order:8}
 .pctl.g3 .pg{display:contents}
 @media (max-width:600px){
@@ -2020,7 +2030,7 @@ const Dbg = {
     this.a.push(ts + ' ' + m.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')); if (this.a.length > 200) this.a.splice(0, this.a.length - 200);
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
-  text() { return 'Version 3.6.10 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 3.7.2 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -3235,13 +3245,60 @@ function camMotion(id) {
   });
   return out;
 }
+/* 3.7.1 Home tab: lights and curtains of Home Assistant that belong to a camera. Each button is one fixed action on the
+   mini PC (/ha/dev/do/<key>, its body is set in app-nginx.conf), so only these exact things can be done from here.
+   States are asked only while the Home tab is open (every 5 s). */
+const DEV_ICON = {
+  light: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg>',
+  cover: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18M5 4v16M19 4v16M5 20h14M8 4c0 5 1 9 4 11M16 4c0 5-1 9-4 11"/></svg>'
+};
+const DEV = {
+  california_room: [
+    { e: 'light.california_room_light', name: 'California Room Light', type: 'light', on: 'cr_light_on', off: 'cr_light_off' },
+    { e: 'cover.california_curtain_r', name: 'California Curtain', type: 'cover', opts: [['cr_curtain_6', 'Close', 6], ['cr_curtain_40', '40%', 40], ['cr_curtain_75', '75%', 75]] }
+  ]
+};
+const Dev = {
+  st: {}, busy: {}, timer: null,
+  of(cam) { return Data.source === 'frigate' && DEV[cam] && DEV[cam].length ? DEV[cam] : null; },
+  async load(cam) {
+    await Promise.all((DEV[cam] || []).map(async d => { try { const r = await fetch(Frigate.base() + '/ha/dev/st/' + d.e, { credentials: 'include', cache: 'no-store' }); if (r.ok) { const j = await r.json(); this.st[d.e] = { s: j.state, pos: j.attributes && j.attributes.current_position }; } } catch (x) {} }));
+    if (S.tab === 'home' && S.expanded === cam) { const b = document.getElementById('devbox'); if (b) b.outerHTML = this.html(cam); }
+  },
+  /* while the Home tab is open: ask every 5 s; stops by itself when it is closed */
+  watch() {
+    if (this.timer) return;
+    this.timer = setInterval(() => { if (S.tab === 'home' && S.expanded && this.of(S.expanded) && !document.hidden) this.load(S.expanded); else { clearInterval(this.timer); this.timer = null; } }, 5000);
+  },
+  html(cam) {
+    const ds = DEV[cam] || [];
+    if (!ds.some(d => this.st[d.e]) && !this.busy['_l' + cam]) { this.busy['_l' + cam] = 1; this.load(cam).finally(() => { delete this.busy['_l' + cam]; }); }
+    this.watch();
+    return '<div class="devbox" id="devbox">' + ds.map(d => {
+      const st = this.st[d.e], on = st && st.s === 'on';
+      const left = '<span class="dvn"><i class="dvi' + (d.type === 'light' && on ? ' on' : '') + '">' + DEV_ICON[d.type] + '</i>' + esc(d.name) + '</span>';
+      if (d.type === 'light') return '<div class="dvrow">' + left + '<button class="dvtg' + (on ? ' on' : '') + '" role="switch" aria-checked="' + on + '" aria-label="' + esc(d.name) + '" data-act="devdo" data-v="' + (on ? d.off : d.on) + '" data-e="' + d.e + '" data-to="' + (on ? 'off' : 'on') + '"></button></div>';
+      const pos = st && st.pos != null ? +st.pos : null;
+      return '<div class="dvrow">' + left + '<div class="dvseg">' + d.opts.map(([k, t, v]) => '<button class="chip sm" data-act="devdo" data-v="' + k + '" data-e="' + d.e + '" data-to="' + v + '" aria-pressed="' + (pos != null && Math.abs(pos - v) <= 3) + '">' + t + '</button>').join('') + '</div></div>';
+    }).join('') + '</div>';
+  },
+  async run(k, e, to) {
+    const st = this.st[e] = this.st[e] || {};
+    if (to === 'on' || to === 'off') st.s = to; else st.pos = +to;   /* show it at once, then read it back */
+    render();
+    try { const r = await fetch(Frigate.base() + '/ha/dev/do/' + k, { method: 'POST', credentials: 'include' }); Dbg.log('home', k, r.status); if (!r.ok) toast('Home Assistant Did Not Answer'); } catch (x) { toast('Home Assistant Did Not Answer'); }
+    const cam = S.expanded; setTimeout(() => this.load(cam), 1500); setTimeout(() => this.load(cam), 6000);
+  }
+};
 function panel(c, col) {
   const t = camT(c.id), live = t == null;
   const start = S.winEnd - S.win;
   const evs = camEvents(c.id);
   const segs = trackMarks(evs, start, S.win, Math.min(window.innerWidth, 560) - 50);
   let body = '';
-  if (S.tab === 'events') {
+  if (S.tab === 'home' && !Dev.of(c.id)) S.tab = 'events';
+  if (S.tab === 'home') body = Dev.html(c.id);
+  else if (S.tab === 'events') {
     body = (evs.length ? '<div class="thumbs" id="thumbs">' + evs.slice(0, 30).map(e =>
       '<button class="thumb' + (t != null && t >= e.t - 3000 && t <= (e.end || e.t) + 3000 ? ' cur' : '') + '" data-act="seek" data-id="' + c.id + '" data-t="' + e.t + '"><img src="' + e.img + '" alt="" loading="lazy"><span>' + esc(lab(e)) + ' At ' + hm(e.t) + (dayStart(e.t) === dayStart(now()) ? '' : ' ' + dayLabel(e.t)) + '</span></button>').join('') + '</div>'
       : '<div class="empty" style="flex:1;display:flex;align-items:center">No alerts in this view.</div>') +
@@ -3278,7 +3335,8 @@ function panel(c, col) {
     '<div class="tabs" role="tablist">' +
     '<button role="tab" data-act="tab" data-v="events" aria-selected="' + (S.tab === 'events') + '">' + I.bellO + 'Alerts</button>' +
     '<button role="tab" data-act="tab" data-v="speed" aria-selected="' + (S.tab === 'speed') + '">' + I.speed + 'Speed</button>' +
-    '<button role="tab" data-act="tab" data-v="clip" aria-selected="' + (S.tab === 'clip') + '">' + I.clip + 'Clip</button></div>' +
+    '<button role="tab" data-act="tab" data-v="clip" aria-selected="' + (S.tab === 'clip') + '">' + I.clip + 'Clip</button>' +
+    (Dev.of(c.id) ? '<button role="tab" data-act="tab" data-v="home" aria-selected="' + (S.tab === 'home') + '">' + I.home + 'Home</button>' : '') + '</div>' +
     '<div class="tabbody">' + body + '</div></div>';
 }
 
@@ -4696,7 +4754,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 3.6.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 3.7.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -4792,7 +4850,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 3.6.10');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 3.7.2');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -4809,7 +4867,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 3.6.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 3.7.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5165,6 +5223,7 @@ const ACT = {
   playpause() { S.playing = !S.playing; render(); },
   speed(d) { S.speed = +d.v; render(); },
   tab(d) { S.tab = d.v; render(); },
+  devdo(d) { Dev.run(d.v, d.e, d.to); },
   clipmark(d) {
     const id = S.expanded; if (!id) return;
     const t = camT(id) == null ? now() : camT(id);
@@ -5897,7 +5956,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '3.6.10';
+    const BUILD = '3.7.2';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
