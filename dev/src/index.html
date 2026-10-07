@@ -2057,6 +2057,12 @@ setInterval(() => {
   }
   Jank.hidden = document.visibilityState !== 'visible'; Jank.slow = 0;
 }, 250);
+/* 3.7.10: hls.js problems go to the Playback Log (a clip that got its list but never its video said nothing) */
+function hlsLog(h, H, tag) {
+  let n = 0;
+  h.on(H.Events.ERROR, (ev, d) => { if (n++ < 6) Dbg.log(tag, 'hls error', d.type, d.details, d.fatal ? 'fatal' : '', d.response && d.response.code ? 'http ' + d.response.code : '', d.frag ? 'part ' + d.frag.sn : ''); });
+  let f = 0; h.on(H.Events.FRAG_LOADED, (ev, d) => { if (f++ < 2) Dbg.log(tag, 'part ' + d.frag.sn + ' loaded', Math.round(d.frag.stats.loading.end - d.frag.stats.loading.start) + 'ms', Math.round((d.frag.stats.total || 0) / 1024) + ' KB'); });
+}
 const Playback = {
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
   hlsP: null,
@@ -2131,6 +2137,7 @@ const Playback = {
         const vt0 = this.vtime(p, camT(id) == null ? t : camT(id));
         p.h = new H({ startPosition: vt0 != null ? vt0 : -1, maxBufferLength: 8, maxMaxBufferLength: 20, backBufferLength: 10, startFragPrefetch: true, manifestLoadingTimeOut: 8000, fragLoadingTimeOut: 8000 });
         v.disableRemotePlayback = true;   /* ManagedMediaSource on iPhone needs this (no AirPlay of recordings) */
+        hlsLog(p.h, H, 'video ' + id);
         p.h.loadSource(url); p.h.attachMedia(v); v.play().catch(() => {});
         await new Promise(ok => { const f = () => { v.removeEventListener('loadedmetadata', f); ok(); }; v.addEventListener('loadedmetadata', f); setTimeout(ok, 4000); });
         if (gone()) return;
@@ -2202,7 +2209,7 @@ const Playback = {
       ['loadedmetadata', 'playing', 'stalled', 'error'].forEach(ev => v.addEventListener(ev, () => Dbg.log('alert clip', ev, tag, ev === 'error' && v.error ? 'code ' + v.error.code + ' ' + (v.error.message || '') : 'at ' + v.currentTime.toFixed(1))));
       fetch(u, { credentials: 'include' }).then(r => r.text().then(t => Dbg.log('alert clip list', tag, r.status, (t.match(/#EXTINF/g) || []).length + ' parts'))).catch(e => Dbg.log('alert clip list', tag, 'failed'));
       if (this.native()) { v.src = u; v.play().catch(() => {}); }
-      else this.hls().then(H => { const h = new H(); v._hls = h; v.disableRemotePlayback = true; h.loadSource(u); h.attachMedia(v); v.play().catch(() => {}); }).catch(() => { v.src = u; });
+      else this.hls().then(H => { const h = new H(); v._hls = h; v.disableRemotePlayback = true; hlsLog(h, H, 'alert clip ' + tag); h.loadSource(u); h.attachMedia(v); v.play().catch(() => {}); }).catch(() => { v.src = u; });
     });
     const want = this.cams();
     for (const id in this.st) if (!want[id]) {
