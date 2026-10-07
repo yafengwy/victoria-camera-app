@@ -1886,7 +1886,7 @@ const Live = {
   },
   /* 3.8.8: a reload, a new version or leaving the app also keeps each playing card's last frame (a card watched and then
      reloaded within its minute never froze, so nothing was kept) */
-  keepAll() { if (!PHONE_LIVE() || S.view !== 'home') return; for (const src in this.els) { const e = this.els[src]; if (!e.suspended && e.isConnected && e.video && e.video.readyState >= 2) this.freeze(src, e); } },
+  keepAll() { if (!PHONE_LIVE() || S.view !== 'home' || S.focus) return; for (const src in this.els) { const e = this.els[src]; if (!e.suspended && e.isConnected && e.video && e.video.readyState >= 2) this.freeze(src, e); } },
   /* 3.9.5 phones (her rule): on opening the app, coming back to it or pulling down to reload, every camera fetches a
      fresh live picture, 4 at a time, the ones on screen first (top to bottom; scrolling brings the next ones in).
      Each plays until it has a full picture (6 s of play) and is then let go: no motion = Still on that picture, motion
@@ -1949,7 +1949,8 @@ const Live = {
       const play = v && v.readyState >= 2 && !v.paused && v.currentTime > 0 && !document.hidden;
       if (play && !e.okSince) { e.okSince = now(); Dbg.log('live ready', src, ((now() - e.cAt) / 1000).toFixed(1) + 's'); }
       else if (!play && e.okSince && !document.hidden) e.okSince = 0; }
-    if (PHONE_LIVE() && S.view === 'home' && !document.hidden) for (const src in this.els) { const e = this.els[src];
+    /* 3.10.3: not while a camera is open: copying its big frame (Treat Feeder 2048x1536) every 5 s froze the iPhone 6.8 s */
+    if (PHONE_LIVE() && S.view === 'home' && !S.focus && !document.hidden) for (const src in this.els) { const e = this.els[src];
       if (e.okSince && now() - e.okSince > 6000 && !(now() - (e.kAt || 0) < 5000)) { e.kAt = now(); this.freeze(src, e, true); } }
     const nLive = Object.values(this.els).filter(e => e.ws && !e.suspended && e.isConnected).length, nRec = Object.values(Playback.st || {}).filter(p => p.on || p.loading).length;
     if (nLive + '/' + nRec !== this.dbgN) { this.dbgN = nLive + '/' + nRec; Dbg.log('videos running', 'live ' + nLive, 'recordings ' + nRec); }
