@@ -245,6 +245,8 @@ img.rf{opacity:0}
 @keyframes ptrspin{to{transform:rotate(360deg)}}
 .fov .dk,.fov .dk.ctl{width:32px;height:32px;border-radius:16px}
 .fov .dk + .dk{margin-left:-4px}
+.ffixw{display:contents}
+.fov .dk.ffix{width:auto;padding:0 12px;font-size:13px;font-weight:700}
 .fov .dk svg,.fov .dk.ctl svg{width:17px;height:17px}
 .fctl{height:68px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--dark-line);width:100%;max-width:900px;margin:0 auto}
 .fday{height:44px;padding:0 14px;border-radius:22px;background:var(--dark-card);display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700}
@@ -3180,6 +3182,7 @@ function paintTimes() {
   if (S.view === 'home') Data.cams.forEach(c => { const n = document.getElementById('ctm-' + c.id); if (n) { const v = hms(shownT(c.id, Live.cardSrc(c.id))); if (n.textContent !== v) n.textContent = v; } });
   /* camera view timeline: the date button names the day of the moment on screen (it said Today while showing yesterday) */
   if (S.focus && !S.flist) { const b = document.querySelector('.focus .fday'); if (b) { const w = dayLabel(shownT(S.focus.cam, S.focus.cam)); if (b._w !== w) { b._w = w; b.innerHTML = I.cal + w; } } }
+  { const ff = document.getElementById('ffix'); if (ff && S.focus) { const v = focusFix(S.focus.cam); if (ff._v !== v) { ff._v = v; ff.innerHTML = v; } } }
   ['ftm', 'fulltm'].forEach(k => { const f = document.getElementById(k); if (f && S.focus) { const v = (k === 'ftm' ? dtHdr : dtShort)(shownT(S.focus.cam, S.focus.cam)); if (f.textContent !== v) f.textContent = v; } });
 }
 setInterval(paintTimes, 500);
@@ -3768,7 +3771,7 @@ function viewFocus() {
     body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px"><div class="frail"></div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + FTOP + 'px"></div>';
   }
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
-  const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk ftm" id="ftm">' + dtHdr(shownT(c.id, c.id)) + '</div><div style="flex:1"></div>' +
+  const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk ftm" id="ftm">' + dtHdr(shownT(c.id, c.id)) + '</div><div style="flex:1"></div><span id="ffix" class="ffixw">' + focusFix(c.id) + '</span>' +
     (frig && cs.enabled ? '<button class="dk ctl" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
     '</div><div class="pillk fnmbr' + rcnA(c.id) + '>' + esc(c.name) + '</div>';   /* top row: back, the picture's time, buttons; the camera name sits in the picture's bottom-left corner (Loading shows bottom-right), the object tag just above it */
@@ -4298,6 +4301,14 @@ function labGroup(g) {
 }
 /* card key → its alert (and group): plain alert id, or id~n for the n-th separate video of a split alert */
 const EVK = {};
+/* 3.4.11 camera view: Fix (cat / delivery alerts, like on the alert cards) for the alert on screen while playing a recording */
+function focusFix(cid) {
+  const t = camT(cid); if (t == null || Data.source !== 'frigate') return '';
+  const evs = Data.events.filter(e => e.cam === cid && !e.motion && t >= e.t - 3000 && t <= (e.end || e.t + 20000) + 3000);
+  if (!evs.length) return '';
+  const e = evs.sort((a, b) => (b.interesting ? 1 : 0) - (a.interesting ? 1 : 0) || Math.abs(t - a.t) - Math.abs(t - b.t))[0];
+  return isPet(e, e.id) ? '<button class="dk ffix" data-act="fixopen" data-v="' + esc(e.id) + '">Fix</button>' : coOf(e) ? '<button class="dk ffix" data-act="cofixopen" data-v="' + esc(e.id) + '">Fix</button>' : '';
+}
 function evE(k) { const c = EVK[k]; if (c) return c.e; const id = String(k).split('~')[0]; return Data.events.find(x => x.id === id); }
 function evP(k, f) {
   const c = EVK[k];
