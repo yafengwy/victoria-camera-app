@@ -1715,6 +1715,29 @@ const Frigate = {
 /* Real motion in Frigate mode. Main source: Frigate's websocket (/ws) — "camera_activity" on connect, then "<camera>/motion" ON/OFF,
    the same motion Frigate's own UI shows (any pixel change counts, including leaves and shadows).
    Fallback while the websocket is down: /api/stats (a camera running object detection is moving). */
+/* 3.8.6: each camera's real last motion, from Frigate's motion record (the websocket only tells motion while the app is
+   open, so a card said Still 15h while Frigate had seen cats all evening). On open and on coming back (at most once a
+   minute): per camera the last 2 h in 30 s steps; a camera quiet that long: the last 24 h in 10 min steps, then that
+   stretch in 30 s steps; then the 10 s recording pieces of that step for the exact second. 3 cameras at a time. */
+const LastMo = {
+  at: 0,
+  async step(id, a, b, sc) { const r = await Frigate.get('/api/review/activity/motion?cameras=' + encodeURIComponent(id) + '&after=' + a + '&before=' + b + '&scale=' + sc); const x = (r || []).filter(q => q && q.camera).map(q => +q.start_time); return x.length ? Math.max(...x) : null; },
+  async load() {
+    if (Data.source !== 'frigate' || now() - this.at < 60000) return; this.at = now();
+    const ids = Data.cams.map(c => c.id); let i = 0;
+    const one = async () => { while (i < ids.length) { const id = ids[i++]; try {
+      const b = Math.floor(now() / 1000); let s = await this.step(id, b - 7200, b, 30);
+      if (s == null) { const s2 = await this.step(id, b - 86400, b - 7200 + 600, 600); if (s2 != null) s = await this.step(id, s2 - 60, Math.min(s2 + 660, b), 30); }
+      if (s == null) continue;
+      let t = Math.min(s + 30, b);
+      try { const rec = await Frigate.get('/api/' + id + '/recordings?after=' + (s - 10) + '&before=' + (s + 40)); const m = (rec || []).filter(g => g.motion > 0).map(g => +g.end_time); if (m.length) t = Math.min(Math.max(...m), b); } catch (e) {}
+      const mo = Data.motion(id); if (!mo.active && (mo.last == null || t * 1000 > mo.last)) mo.last = t * 1000;
+    } catch (e) {} } };
+    await Promise.all([one(), one(), one()]);
+    if (typeof Live !== 'undefined') Live.policy();
+    if (S.view === 'home' && !S.dragging && !S.modal) render();
+  }
+};
 const Motion = {
   sock: null, up: false, n: 0, nm: 0,
   set(id, on) { const m = Data.motion(id), was = m.active; if (on) { m.active = true; m.last = now(); } else { if (m.active) m.last = now(); m.active = false; } if (!was && on && typeof Live !== 'undefined') Live.policy(); },   /* 3.8.3: motion starts → that phone card goes live at once */
@@ -1795,13 +1818,16 @@ Frigate.pollStats = async function () {
    and Watch stay live. 10–14 open streams (Still ones too) froze the iPhone for 5–7 s and got the page killed. */
 const PHONE_LIVE = () => Math.min(screen.width, screen.height) < 600 && !!(window.matchMedia && matchMedia('(pointer:coarse)').matches);
 const Live = {
-  els: {},
+  els: {}, fz: {},
+  /* 3.8.6 phones: the moment a Still card's picture is from: the last motion, or the last live frame kept when it froze (a tapped card) */
+  stillAt(id) { const m = Data.motion(id), f = this.fz[id]; const t = Math.max(m.last || 0, f ? f.at : 0); return t || null; },
+  pic(id, img) { const f = PHONE_LIVE() && S.view === 'home' && this.fz[id]; return f ? f.src : img; },
   wantLive(id) { const m = Data.motion(id); return m.active || (m.last != null && now() - m.last < 60000) || (S.forced[id] && S.forced[id] > now()) || S.expanded === id || !!(S.focus && S.focus.cam === id); },
   /* the card keeps the live stream's last frame (the last moment anything moved), not a newer snapshot */
   freeze(src, e) {
     const v = e.video, im = document.getElementById('img-' + this.cam(src));
     if (!v || !im || v.readyState < 2 || !v.videoWidth) return;
-    try { const k = Math.min(1, 640 / v.videoWidth), c = document.createElement('canvas'); c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); im.src = c.toDataURL('image/jpeg', 0.85); im.dataset.frozen = '1'; } catch (x) {}
+    try { const k = Math.min(1, 640 / v.videoWidth), c = document.createElement('canvas'); c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); const u = c.toDataURL('image/jpeg', 0.85); this.fz[this.cam(src)] = { src: u, at: now() }; im.src = u; im.dataset.frozen = '1'; } catch (x) {}
   },
   idle(src) { return PHONE_LIVE() && S.view === 'home' && !S.watch && !this.wantLive(this.cam(src)); },
   on() { return Data.source === 'frigate' && !!(window.customElements && customElements.get('live-cam')); },
@@ -1874,7 +1900,7 @@ const Live = {
       const e = this.els[src], keep = (!busy || (S.focus && S.focus.cam === src) || !!(S.full && S.focus && S.focus.cam === src)) && !this.idle(src);
       if (!keep && !e.suspended) { if (this.idle(src)) this.freeze(src, e); e.suspended = true; try { e.ondisconnect(); } catch (x) {} }
       else if (keep && e.suspended) {
-        e.suspended = false; { const im = document.getElementById('img-' + this.cam(src)); if (im) delete im.dataset.frozen; }
+        e.suspended = false; { const im = document.getElementById('img-' + this.cam(src)); if (im) delete im.dataset.frozen; delete this.fz[this.cam(src)]; }
         const r = e.getBoundingClientRect(), vis = e.isConnected && r.bottom > 0 && r.top < innerHeight && r.width > 0;
         if (vis) try { e.onconnect(); } catch (x) {}
       }
@@ -3223,7 +3249,7 @@ function camCard(c, fr, span2) {
       sndC(c.id) + '<button class="chlive" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button></div>'
       : '') +
     '</div>') +
-    '<div class="frame vfit" style="--R:' + trueAr(c).toFixed(4) + '"><img id="img-' + c.id + '" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(Live.cardSrc(c.id), t != null) + Playback.holder(c.id) + (S.layout === 'grid' || slim ? '<div class="cnm' + rcnA(c.id) + '>' + esc(c.name) + '</div>' : '') +
+    '<div class="frame vfit" style="--R:' + trueAr(c).toFixed(4) + '"><img id="img-' + c.id + '" src="' + (t == null ? Live.pic(c.id, f.img) : f.img) + '"' + (t == null && Live.pic(c.id, f.img) !== f.img ? ' data-frozen="1"' : '') + ' alt="' + esc(c.name) + '">' + Live.holder(Live.cardSrc(c.id), t != null) + Playback.holder(c.id) + (S.layout === 'grid' || slim ? '<div class="cnm' + rcnA(c.id) + '>' + esc(c.name) + '</div>' : '') +
     '<button class="hit" data-act="tap" data-id="' + c.id + '" aria-label="Show playback for ' + esc(c.name) + '"></button>' +
     (off ? '<div class="offv" id="off-' + c.id + '" data-act="tap" data-id="' + c.id + '"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>' : '') +
     (slim ? '<div class="ctr">' + snz + badgeHtml(c.id, t, f) + '</div>' : badgeHtml(c.id, t, f)) + '<div class="ctm" id="ctm-' + c.id + '">' + hms(shownT(c.id, Live.cardSrc(c.id))) + '</div><div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="tag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div></article>';
@@ -3236,7 +3262,8 @@ function shownT(id, src) {
   /* the camera shows Still (nothing moving): the time stays on the moment it went still, like the Still badge counts from */
   const mo = Data.motion(id), forced = S.forced[id] && S.forced[id] > now();
   const ph = PHONE_LIVE() && S.view === 'home', pe = ph && Live.els[src];
-  if (Ctl.on(id) && !forced && (ph ? !(pe && !pe.suspended && pe.video && pe.video.readyState >= 2) : !(mo.active || (mo.last != null && now() - mo.last < 5000))) && mo.last != null) return mo.last;   /* 3.8.3 phones: the time runs while the stream is really open */
+  const sa = ph ? Live.stillAt(id) : mo.last;
+  if (Ctl.on(id) && !forced && (ph ? !(pe && !pe.suspended && pe.video && pe.video.readyState >= 2) : !(mo.active || (mo.last != null && now() - mo.last < 5000))) && sa != null) return sa;   /* 3.8.3 phones: the time runs while the stream is really open */
   const e = Live.els[src], v = e && e.video;
   if (v && v.readyState >= 2 && !v.closest('[hidden]')) {
     if (v.currentTime !== e._tmCt && !v.paused) { e._tmCt = v.currentTime; e._tmAt = now(); }
@@ -3272,7 +3299,7 @@ function badgeHtml(id, t, f) {
   else if (Pic.no(id)) inner = Pic.pill(id);
   else if (PHONE_LIVE() && S.view === 'home') {   /* 3.8.3: says what the card really does: Still (closed), Connecting, Live */
     const e = Live.els[Live.cardSrc(id)], m = Data.motion(id);
-    inner = !e || e.suspended ? '<span class="dot idle"></span>Still' + (m.last != null ? ' ' + agoShort(now() - m.last) : '') : Pic.live(id) ? '<span class="dot busy"></span>Live' : '<span class="dot forced"></span>Connecting';
+    const sa = Live.stillAt(id); inner = !e || e.suspended ? '<span class="dot idle"></span>Still' + (sa != null ? ' ' + agoShort(now() - sa) : '') : Pic.live(id) ? '<span class="dot busy"></span>Live' : '<span class="dot forced"></span>Connecting';
   }
   else if (S.forced[id] && S.forced[id] > now()) inner = '<span class="dot forced"></span>Live';
   else { const m = Data.motion(id); inner = (m.active || (m.last != null && now() - m.last < 5000)) ? '<span class="dot busy"></span>Live' : '<span class="dot idle"></span>Still' + (m.last != null ? ' ' + agoShort(now() - m.last) : ''); }
@@ -6060,11 +6087,11 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   pageReady = true;
   render(); Dbg.log('start first screen', (Date.now() - t0) + 'ms', 'motion ' + (Motion.up ? 'up' : 'not yet'), back && back.v !== 'home' ? 'back to ' + back.v : '');
   if (back && back.f && Data.cam(back.f) && !location.hash.includes('cam=')) openFocus(back.f);
-  if (Data.evReady) Data.evReady.then(() => { if (Data.source === 'frigate') Motion.seed(); if (!S.dragging && !S.modal) render(); else if (S.expanded) refreshTrack(); });
+  if (Data.evReady) Data.evReady.then(() => { if (Data.source === 'frigate') { Motion.seed(); LastMo.load(); } if (!S.dragging && !S.modal) render(); else if (S.expanded) refreshTrack(); });
   if (Data.source === 'frigate') {
     Diag.run();
     setInterval(() => Motion.ensure(), 3000); setInterval(() => Live.watch(), 2000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) { Motion.ensure(); Frigate.refresh(); HA.get(); Snz.get(); Wait.get(); } });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { Motion.ensure(); Frigate.refresh(); LastMo.load(); HA.get(); Snz.get(); Wait.get(); } });
     window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); HA.get(); setInterval(() => HA.get(), 10000); if (store.get('boxes', false)) Box.set(true); if (!Playback.native()) Playback.hls().catch(() => {}); Snz.get(); setInterval(() => Snz.get(), 15000); Wait.get(); setInterval(() => Wait.get(), 15000); FpQ.run(); setInterval(() => FpQ.run(), 120000);
     setInterval(() => { if (S.view === 'home' && !S.modal && (Snz.active() || Wait.active() || document.querySelector('.snzban'))) render(); }, 60000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000); Pic.poll(); setInterval(() => Pic.poll(), 15000);
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
