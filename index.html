@@ -1818,7 +1818,7 @@ Frigate.pollStats = async function () {
    and Watch stay live. 10–14 open streams (Still ones too) froze the iPhone for 5–7 s and got the page killed. */
 const PHONE_LIVE = () => Math.min(screen.width, screen.height) < 600 && !!(window.matchMedia && matchMedia('(pointer:coarse)').matches);
 const Live = {
-  els: {}, fz: (() => { try { return JSON.parse(localStorage.getItem('vhfz') || '{}'); } catch (e) { return {}; } })(),
+  els: {}, fz: (() => { try { const o = JSON.parse(localStorage.getItem('vhfz') || '{}'); for (const k in o) if (!o[k] || !o[k].src || o[k].src.length < 16000) delete o[k]; return o; } catch (e) { return {}; } })(),
   /* 3.8.7: the kept frames are saved on the phone, so a reload / reopen still shows the last live picture, not Frigate's older one */
   fzSave() { const k = Object.keys(this.fz).sort((a, b) => this.fz[b].at - this.fz[a].at);
     for (let n = k.length; n >= 0; n--) { try { const o = {}; k.slice(0, n).forEach(i => { o[i] = this.fz[i]; }); localStorage.setItem('vhfz', JSON.stringify(o)); return; } catch (e) {} } },
@@ -1829,6 +1829,7 @@ const Live = {
   /* the card keeps the live stream's last frame (the last moment anything moved), not a newer snapshot */
   freeze(src, e, quiet) {
     const v = e.video, im = document.getElementById('img-' + this.cam(src));
+    if (v && im && !(e.okSince && now() - e.okSince > 6000)) return;   /* not a full picture yet: keep the last good one */
     if (!v || !im || v.readyState < 2 || !v.videoWidth) { if (!quiet) Dbg.log('kept frame', this.cam(src), 'none', !v ? 'no video' : !im ? 'no card' : 'not ready ' + v.readyState); return; }
     try { const k = Math.min(1, 640 / v.videoWidth), c = document.createElement('canvas'); c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); const u = c.toDataURL('image/jpeg', 0.75); this.fz[this.cam(src)] = { src: u, at: now() }; this.fzSave(); if (quiet) { if (!e.kLog) { e.kLog = 1; Dbg.log('kept frame', this.cam(src), 'live', c.width + 'x' + c.height, Math.round(u.length / 1024) + ' KB'); } return; } im.src = u; im.dataset.frozen = '1'; Dbg.log('kept frame', this.cam(src), c.width + 'x' + c.height, Math.round(u.length / 1024) + ' KB'); } catch (x) { if (!e.kErr) { e.kErr = 1; Dbg.log('kept frame', this.cam(src), 'failed', String(x && x.message || x)); } }
   },
@@ -1867,8 +1868,16 @@ const Live = {
     this.policy();   /* 3.8.3: the 1-minute Still rule on phones */
     /* 3.8.9 phones: while a card plays, its picture is kept every 5 s, so whatever ends it (reload, the phone closing
        the page for memory, leaving the app) the card still shows what the live video last showed */
-    if (PHONE_LIVE() && S.view === 'home' && !document.hidden) for (const src in this.els) { const e = this.els[src], v = e.video;
-      if (!e.suspended && e.isConnected && v && v.readyState >= 2 && !v.paused && v.currentTime > 0 && !(now() - (e.kAt || 0) < 5000)) { e.kAt = now(); this.freeze(src, e, true); } }
+    /* 3.8.10: how long each stream takes from connecting to a moving picture goes to the log; a frame is only kept once
+       the stream has played 6 s (its first seconds can be grey smears or black blocks until a full picture arrives) */
+    for (const src in this.els) { const e = this.els[src], v = e.video, on = !e.suspended && e.isConnected && !!e.ws;
+      if (!on) { e.cAt = 0; e.okSince = 0; continue; }
+      if (!e.cAt) e.cAt = now();
+      const play = v && v.readyState >= 2 && !v.paused && v.currentTime > 0 && !document.hidden;
+      if (play && !e.okSince) { e.okSince = now(); Dbg.log('live ready', src, ((now() - e.cAt) / 1000).toFixed(1) + 's'); }
+      else if (!play && e.okSince && !document.hidden) e.okSince = 0; }
+    if (PHONE_LIVE() && S.view === 'home' && !document.hidden) for (const src in this.els) { const e = this.els[src];
+      if (e.okSince && now() - e.okSince > 6000 && !(now() - (e.kAt || 0) < 5000)) { e.kAt = now(); this.freeze(src, e, true); } }
     const nLive = Object.values(this.els).filter(e => e.ws && !e.suspended && e.isConnected).length, nRec = Object.values(Playback.st || {}).filter(p => p.on || p.loading).length;
     if (nLive + '/' + nRec !== this.dbgN) { this.dbgN = nLive + '/' + nRec; Dbg.log('videos running', 'live ' + nLive, 'recordings ' + nRec); }
     for (const src in this.els) {
@@ -2096,7 +2105,7 @@ const Dbg = {
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
   save() { clearTimeout(this.tm); try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} },
-  text() { return 'Version 3.8.9 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 3.8.10 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -4904,7 +4913,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 3.8.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 3.8.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -5003,7 +5012,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 3.8.9');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 3.8.10');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5020,7 +5029,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 3.8.9\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 3.8.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -6115,7 +6124,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '3.8.9';
+    const BUILD = '3.8.10';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
