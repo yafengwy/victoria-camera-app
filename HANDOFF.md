@@ -141,4 +141,5 @@ Read this first when picking the app up in a new conversation. No secrets live i
   1. Storage alert: watchdog checks daily the age of the oldest kept alert and disk free; phone notification when alerts go back fewer than 25 days or disk free < 10%.
   2. Fewer one-second false alerts: raise Frigate detect.min_initialized (default ~fps/2) to about 1 s worth of frames (5 at 5 fps); tell her the trade-off (alerts ~0.5 s later) and prefer the Frigate UI.
   3. Voice alerts on Google Home via HA TTS, only for events she picks (e.g. Waiting Delivery arrived, person at the Doorbell).
-  Not approved: 4 (tamper / camera moved). Still waiting for her answer: phone home page plays live only for cards on screen (iPhone froze 5-7 s and was killed for memory with 10-14 live views).
+  Not approved: 4 (tamper / camera moved).
+  4b (approved 00:48): on phones, "Still" cards really disconnect their live stream (iPhone froze 5-7 s and was killed for memory with 10-14 live connections, Still cards included); reconnect the moment Frigate reports motion on that camera (must be immediate, she relies on it), on tap, expand or full view. Pill must show clearly: Still (grey) / Connecting / Live. Computers unchanged.
