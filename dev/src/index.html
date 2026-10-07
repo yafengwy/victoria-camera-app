@@ -2213,12 +2213,14 @@ const Playback = {
      back to the built-in player until the app is reopened. */
   guard(v, h, fallback, tag) {
     if (!/iP(hone|ad|od)/.test(navigator.userAgent) && !(/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)) return;
-    let got = false; h.on(window.Hls.Events.FRAG_LOADED, () => { got = true; });
-    setTimeout(() => {
-      if (!got || v.readyState > 0 || this._nat || h.media !== v || !v.isConnected) return;   /* gone or replaced meanwhile: leave it */
-      Dbg.log(tag, 'hls.js got video but shows nothing, built-in player from now on');
-      this._nat = true; try { h.destroy(); } catch (x) {} fallback();
-    }, 5000);
+    /* 3.10.8: the 5 s count starts when the first part has arrived (Front Door's 8 MB parts took 2.5 s to arrive, the
+       count ran out right after and switched to the built-in player, which then stalled for 30-80 s) */
+    let armed = false; h.on(window.Hls.Events.FRAG_LOADED, () => { if (armed) return; armed = true;
+      setTimeout(() => {
+        if (v.readyState > 0 || this._nat || h.media !== v || !v.isConnected) return;   /* gone or replaced meanwhile: leave it */
+        Dbg.log(tag, 'hls.js got video but shows nothing, built-in player from now on');
+        this._nat = true; try { h.destroy(); } catch (x) {} fallback();
+      }, 5000); });
   },
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
   hlsP: null,
@@ -2387,6 +2389,9 @@ const Playback = {
     for (const id in want) if (this.st[id]) this.st[id].closedAt = 0;
     for (const id in want) {
       const t = camT(id), p = this.el(id);
+      /* 3.10.8: while a finger drags the camera view / full screen timeline, no new video is loaded (each step started a
+         new 8 MB download); the picture follows the finger and the video loads once the finger stops */
+      if (S.focus && S.focus.cam === id && t != null && fScrubbing()) { if (p.on) { p.on = false; p.v.pause(); this.paintVis(id); } p.lastSet = null; clearTimeout(this._scrubT); this._scrubT = setTimeout(() => this.sync(), 750); continue; }
       if (t == null || !S.playing || S.dragging || (S.hov && (S.hov.id === id || S.hov.id === 'full'))) { const why = t == null ? 'live' : !S.playing ? 'paused' : S.dragging ? 'dragging' : 'hover'; if (p.on || !p.v.paused) this.stop(id, why); else if (p.dbgHold !== why && t != null) Dbg.log('hold', id, why); p.dbgHold = why; continue; }
       p.dbgHold = null;
       if (p.loading && Math.abs(t - (p.loadT || 0)) < 2500) {
