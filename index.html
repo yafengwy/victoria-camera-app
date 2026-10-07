@@ -1256,6 +1256,7 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 
 /* ---- v66: in-app zoom in full screen (the page itself never zooms, so the timeline stays put) ---- */
 .full .fvw{touch-action:none;overflow:hidden}
+.full .fov,.full .fullsteps,.full .fulltm,.full .fbot,.full .fuitop{touch-action:none}
 .full .fvw > :not(.fuitop):not(.fulltm):not(.fullsteps){transform:translate(var(--zx,0px),var(--zy,0px)) scale(var(--zs,1));transform-origin:0 0}
 
 /* ---- v67: save video: ready bar (phones), camera view clip range ---- */
@@ -2188,7 +2189,7 @@ const Dbg = {
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
   save() { clearTimeout(this.tm); try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} },
-  text() { return 'Version 3.10.9 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 3.10.10 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -4287,17 +4288,22 @@ const FZ = {
   size(w) { return w.closest('.rot') ? [w.offsetWidth, w.offsetHeight] : [w.clientWidth, w.clientHeight]; },
   fit(w) { const [W, H] = this.size(w); this.x = Math.min(0, Math.max(W - W * this.s, this.x)); this.y = Math.min(0, Math.max(H - H * this.s, this.y)); },
   wire() {
-    const w = this.host(); if (!w || w._fz) { this.apply(); return; } w._fz = true; this.apply();
+    const w = this.host(), fv = document.getElementById('fullv'); if (!w || !fv || fv._fz) { this.apply(); return; } fv._fz = true; this.apply();
     let g = null, lastTap = 0;
+    /* 3.10.10: fingers anywhere on the full view count (the picture, the buttons over it), not only on the picture box:
+       with the timeline shown, a finger on a button over the picture left the pinch to the browser, which zoomed the
+       whole page and that looked like turning the phone, so full screen closed. The timeline side keeps its own pinch. */
+    const off = e => !!(e.target.closest && e.target.closest('.fside'));
     const mid = (t) => this.local(w, (t[0].clientX + t[1].clientX) / 2, (t[0].clientY + t[1].clientY) / 2);
     const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY) || 1;
-    w.addEventListener('touchstart', e => {
+    fv.addEventListener('touchstart', e => {
+      if (off(e)) { g = null; return; }
       const t = e.touches;
       if (t.length === 2) g = { pinch: true, d0: dist(t), m0: mid(t), s0: this.s, x0: this.x, y0: this.y };
       else if (t.length === 1 && this.s > 1.01) g = { pinch: false, p0: this.local(w, t[0].clientX, t[0].clientY), x0: this.x, y0: this.y, moved: false };
       else g = null;
     }, { passive: true });
-    w.addEventListener('touchmove', e => {
+    fv.addEventListener('touchmove', e => {
       if (!g) return; const t = e.touches; e.preventDefault();
       if (g.pinch && t.length === 2) {
         const m = mid(t), s = clamp(g.s0 * dist(t) / g.d0, 1, 6), cx = (g.m0[0] - g.x0) / g.s0, cy = (g.m0[1] - g.y0) / g.s0;
@@ -4308,7 +4314,7 @@ const FZ = {
         g.moved = true; this.x = g.x0 + dx; this.y = g.y0 + dy; this.fit(w); this.apply(); this.moved = Date.now();
       }
     }, { passive: false });
-    w.addEventListener('touchend', e => {
+    fv.addEventListener('touchend', e => {
       if (g && g.pinch && e.touches.length === 1 && this.s > 1.01) { const t = e.touches[0]; g = { pinch: false, p0: this.local(w, t.clientX, t.clientY), x0: this.x, y0: this.y, moved: true }; return; }
       if (e.touches.length) return;
       const tapped = g && !g.moved; g = null;
@@ -5027,7 +5033,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 3.10.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 3.10.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -5126,7 +5132,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 3.10.9');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 3.10.10');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5143,7 +5149,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 3.10.9\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 3.10.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -6217,10 +6223,12 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) { Liv
 window.addEventListener('pagehide', () => { Live.keepAll(); Dbg.save(); });
 let resizeTimer, lastCols = null;
 /* Turning the phone sideways while a camera is open goes full screen; turning it back returns to the camera view. */
-function fullRot() { return window.innerHeight > window.innerWidth && window.innerWidth < 560; }
-function setVp() { document.documentElement.style.setProperty('--vpw', window.innerWidth + 'px'); document.documentElement.style.setProperty('--vph', window.innerHeight + 'px'); }
+/* 3.10.10: the layout size, not innerWidth/innerHeight: on the iPhone those change while the page is pinch-zoomed */
+const vpW = () => document.documentElement.clientWidth || window.innerWidth, vpH = () => document.documentElement.clientHeight || window.innerHeight;
+function fullRot() { return vpH() > vpW() && vpW() < 560; }
+function setVp() { document.documentElement.style.setProperty('--vpw', vpW() + 'px'); document.documentElement.style.setProperty('--vph', vpH() + 'px'); }
 setVp(); window.addEventListener('resize', setVp);
-function isLand() { return window.innerWidth > window.innerHeight && window.innerHeight < 560; }
+function isLand() { return vpW() > vpH() && vpH() < 560; }
 window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => {
   if (S.focus) {
     if (isLand() && !S.full) { S.full = true; S.autoFull = true; S.fui = false; S.fpanel = false; render(); }
@@ -6263,7 +6271,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '3.10.9';
+    const BUILD = '3.10.10';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
