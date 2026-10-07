@@ -1846,10 +1846,13 @@ const Snap = {
     /* 3.9.11: camera view / full screen live: until its video plays, Frigate's current picture (larger) every second,
        so the scene shows in about a second (the iPhone took ~6 s to start the main video, Android ~2 s) */
     if (S.focus && camT(S.focus.cam) == null && Ctl.on(S.focus.cam) && this.fresh[S.focus.cam] !== false) {
-      const id = S.focus.cam, e = Live.els[id], v = e && e.video, playing = !!(v && e.isConnected && !e.suspended && v.readyState >= 2 && !v.paused && v.currentTime > 0);
+      const id = S.focus.cam, pl = x => { const e = Live.els[x], v = e && e.video; return !!(v && e.isConnected && !e.suspended && v.readyState >= 2 && !v.paused && v.currentTime > 0); };
+      if (pl(id + '_sub') && !this.fSub && this.fStart) { this.fSub = 1; Dbg.log('full view low-res video', id, ((now() - this.fStart) / 1000).toFixed(1) + 's'); }
+      const playing = pl(id) || pl(id + '_sub');
+      if (pl(id) && this.fStart && !this.fHd) { this.fHd = 1; Dbg.log('full view HD video', id, ((now() - this.fStart) / 1000).toFixed(1) + 's'); }
       if (playing) { if (this.fT0) { Dbg.log('full view video', id, ((now() - this.fT0) / 1000).toFixed(1) + 's', this.fFirst ? 'picture ' + this.fFirst + 'ms' : 'no picture first'); this.fT0 = 0; } }
       else if (!this.fBusy && t - (this.fAt || 0) >= 950) {
-        if (this.fId !== id) { this.fId = id; this.fT0 = now(); this.fFirst = 0; }
+        if (this.fId !== id) { this.fId = id; this.fT0 = now(); this.fFirst = 0; this.fSub = 0; this.fHd = 0; this.fStart = now(); }
         this.fBusy = 1; const u = Frigate.base() + '/api/' + id + '/latest.webp?height=720&ts=' + Date.now(), pre = new Image(), t0 = performance.now();
         pre.onload = () => { this.fBusy = 0; if (!S.focus || S.focus.cam !== id) return; this.fAt = now(); if (!this.fFirst && this.fT0) this.fFirst = Math.round(now() - this.fT0);
           ['fimg', 'fullimg'].forEach(k => { const n = document.getElementById(k); if (n) n.src = u; }); };
@@ -1857,7 +1860,7 @@ const Snap = {
         setTimeout(() => { if (this.fBusy && performance.now() - t0 > 8000) this.fBusy = 0; }, 8100);
         pre.src = u;
       }
-    } else if (!S.focus) { this.fId = null; this.fT0 = 0; }
+    } else if (!S.focus) { this.fId = null; this.fT0 = 0; this.fStart = 0; }
   },
   tick() {
     if (Data.source !== 'frigate' || document.hidden) return;
@@ -1935,6 +1938,10 @@ const Live = {
      grid cards are small: use the camera's light "_sub" stream (fast to start, cheap to decode); list cards,
      the opened card, full view and full screen use the HD stream */
   cardSrc(id) { return (PHONE_LIVE() || S.layout === 'grid' && S.expanded !== id) && Frigate.streams && Frigate.streams[id + '_sub'] ? id + '_sub' : id; },
+  /* 4.2.4: camera view / full screen: the light stream sits under the HD one and starts first (it connects in ~1-2 s);
+     the HD video covers it as soon as it has a picture, and the light one is then closed */
+  quick(id, hide, hid) { return Frigate.streams && Frigate.streams[id + '_sub'] ? this.holder(id + '_sub', hide, hid) : ''; },
+  hdUp(id) { const e = this.els[id]; return !!(e && e.okSince && now() - e.okSince > 1200); },
   holder(src, hide, id) { return Data.source === 'frigate' && Ctl.on(this.cam(src)) ? '<div class="lvh"' + (id ? ' id="' + id + '"' : '') + ' data-live="' + esc(src) + '"' + (hide ? ' hidden' : '') + '></div>' : ''; },
   el(src) {
     let e = this.els[src];
@@ -2009,7 +2016,8 @@ const Live = {
     if (!this.on()) return;
     const busy = !!S.focus || Object.keys(Playback.st).some(id => Playback.st[id].on || Playback.st[id].loading);
     for (const src in this.els) {
-      const e = this.els[src], keep = (!busy || (S.focus && S.focus.cam === src) || !!(S.full && S.focus && S.focus.cam === src)) && !this.idle(src);
+      const fq = !!(S.focus && src === S.focus.cam + '_sub' && camT(S.focus.cam) == null && !this.hdUp(S.focus.cam));   /* the quick light stream until HD plays */
+      const e = this.els[src], keep = (!busy || (S.focus && S.focus.cam === src) || fq) && (fq || !this.idle(src));
       if (!keep && !e.suspended) { if (this.idle(src)) this.freeze(src, e); e.suspended = true; try { e.ondisconnect(); } catch (x) {} }
       else if (keep && e.suspended) {
         e.suspended = false; { const im = document.getElementById('img-' + this.cam(src)); if (im) delete im.dataset.frozen; if (this.fz[this.cam(src)]) { delete this.fz[this.cam(src)]; this.fzSave(); } }
@@ -4146,7 +4154,7 @@ function viewFocus() {
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
     '</div><div class="pillk fnmbr' + rcnA(c.id) + '>' + esc(c.name) + '</div>';   /* top row: back, the picture's time, buttons; the camera name sits in the picture's bottom-left corner (Loading shows bottom-right), the object tag just above it */
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
-    '<div class="fvid vfit' + (c.id === 'nest_doorbell' ? ' door' : '') + (isTall(c) ? ' tall' : '') + '" style="--R:' + trueAr(c).toFixed(4) + (isTall(c) ? ';--ar:' + c.ar.toFixed(4) : trueAr(c) >= 1.2 && trueAr(c) < 1.7 ? ';aspect-ratio:' + trueAr(c).toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
+    '<div class="fvid vfit' + (c.id === 'nest_doorbell' ? ' door' : '') + (isTall(c) ? ' tall' : '') + '" style="--R:' + trueAr(c).toFixed(4) + (isTall(c) ? ';--ar:' + c.ar.toFixed(4) : trueAr(c) >= 1.2 && trueAr(c) < 1.7 ? ';aspect-ratio:' + trueAr(c).toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.quick(c.id, t != null, 'fquick') + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fctl" id="fctl">' + (S.fclip && S.fclip.cam === c.id ?
       '<button class="dk" data-act="fclipx" aria-label="Cancel Download">' + I.x + '</button><div class="fclipt"><b>Start</b> ' + (S.fclip.a ? hms(S.fclip.a) : '—') + '<br><b>End</b> ' + (S.fclip.b ? hms(S.fclip.b) : '—') + '</div>' +
       '<button class="dk fbk' + (S.fclip.a ? ' set' : '') + '" data-act="fclipmark" data-v="a" aria-label="Set Start Here">[</button><button class="dk fbk' + (S.fclip.b ? ' set' : '') + '" data-act="fclipmark" data-v="b" aria-label="Set End Here">]</button>' +
@@ -4193,7 +4201,7 @@ function viewFull(c, t, f) {
       '</div>' +
       (S.fpanel ? '' : '<div class="fsb zdesk2"><button class="dk sm" data-act="fzoombtn" data-v="out" aria-label="Show Longer Time">−</button><button class="dk sm" data-act="fzoombtn" data-v="in" aria-label="Show Shorter Time">+</button></div>') + '</aside>';
   }
-  return '<div class="full' + (c.id === 'nest_doorbell' ? ' door' : '') + (S.fui ? ' ui' : '') + (fullRot() ? ' rot' : '') + '" id="fullv"><div class="fvw vfit vcon" style="--R:' + trueAr(c).toFixed(4) + '" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
+  return '<div class="full' + (c.id === 'nest_doorbell' ? ' door' : '') + (S.fui ? ' ui' : '') + (fullRot() ? ' rot' : '') + '" id="fullv"><div class="fvw vfit vcon" style="--R:' + trueAr(c).toFixed(4) + '" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.quick(c.id, t != null, 'fullquick') + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
     '<div class="fulltm" id="fulltm">' + dtShort(shownT(c.id, c.id)) + '</div>' +
     (S.fui ? '<div class="fullsteps"><button class="dk sm wide" data-act="fstep" data-v="-10" aria-label="Back 10 Seconds">−10s</button><button class="fstep" data-act="flive" aria-label="Go Live">Live</button>' +
       '<button class="dk sm wide" id="fullstepf" data-act="fstep" data-v="10" aria-label="Forward 10 Seconds"' + (t == null ? ' disabled' : '') + '>+10s</button></div>' : '') +
@@ -4400,6 +4408,7 @@ function paintFocus() {
   set('fullimg', n => { if (!(pb && fh === f) && !(fq && fh === f)) si(n, fh.img); });
   Live.show(document.getElementById('flive'), t == null);
   Live.show(document.getElementById('fulllive'), t == null && fh === f);
+  Live.show(document.getElementById('fquick'), t == null); Live.show(document.getElementById('fullquick'), t == null && fh === f);
   Live.show(document.getElementById('foff'), t == null);
   const label = t == null ? (Ctl.on(c.id) ? '<span class="dot busy"></span>Live' : 'Off') : hms(t);
   const hv = S.hov && S.hov.id === 'full' ? S.hov.t : undefined;
@@ -5749,9 +5758,9 @@ const ACT = {
   flist() { S.flist = !S.flist; render(); fShow(camT(S.focus.cam)); },
   rvlist() { S.rv.list = !S.rv.list; store.set('rvlist', S.rv.list); S.rv.fopen = S.rv.pick = S.rv.colsOpen = false; render(); requestAnimationFrame(() => { const c = document.querySelector('#rvlist .rvli.cur'); if (c) c.scrollIntoView({ block: 'center' }); }); },
   rvlpick(d, e) {   /* an alert in the list: every camera goes to that moment, the alert's camera comes first */
-    S.rv.t = +d.t - 1000; S.playing = true; S.rv.feat = d.id; S.rv.autoFeat = null;
+    S.rv.t = +d.t - 3000; S.playing = true; S.rv.feat = d.id; S.rv.autoFeat = null;   /* 4.2.6: from 3 s before */
     /* the picked alert's camera stays first (big picture) while the line is inside that alert, even with no recording */
-    const pe = Data.events.find(x => x.id === d.e) || Data.events.find(x => x.cam === d.id && x.t === +d.t); S.rv.lp = { id: d.id, a: Math.min(+d.t, pe ? pe.t : +d.t) - 3000, b: (pe && pe.end || +d.t) + 3000 };
+    const pe = Data.events.find(x => x.id === d.e) || Data.events.find(x => x.cam === d.id && x.t === +d.t); S.rv.lp = { id: d.id, a: Math.min(+d.t, pe ? pe.t : +d.t) - 3000, b: (pe && pe.end || +d.t) + 8000 };   /* 4.2.6: the picked camera stays the big picture until 8 s after the alert (a 1 s car alert was gone in a moment) */
     document.querySelectorAll('#rvlist .rvli.cur').forEach(n => n.classList.remove('cur'));
     const b = e && e.target.closest('.rvli'); if (b) b.classList.add('cur');
     const pp = document.querySelector('.rvctl [data-act="playpause"]'); if (pp) pp.innerHTML = I.pause;
