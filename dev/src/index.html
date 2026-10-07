@@ -246,6 +246,7 @@ img.rf{opacity:0}
 .fov .dk,.fov .dk.ctl{width:32px;height:32px;border-radius:16px}
 .fov .dk + .dk{margin-left:-4px}
 .ffixw{display:contents}
+.round.pfixb,.pctl.g3 .round.pfixb{width:auto;padding:0 12px}
 .fov .dk.ffix{width:auto;padding:0 12px;font-size:13px;font-weight:700}
 .fov .dk svg,.fov .dk.ctl svg{width:17px;height:17px}
 .fctl{height:68px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--dark-line);width:100%;max-width:900px;margin:0 auto}
@@ -1303,12 +1304,13 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .pctl.g3{justify-content:flex-start;gap:6px}
 .pctl.g3 .psp{flex:1 1 0;min-width:0}
 .pctl.g3 .pl{order:1}.pctl.g3 .trio{order:2}.pctl.g3 .pr{order:3}
-.pctl.g3 .o-pw{order:4}.pctl.g3 .o-dt{order:5}.pctl.g3 .o-bx{order:6}.pctl.g3 .o-sn{order:7}.pctl.g3 .o-lv{order:8}
+.pctl.g3 .pfixb{order:4}.pctl.g3 .o-pw{order:4}.pctl.g3 .o-dt{order:5}.pctl.g3 .o-bx{order:6}.pctl.g3 .o-sn{order:7}.pctl.g3 .o-lv{order:8}
 .pctl.g3 .pg{display:contents}
 @media (max-width:600px){
   .pctl.g3 .psp{display:none}
   .pctl.g3 .pg{display:flex;flex:1 1 0;gap:6px;min-width:0}
   .pctl.g3 .gl{order:1}.pctl.g3 .trio{order:2}.pctl.g3 .gr{order:3;justify-content:flex-end}
+  .pctl.g3 .pfixb{order:0}
   .pctl.g3 .o-pw,.pctl.g3 .o-bx{order:1}.pctl.g3 .o-sn,.pctl.g3 .o-dt{order:2}.pctl.g3 .o-lv{order:3}
   .pctl.g3 .round{width:38px;height:38px}
 }
@@ -3149,6 +3151,7 @@ function camCard(c, fr, span2) {
   return '<article class="cam' + (c.id === 'nest_doorbell' ? ' door' : '') + (c.id === 'front_door' ? ' fdoor' : '') + (c.id === S.expanded ? ' on' : '') + (off ? ' off' : '') + (tall ? ' tall' : '') + (span2 ? ' span2' : '') + (slim ? ' slim' : '') + '" id="cam-' + c.id + '"' + (tall || fr ? ' style="' + (tall ? '--ar:' + c.ar.toFixed(4) + ';' : '') + (fr ? '--fr:' + fr.toFixed(4) : '') + '"' : '') + '>' +
     (slim ? '' : '<div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button>' + snz +
     (S.layout === 'list' && c.id === S.expanded ? '<div class="chctl">' +
+      '<span id="pfix" class="ffixw">' + focusFix(c.id, 'chlive pfixl') + '</span>' +
       (Data.source === 'frigate' && !off ? '<button class="ic" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
       dtOver('<button class="ic" data-act="date" aria-label="Pick Date">' + I.cal + '</button>', 'home') +
       (Data.source === 'frigate' ? '<button class="ic bxh" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
@@ -3187,6 +3190,7 @@ function paintTimes() {
   /* camera view timeline: the date button names the day of the moment on screen (it said Today while showing yesterday) */
   if (S.focus && !S.flist) { const b = document.querySelector('.focus .fday'); if (b) { const w = dayLabel(shownT(S.focus.cam, S.focus.cam)); if (b._w !== w) { b._w = w; b.innerHTML = I.cal + w; } } }
   { const ff = document.getElementById('ffix'); if (ff && S.focus) { const v = focusFix(S.focus.cam); if (ff._v !== v) { ff._v = v; ff.innerHTML = v; } } }
+  { const pf = document.getElementById('pfix'); if (pf && S.expanded) { const v = focusFix(S.expanded, S.layout === 'list' ? 'chlive pfixl' : 'round pfixb'); if (pf._v !== v) { pf._v = v; pf.innerHTML = v; } } }
   ['ftm', 'fulltm'].forEach(k => { const f = document.getElementById(k); if (f && S.focus) { const v = (k === 'ftm' ? dtHdr : dtShort)(shownT(S.focus.cam, S.focus.cam)); if (f.textContent !== v) f.textContent = v; } });
 }
 setInterval(paintTimes, 500);
@@ -3256,6 +3260,7 @@ function panel(c, col) {
     /* grid cards have no title row, so their controls sit at the panel's right, in the same order as every other
        page's top right: Power, Date, Boxes, Sound, Live; on narrow phones Power, Sound | Play | Boxes, Date, Live (CSS order) */
     (S.layout === 'list' ? '' : '<span class="psp pr"></span><span class="pg gl">' +
+      '<span id="pfix" class="ffixw">' + focusFix(c.id, 'round pfixb') + '</span>' +
       (Data.source === 'frigate' && Ctl.on(c.id) ? '<button class="round o-pw" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
       Snd.btn('round o-sn') + '</span><span class="pg gr">' +
       (Data.source === 'frigate' ? '<button class="round bxr o-bx" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
@@ -4317,12 +4322,13 @@ function labGroup(g) {
 /* card key → its alert (and group): plain alert id, or id~n for the n-th separate video of a split alert */
 const EVK = {};
 /* 3.4.11 camera view: Fix (cat / delivery alerts, like on the alert cards) for the alert on screen while playing a recording */
-function focusFix(cid) {
+function focusFix(cid, cls) {
+  cls = cls || 'dk ffix';
   const t = camT(cid); if (t == null || Data.source !== 'frigate') return '';
   const evs = Data.events.filter(e => e.cam === cid && !e.motion && t >= e.t - 3000 && t <= (e.end || e.t + 20000) + 3000);
   if (!evs.length) return '';
   const e = evs.sort((a, b) => (b.interesting ? 1 : 0) - (a.interesting ? 1 : 0) || Math.abs(t - a.t) - Math.abs(t - b.t))[0];
-  return isPet(e, e.id) ? '<button class="dk ffix" data-act="fixopen" data-v="' + esc(e.id) + '">Fix</button>' : coOf(e) ? '<button class="dk ffix" data-act="cofixopen" data-v="' + esc(e.id) + '">Fix</button>' : '';
+  return isPet(e, e.id) ? '<button class="' + cls + '" data-act="fixopen" data-v="' + esc(e.id) + '">Fix</button>' : coOf(e) ? '<button class="' + cls + '" data-act="cofixopen" data-v="' + esc(e.id) + '">Fix</button>' : '';
 }
 function evE(k) { const c = EVK[k]; if (c) return c.e; const id = String(k).split('~')[0]; return Data.events.find(x => x.id === id); }
 function evP(k, f) {
