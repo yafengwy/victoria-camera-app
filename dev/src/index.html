@@ -1683,7 +1683,7 @@ const Frigate = {
     if (RecMap.has(cam.id, t) === false && !alertTry(cam.id, ev0)) return { img: NOREC, tag: '', hot: false, busy: false };
     const sec = RecMap.snap(cam.id, t);
     const ev = Data.events.find(e => e.cam === cam.id && t >= e.t - 2000 && t <= (e.end || e.t) + 2000 && passes(e));
-    return { img: this.base() + '/api/' + cam.id + '/recordings/' + sec + '/snapshot.jpg?height=480', tag: ev ? ev.label : '', hot: ev ? ev.interesting : false, busy: !!ev };
+    return { img: this.base() + '/api/' + cam.id + '/recordings/' + sec + '/snapshot.jpg?height=480', tag: ev ? ev.label : '', name: ev ? tagName(ev) : '', hot: ev ? ev.interesting : false, busy: !!ev };   /* 3.6.4: a known name (胖胖, James, FedEx) on the picture's tag */
   }
 };
 
@@ -3297,7 +3297,14 @@ function paintCam(id) {
   setTag(tag, f);
 }
 /* On-picture object tag: Interesting = solid orange pill, Uninteresting = dark see-through pill */
-const tagInner = f => objIcon(f.tag) + '<span>' + esc(objName(f.tag)) + '</span>';
+/* the name that goes with the tag's object: a cat's name on Cat, a company on Car, a person's name on Person */
+function tagName(e) {
+  if (!e || e.motion || !e.who) return '';
+  const ws = String(e.who).split(' · ').filter(Boolean), L = String(e.label || '').toLowerCase();
+  const pet = w => CatFix.names.includes(w) || ['胖胖', '团团'].includes(w), co = w => isLogo(String(w).toLowerCase()) || CoFix.isCo(w) || /^(FedEx|UPS|USPS|Amazon|DHL)$/.test(w);
+  return (isAnimal(L) ? ws.find(pet) : L === 'car' ? ws.find(co) : L === 'person' ? ws.find(w => !pet(w) && !co(w)) : '') || '';
+}
+const tagInner = f => objIcon(f.tag) + '<span>' + esc(f.name || objName(f.tag)) + '</span>';
 function setTag(n, f) { if (!n) return; n.innerHTML = f.tag ? tagInner(f) : ''; n.hidden = !f.tag; n.classList.toggle('un', !!f.tag && !f.hot); }
 function paintPanel() {
   const id = S.expanded; if (!id) return;
@@ -3785,7 +3792,7 @@ function viewFocus() {
         /* 3.6.3: Interesting ones first (newest first among them), then Uninteresting (newest first) */
         rows += '<div class="fev fstrip" style="top:' + (y - 32) + 'px">' + objs.slice().sort((a, b) => (b.hot ? 1 : 0) - (a.hot ? 1 : 0) || b.t - a.t).map(o => {
           const on = curT != null && Math.abs(curT - (o.t - 1000)) < 1500;
-          return '<button class="fsi' + (on ? ' cur' : '') + (o.hot ? ' hot' : ' un') + '" data-act="fjump" data-t="' + o.t + '" aria-label="' + esc(objName(o.label)) + ' ' + hms(o.t) + '"><img src="' + o.img + '" alt="" loading="lazy"><span><i class="lico">' + objIcon(o.label) + '</i>' + hms(o.t) + '</span></button>';
+          return '<button class="fsi' + (on ? ' cur' : '') + (o.hot ? ' hot' : ' un') + '" data-act="fjump" data-t="' + o.t + '" aria-label="' + esc(objName(o.label)) + ' ' + hms(o.t) + '"><img src="' + o.img + '" alt="" loading="lazy"><span><i class="lico">' + objIcon(o.label) + '</i>' + (o.name ? esc(o.name) + ' ' : '') + hms(o.t) + '</span></button>';
         }).join('') + '</div>';
       } else {
         const hotL = objs.filter(o => o.hot).map(o => o.label), names = [...new Set((hotL.length ? hotL : objs.map(o => o.label)).sort((a, b) => objRank(a) - objRank(b)).map(objName))];
@@ -3862,7 +3869,8 @@ function focusObjs(g) {
   const out = [];
   g.items.forEach(e => {
     const ps = Arrive.parts(e, S.filt);
-    if (ps.length) ps.forEach(x => out.push({ e, t: x.t, label: x.label, hot: x.hot && e.interesting, img: Frigate.base() + '/api/events/' + x.d + '/thumbnail.webp' }));
+    const nm = x => x.sub && String(x.sub).toLowerCase() !== 'unknown' ? (isLogo(String(x.sub).toLowerCase()) ? coName(x.sub) : niceName(x.sub)) : '';
+    if (ps.length) ps.forEach(x => out.push({ e, t: x.t, label: x.label, name: nm(x), hot: x.hot && e.interesting, img: Frigate.base() + '/api/events/' + x.d + '/thumbnail.webp' }));
     else { const p = pick(e, S.filt); out.push({ e, t: p.t, label: ico(e, p), hot: e.interesting, img: evImg(e, p) }); }
   });
   return out.sort((a, b) => b.t - a.t);
