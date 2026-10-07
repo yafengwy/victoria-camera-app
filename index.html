@@ -1927,6 +1927,9 @@ const Live = {
   }
 };
 
+/* 3.8.11: script errors go to the Playback Log (a broken step used to stop silently) */
+window.addEventListener('error', ev => { if (ev && ev.message) try { Dbg.log('script error', ev.message, (ev.filename || '').split('/').pop() + ':' + (ev.lineno || '')); } catch (x) {} });
+window.addEventListener('unhandledrejection', ev => { try { const r = ev && ev.reason; Dbg.log('script error', String(r && r.message || r).slice(0, 160)); } catch (x) {} });
 document.addEventListener('error', ev => {
   const n = ev.target; if (!n || !n.getAttribute) return;
   const a = n.tagName === 'IMG' ? 'src' : n.tagName === 'VIDEO' ? 'poster' : null; if (!a) return;
@@ -2105,7 +2108,7 @@ const Dbg = {
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
   save() { clearTimeout(this.tm); try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} },
-  text() { return 'Version 3.8.10 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 3.9.1 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -2155,6 +2158,8 @@ const Playback = {
   },
   holder(id) { return Data.source === 'frigate' ? '<div class="pbh wait" data-pb="' + esc(id) + '"></div>' : ''; },
   cams() { const c = {}; if (S.focus) c[S.focus.cam] = 1; else if (S.expanded && S.view === 'home') c[S.expanded] = 1; return c; },
+  /* 3.8.11: what the camera's recording player is doing when an alert is tapped (goes to the log) */
+  why(id) { const p = this.st[id]; if (p) { p.dbgHold = null; p.dbgNo = null; } return !p ? 'player new' : [p.loading ? 'loading ' + Math.round((performance.now() - (p.loadAt || 0)) / 1000) + 's' : '', p.prep ? 'waiting picture' : '', p.on ? 'playing' : '', S.dragging ? 'dragging' : '', S.hov ? 'hover' : ''].filter(Boolean).join(' ') || 'idle'; },
   showing(id) { const p = this.st[id]; return !!(p && p.on); },
   waiting(id) { const p = this.st[id]; return !!(p && (p.prep || p.loading)); },
   /* after a jump, wait (showing the alert picture) until enough video is loaded to play smoothly, then play */
@@ -2174,7 +2179,7 @@ const Playback = {
     return null;
   },
   async load(id, t) {
-    const p = this.st[id], seq = p.seq = (p.seq || 0) + 1; p.loading = true; p.loadT = t; p.on = false; p.win = null; this.paintVis(id);
+    const p = this.st[id], seq = p.seq = (p.seq || 0) + 1; p.loading = true; p.loadT = t; p.loadAt = performance.now(); p.on = false; p.win = null; this.paintVis(id);
     const gone = () => seq !== p.seq;          /* a newer tap started another load: drop this one */
     if (p.h) { p.h.destroy(); p.h = null; }    /* stop downloading the old spot at once, so the new tap gets the network */
     /* the window starts 30 s before the asked time, so −10 s, pause/play and small drags back stay inside it
@@ -2185,7 +2190,7 @@ const Playback = {
       /* Start the video exactly at the beginning of the recording piece that holds t (pieces start on a key frame).
          Cutting in the middle of a piece made the player start at the key frame before, up to ~20 s too early. */
       /* one question to Frigate instead of two (each round trip cost ~0.5 s) */
-      const t0 = performance.now(), all = await Frigate.get('/api/' + id + '/recordings?after=' + (a - 60) + '&before=' + b);
+      const t0 = performance.now(), all = await Promise.race([Frigate.get('/api/' + id + '/recordings?after=' + (a - 60) + '&before=' + b), new Promise((ok, no) => setTimeout(() => no(new Error('no answer in 8 s')), 8000))]);
       if (gone()) return;
       const hold = all.filter(r => r.start_time <= a + 1 && r.end_time > a).sort((x, y) => y.start_time - x.start_time)[0];
       if (hold) a = Math.floor(hold.start_time);
@@ -2304,7 +2309,11 @@ const Playback = {
       const t = camT(id), p = this.el(id);
       if (t == null || !S.playing || S.dragging || (S.hov && (S.hov.id === id || S.hov.id === 'full'))) { const why = t == null ? 'live' : !S.playing ? 'paused' : S.dragging ? 'dragging' : 'hover'; if (p.on || !p.v.paused) this.stop(id, why); else if (p.dbgHold !== why && t != null) Dbg.log('hold', id, why); p.dbgHold = why; continue; }
       p.dbgHold = null;
-      if (p.loading && Math.abs(t - (p.loadT || 0)) < 2500) continue;   /* still loading this spot; a different spot starts a new load below */
+      if (p.loading && Math.abs(t - (p.loadT || 0)) < 2500) {
+        /* 3.8.11: a load that never finished blocked every later tap on the same alert (nothing played, nothing logged) */
+        if (performance.now() - (p.loadAt || 0) < 10000) continue;
+        Dbg.log('load stuck', id, hms(t), Math.round((performance.now() - (p.loadAt || 0)) / 1000) + 's', 'starting again'); p.loading = false; p.seq = (p.seq || 0) + 1; p.win = null;
+      }   /* still loading this spot; a different spot starts a new load below */
       const moved = p.lastSet == null || Math.abs(t - p.lastSet) > 2500;
       if (moved) {                                                     /* a jump (tap) goes at once; repeated jumps (scrolling) wait until they stop */
         const n = performance.now(); p.busy = p.lastJump && n - p.lastJump < 400; p.lastJump = n; p.lastSet = t;
@@ -4913,7 +4922,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 3.8.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 3.9.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -5012,7 +5021,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 3.8.10');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 3.9.1');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5029,7 +5038,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 3.8.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 3.9.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5511,7 +5520,7 @@ const ACT = {
   fpanel() { S.fpanel = !S.fpanel; S.fui = true; render(); fuiKick(); },
   /* full screen with the alert panel: the page is redrawn to mark the picked alert; the panel keeps its scroll position
      (render keeps every scrolled list in place) */
-  fseek(d) { Dbg.log('tap alert', hms(+d.t)); S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true;
+  fseek(d) { Dbg.log('tap alert', hms(+d.t), Playback.why(S.focus.cam)); S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true;
     if (S.fpanel) render(); else { paintFocus(); Playback.sync(); } fuiKick(); },
   reconn(d, ev) {
     if (Data.source !== 'frigate' || !Ctl.on(d.id)) { Dbg.log('reconnect skipped', d.id, Data.source, Ctl.on(d.id) ? 'on' : 'off'); return; }
@@ -5622,7 +5631,7 @@ const ACT = {
     ACT.fjump({ t: o ? o.t : pick(g.items[0], S.filt).t });
   },
   fjump(d) {   /* tap a card or rail icon: go to that alert (1 s before it starts) */
-    const t = +d.t - 1000, id = S.focus.cam; Dbg.log('tap alert', hms(+d.t));
+    const t = +d.t - 1000, id = S.focus.cam; Dbg.log('tap alert', hms(+d.t), Playback.why(id));
     S.camTime[id] = t; S.playing = true; paintFocus();       /* the line moves to the alert; the list stays where it is */
     document.querySelectorAll('.fsi').forEach(n => n.classList.toggle('cur', +n.dataset.t === +d.t));
     Playback.sync();
@@ -5717,7 +5726,7 @@ document.addEventListener('click', e => {
   if (scr && (scr._mv || Date.now() - (scr._scrolled || 0) < 350)) return;
   if (el.dataset.act === 'close' && e.target.closest('[data-stop]') && !e.target.closest('button[data-act="close"]')) return;
   Jank.act = el.dataset.act + (el.dataset.id ? ' ' + el.dataset.id : '');
-  const fn = ACT[el.dataset.act]; if (fn) fn(el.dataset, e);
+  const fn = ACT[el.dataset.act]; if (fn) { try { fn(el.dataset, e); } catch (x) { Dbg.log('script error', el.dataset.act, String(x && x.message || x)); throw x; } }
 });
 (function pullToRefresh() {
   /* a refresh needs a real pull: long (160 px) and held a moment. A quick flick down to get back to the top kept
@@ -6124,7 +6133,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '3.8.10';
+    const BUILD = '3.9.1';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
