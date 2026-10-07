@@ -2577,7 +2577,7 @@ function modalDel() {
 }
 function modalWho() {
   const e = Data.events.find(x => x.id === S.whoId); if (!e) return '';
-  const names = People.known(), cur = S.whoName || '', pd = e.dets.find(d => People.person[d]) || '';
+  const names = People.known(), cur = S.whoName || '', pd = (e.dets || []).find(d => People.person[d]) || '';
   return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm snzd" role="dialog" aria-label="Who Is This" data-stop="1">' +
     '<div class="dhead">Who Is This?<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
     /* the person's own snapshot (cropped to them), at the size Frigate's face recognition works with: what you see here
@@ -4342,7 +4342,9 @@ function focusFix(cid, cls) {
   const evs = Data.events.filter(e => e.cam === cid && !e.motion && t >= e.t - 3000 && t <= (e.end || e.t + 20000) + 3000);
   if (!evs.length) return '';
   const e = evs.sort((a, b) => (b.interesting ? 1 : 0) - (a.interesting ? 1 : 0) || Math.abs(t - a.t) - Math.abs(t - b.t))[0];
-  return isPet(e, e.id) ? '<button class="' + cls + '" data-act="fixopen" data-v="' + esc(e.id) + '">Fix</button>' : coOf(e) || hasPkg(e) ? '<button class="' + cls + '" data-act="cofixopen" data-v="' + esc(e.id) + '">Fix</button>' : '';
+  /* 3.6.8: a person alert gets Who? here too (name it, or Not Person), like on the alert cards */
+  return (isPet(e, e.id) ? '<button class="' + cls + '" data-act="fixopen" data-v="' + esc(e.id) + '">Fix</button>' : coOf(e) || hasPkg(e) ? '<button class="' + cls + '" data-act="cofixopen" data-v="' + esc(e.id) + '">Fix</button>' : '') +
+    (hasPerson(e) ? '<button class="' + cls + '" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who && tagName(e) ? 'Edit Name' : 'Who?') + '</button>' : '');
 }
 function evE(k) { const c = EVK[k]; if (c) return c.e; const id = String(k).split('~')[0]; return Data.events.find(x => x.id === id); }
 function evP(k, f) {
@@ -4880,7 +4882,7 @@ const ACT = {
   },
   whoopen(d) {
     const e = Data.events.find(x => x.id === d.v); if (!e) return;
-    S.whoId = e.id; S.whoName = e.dets.map(x => People.sub[x]).filter(Boolean).map(niceName)[0] || ''; S.whoNew = ''; S.whoTeach = undefined; S.modal = 'who'; render();
+    S.whoId = e.id; S.whoName = (e.dets || []).map(x => People.sub[x]).filter(Boolean).map(niceName)[0] || ''; S.whoNew = ''; S.whoTeach = undefined; S.modal = 'who'; render();
     if (!People.faces) People.loadFaces().then(() => { if (S.modal === 'who') render(); });
   },
   fixopen(d) { S.fixK = d.v; const e = evE(d.v); S.fixPick = ((e && e.dets) || []).map(x => People.sub[x]).find(Boolean) || ''; S.fixTeach = true; S.fixBusy = false; S.fixKinds = []; S.modal = 'fix'; render();
