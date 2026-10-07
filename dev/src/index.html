@@ -1825,9 +1825,28 @@ const Snap = {
   at: {}, busy: {}, fresh: {},
   on(id) { return PHONE_LIVE() && S.view === 'home' && !S.watch && !S.focus && S.expanded !== id && this.fresh[id] !== false; },
   url(id) { return Frigate.base() + '/api/' + id + '/latest.webp?height=360&ts=' + Date.now(); },
+  focusTick(t) {
+    /* 3.9.11: camera view / full screen live: until its video plays, Frigate's current picture (larger) every second,
+       so the scene shows in about a second (the iPhone took ~6 s to start the main video, Android ~2 s) */
+    if (S.focus && camT(S.focus.cam) == null && Ctl.on(S.focus.cam) && this.fresh[S.focus.cam] !== false) {
+      const id = S.focus.cam, e = Live.els[id], v = e && e.video, playing = !!(v && e.isConnected && !e.suspended && v.readyState >= 2 && !v.paused && v.currentTime > 0);
+      if (playing) { if (this.fT0) { Dbg.log('full view video', id, ((now() - this.fT0) / 1000).toFixed(1) + 's', this.fFirst ? 'picture ' + this.fFirst + 'ms' : 'no picture first'); this.fT0 = 0; } }
+      else if (!this.fBusy && t - (this.fAt || 0) >= 950) {
+        if (this.fId !== id) { this.fId = id; this.fT0 = now(); this.fFirst = 0; }
+        this.fBusy = 1; const u = Frigate.base() + '/api/' + id + '/latest.webp?height=720&ts=' + Date.now(), pre = new Image(), t0 = performance.now();
+        pre.onload = () => { this.fBusy = 0; if (!S.focus || S.focus.cam !== id) return; this.fAt = now(); if (!this.fFirst && this.fT0) this.fFirst = Math.round(now() - this.fT0);
+          ['fimg', 'fullimg'].forEach(k => { const n = document.getElementById(k); if (n) n.src = u; }); };
+        pre.onerror = () => { this.fBusy = 0; };
+        setTimeout(() => { if (this.fBusy && performance.now() - t0 > 8000) this.fBusy = 0; }, 8100);
+        pre.src = u;
+      }
+    } else if (!S.focus) { this.fId = null; this.fT0 = 0; }
+  },
   tick() {
-    if (Data.source !== 'frigate' || document.hidden || !PHONE_LIVE() || S.view !== 'home') return;
+    if (Data.source !== 'frigate' || document.hidden) return;
     const t = now();
+    this.focusTick(t);
+    if (!PHONE_LIVE() || S.view !== 'home') return;
     for (const c of Data.cams) { const id = c.id;
       if (!Ctl.on(id) || !this.on(id) || !Live.wantLive(id) || this.busy[id] || t - (this.at[id] || 0) < 950) continue;
       const im = document.getElementById('img-' + id); if (!im) continue;
@@ -4335,8 +4354,9 @@ function paintFocus() {
   const set = (id, fn) => { const n = document.getElementById(id); if (n) fn(n); };
   const fh = S.hov && S.hov.id === 'full' ? Data.frame(c, S.hov.t) : f;
   const pb = Playback.showing(c.id), si = (n, src) => { if (Data.source === 'frigate') setImg(n, src); else if (n.getAttribute('src') !== src) n.src = src; };
-  set('fimg', n => { if (!pb) si(n, f.img); });
-  set('fullimg', n => { if (!(pb && fh === f)) si(n, fh.img); });
+  const fq = t == null && Snap.fAt && now() - Snap.fAt < 3000;   /* 3.9.11: the quick current picture is showing: keep it */
+  set('fimg', n => { if (!pb && !fq) si(n, f.img); });
+  set('fullimg', n => { if (!(pb && fh === f) && !(fq && fh === f)) si(n, fh.img); });
   Live.show(document.getElementById('flive'), t == null);
   Live.show(document.getElementById('fulllive'), t == null && fh === f);
   Live.show(document.getElementById('foff'), t == null);
