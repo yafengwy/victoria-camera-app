@@ -2476,7 +2476,7 @@ const CatFix = {
         }
         const a = Arrive.det[d]; if (a) a.sub = '';
       }
-      if (taught) await People.post('/api/classification/' + encodeURIComponent(this.model) + '/train');
+      if (taught) CatPics.filed += taught;   /* 3.4.9: no training here: it runs only from Train Model (training made the mini PC slow) */
       Dbg.log('fix', k, 'not ours', 'parts ' + all.join(','), ok ? 'ok' : 'not all taken', 'taught ' + taught);
       return { ok, taught };
     }
@@ -2498,7 +2498,7 @@ const CatFix = {
         for (const f of mine) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: pick || 'none', training_file: f }); if (t.ok) taught++; }
       }
     }
-    if (taught) await People.post('/api/classification/' + encodeURIComponent(this.model) + '/train');
+    if (taught) CatPics.filed += taught;   /* 3.4.9: no training here: it runs only from Train Model */
     /* split cards read each part from Arrive: update those too, so the card's title changes right away */
     ds.forEach(d => { const a = Arrive.det[d]; if (!a) return; a.sub = People.sub[d] || ''; if (People.fp[d]) a.fp = true; });
     Dbg.log('fix', k, pick || 'not ' + notL, 'parts ' + ds.join(','), ok ? 'ok' : 'not all taken', 'taught ' + taught);
@@ -4878,7 +4878,7 @@ const ACT = {
     whoOf(e); fixPets(e); if (e.gone) Data.events = Data.events.filter(x => x !== e);
     S.modal = null; render();
     if (pickv === '0') e.who = String(e.who || '').split(' · ').filter(x => x && !CatFix.names.includes(x) && !['胖胖', '团团'].includes(x)).join(' · ');
-    toast((pickv === '0' ? 'Marked Not Ours' : pickv[0] !== '-' ? 'Saved As ' + niceName(pickv) : pickv === '-animal' ? 'Marked Not Animal' : 'Marked Not ' + objName(pickv.slice(1))) + (r.taught ? ' · Cats Model Learning' : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
+    toast((pickv === '0' ? 'Marked Not Ours' : pickv[0] !== '-' ? 'Saved As ' + niceName(pickv) : pickv === '-animal' ? 'Marked Not Animal' : 'Marked Not ' + objName(pickv.slice(1))) + (r.taught ? ' · Train Model To Learn' : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
   },
   whopick(d) { const i = document.getElementById('whonew'); if (i) S.whoNew = i.value; S.whoName = S.whoName === d.v ? '' : d.v;
     if (S.whoName === '+' && S.whoTeach !== false) S.whoTeach = true;   /* a new person is meant to be learned */
@@ -4922,7 +4922,7 @@ const ACT = {
   wlay(d) { S.wlay = d.v; store.set('wlay', d.v); render(); },
   ppopen() { S.more = false; S.pfSel = null; S.pfN = 120; S.pfSort = 'low'; S.modal = 'people'; render(); People.loadFaces().then(() => { if (S.modal === 'people') render(); }); },
   pfsel(d) { S.pfSel = S.pfSel === d.v ? null : d.v; render(); },
-  ctopen() { S.more = false; S.ctSort = 'low'; S.ctSel = {}; S.ctN = 120; S.ctDelAll = false; CatPics.train = null; CatPics.filed = 0; S.modal = 'cats'; render(); CatPics.load().then(() => { if (S.modal === 'cats') render(); }); },
+  ctopen() { S.more = false; S.ctSort = 'low'; S.ctSel = {}; S.ctN = 120; S.ctDelAll = false; CatPics.train = null; S.modal = 'cats'; render(); CatPics.load().then(() => { if (S.modal === 'cats') render(); }); },
   ctsel(d) { S.ctSel = S.ctSel || {}; S.ctSel[d.v] = !S.ctSel[d.v]; render(); },
   ctclear() { S.ctSel = {}; render(); },
   ctmore() { S.ctN = (S.ctN || 120) + 120; render(); },
