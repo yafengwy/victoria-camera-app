@@ -4598,7 +4598,8 @@ function rvFDefault() { const f = S.rv.f; return f.int && !f.unint && !f.motion 
 function rvFSummary() {
   const f = S.rv.f, on = OBJS().filter(o => objOn(f, o));
   const objs = on.length === OBJS().length ? 'Any Object' : on.length ? on.map(objName).join(', ') : 'No Object';
-  return objs + (f.int && f.unint ? ' · All' : f.unint ? ' · Uninteresting' : f.int ? '' : ' · None') + (f.motion ? ' · Motion' : '');
+  if (!f.int && !f.unint) return f.motion ? 'Motion Only' : objs + ' · None';
+  return objs + (f.int && f.unint ? ' · All' : f.unint ? ' · Uninteresting' : '') + (f.motion ? ' · Motion' : '');
 }
 /* Wide landscape screens (Duo inner screen turned sideways, tablets, desktop): the timeline becomes a vertical rail on the
    right, newest at the top, so the camera grid keeps the full height. Portrait: horizontal strip at the bottom. */
@@ -5939,7 +5940,7 @@ const ACT = {
     else { objToggle(f, d.v); if (OBJS().every(o => !objOn(f, o))) f.objs = {}; }
     store.set('rvf', f); render();
   },
-  rvsev(d) { const f = S.rv.f; f[d.v] = !f[d.v]; if (d.v !== 'motion' && !f.int && !f.unint) f[d.v === 'int' ? 'unint' : 'int'] = true; store.set('rvf', f); render(); },
+  rvsev(d) { const f = S.rv.f; f[d.v] = !f[d.v]; if (!f.int && !f.unint && !f.motion) f[d.v] = true; store.set('rvf', f); render(); },   /* 4.4.6: any one of the three is enough (Motion alone too); only the last one can't be turned off */
   /* tap a picture's time: every camera jumps to that second (a camera with nothing recorded then says No Recording) */
   rvsync(d) {
     const img = document.querySelector('#rv-' + d.id + ' img'), m = img && /\/recordings\/([\d.]+)\/snapshot/.exec(img.getAttribute('src') || ''); if (!m) return;
