@@ -134,7 +134,13 @@ def gif(body, keep=0):
             except Exception:
                 pass
         vf = 'fps=8,scale=480:-2:flags=lanczos,split[x][y];[x]palettegen=stats_mode=diff[p];[y][p]paletteuse=dither=bayer:bayer_scale=4'
-        subprocess.run(['ffmpeg', '-v', 'error', '-i', a] + skip + ['-vf', vf, '-loop', '0', b], check=True, timeout=30)
+        # only the picture goes into the GIF (-map 0:v:0 -an): 2026-10-08 13:33 a Treat Feeder clip made ffmpeg fail with
+        # "Error opening output file out.gif: Invalid argument" and the phone got 502; say which streams the clip had
+        try:
+            subprocess.run(['ffmpeg', '-v', 'error', '-i', a] + skip + ['-map', '0:v:0', '-an', '-vf', vf, '-loop', '0', b], check=True, timeout=30)
+        except Exception as x:
+            print('gif failed', len(body), 'bytes, streams:', streams(body), repr(x), flush=True)
+            raise
         return open(b, 'rb').read()
 
 def font():
@@ -213,6 +219,10 @@ def make(path, cam, s, e, kind):
             time.sleep(wait)
             with urllib.request.urlopen(f'{FRIGATE}/api/{cam}/start/{a}/end/{b}/clip.mp4', timeout=30) as r:
                 body = r.read()
+            # 2026-10-08 13:33 Treat Feeder: Frigate's clip had only sound, no picture, so the GIF failed and the phone got
+            # 502. A clip with no picture counts as failed: the wider window, then the live stream, are tried next.
+            if kind != 'sound.mp4' and 'video' not in streams(body):
+                raise RuntimeError('clip has no picture: ' + streams(body))
             if kind == 'sound.mp4':
                 print('sound clip from Frigate', cam, a, b, 'streams:', streams(body), flush=True)
             body = gif(body) if kind == 'clip.gif' else faststart(body) if kind == 'sound.mp4' else silent(body)
