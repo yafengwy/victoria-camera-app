@@ -1893,7 +1893,7 @@ const Snap = {
 setInterval(() => { try { Snap.tick(); } catch (e) {} }, 250);
 /* 4.3.6 (her ask): on phones a home card that only has motion stays in picture mode (one picture a second), but a
    card where Frigate is following a moving object (anything that makes an Interesting or Uninteresting alert: person,
-   car, cat…) plays real video. At most 3 at once (the newest objects first): 9-13 videos at once froze the iPhone.
+   car, cat…) plays real video, however many at once (4.3.7; 9-13 videos at once once froze the iPhone, watch the log).
    A card keeps its video 10 s after the object stops or leaves, so it doesn't flip back and forth. */
 const ObjVid = {
   mov: {}, since: {}, last: {}, logged: 0,
@@ -1907,7 +1907,7 @@ const ObjVid = {
   set: new Set(),
   pick() {
     const t = now(), ids = Object.keys(this.last).filter(id => this.mov[id] || t - this.last[id] < 10000)
-      .sort((a, b) => (this.since[b] || 0) - (this.since[a] || 0)).slice(0, 3);
+      .sort((a, b) => (this.since[b] || 0) - (this.since[a] || 0));   /* 4.3.7: no limit, every card with a moving object plays video (her call: rarely many at once) */
     const nw = new Set(ids), ch = ids.length !== this.set.size || ids.some(id => !this.set.has(id));
     if (ch) Dbg.log('object video', ids.join(', ') || 'none');
     this.set = nw; return ch;
