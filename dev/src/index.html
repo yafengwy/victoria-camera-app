@@ -982,7 +982,7 @@ input,select,textarea{font-size:16px}
 .fpi img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover}
 .fpi span{display:block;padding:3px 6px 4px;font-size:10px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fzoom{position:absolute;left:50%;top:calc(50% + 18px);transform:translateX(-50%);padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.9);color:#111;font-size:11px;font-weight:800;white-space:nowrap;pointer-events:none}
-@media (pointer:fine){#rvsc,#ftsc,#fsc{cursor:grab;user-select:none}#rvsc.grabbing,#ftsc.grabbing,#fsc.grabbing{cursor:grabbing}}
+@media (pointer:fine){.fev.fstrip{cursor:grab}.fev.fstrip.grabbing{cursor:grabbing}#rvsc,#ftsc,#fsc{cursor:grab;user-select:none}#rvsc.grabbing,#ftsc.grabbing,#fsc.grabbing{cursor:grabbing}}
 .zdesk,.zdesk2{display:none!important}
 @media (pointer:fine){.zdesk{display:flex!important;font-size:18px!important}.zdesk2{display:flex!important}}
 
@@ -6249,6 +6249,7 @@ function wire() {
   }); }
   dragScroll(document.getElementById('ftsc'), true);
   dragScroll(document.getElementById('fsc'), true);
+  document.querySelectorAll('.fev.fstrip').forEach(n => dragScroll(n, false));   /* 4.4.2: a mouse drags the thumbnail strip sideways */
   const sc = document.getElementById('fsc');
   if (sc) {
     /* a drag of the timeline must never count as a tap when the finger lifts (it jumped to the nearest alert) */
@@ -6352,6 +6353,8 @@ function dragScroll(el, vertical) {
   let st = null;
   el.addEventListener('pointerdown', e => {
     if (e.pointerType !== 'mouse' || e.button !== 0) return;
+    /* 4.4.2: a drag that starts on a sideways strip inside this list moves the strip, not the list (and not the time) */
+    if (vertical && e.target.closest && e.target.closest('.fstrip') && el.contains(e.target.closest('.fstrip'))) return;
     st = { x: e.clientX, y: e.clientY, sl: el.scrollLeft, stp: el.scrollTop, moved: false };
     el.classList.add('grabbing');
   });
