@@ -1784,6 +1784,7 @@ const Motion = {
         let ch = false;
         for (const id in (a || {})) {
           this.set(id, !!(a[id] && a[id].motion));
+          if (a[id] && Array.isArray(a[id].objects)) ObjVid.see(id, a[id].objects);
           const cf = a[id] && a[id].config; if (cf && typeof cf.enabled === 'boolean' && Ctl.get(id).enabled !== cf.enabled) { Ctl.get(id).enabled = cf.enabled; ch = true; }
         }
         if (ch) render();
@@ -1837,7 +1838,7 @@ Frigate.pollStats = async function () {
    right now (no frames in its stats, e.g. detection off) keeps the video, since its picture would be old. */
 const Snap = {
   at: {}, busy: {}, fresh: {}, src: {},
-  on(id) { return PHONE_LIVE() && S.view === 'home' && !S.watch && !S.focus && S.expanded !== id && this.fresh[id] !== false; },
+  on(id) { return PHONE_LIVE() && S.view === 'home' && !S.watch && !S.focus && S.expanded !== id && this.fresh[id] !== false && !ObjVid.has(id); },
   url(id) { return Frigate.base() + '/api/' + id + '/latest.webp?height=360&ts=' + Date.now(); },
   /* 4.1.6: back from a camera watched live: its card shows the newest picture and Still counts from now */
   refreshOne(id) {
@@ -1890,6 +1891,31 @@ const Snap = {
   }
 };
 setInterval(() => { try { Snap.tick(); } catch (e) {} }, 250);
+/* 4.3.6 (her ask): on phones a home card that only has motion stays in picture mode (one picture a second), but a
+   card where Frigate is following a moving object (anything that makes an Interesting or Uninteresting alert: person,
+   car, cat…) plays real video. At most 3 at once (the newest objects first): 9-13 videos at once froze the iPhone.
+   A card keeps its video 10 s after the object stops or leaves, so it doesn't flip back and forth. */
+const ObjVid = {
+  mov: {}, since: {}, last: {}, logged: 0,
+  see(id, objs) {
+    const n = objs.filter(o => o && !o.stationary).length, was = !!this.mov[id];
+    if (!this.logged && objs.length) { this.logged = 1; Dbg.log('activity objects', id, JSON.stringify(objs[0]).slice(0, 160)); }
+    if (n) { this.last[id] = now(); if (!was) this.since[id] = now(); }
+    this.mov[id] = n > 0;
+    if (was !== this.mov[id]) { this.pick(); if (typeof Live !== 'undefined') Live.policy(); }
+  },
+  set: new Set(),
+  pick() {
+    const t = now(), ids = Object.keys(this.last).filter(id => this.mov[id] || t - this.last[id] < 10000)
+      .sort((a, b) => (this.since[b] || 0) - (this.since[a] || 0)).slice(0, 3);
+    const nw = new Set(ids), ch = ids.length !== this.set.size || ids.some(id => !this.set.has(id));
+    if (ch) Dbg.log('object video', ids.join(', ') || 'none');
+    this.set = nw; return ch;
+  },
+  has(id) { return this.set.has(id); },
+  tick() { if (this.pick() && typeof Live !== 'undefined') Live.policy(); }
+};
+setInterval(() => { if (!document.hidden) ObjVid.tick(); }, 1000);
 const PHONE_LIVE = () => Math.min(screen.width, screen.height) < 600 && !!(window.matchMedia && matchMedia('(pointer:coarse)').matches);
 const Live = {
   els: {}, fz: (() => { try { const o = JSON.parse(localStorage.getItem('vhfz') || '{}'); for (const k in o) if (!o[k] || !o[k].src || o[k].src.length < 16000) delete o[k]; return o; } catch (e) { return {}; } })(),
@@ -1900,7 +1926,7 @@ const Live = {
   stillAt(id) { const m = Data.motion(id), f = this.fz[id]; const t = Math.max(m.last || 0, f ? f.at : 0, Snap.at[id] || 0); return t || null; },
   pic(id, img) { if (Snap.on(id) && Snap.src[id] && !(this.fz[id] && this.fz[id].at > (Snap.at[id] || 0))) return Snap.src[id];   /* 4.1.9: a redraw keeps the newest picture */
     const f = PHONE_LIVE() && S.view === 'home' && this.fz[id]; return f && f.at >= (Data.motion(id).last || 0) ? f.src : img; },   /* newer motion since: Frigate's picture is newer */
-  wantLive(id) { const m = Data.motion(id); return m.active || (m.last != null && now() - m.last < 60000) || (S.forced[id] && S.forced[id] > now()) || S.expanded === id || !!(S.focus && S.focus.cam === id) || !!this.sw.act[id]; },
+  wantLive(id) { const m = Data.motion(id); return ObjVid.has(id) || m.active || (m.last != null && now() - m.last < 60000) || (S.forced[id] && S.forced[id] > now()) || S.expanded === id || !!(S.focus && S.focus.cam === id) || !!this.sw.act[id]; },
   /* the card keeps the live stream's last frame (the last moment anything moved), not a newer snapshot */
   freeze(src, e, quiet) {
     const v = e.video, im = document.getElementById('img-' + this.cam(src));
