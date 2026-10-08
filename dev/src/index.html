@@ -1974,7 +1974,7 @@ const Live = {
     /* 3.8.10: how long each stream takes from connecting to a moving picture goes to the log; a frame is only kept once
        the stream has played 6 s (its first seconds can be grey smears or black blocks until a full picture arrives) */
     for (const src in this.els) { const e = this.els[src], v = e.video, on = !e.suspended && e.isConnected && !!e.ws;
-      if (!on) { e.cAt = 0; e.okSince = 0; continue; }
+      if (!on || document.hidden) { e.cAt = 0; e.okSince = 0; continue; }   /* 4.2.11: a page left in the background no longer logs "ready 2965 s" */
       if (!e.cAt) e.cAt = now();
       const play = v && v.readyState >= 2 && !v.paused && v.currentTime > 0 && !document.hidden;
       if (play && !e.okSince) { e.okSince = now(); Dbg.log('live ready', src, ((now() - e.cAt) / 1000).toFixed(1) + 's'); }
