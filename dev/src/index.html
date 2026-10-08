@@ -3271,7 +3271,7 @@ function render0() {
   document.querySelectorAll(LISTS).forEach((n, i) => { if (lk[i]) n.scrollTop = lk[i]; });
   MORE.forEach((q, j) => document.querySelectorAll(q).forEach((n, i) => { const v = mk[j][i]; if (v) { if (v[0]) n.scrollLeft = v[0]; if (v[1]) n.scrollTop = v[1]; } }));
   if (sameV && !window.__ptr && wy >= 0 && Math.abs(window.scrollY - wy) > 1) window.scrollTo(0, wy);
-  if (fscTop != null) { const n = document.getElementById('fsc'); if (n) fSetScroll(n, fscTop); }
+  if (fscTop != null) { const n = document.getElementById('fsc'); if (n && S.focus && n.scrollTop !== fscTop) { S.focus.progTop = fscTop; n.scrollTop = fscTop; } }
   syncHist();
   document.querySelectorAll('.fov .fname').forEach(n => { let fs = 12; while (n.scrollWidth > n.clientWidth + 1 && fs > 8) { fs -= 0.5; n.style.fontSize = fs + 'px'; } });
   Live.mount(); Playback.mount();
@@ -4127,8 +4127,13 @@ function focusEnd() { return S.focus.dayEnd || now(); }
 function focusSpan() { return S.focus.dayEnd ? DAY : (now() - dayStart(now()) + HOUR); }
 function fLineY(t) { return t == null ? FTOP : FTOP + (focusEnd() - t) / MIN * FPX; }
 /* keep the playing time in view without jumping: only scroll when it is off screen */
-function fSetScroll(sc, v) { v = Math.max(0, Math.round(v)); if (sc.scrollTop === v) return; S.focus.progTop = v; sc.scrollTop = v; }
-function fShow(t) { const sc = document.getElementById('fsc'); if (!sc) return; const y = fLineY(t); if (y < sc.scrollTop + 10 || y > sc.scrollTop + sc.clientHeight - 40) fSetScroll(sc, y - 120); fPaintLine(); }
+/* 4.5.2: the camera view list has empty room above "now" (pad, one screen tall). With the blue line sitting lower
+   (after tapping an alert), dragging down then moves the timeline under a line that stays put, all the way to Live,
+   instead of being stuck at the top (4.4.9 moved the line instead, which looked backwards). fSetScroll takes list
+   coordinates (0 = now at the top). */
+function fPad() { return (S.focus && S.focus.pad) || 0; }
+function fSetScroll(sc, v) { v = Math.max(0, Math.round(v + fPad())); if (sc.scrollTop === v) return; S.focus.progTop = v; sc.scrollTop = v; }
+function fShow(t) { const sc = document.getElementById('fsc'); if (!sc) return; const y = fLineY(t), top = sc.scrollTop - fPad(); if (y < top + 10 || y > top + sc.clientHeight - 40) fSetScroll(sc, y - 120); fPaintLine(); }
 /* The blue line sits where the playing time is. Swiping the list moves the timeline under the line (scrubs);
    tapping an alert or an empty spot moves the line there instead of moving the list. */
 /* the finger is on (or just left) a camera-view timeline: the playing video must not move the time or the list then,
@@ -4138,20 +4143,10 @@ function fScrubbing() { return ['fsc', 'ftsc'].some(i => { const n = document.ge
 function fPaintLine() {
   const sc = document.getElementById('fsc'), ln = document.getElementById('fpline'); if (!sc || !ln || !S.focus) return;
   const t = camT(S.focus.cam);
-  let y = t == null ? FTOP : fLineY(t) - sc.scrollTop;
-  if (t != null && (y < 0 || y > sc.clientHeight - 10) && !fScrubbing()) { fSetScroll(sc, fLineY(t) - Math.min(120, sc.clientHeight / 3)); y = fLineY(t) - sc.scrollTop; }
+  const top = () => sc.scrollTop - fPad();
+  let y = t == null ? Math.max(FTOP, FTOP - top()) : fLineY(t) - top();   /* Live: the line rides on "now" while the list is pulled into the room above */
+  if (t != null && (y < 0 || y > sc.clientHeight - 10) && !fScrubbing()) { fSetScroll(sc, fLineY(t) - Math.min(120, sc.clientHeight / 3)); y = fLineY(t) - top(); }
   S.focus.lineY = y; ln.style.top = y + 'px';
-}
-/* 4.4.8: the list is already at its top but the blue line sits lower (a tapped alert, −10 s): pulling further
-   down moves the line up toward Live instead of doing nothing. ly0 = where the line was when the pull started,
-   want = how far above the top the list would have gone (negative px). */
-function fOverTop(sc, ly0, want) {
-  if (!S.focus || want >= 0 || S.focus.dayEnd) return false;
-  const id = S.focus.cam; if (camT(id) == null) return false;
-  const y = ly0 + want; sc._scrolled = Date.now();
-  S.camTime[id] = y <= FTOP + 2 ? null : focusEnd() - (y - FTOP) / FPX * MIN;
-  paintFocus(); if (camT(id) == null) Playback.sync();
-  return true;
 }
 /* Camera view alert list: one row per object, like the Alerts page — the Weee car, the package, the person each get
    their own row at the second they showed up, not one row from the first second of the whole alert. Interesting only
@@ -4226,7 +4221,7 @@ function viewFocus() {
         rows += '<button class="fev" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + evImg(e, ep) + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e, ep)) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span></button>';
       }
     });
-    body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px"><div class="frail"></div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + FTOP + 'px"></div>';
+    body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px;margin-top:' + fPad() + 'px"><div class="frail"></div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + FTOP + 'px"></div>';
   }
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
   const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk ftm" id="ftm">' + dtHdr(shownT(c.id, c.id)) + '</div><div style="flex:1"></div><span id="ffix" class="ffixw">' + focusFix(c.id) + '</span>' +
@@ -5995,7 +5990,7 @@ const ACT = {
   fdate() { openDateTime(camT(S.focus.cam), v => { const d0 = dayStart(v); S.focus.dayEnd = d0 === dayStart(now()) ? null : d0 + DAY; S.camTime[S.focus.cam] = v >= now() - 1000 ? null : v; render(); }); }
 };
 function openFocus(id) {
-  S.focus = { cam: id, dayEnd: null }; S.full = false; S.fui = false; S.fpanel = false;
+  S.focus = { cam: id, dayEnd: null, pad: Math.max(900, Math.round(innerHeight)) }; S.full = false; S.fui = false; S.fpanel = false;
   if (isLand()) { S.full = true; S.autoFull = true; }   /* phone held sideways: open straight into full screen */
   render();
   /* 4.1.7: opened on Live: the list goes to the top (Live). The page put back the list's old scroll position, and that
@@ -6309,21 +6304,23 @@ function wire() {
        redrawing, the browser putting back an old position); at the top that counted as "go Live" and stopped an
        alert that had just started playing (09:12 played half a second, then jumped to Live) */
     const user = () => sc._touch || sc._ptr || Date.now() - Math.max(sc._wheelAt || 0, sc._upAt || 0) < 1200;
-    sc.addEventListener('wheel', e => { sc._wheelAt = Date.now(); if (sc.scrollTop <= 0 && e.deltaY < 0 && S.focus && S.focus.lineY != null) fOverTop(sc, S.focus.lineY, e.deltaY); }, { passive: true });
-    sc.addEventListener('touchstart', e => { const t = e.touches[0]; sc._ot = t && e.touches.length === 1 ? { y: t.clientY, s: sc.scrollTop, ly: S.focus && S.focus.lineY != null ? S.focus.lineY : FTOP } : null; }, { passive: true });
-    sc.addEventListener('touchmove', e => { const o = sc._ot, t = e.touches[0]; if (!o || !t) return; const w = o.s - (t.clientY - o.y); if (w < 0 && sc.scrollTop <= 0) fOverTop(sc, o.ly, w); }, { passive: true });
+    sc.addEventListener('wheel', () => { sc._wheelAt = Date.now(); }, { passive: true });
     sc.addEventListener('pointerdown', () => { sc._ptr = true; }, { passive: true });
     window.addEventListener('pointerup', () => { if (sc._ptr) { sc._ptr = false; sc._upAt = Date.now(); } }, { passive: true });
     sc.addEventListener('touchend', () => { sc._upAt = Date.now(); }, { passive: true });
     sc.addEventListener('scroll', () => {
+      if (!S.focus) return;
       if (S.focus.progTop != null && Math.abs(sc.scrollTop - S.focus.progTop) < 2) { S.focus.progTop = null; return; }
       S.focus.progTop = null;
       if (!user()) { fPaintLine(); return; }
-      if (Date.now() - (S.focus.liveAt || 0) < 1500 && sc.scrollTop > 4) { fPaintLine(); return; }   /* 4.3.3: the page settling right after Live */
+      if (Date.now() - (S.focus.liveAt || 0) < 1500 && sc.scrollTop - fPad() > 4) { fPaintLine(); return; }   /* 4.3.3: the page settling right after Live */
       sc._scrolled = Date.now();
-      const ly = S.focus.lineY == null ? FTOP : S.focus.lineY, y = sc.scrollTop + ly;
+      const ly = S.focus.lineY == null ? FTOP : S.focus.lineY, y = sc.scrollTop - fPad() + ly;
       S.camTime[S.focus.cam] = (!S.focus.dayEnd && y < FTOP + 2) ? null : focusEnd() - (y - FTOP) / FPX * MIN;
       paintFocus();
+      /* pulled up into the room above "now": once the finger / mouse lets go on Live, the list settles back with now at the top */
+      clearTimeout(sc._snapT);
+      if (camT(S.focus.cam) == null && sc.scrollTop < fPad() - 1) sc._snapT = setTimeout(() => { if (S.focus && camT(S.focus.cam) == null && !sc._touch && !sc._ptr && sc.scrollTop < fPad() - 1) { S.focus.lineY = FTOP; fSetScroll(sc, 0); fPaintLine(); } }, 600);
     }, { passive: true });
     /* full screen only from swiping down on the Today row, never from the timeline */
   }
@@ -6403,7 +6400,7 @@ function dragScroll(el, vertical) {
     if (!st) return;
     const dx = e.clientX - st.x, dy = e.clientY - st.y;
     if (!st.moved && Math.abs(vertical ? dy : dx) > 3) st.moved = true;
-    if (st.moved) { if (vertical) { const w = st.stp - dy; if (w < 0 && el.id === 'fsc' && fOverTop(el, st.ly, w)) el.scrollTop = 0; else el.scrollTop = w; } else el.scrollLeft = st.sl - dx; e.preventDefault(); }
+    if (st.moved) { if (vertical) el.scrollTop = st.stp - dy; else el.scrollLeft = st.sl - dx; e.preventDefault(); }
   });
   window.addEventListener('pointerup', () => {
     if (!st) return;
