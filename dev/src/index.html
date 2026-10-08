@@ -2442,7 +2442,7 @@ const Playback = {
       const vt = p.win && p.win.segs.length ? this.vtime(p, t) : null;
       /* a just-happened alert may not be saved yet: ask again every 2 s until it is */
       const stale = p.win && (!p.win.segs.length || vt == null) && performance.now() - (p.win.at || 0) > 2000;
-      if (!p.win || stale || t / 1000 < p.win.a || (t / 1000 > p.win.b - 3 && performance.now() - (p.win.at || 0) > 2000)) { this.load(id, t).then(() => this.sync()); continue; }
+      if (!p.win || stale || t / 1000 < p.win.a || t / 1000 >= p.win.b + 5 || (t / 1000 > p.win.b - 3 && performance.now() - (p.win.at || 0) > 2000)) { this.load(id, t).then(() => this.sync()); continue; }
       if (!p.win.segs.length || vt == null) { if (p.dbgNo !== t) { p.dbgNo = t; Dbg.log('no video here', id, hms(t)); } continue; }   /* nothing recorded here (yet): keep the snapshot */
       if (p.prep) continue;
       p.expect = t;
@@ -5005,7 +5005,7 @@ const RVid = {
   /* each second from the Review loop: true when the video is setting the time */
   sync() {
     const id = S.rv.feat, t = S.rv.t;
-    if (Data.source !== 'frigate' || S.view !== 'review' || rvLay() === 'grid' || !id || t == null) { if (this.cam) this.stop(S.view !== 'review' ? 'left review' : 'live or no big picture'); return false; }
+    if (Data.source !== 'frigate' || S.view !== 'review' || S.focus || S.full || rvLay() === 'grid' || !id || t == null) { if (this.cam) this.stop(S.view !== 'review' ? 'left review' : (S.focus || S.full) ? 'camera opened' : 'live or no big picture'); return false; }   /* 4.3.4: a camera opened from Review gets the whole network (the Review video behind it kept downloading 10 MB parts and Frigate took 4-6 s to answer) */
     this.mount();
     if (this.cam !== id) { this.load(id, t); return false; }
     if (this.loading || !this.win) return false;
@@ -6380,14 +6380,14 @@ setInterval(() => {
     if (m.active) { m.last = now(); if (!busyEv && now() > m.until) m.active = false; }
   });
   if (S.view === 'home') Data.cams.forEach(c => { if (c.id !== S.expanded) paintCam(c.id); });
-  if (S.view === 'review') {
+  if (S.view === 'review' && !S.focus) {   /* 4.3.4: Review waits behind an open camera (no pictures or videos loading there) */
     /* 4.2.3: playing waits (up to 4 s) while the big picture for this second is still loading, so each moment is seen */
     const fi = S.rv.feat && document.querySelector('#rv-' + S.rv.feat + ' img'), wait = fi && (fi.dataset.busy === '1' || fi.dataset.ld === '1') && Date.now() - (S.rvWait || 0) < 4000;
     if (!wait) S.rvWait = Date.now();
     const vid = RVid.sync();
     if (S.playing && S.rv.t != null && (vid || !wait)) { if (!vid) { const nt = S.rv.t + 1000 * S.speed; S.rv.t = nt >= now() - 1000 ? null : nt; } S.rvLock = true; drawRvTrack(false); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); }
     paintReview();
-  } else if (RVid.cam) RVid.stop('left review');
+  } else if (RVid.cam) RVid.stop(S.focus ? 'camera opened' : 'left review');
 }, 1000);
 
 document.addEventListener('visibilitychange', () => { if (document.hidden) { Live.keepAll(); S.forced = {}; } });
