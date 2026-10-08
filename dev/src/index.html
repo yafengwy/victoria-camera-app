@@ -3069,7 +3069,7 @@ const HOSTED = /^(192\.168\.|10\.|localhost$|frigate)|victoriashome\.app$/.test(
 const S = {
   view: 'home', markStyle: ['a', 'e', 'd', 'b'].includes(store.get('markStyle', 'a')) ? store.get('markStyle', 'a') : 'a', cover: store.get('cover', 'auto'), look: store.get('look', 'auto'), colsPref: store.get('colsPref', 'auto'), forced: {}, mode: store.get('mode', 'home'), theme: ['glass', 'google', 'green', 'blue', 'noir'].includes(store.get('theme2', 'glass')) ? store.get('theme2', 'glass') : 'glass', layout: store.get('layout', 'list'),
   server: store.get('server', HOSTED ? location.origin : ''), demo: store.get('demo', !HOSTED),
-  open: store.get('open', {}), expanded: null, camTime: {},
+  open: store.get('open', {}), expanded: null, camTime: camTimeObj(),
   winEnd: now(), pos: 1, win: store.get('win', 30 * MIN), playing: true, speed: 1, tab: 'events',
   filt: store.get('filt3', { int: true, unint: false, objs: { Person: true, Car: true, Cat: true, Dog: true, Package: true }, off: {}, zones: {} }),
   ddObj: false, ddCam: false, zoneOpen: null,
@@ -3089,6 +3089,20 @@ S.filt.motion = false;
 const moCtx = () => S.view === 'events' ? 'events' : S.focus ? 'focus:' + S.focus.cam : S.expanded ? 'card:' + S.expanded : 'home';
 
 /* ===== Time control ===== */
+/* 4.3.3: right after Live in the camera view nothing may pull that camera back to a recording unless she touches the
+   screen again (Front Door kept flipping between Live and a 17:14 recording); every such try goes into the log */
+function camTimeObj() {
+  return new Proxy({}, { set(o, k, v) {
+    const f = S && S.focus;
+    if (v != null && f && k === f.cam && f.liveAt && Date.now() - f.liveAt < 5000) {
+      const st = (new Error().stack || '').split('\n').slice(2, 4).map(x => x.trim().replace(/^at /, '').replace(/\(.*\//, '(')).join(' < ');
+      const block = Date.now() - f.liveAt < 2000 && lastTouch <= f.liveAt;
+      Dbg.log(block ? 'blocked time after live' : 'time set after live', k, hms(v), st);
+      if (block) return true;
+    }
+    o[k] = v; return true;
+  } });
+}
 function isLive(id) { return S.camTime[id] == null; }
 function camT(id) { return S.camTime[id] == null ? null : S.camTime[id]; }
 /* Put the expanded camera at time t and keep its 30-minute window around it */
@@ -5755,7 +5769,7 @@ const ACT = {
     const inp = document.getElementById('server'); S.server = inp ? inp.value.trim() : S.server;
     if (!S.demo && !/^https?:\/\/.+/.test(S.server)) { toast('Enter the Frigate address, for example http://192.168.1.50:5000'); return; }
     store.set('server', S.server); store.set('demo', S.demo); S.modal = null;
-    await Data.load(); S.camTime = {}; S.expanded = null; render(); toast(Data.source === 'demo' ? 'Showing demo data' : 'Connected to Frigate');
+    await Data.load(); S.camTime = camTimeObj(); S.expanded = null; render(); toast(Data.source === 'demo' ? 'Showing demo data' : 'Connected to Frigate');
   },
   unfocus() { const id = S.focus && S.focus.cam, live = id && camT(id) == null; S.focus = null; S.full = false; S.fclip = null; render(); if (live) Snap.refreshOne(id); },
   /* camera view download: start = the second being watched (Live: the last 30 s); end defaults to 30 s later and
@@ -5823,7 +5837,7 @@ const ACT = {
     if ((S.focus.dayEnd || null) !== de) { S.focus.dayEnd = de; render(); } else paintFocus();   /* crossed midnight: show that day's timeline */
     Playback.sync(); fShow(nt);
   },
-  flive() { S.camTime[S.focus.cam] = null; S.focus.dayEnd = null; S.focus.lineY = FTOP; render(); const sc = document.getElementById('fsc'); if (sc) { fSetScroll(sc, 0); fPaintLine(); } const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
+  flive() { const id = S.focus.cam; Dbg.log('tap live camera view', id, Playback.why ? Playback.why(id) : ''); S.focus.liveAt = Date.now(); S.camTime[id] = null; Playback.stop(id, 'live'); setTimeout(() => Playback.sync(), 0); S.focus.dayEnd = null; S.focus.lineY = FTOP; render(); const sc = document.getElementById('fsc'); if (sc) { fSetScroll(sc, 0); fPaintLine(); } const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
   flist() { S.flist = !S.flist; render(); fShow(camT(S.focus.cam)); },
   rvlist() { S.rv.list = !S.rv.list; store.set('rvlist', S.rv.list); S.rv.fopen = S.rv.pick = S.rv.colsOpen = false; render(); requestAnimationFrame(() => { const c = document.querySelector('#rvlist .rvli.cur'); if (c) c.scrollIntoView({ block: 'center' }); }); },
   rvlpick(d, e) {   /* an alert in the list: every camera goes to that moment, the alert's camera comes first */
@@ -6227,6 +6241,7 @@ function wire() {
       if (S.focus.progTop != null && Math.abs(sc.scrollTop - S.focus.progTop) < 2) { S.focus.progTop = null; return; }
       S.focus.progTop = null;
       if (!user()) { fPaintLine(); return; }
+      if (Date.now() - (S.focus.liveAt || 0) < 1500 && sc.scrollTop > 4) { fPaintLine(); return; }   /* 4.3.3: the page settling right after Live */
       sc._scrolled = Date.now();
       const ly = S.focus.lineY == null ? FTOP : S.focus.lineY, y = sc.scrollTop + ly;
       S.camTime[S.focus.cam] = (!S.focus.dayEnd && y < FTOP + 2) ? null : focusEnd() - (y - FTOP) / FPX * MIN;
