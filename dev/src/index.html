@@ -5944,7 +5944,9 @@ const ACT = {
     /* a group of alerts, or one alert holding several objects, opens into a strip to pick from; an icon goes to its object */
     const objs = focusObjs(g), want = d.k ? objs.filter(o => o.label + (o.hot ? '+' : '-') === d.k) : [];
     const o = want.length ? want[want.length - 1] : (objs.filter(x => x.hot).pop() || objs[objs.length - 1]);
-    const og = objs.length > 1 ? String(g.items[0].t) : null;
+    /* 4.3.11: the same key the card uses (its alert, not a motion piece): with Motion shown, the newest item was often a
+       motion piece, so the key never matched and the group never opened into its strip */
+    const og = objs.length > 1 ? String((g.items.find(x => !x.motion) || g.items[0]).t) : null;
     if (S.focus.og !== og) { S.focus.og = og; render(); }
     ACT.fjump({ t: o ? o.t : pick(g.items[0], S.filt).t });
   },
