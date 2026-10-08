@@ -143,3 +143,14 @@ Read this first when picking the app up in a new conversation. No secrets live i
   3. Voice alerts on Google Home via HA TTS, only for events she picks (e.g. Waiting Delivery arrived, person at the Doorbell).
   Not approved: 4 (tamper / camera moved).
   4b DONE in 3.8.3 + 3.8.4 (last live frame kept on the card while Still; still to do: measure motion-to-picture delay on her iPhone). (approved 00:48, rule fixed by her 00:52, MUST KEEP): on phones a card's live stream follows Frigate MOTION (any motion, not only objects, so outdoor cards stay live a lot). Live the whole time there is any motion; it freezes (Still, live disconnected, last picture shown) ONLY after one full minute with no motion at all; the moment any motion comes it goes live again at once. Tapping a Still card = live for 1 minute, same rule after that. Expand / full view always live. Pill clearly Still (grey) / Connecting / Live. Reason: iPhone froze 5-7 s and was killed for memory with 10-14 live connections. Computers unchanged. Measure motion-to-picture delay after building and tell her.
+
+## 2026-10-07 day (3.8.4 → 4.2.10)
+- Phones: home cards = Frigate latest.webp once a second while live (Snap, her choice A); video only for opened card / camera view / full / Watch. Open/back/pull = refresh pictures 4 at a time, on-screen first. Kept last live frame (localStorage vhfz). Real last motion from /api/review/activity/motion (LastMo).
+- Computers (her choice B): video while motion + 1 min, Still on last frame after.
+- Live / Still / Connecting only; Live = green blinking dot everywhere.
+- Camera view / full: quick picture each second, then light stream, then HD. Opens on Live. Pinch zoom anywhere on full view; no exit on pinch. Timeline drag decoupled from redraw; no loads while scrubbing.
+- Review Big: big tile plays real recording (RVid), small tiles follow; pinch zoom on big; play waits for big picture; big camera held 4 s; list pick = 3 s before, held until 8 s after.
+- Fix: Send To Frigate+ checkbox on every Not X (unticked = hidden on this phone only, vhnotx); Teach The Car Model checkbox (car model still trains right away when ticked).
+- Home panel: −5 s / +5 s, no date button; date buttons work on phones again; pull-to-refresh only on the top bars (Safari's own is off).
+- Bugs fixed: BLANK_MP4 was module-scope (broke recording playback), video-rtc errors, iPhone hls.js false fallback.
+- STILL TO DO: 10-07 list above (storage alert, min_initialized, Google Home voice) not started; car model manual Train (offered, no answer); cat bowl enter/exit = state models she builds in Frigate, then HA YAML from me; Treat Feeder offline since 13:38 and its 5.4 s keyframe; passing-car alerts → zone (offered).
