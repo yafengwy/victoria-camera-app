@@ -265,13 +265,14 @@ img.rf{opacity:0}
 .fhr{position:absolute;left:12px;font-size:12px;font-weight:700;color:var(--dark-sub);font-variant-numeric:tabular-nums}
 .fev{position:absolute;left:54px;right:12px;height:60px;display:flex;align-items:center;gap:12px;text-align:left}
 .fev i{width:18px;height:18px;border-radius:5px;background:#5FD3B4;flex-shrink:0}
-.fev.fstrip{gap:6px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding:0 6px;touch-action:pan-x;justify-content:flex-start}
-.fev.fstrip::-webkit-scrollbar{display:none}
+.fev.fstrip{gap:4px;padding:0 2px;justify-content:flex-start}
+/* 4.4.4: the pictures scroll in their own row; the ‹ › sit outside it, next to it */
+.fsrow{flex:1;min-width:0;height:100%;display:flex;align-items:center;gap:6px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;touch-action:pan-x;padding:0 4px}
+.fsrow::-webkit-scrollbar{display:none}
 /* 4.4.3: tiny ‹ › at the strip's ends for a mouse (phones swipe); pictures can't be dragged out of the strip */
 .fev.fstrip img{-webkit-user-drag:none;user-select:none}
 .fsarr{display:none}
-@media (pointer:fine){.fsarr{display:flex;align-items:center;justify-content:center;position:sticky;z-index:2;flex-shrink:0;width:16px;height:calc(100% - 8px);border-radius:6px;background:rgba(0,0,0,.6);color:#fff;font-size:16px;font-weight:700;line-height:1;padding:0}
-  .fsarr.l{left:0;margin-right:-22px}.fsarr.r{right:0;margin-left:-22px}
+@media (pointer:fine){.fsarr{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:16px;height:calc(100% - 8px);border-radius:6px;background:rgba(255,255,255,.08);color:#fff;font-size:16px;font-weight:700;line-height:1;padding:0}
   .fev.fstrip.atl .fsarr.l,.fev.fstrip.atr .fsarr.r{visibility:hidden}}
 .fsi{position:relative;flex-shrink:0;height:calc(100% - 8px);aspect-ratio:16/10;border-radius:8px;overflow:hidden;box-shadow:inset 0 0 0 2px transparent}
 .fev.fstrip .fsi img{width:100%;height:100%;object-fit:cover;border-radius:8px;display:block}
@@ -988,7 +989,7 @@ input,select,textarea{font-size:16px}
 .fpi img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover}
 .fpi span{display:block;padding:3px 6px 4px;font-size:10px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fzoom{position:absolute;left:50%;top:calc(50% + 18px);transform:translateX(-50%);padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.9);color:#111;font-size:11px;font-weight:800;white-space:nowrap;pointer-events:none}
-@media (pointer:fine){.fev.fstrip{cursor:grab}.fev.fstrip.grabbing{cursor:grabbing}#rvsc,#ftsc,#fsc{cursor:grab;user-select:none}#rvsc.grabbing,#ftsc.grabbing,#fsc.grabbing{cursor:grabbing}}
+@media (pointer:fine){.fsrow{cursor:grab}.fsrow.grabbing{cursor:grabbing}#rvsc,#ftsc,#fsc{cursor:grab;user-select:none}#rvsc.grabbing,#ftsc.grabbing,#fsc.grabbing{cursor:grabbing}}
 .zdesk,.zdesk2{display:none!important}
 @media (pointer:fine){.zdesk{display:flex!important;font-size:18px!important}.zdesk2{display:flex!important}}
 
@@ -2247,7 +2248,7 @@ const Dbg = {
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
   save() { clearTimeout(this.tm); try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} },
-  text() { return 'Version 4.4.3 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 4.4.4 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -3250,7 +3251,7 @@ function render0() {
   /* every other scrolled strip or list (day chips, hour rail, alert strips and panels, camera pickers, the review list,
      dialogs) and the page itself keep their place too: a tap that redraws the page must not make anything jump.
      The page keeps its place only on the same page (a new page starts at its top as before). */
-  const MORE = ['.days', '.hours', '.fev.fstrip', '.fpl', '.rvlist', '.wgrid', '.rvchips', '.popin', '.dbglog', '.dialog'];
+  const MORE = ['.days', '.hours', '.fsrow', '.fpl', '.rvlist', '.wgrid', '.rvchips', '.popin', '.dbglog', '.dialog'];
   const mk = MORE.map(q => [...document.querySelectorAll(q)].map(n => [n.scrollLeft, n.scrollTop]));
   const vk = [S.view, S.focus ? S.focus.cam : '', S.full ? 1 : 0, S.watch ? 1 : 0].join('|'), wy = window.scrollY, sameV = vk === render0.vk; render0.vk = vk;
   /* alert-card clips: a redraw keeps the clip that is already playing (same element, no reload), and clips that go away
@@ -4198,10 +4199,10 @@ function viewFocus() {
       if (objs.length > 1 && S.focus.og === key) {
         /* opened: every object in these alerts, newest first; tap one to go to when it showed up */
         /* 3.6.3: Interesting ones first (newest first among them), then Uninteresting (newest first) */
-        rows += '<div class="fev fstrip atl" style="top:' + (y - 32) + 'px"><button class="fsarr l" data-act="fstripgo" data-v="-1" aria-label="Earlier Thumbnails">‹</button>' + objs.slice().sort((a, b) => (b.hot ? 1 : 0) - (a.hot ? 1 : 0) || b.t - a.t).map(o => {
+        rows += '<div class="fev fstrip atl" style="top:' + (y - 32) + 'px"><button class="fsarr l" data-act="fstripgo" data-v="-1" aria-label="Earlier Thumbnails">‹</button><div class="fsrow">' + objs.slice().sort((a, b) => (b.hot ? 1 : 0) - (a.hot ? 1 : 0) || b.t - a.t).map(o => {
           const on = curT != null && Math.abs(curT - (o.t - 1000)) < 1500;
           return '<button class="fsi' + (on ? ' cur' : '') + (o.hot ? ' hot' : ' un') + '" data-act="fjump" data-t="' + o.t + '" aria-label="' + esc(objName(o.label)) + ' ' + hms(o.t) + '"><img src="' + o.img + '" alt="" loading="lazy" draggable="false"><span><i class="lico">' + objIcon(o.label) + '</i>' + (o.name ? esc(o.name) + ' ' : '') + hms(o.t) + '</span></button>';
-        }).join('') + '<button class="fsarr r" data-act="fstripgo" data-v="1" aria-label="More Thumbnails">›</button></div>';
+        }).join('') + '</div><button class="fsarr r" data-act="fstripgo" data-v="1" aria-label="More Thumbnails">›</button></div>';
       } else {
         const hotL = objs.filter(o => o.hot).map(o => o.label), names = [...new Set((hotL.length ? hotL : objs.map(o => o.label)).sort((a, b) => objRank(a) - objRank(b)).map(objName))];
         const title = names.slice(0, 2).join(', ') + (names.length > 2 ? ' +' + (names.length - 2) : '');
@@ -5226,7 +5227,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.4.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.4.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -5325,7 +5326,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.4.3');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.4.4');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5342,7 +5343,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.4.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.4.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5956,7 +5957,7 @@ const ACT = {
     if (S.focus.og !== og) { S.focus.og = og; render(); }
     ACT.fjump({ t: o ? o.t : pick(g.items[0], S.filt).t });
   },
-  fstripgo(d, e) { const st = e && e.target.closest('.fstrip'); if (st) st.scrollBy({ left: (+d.v) * Math.max(80, st.clientWidth * 0.8), behavior: 'smooth' }); },
+  fstripgo(d, e) { const st = e && e.target.closest('.fstrip') && e.target.closest('.fstrip').querySelector('.fsrow'); if (st) st.scrollBy({ left: (+d.v) * Math.max(80, st.clientWidth * 0.8), behavior: 'smooth' }); },
   fjump(d) {   /* tap a card or rail icon: go to that alert (1 s before it starts) */
     const t = +d.t - 1000, id = S.focus.cam; Dbg.log('tap alert', hms(+d.t), Playback.why(id));
     S.camTime[id] = t; S.playing = true; paintFocus();       /* the line moves to the alert; the list stays where it is */
@@ -6256,8 +6257,8 @@ function wire() {
   }); }
   dragScroll(document.getElementById('ftsc'), true);
   dragScroll(document.getElementById('fsc'), true);
-  document.querySelectorAll('.fev.fstrip').forEach(n => { dragScroll(n, false);   /* 4.4.2: a mouse drags the thumbnail strip sideways */
-    const ends = () => { n.classList.toggle('atl', n.scrollLeft < 4); n.classList.toggle('atr', n.scrollLeft + n.clientWidth > n.scrollWidth - 4); };
+  document.querySelectorAll('.fev.fstrip').forEach(o => { const n = o.querySelector('.fsrow'); if (!n) return; dragScroll(n, false);   /* 4.4.2: a mouse drags the thumbnail strip sideways */
+    const ends = () => { o.classList.toggle('atl', n.scrollLeft < 4); o.classList.toggle('atr', n.scrollLeft + n.clientWidth > n.scrollWidth - 4); };
     if (!n._ends) { n._ends = 1; n.addEventListener('scroll', ends, { passive: true }); } ends(); });
   const sc = document.getElementById('fsc');
   if (sc) {
@@ -6490,7 +6491,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.4.3';
+    const BUILD = '4.4.4';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
