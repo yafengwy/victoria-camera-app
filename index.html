@@ -368,6 +368,7 @@ img.rf{opacity:0}
 .livepill[hidden]{display:none}
 .fsteps{position:absolute;left:50%;transform:translateX(-50%);bottom:max(10px, calc(env(safe-area-inset-bottom,0px) - 14px));z-index:5;display:flex;align-items:center;gap:12px}
 .fsteps .livepill{position:static;transform:none}
+.fstep.fpp{min-width:52px;width:52px;padding:0;display:flex;align-items:center;justify-content:center}.fstep.fpp[hidden]{display:none}.fstep.fpp svg{width:22px;height:22px}
 .fstep{height:52px;min-width:64px;padding:0 12px;border-radius:26px;background:rgba(36,42,52,.94);color:#fff;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;box-shadow:0 6px 16px rgba(0,0,0,.35)}
 .fstep[disabled]{opacity:.35}
 .fullsteps{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:4;display:flex;align-items:center;gap:10px}
@@ -385,9 +386,10 @@ img.rf{opacity:0}
   .focus>.fctl{grid-column:2;grid-row:1;max-width:none;border-left:1px solid var(--dark-line)}
   .focus>.fscroll{grid-column:2;grid-row:2;max-width:none;border-left:1px solid var(--dark-line)}
   .focus .pullhint{display:none}
-  .focus>.fsteps{left:calc(100% - var(--fw) / 2);gap:8px}
-  .focus .fsteps .livepill{height:44px;padding:0 18px;font-size:14px}
-  .focus .fsteps .fstep{height:44px;min-width:54px;font-size:13px}
+  .focus>.fsteps{left:calc(100% - var(--fw) / 2);gap:5px}
+  .focus .fsteps .livepill{height:44px;padding:0 12px;font-size:14px;gap:5px}
+  .focus .fsteps .fstep{height:44px;min-width:46px;padding:0 8px;font-size:13px}
+  .focus .fsteps .fstep.fpp{min-width:40px;width:40px;padding:0}
   .focus>.fctl{padding:0 10px}
   .focus .fday{height:40px;padding:0 12px;font-size:13px}
   .focus .fctl .dk{width:40px;height:40px}
@@ -2239,7 +2241,7 @@ const Dbg = {
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
   save() { clearTimeout(this.tm); try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} },
-  text() { return 'Version 4.3.7 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 4.3.10 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -4220,6 +4222,8 @@ function viewFocus() {
     '<button class="dk' + (S.flist ? ' on' : '') + '" data-act="flist" aria-label="' + (S.flist ? 'Show Timeline' : 'Show Alert List') + '">' + (S.flist ? I.tline : I.bellO) + '</button></div>') +
     '<div class="fscroll"><div class="pullhint"></div>' + body + '</div>' +
     '<div class="fsteps"><button class="fstep" data-act="fstep" data-v="-10" aria-label="Back 10 Seconds">−10s</button>' +
+    /* 4.3.8: pause / play in the camera view too (only while a recording is shown; Live has nothing to pause) */
+    '<button class="fstep fpp" id="fpp" data-act="playpause" aria-label="' + (S.playing ? 'Pause' : 'Play') + '"' + (t == null ? ' hidden' : '') + '>' + (S.playing ? I.pause : I.play) + '</button>' +
     '<button class="livepill" id="livepill" data-act="flive"' + (t == null ? ' hidden' : '') + '>' + I.liveup + 'Live</button>' +
     '<button class="fstep" id="fstepf" data-act="fstep" data-v="10" aria-label="Forward 10 Seconds"' + (t == null ? ' disabled' : '') + '>+10s</button></div></div>';
   if (S.full) h += viewFull(c, t, f);
@@ -4472,6 +4476,7 @@ function paintFocus() {
   if (S.full && !S.fLock) fullPaintLine();
   set('ftag', n => setTag(n, f));
   set('livepill', n => { n.hidden = t == null; });
+  set('fpp', n => { n.hidden = t == null; const k = S.playing ? 'Pause' : 'Play'; if (n.getAttribute('aria-label') !== k) { n.setAttribute('aria-label', k); n.innerHTML = S.playing ? I.pause : I.play; } });
   set('fstepf', n => { n.disabled = t == null; }); set('fullstepf', n => { n.disabled = t == null; });
 }
 
@@ -5215,7 +5220,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.3.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.3.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -5314,7 +5319,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.3.7');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.3.10');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5331,7 +5336,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.3.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.3.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -6471,7 +6476,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.3.7';
+    const BUILD = '4.3.10';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
