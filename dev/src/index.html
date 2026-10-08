@@ -6296,12 +6296,13 @@ function wire() {
     sc.addEventListener('touchcancel', () => { sc._touch = false; }, { passive: true });
     sc.addEventListener('touchmove', e => { const t = e.touches[0]; if (e.touches.length > 1 || (sc._t0 && t && Math.hypot(t.clientX - sc._t0[0], t.clientY - sc._t0[1]) > 8)) sc._mv = true; }, { passive: true });
     sc.addEventListener('click', e => {
-      if (e.target.closest('button')) return;
+      if (e.target.closest('button') || e.target.closest('.fstrip')) return;
+      if (Date.now() - (window._hDragAt || 0) < 400) return;   /* a sideways drag of the picture strip that ended outside it */
       if (sc._mv || Date.now() - (sc._scrolled || 0) < 350) return;
       const fin = sc.querySelector('.fin'); if (!fin) return;
       const y = e.clientY - fin.getBoundingClientRect().top, t = focusEnd() - (y - FTOP) / FPX * MIN;
-      const gi = (S.focus.groups || []).findIndex(g => Math.abs(g.y - y) < 36);
-      if (gi >= 0) { ACT.fgrp({ g: gi }); return; }
+      /* 4.4.10: an empty spot goes to exactly that time; only the icons and cards themselves (buttons) jump to an
+         alert. It used to snap to the nearest alert within 36 px, so a tap beside an icon never reached its own time. */
       S.camTime[S.focus.cam] = (!S.focus.dayEnd && y < FTOP + 4) ? null : t; S.playing = true; paintFocus(); Playback.sync();
     });
     /* 4.1.11: only a scroll the user makes moves the time. The list also scrolls by itself (pictures loading, the page
@@ -6406,6 +6407,7 @@ function dragScroll(el, vertical) {
   });
   window.addEventListener('pointerup', () => {
     if (!st) return;
+    if (st.moved && !vertical) window._hDragAt = Date.now();
     if (st.moved) { const kill = ev => { ev.stopPropagation(); ev.preventDefault(); }; el.addEventListener('click', kill, { capture: true, once: true }); setTimeout(() => el.removeEventListener('click', kill, { capture: true }), 50); }
     st = null; el.classList.remove('grabbing');
   });
