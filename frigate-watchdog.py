@@ -37,6 +37,11 @@ DAILY_HOUR = 4   # turned off in Google Home on purpose; take it out of here whe
 # 3 times a day, because each restart logs in to the Furbo cloud again.
 FURBO_ERR = ('409', 'stream_busy', 'already streaming', 'p2p_unavailable', 'timed out', 'timeout')
 FURBO_RUNS, FURBO_GAP, FURBO_DAY = 10, 3600, 3
+# Storage alert (her choice, 2026-10-07, idea from Camect): every 6 hours, how many days back the kept alerts reach and
+# how full the recordings disk is. One phone notification a day (automation "Camera Storage", webhook, local network
+# only) when alerts reach back fewer than 25 days (only once the system is older than that) or the disk has < 10% free.
+STORE_HOOK = 'http://192.168.1.252:8123/api/webhook/vh-camera-storage-865b860917997d36'
+STORE_DAYS, STORE_FREE, STORE_EVERY = 25, 0.10, 6 * 3600
 
 
 def get(path):
@@ -134,6 +139,47 @@ def down_alerts(dead, st, t10):
     return cur + hist
 
 
+def storage_check(st):
+    now = time.time(); s = st.setdefault('store', {})
+    if now - s.get('at', 0) < STORE_EVERY:
+        return
+    path = os.path.join(D, 'storage')
+    try:
+        du = shutil.disk_usage(path); free = du.free / du.total
+    except Exception:
+        return
+    first = now
+    try:
+        days = sorted(x for x in os.listdir(os.path.join(path, 'recordings')) if re.match(r'\d{4}-\d{2}-\d{2}$', x))
+        if days: first = calendar.timegm(time.strptime(days[0], '%Y-%m-%d'))
+    except Exception:
+        pass
+    s['since'] = min(s.get('since', now), first)
+    oldest = 0   # whole days back to the oldest kept alert (one small question per day, oldest day first)
+    for d in range(40, -1, -1):
+        try:
+            r = get('/review?severity=alert&limit=1&after=%d&before=%d' % (int(now - (d + 1) * 86400), int(now - d * 86400)))
+        except Exception:
+            return   # Frigate busy: try again next minute
+        if r:
+            oldest = d + 1; break
+    s.update(at=now, days=oldest, free=int(free * 100), gb=du.free // 2**30)
+    why = []
+    if free < STORE_FREE:
+        why.append('Disk Free %d%%' % (free * 100))
+    if now - s['since'] > (STORE_DAYS + 1) * 86400 and oldest < STORE_DAYS:
+        why.append('Alerts Only Go Back %d Days' % oldest)
+    if why and now - s.get('sent', 0) > 20 * 3600:
+        ok = 'sent'
+        try:
+            req = urllib.request.Request(STORE_HOOK, data=json.dumps({'days': oldest, 'free': int(free * 100), 'gb': du.free // 2**30, 'why': ' · '.join(why)}).encode(), headers={'Content-Type': 'application/json'}, method='POST')
+            urllib.request.urlopen(req, timeout=8).read()
+        except Exception as x:
+            ok = 'not sent (' + repr(x)[:80] + ')'
+        s['sent'] = now
+        log('storage alert %s: %s' % (ok, ' · '.join(why)))
+
+
 def furbo_fix(dead, st):
     # restarts the furbo container when a Furbo camera is stuck (see FURBO_* above); returns nothing, logs what it did
     fd = [c for c in dead if 'furbo' in c]
@@ -217,6 +263,8 @@ def health(dead, st, stats):
     try:
         du = shutil.disk_usage('/'); L.append('Disk Free %d GB of %d GB' % (du.free // 2**30, du.total // 2**30))
     except Exception: pass
+    sto = st.get('store') or {}
+    if 'days' in sto: L.append('Storage: Alerts Go Back %d Days · Recordings Disk Free %d%% (%d GB)' % (sto['days'], sto.get('free', 0), sto.get('gb', 0)))
     ps = sh(['docker', 'ps', '-a', '--format', '{{.Names}} {{.Status}}']).strip().splitlines()
     L.append('Containers: ' + (' · '.join(ps) if ps else '?'))
     a = started_ago()
@@ -344,6 +392,7 @@ def main():
         st['noted'] = 0
     if stats is not None and not why:
         furbo_fix(dead, st)
+        storage_check(st)
     health(dead, st, stats)
     json.dump(st, open(STATE, 'w'))
 
