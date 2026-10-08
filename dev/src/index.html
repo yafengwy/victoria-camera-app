@@ -4142,6 +4142,17 @@ function fPaintLine() {
   if (t != null && (y < 0 || y > sc.clientHeight - 10) && !fScrubbing()) { fSetScroll(sc, fLineY(t) - Math.min(120, sc.clientHeight / 3)); y = fLineY(t) - sc.scrollTop; }
   S.focus.lineY = y; ln.style.top = y + 'px';
 }
+/* 4.4.8: the list is already at its top but the blue line sits lower (a tapped alert, −10 s): pulling further
+   down moves the line up toward Live instead of doing nothing. ly0 = where the line was when the pull started,
+   want = how far above the top the list would have gone (negative px). */
+function fOverTop(sc, ly0, want) {
+  if (!S.focus || want >= 0 || S.focus.dayEnd) return false;
+  const id = S.focus.cam; if (camT(id) == null) return false;
+  const y = ly0 + want; sc._scrolled = Date.now();
+  S.camTime[id] = y <= FTOP + 2 ? null : focusEnd() - (y - FTOP) / FPX * MIN;
+  paintFocus(); if (camT(id) == null) Playback.sync();
+  return true;
+}
 /* Camera view alert list: one row per object, like the Alerts page — the Weee car, the package, the person each get
    their own row at the second they showed up, not one row from the first second of the whole alert. Interesting only
    shows the Interesting objects; with Uninteresting on, those objects get their own rows too. An alert whose objects
@@ -6297,7 +6308,9 @@ function wire() {
        redrawing, the browser putting back an old position); at the top that counted as "go Live" and stopped an
        alert that had just started playing (09:12 played half a second, then jumped to Live) */
     const user = () => sc._touch || sc._ptr || Date.now() - Math.max(sc._wheelAt || 0, sc._upAt || 0) < 1200;
-    sc.addEventListener('wheel', () => { sc._wheelAt = Date.now(); }, { passive: true });
+    sc.addEventListener('wheel', e => { sc._wheelAt = Date.now(); if (sc.scrollTop <= 0 && e.deltaY < 0 && S.focus && S.focus.lineY != null) fOverTop(sc, S.focus.lineY, e.deltaY); }, { passive: true });
+    sc.addEventListener('touchstart', e => { const t = e.touches[0]; sc._ot = t && e.touches.length === 1 ? { y: t.clientY, s: sc.scrollTop, ly: S.focus && S.focus.lineY != null ? S.focus.lineY : FTOP } : null; }, { passive: true });
+    sc.addEventListener('touchmove', e => { const o = sc._ot, t = e.touches[0]; if (!o || !t) return; const w = o.s - (t.clientY - o.y); if (w < 0 && sc.scrollTop <= 0) fOverTop(sc, o.ly, w); }, { passive: true });
     sc.addEventListener('pointerdown', () => { sc._ptr = true; }, { passive: true });
     window.addEventListener('pointerup', () => { if (sc._ptr) { sc._ptr = false; sc._upAt = Date.now(); } }, { passive: true });
     sc.addEventListener('touchend', () => { sc._upAt = Date.now(); }, { passive: true });
@@ -6382,14 +6395,14 @@ function dragScroll(el, vertical) {
     if (e.pointerType !== 'mouse' || e.button !== 0) return;
     /* 4.4.2: a drag that starts on a sideways strip inside this list moves the strip, not the list (and not the time) */
     if (vertical && e.target.closest && e.target.closest('.fstrip') && el.contains(e.target.closest('.fstrip'))) return;
-    st = { x: e.clientX, y: e.clientY, sl: el.scrollLeft, stp: el.scrollTop, moved: false };
+    st = { x: e.clientX, y: e.clientY, sl: el.scrollLeft, stp: el.scrollTop, moved: false, ly: S.focus && S.focus.lineY != null ? S.focus.lineY : FTOP };
     el.classList.add('grabbing');
   });
   window.addEventListener('pointermove', e => {
     if (!st) return;
     const dx = e.clientX - st.x, dy = e.clientY - st.y;
     if (!st.moved && Math.abs(vertical ? dy : dx) > 3) st.moved = true;
-    if (st.moved) { if (vertical) el.scrollTop = st.stp - dy; else el.scrollLeft = st.sl - dx; e.preventDefault(); }
+    if (st.moved) { if (vertical) { const w = st.stp - dy; if (w < 0 && el.id === 'fsc' && fOverTop(el, st.ly, w)) el.scrollTop = 0; else el.scrollTop = w; } else el.scrollLeft = st.sl - dx; e.preventDefault(); }
   });
   window.addEventListener('pointerup', () => {
     if (!st) return;

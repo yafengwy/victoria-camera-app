@@ -2248,7 +2248,7 @@ const Dbg = {
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
   save() { clearTimeout(this.tm); try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} },
-  text() { return 'Version 4.4.7 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 4.4.9 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -4142,6 +4142,17 @@ function fPaintLine() {
   if (t != null && (y < 0 || y > sc.clientHeight - 10) && !fScrubbing()) { fSetScroll(sc, fLineY(t) - Math.min(120, sc.clientHeight / 3)); y = fLineY(t) - sc.scrollTop; }
   S.focus.lineY = y; ln.style.top = y + 'px';
 }
+/* 4.4.8: the list is already at its top but the blue line sits lower (a tapped alert, −10 s): pulling further
+   down moves the line up toward Live instead of doing nothing. ly0 = where the line was when the pull started,
+   want = how far above the top the list would have gone (negative px). */
+function fOverTop(sc, ly0, want) {
+  if (!S.focus || want >= 0 || S.focus.dayEnd) return false;
+  const id = S.focus.cam; if (camT(id) == null) return false;
+  const y = ly0 + want; sc._scrolled = Date.now();
+  S.camTime[id] = y <= FTOP + 2 ? null : focusEnd() - (y - FTOP) / FPX * MIN;
+  paintFocus(); if (camT(id) == null) Playback.sync();
+  return true;
+}
 /* Camera view alert list: one row per object, like the Alerts page — the Weee car, the package, the person each get
    their own row at the second they showed up, not one row from the first second of the whole alert. Interesting only
    shows the Interesting objects; with Uninteresting on, those objects get their own rows too. An alert whose objects
@@ -5244,7 +5255,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.4.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.4.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -5343,7 +5354,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.4.7');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.4.9');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5360,7 +5371,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.4.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.4.9\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -6297,7 +6308,9 @@ function wire() {
        redrawing, the browser putting back an old position); at the top that counted as "go Live" and stopped an
        alert that had just started playing (09:12 played half a second, then jumped to Live) */
     const user = () => sc._touch || sc._ptr || Date.now() - Math.max(sc._wheelAt || 0, sc._upAt || 0) < 1200;
-    sc.addEventListener('wheel', () => { sc._wheelAt = Date.now(); }, { passive: true });
+    sc.addEventListener('wheel', e => { sc._wheelAt = Date.now(); if (sc.scrollTop <= 0 && e.deltaY < 0 && S.focus && S.focus.lineY != null) fOverTop(sc, S.focus.lineY, e.deltaY); }, { passive: true });
+    sc.addEventListener('touchstart', e => { const t = e.touches[0]; sc._ot = t && e.touches.length === 1 ? { y: t.clientY, s: sc.scrollTop, ly: S.focus && S.focus.lineY != null ? S.focus.lineY : FTOP } : null; }, { passive: true });
+    sc.addEventListener('touchmove', e => { const o = sc._ot, t = e.touches[0]; if (!o || !t) return; const w = o.s - (t.clientY - o.y); if (w < 0 && sc.scrollTop <= 0) fOverTop(sc, o.ly, w); }, { passive: true });
     sc.addEventListener('pointerdown', () => { sc._ptr = true; }, { passive: true });
     window.addEventListener('pointerup', () => { if (sc._ptr) { sc._ptr = false; sc._upAt = Date.now(); } }, { passive: true });
     sc.addEventListener('touchend', () => { sc._upAt = Date.now(); }, { passive: true });
@@ -6382,14 +6395,14 @@ function dragScroll(el, vertical) {
     if (e.pointerType !== 'mouse' || e.button !== 0) return;
     /* 4.4.2: a drag that starts on a sideways strip inside this list moves the strip, not the list (and not the time) */
     if (vertical && e.target.closest && e.target.closest('.fstrip') && el.contains(e.target.closest('.fstrip'))) return;
-    st = { x: e.clientX, y: e.clientY, sl: el.scrollLeft, stp: el.scrollTop, moved: false };
+    st = { x: e.clientX, y: e.clientY, sl: el.scrollLeft, stp: el.scrollTop, moved: false, ly: S.focus && S.focus.lineY != null ? S.focus.lineY : FTOP };
     el.classList.add('grabbing');
   });
   window.addEventListener('pointermove', e => {
     if (!st) return;
     const dx = e.clientX - st.x, dy = e.clientY - st.y;
     if (!st.moved && Math.abs(vertical ? dy : dx) > 3) st.moved = true;
-    if (st.moved) { if (vertical) el.scrollTop = st.stp - dy; else el.scrollLeft = st.sl - dx; e.preventDefault(); }
+    if (st.moved) { if (vertical) { const w = st.stp - dy; if (w < 0 && el.id === 'fsc' && fOverTop(el, st.ly, w)) el.scrollTop = 0; else el.scrollTop = w; } else el.scrollLeft = st.sl - dx; e.preventDefault(); }
   });
   window.addEventListener('pointerup', () => {
     if (!st) return;
@@ -6508,7 +6521,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.4.7';
+    const BUILD = '4.4.9';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
