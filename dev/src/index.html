@@ -366,7 +366,7 @@ img.rf{opacity:0}
 .fmark{position:absolute;left:57px;width:12px;height:12px;border-radius:6px;background:#C9D6FF}
 .fmark.dim{background:#5D666E}
 .livepill[hidden]{display:none}
-.fsteps{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:5;display:flex;align-items:center;gap:12px}
+.fsteps{position:absolute;left:50%;transform:translateX(-50%);bottom:max(10px, calc(env(safe-area-inset-bottom,0px) - 14px));z-index:5;display:flex;align-items:center;gap:12px}
 .fsteps .livepill{position:static;transform:none}
 .fstep{height:52px;min-width:64px;padding:0 12px;border-radius:26px;background:rgba(36,42,52,.94);color:#fff;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;box-shadow:0 6px 16px rgba(0,0,0,.35)}
 .fstep[disabled]{opacity:.35}
@@ -2229,7 +2229,8 @@ setInterval(() => {
 /* 3.7.10: hls.js problems go to the Playback Log (a clip that got its list but never its video said nothing) */
 function hlsLog(h, H, tag) {
   let n = 0;
-  h.on(H.Events.ERROR, (ev, d) => { if (n++ < 6) Dbg.log(tag, 'hls error', d.type, d.details, d.fatal ? 'fatal' : '', d.response && d.response.code ? 'http ' + d.response.code : '', d.frag ? 'part ' + d.frag.sn : ''); });
+  h.on(H.Events.ERROR, (ev, d) => { if (d && d.details === 'mediaSourceRequiresReset' && Playback.apple()) { const m = /(?:video|clip|review video) ([a-z0-9_]+)/.exec(tag) || /^alert clip ([a-z0-9_]+)/.exec(tag); if (m && !Playback.natCam[Playback.cam0(m[1])]) { Playback.natCam[Playback.cam0(m[1])] = 1; Dbg.log(tag, 'picture size changes: built-in player for this camera from now on'); } }
+    if (n++ < 6) Dbg.log(tag, 'hls error', d.type, d.details, d.fatal ? 'fatal' : '', d.response && d.response.code ? 'http ' + d.response.code : '', d.frag ? 'part ' + d.frag.sn : ''); });
   let f = 0; h.on(H.Events.FRAG_LOADED, (ev, d) => { if (f++ < 2) Dbg.log(tag, 'part ' + d.frag.sn + ' loaded', Math.round(d.frag.stats.loading.end - d.frag.stats.loading.start) + 'ms', Math.round((d.frag.stats.total || 0) / 1024) + ' KB'); });
 }
 const Playback = {
@@ -2251,7 +2252,14 @@ const Playback = {
   hlsP: null,
   /* Built-in HLS only on Apple (iPhone/iPad/Mac Safari). Android Chrome now also says it can play HLS itself, but with
      Frigate's recordings it loads and then never starts, so it uses hls.js like desktop browsers */
-  native() {
+  /* 4.3.2: on an iPhone/iPad, a camera whose recordings change picture size mid-way (the Nest Doorbell: 384x512 and
+     960x1280) fails in hls.js ("mediaSourceRequiresReset"); those use the iPhone's own player. A camera that hits that
+     error is added here for the rest of the session. */
+  natCam: { nest_doorbell: 1 },
+  cam0(id) { return String(id || '').replace(/_sub$/, ''); },
+  apple() { const ua = navigator.userAgent; return /iP(hone|ad|od)/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1); },
+  native(id) {
+    if (id && this.natCam[this.cam0(id)] && this.apple() && document.createElement('video').canPlayType('application/vnd.apple.mpegurl')) return true;
     if (this._nat != null) return this._nat;
     const ua = navigator.userAgent, apple = /iP(hone|ad|od)/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) || (/Safari/.test(ua) && /Macintosh/.test(ua) && !/Chrome|Chromium|Edg|Firefox/.test(ua));
     /* 3.5.11: iPhone with ManagedMediaSource (iOS 17.1+) uses hls.js too: its built-in player stalled on recordings the
@@ -2292,7 +2300,7 @@ const Playback = {
     /* the window starts 30 s before the asked time, so −10 s, pause/play and small drags back stay inside it
        (a new load on the iPhone takes a few seconds before it plays); still short enough for Frigate to build fast */
     let a = Math.floor(t / 1000) - 31, b = Math.min(Math.floor(now() / 1000), a + 180);
-    Dbg.log('load', id, hms(t), 'native=' + this.native());
+    Dbg.log('load', id, hms(t), 'native=' + this.native(id));
     try {
       /* Start the video exactly at the beginning of the recording piece that holds t (pieces start on a key frame).
          Cutting in the middle of a piece made the player start at the key frame before, up to ~20 s too early. */
@@ -2310,7 +2318,7 @@ const Playback = {
       p.win = { a, b, segs, at: performance.now() };
       const v = p.v;
       if (p.h) { p.h.destroy(); p.h = null; }
-      if (this.native()) {
+      if (this.native(id)) {
         /* iPhone: give the start position together with the video and play at once. Waiting for the video's details
            first could take ~8 s there (it loads little until it is told to play). */
         const vt = this.vtime(p, camT(id) == null ? t : camT(id));
@@ -2391,10 +2399,10 @@ const Playback = {
       if (at) v.addEventListener('loadedmetadata', () => segsP.then(() => { const vt = vodAt(v, at); if (vt > 0.5 && Math.abs(v.currentTime - vt) > 1) v.currentTime = vt; }), { once: true });   /* open at the alert */
       /* alert-card and full-screen players: say what happened, so a clip that never starts shows up in the Playback Log */
       const tag = (u.match(/\/vod\/([^/]+)\/start\/(\d+)\/end\/(\d+)/) || []).slice(1).map((x, i) => i ? hms(+x * 1000) : x).join(' ');
-      Dbg.log('alert clip', tag, this.native() ? 'native' : 'hls.js');
+      Dbg.log('alert clip', tag, this.native(cam) ? 'native' : 'hls.js');
       ['loadedmetadata', 'playing', 'stalled', 'error'].forEach(ev => v.addEventListener(ev, () => Dbg.log('alert clip', ev, tag, ev === 'error' && v.error ? 'code ' + v.error.code + ' ' + (v.error.message || '') : 'at ' + v.currentTime.toFixed(1))));
       fetch(u, { credentials: 'include' }).then(r => r.text().then(t => Dbg.log('alert clip list', tag, r.status, (t.match(/#EXTINF/g) || []).length + ' parts'))).catch(e => Dbg.log('alert clip list', tag, 'failed'));
-      if (this.native()) { v.src = u; v.play().catch(() => {}); }
+      if (this.native(cam)) { v.src = u; v.play().catch(() => {}); }
       else this.hls().then(H => { const h = new H(); v._hls = h; v.disableRemotePlayback = true; hlsLog(h, H, 'alert clip ' + tag); h.loadSource(u); h.attachMedia(v); v.play().catch(() => {});
         Playback.guard(v, h, () => { v._hls = null; v.src = u; v.play().catch(() => {}); }, 'alert clip ' + tag); }).catch(() => { v.src = u; });
     });
@@ -2440,7 +2448,7 @@ const Playback = {
       p.expect = t;
       if (moved || Math.abs(p.v.currentTime - vt) > 2.5) {
         if (p.on) { p.on = false; this.paintVis(id); }
-        if (this.native()) {            /* iPhone: seek while playing (a paused video there does not load), show it once it moves */
+        if (this.native(id)) {            /* iPhone: seek while playing (a paused video there does not load), show it once it moves */
           Dbg.log('seek+play', id, hms(t), 'vt ' + vt.toFixed(1)); p.v.currentTime = vt; p.v.playbackRate = S.speed || 1; p.v.play().catch(e => Dbg.log('play refused', id, e && e.name));
           p.v.addEventListener('playing', () => { if (camT(id) != null && S.playing && !p.loading) { p.on = true; p.lastSet = camT(id); this.paintVis(id); } }, { once: true });
           continue;
@@ -4975,7 +4983,7 @@ const RVid = {
       if (!segs.length) { this.loading = false; Dbg.log('review video none here', id, hms(t)); return; }
       const v = this.el(); v.style.opacity = '0'; this.mount(); v.playbackRate = S.speed || 1;
       const vt = Playback.vtime({ win: this.win }, t) || 0, url = Frigate.base() + '/vod/' + id + '/start/' + a + '/end/' + b + '/index.m3u8';
-      if (Playback.native()) { v.src = url; v.currentTime = vt; v.play().catch(() => {}); }
+      if (Playback.native(id)) { v.src = url; v.currentTime = vt; v.play().catch(() => {}); }
       else { const H = await Playback.hls(); if (seq !== this.seq) return; this.h = new H({ startPosition: vt, maxBufferLength: 8, maxMaxBufferLength: 20, backBufferLength: 10 }); hlsLog(this.h, H, 'review video ' + id); this.h.loadSource(url); this.h.attachMedia(v); v.play().catch(() => {}); }
     } catch (e) { if (seq === this.seq) Dbg.log('review video load error', id, String(e && e.message || e)); }
     if (seq === this.seq) this.loading = false;
