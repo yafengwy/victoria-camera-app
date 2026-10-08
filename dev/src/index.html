@@ -4539,7 +4539,7 @@ function rvDropdown() {
     }
   } else if (S.rv.fopen) {
     const f = S.rv.f, all = OBJS().every(o => objOn(f, o));
-    h += '<div class="rvddh">Alert Level</div><div class="rvsevrow">' + ck(f.int, 'rvsev', 'int', 'Interesting') + ck(f.unint, 'rvsev', 'unint', 'Uninteresting') + '</div>' +
+    h += '<div class="rvddh">Alert Level</div><div class="rvsevrow">' + ck(f.int, 'rvsev', 'int', 'Interesting') + ck(f.unint, 'rvsev', 'unint', 'Uninteresting') + (Data.source === 'frigate' ? ck(!!f.motion, 'rvsev', 'motion', 'Motion') : '') + '</div>' +
       '<input class="objq in" type="text" data-objq="objl3" placeholder="Objects · Type To Find" autocomplete="off" autocorrect="off" spellcheck="false"><div id="objl3">' + objChips(f, 'rvobj', 'rvobjgrp', 'rvobj') + '</div>';
   } else {
     const sel = S.rv.sel, on = id => sel != null && sel.includes(id);
@@ -4594,11 +4594,11 @@ function rvBarCompact(st) {
     dtOver(ib('date', false, 'Pick Date', I.cal.replace(/22/g, '20')).replace('data-act="date"', 'data-act="date" data-v="rv"'), 'rv') +
     ib('rvcolsopen', !!S.rv.colsOpen, 'Layout', I.grid4.replace(/22/g, '18')) + '</div>';
 }
-function rvFDefault() { const f = S.rv.f; return f.int && !f.unint && OBJS().every(o => objOn(f, o)); }
+function rvFDefault() { const f = S.rv.f; return f.int && !f.unint && !f.motion && OBJS().every(o => objOn(f, o)); }
 function rvFSummary() {
   const f = S.rv.f, on = OBJS().filter(o => objOn(f, o));
   const objs = on.length === OBJS().length ? 'Any Object' : on.length ? on.map(objName).join(', ') : 'No Object';
-  return objs + (f.int && f.unint ? ' · All' : f.unint ? ' · Uninteresting' : f.int ? '' : ' · None');
+  return objs + (f.int && f.unint ? ' · All' : f.unint ? ' · Uninteresting' : f.int ? '' : ' · None') + (f.motion ? ' · Motion' : '');
 }
 /* Wide landscape screens (Duo inner screen turned sideways, tablets, desktop): the timeline becomes a vertical rail on the
    right, newest at the top, so the camera grid keeps the full height. Portrait: horizontal strip at the bottom. */
@@ -4817,7 +4817,7 @@ const MotionList = {
       segs.sort((x, y) => y.t - x.t);
       this.days[k] = { at: now(), segs };
     } finally { delete this.busy[k]; }
-    if (S.filt.motion) render();
+    if (S.filt.motion || (S.rv && S.rv.f && S.rv.f.motion && S.view === 'review')) render();
   },
   ev(cam, t, en) {
     const s0 = Math.floor(t / 1000), s1 = Math.ceil(en / 1000), base = Frigate.base();
@@ -4911,7 +4911,18 @@ function rvBuckets(ids, end) {
 }
 function rvListEvents(cams, end) {
   const ids = cams.map(c => c.id);
-  return Data.events.filter(e => ids.includes(e.cam) && e.t > end - RSPAN && e.t <= end && rvPass(e)).sort((a, b) => b.t - a.t).slice(0, 300);
+  return Data.events.filter(e => ids.includes(e.cam) && e.t > end - RSPAN && e.t <= end && rvPass(e)).concat(rvMotion(ids, end)).sort((a, b) => b.t - a.t).slice(0, 300);
+}
+/* 4.4.5 Review → Alert Level → Motion (her ask): plain motion with no alert, same pieces as the Alerts page and camera
+   view (Frigate's motion record). Only the day being looked at (and the 3 h before it) is loaded, not all 7 days. */
+function rvMotion(ids, end) {
+  if (!S.rv.f.motion || Data.source !== 'frigate') return [];
+  const at = S.rv.t == null ? now() : S.rv.t, out = [];
+  new Set([dayStart(now()), dayStart(at), dayStart(at - 3 * HOUR)]).forEach(d => {
+    if (d > now()) return; if (MotionList.stale(d)) MotionList.load(d);
+    (MotionList.get(d) || []).forEach(m => { if (ids.includes(m.cam) && m.t <= end) out.push(m); });
+  });
+  return out;
 }
 const rvDur = e => { const d = Math.max(1, Math.round(((e.end || e.t) - e.t) / 1000)); return d >= 60 ? Math.floor(d / 60) + 'm ' + (d % 60) + 's' : d + 's'; };   /* short, for the narrow list */
 function rvListHtml(cams, end) {
@@ -4921,7 +4932,7 @@ function rvListHtml(cams, end) {
     const dl = dayStart(e.t) === dayStart(now()) ? 'Today' : dayStart(e.t) === dayStart(now() - DAY) ? 'Yesterday' : dayLabel(e.t);
     if (dl !== lastDay) { h += '<div class="rvl-h">' + dl + '</div>'; lastDay = dl; }
     const c = Data.cam(e.cam), cur = t != null && t >= e.t - 3000 && t <= (e.end || e.t) + 3000, p = pick(e, S.rv.f);
-    h += '<button class="rvli' + (cur ? ' cur' : '') + (e.interesting ? '' : ' un') + '" data-act="rvlpick" data-t="' + p.t + '" data-e="' + esc(e.id) + '" data-id="' + e.cam + '"><img src="' + evImg(e, p) + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(lab(e, p).replace(/_/g, ' ')) + '</b><small>' + esc(c ? c.name : e.cam) + ' · ' + hm(p.t) + ' · ' + rvDur(e) + '</small></span></button>';
+    h += '<button class="rvli' + (cur ? ' cur' : '') + (e.interesting ? '' : ' un') + '" data-act="rvlpick" data-t="' + p.t + '" data-e="' + esc(e.id) + '" data-id="' + e.cam + '"><img src="' + evImg(e, p) + '" alt="" loading="lazy"><span><b>' + (e.motion ? '<i class="modot"></i>Motion' : '<i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(lab(e, p).replace(/_/g, ' '))) + '</b><small>' + esc(c ? c.name : e.cam) + ' · ' + hm(p.t) + ' · ' + rvDur(e) + '</small></span></button>';
   });
   return h + '</div>';
 }
@@ -5901,7 +5912,7 @@ const ACT = {
   rvgroup(d) { S.rv.sel = d.v === 'all' ? null : Data.cams.filter(c => c.group === d.v).map(c => c.id); render(); },
   rvpick() { S.rv.pick = !S.rv.pick; S.rv.fopen = false; S.rv.colsOpen = false; render(); },
   /* one tap back to the defaults: All Cameras, Any Object, Interesting only */
-  rvreset() { S.rv.sel = null; S.rv.f.objs = {}; S.rv.f.int = true; S.rv.f.unint = false; store.set('rvf', S.rv.f); S.rv.fopen = S.rv.pick = S.rv.colsOpen = false; S.objQs = {}; render(); toast('Filters Reset'); },
+  rvreset() { S.rv.sel = null; S.rv.f.objs = {}; S.rv.f.int = true; S.rv.f.unint = false; S.rv.f.motion = false; store.set('rvf', S.rv.f); S.rv.fopen = S.rv.pick = S.rv.colsOpen = false; S.objQs = {}; render(); toast('Filters Reset'); },
   rvcamall() { S.rv.sel = null; render(); },
   rvdclose() { S.rv.fopen = false; S.rv.pick = false; S.rv.colsOpen = false; S.rv.zopen = null; render(); },
   rvcam(d) {
@@ -5928,7 +5939,7 @@ const ACT = {
     else { objToggle(f, d.v); if (OBJS().every(o => !objOn(f, o))) f.objs = {}; }
     store.set('rvf', f); render();
   },
-  rvsev(d) { const f = S.rv.f; f[d.v] = !f[d.v]; if (!f.int && !f.unint) f[d.v === 'int' ? 'unint' : 'int'] = true; store.set('rvf', f); render(); },
+  rvsev(d) { const f = S.rv.f; f[d.v] = !f[d.v]; if (d.v !== 'motion' && !f.int && !f.unint) f[d.v === 'int' ? 'unint' : 'int'] = true; store.set('rvf', f); render(); },
   /* tap a picture's time: every camera jumps to that second (a camera with nothing recorded then says No Recording) */
   rvsync(d) {
     const img = document.querySelector('#rv-' + d.id + ' img'), m = img && /\/recordings\/([\d.]+)\/snapshot/.exec(img.getAttribute('src') || ''); if (!m) return;
