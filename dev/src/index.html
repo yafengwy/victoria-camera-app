@@ -267,6 +267,12 @@ img.rf{opacity:0}
 .fev i{width:18px;height:18px;border-radius:5px;background:#5FD3B4;flex-shrink:0}
 .fev.fstrip{gap:6px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding:0 6px;touch-action:pan-x;justify-content:flex-start}
 .fev.fstrip::-webkit-scrollbar{display:none}
+/* 4.4.3: tiny ‹ › at the strip's ends for a mouse (phones swipe); pictures can't be dragged out of the strip */
+.fev.fstrip img{-webkit-user-drag:none;user-select:none}
+.fsarr{display:none}
+@media (pointer:fine){.fsarr{display:flex;align-items:center;justify-content:center;position:sticky;z-index:2;flex-shrink:0;width:16px;height:calc(100% - 8px);border-radius:6px;background:rgba(0,0,0,.6);color:#fff;font-size:16px;font-weight:700;line-height:1;padding:0}
+  .fsarr.l{left:0;margin-right:-22px}.fsarr.r{right:0;margin-left:-22px}
+  .fev.fstrip.atl .fsarr.l,.fev.fstrip.atr .fsarr.r{visibility:hidden}}
 .fsi{position:relative;flex-shrink:0;height:calc(100% - 8px);aspect-ratio:16/10;border-radius:8px;overflow:hidden;box-shadow:inset 0 0 0 2px transparent}
 .fev.fstrip .fsi img{width:100%;height:100%;object-fit:cover;border-radius:8px;display:block}
 .fsi span{position:absolute;left:0;right:0;bottom:0;padding:1px 4px;font-size:10px;font-weight:700;color:#fff;background:rgba(0,0,0,.6);white-space:nowrap;font-variant-numeric:tabular-nums;text-align:left}
@@ -4192,10 +4198,10 @@ function viewFocus() {
       if (objs.length > 1 && S.focus.og === key) {
         /* opened: every object in these alerts, newest first; tap one to go to when it showed up */
         /* 3.6.3: Interesting ones first (newest first among them), then Uninteresting (newest first) */
-        rows += '<div class="fev fstrip" style="top:' + (y - 32) + 'px">' + objs.slice().sort((a, b) => (b.hot ? 1 : 0) - (a.hot ? 1 : 0) || b.t - a.t).map(o => {
+        rows += '<div class="fev fstrip atl" style="top:' + (y - 32) + 'px"><button class="fsarr l" data-act="fstripgo" data-v="-1" aria-label="Earlier Thumbnails">‹</button>' + objs.slice().sort((a, b) => (b.hot ? 1 : 0) - (a.hot ? 1 : 0) || b.t - a.t).map(o => {
           const on = curT != null && Math.abs(curT - (o.t - 1000)) < 1500;
-          return '<button class="fsi' + (on ? ' cur' : '') + (o.hot ? ' hot' : ' un') + '" data-act="fjump" data-t="' + o.t + '" aria-label="' + esc(objName(o.label)) + ' ' + hms(o.t) + '"><img src="' + o.img + '" alt="" loading="lazy"><span><i class="lico">' + objIcon(o.label) + '</i>' + (o.name ? esc(o.name) + ' ' : '') + hms(o.t) + '</span></button>';
-        }).join('') + '</div>';
+          return '<button class="fsi' + (on ? ' cur' : '') + (o.hot ? ' hot' : ' un') + '" data-act="fjump" data-t="' + o.t + '" aria-label="' + esc(objName(o.label)) + ' ' + hms(o.t) + '"><img src="' + o.img + '" alt="" loading="lazy" draggable="false"><span><i class="lico">' + objIcon(o.label) + '</i>' + (o.name ? esc(o.name) + ' ' : '') + hms(o.t) + '</span></button>';
+        }).join('') + '<button class="fsarr r" data-act="fstripgo" data-v="1" aria-label="More Thumbnails">›</button></div>';
       } else {
         const hotL = objs.filter(o => o.hot).map(o => o.label), names = [...new Set((hotL.length ? hotL : objs.map(o => o.label)).sort((a, b) => objRank(a) - objRank(b)).map(objName))];
         const title = names.slice(0, 2).join(', ') + (names.length > 2 ? ' +' + (names.length - 2) : '');
@@ -5950,6 +5956,7 @@ const ACT = {
     if (S.focus.og !== og) { S.focus.og = og; render(); }
     ACT.fjump({ t: o ? o.t : pick(g.items[0], S.filt).t });
   },
+  fstripgo(d, e) { const st = e && e.target.closest('.fstrip'); if (st) st.scrollBy({ left: (+d.v) * Math.max(80, st.clientWidth * 0.8), behavior: 'smooth' }); },
   fjump(d) {   /* tap a card or rail icon: go to that alert (1 s before it starts) */
     const t = +d.t - 1000, id = S.focus.cam; Dbg.log('tap alert', hms(+d.t), Playback.why(id));
     S.camTime[id] = t; S.playing = true; paintFocus();       /* the line moves to the alert; the list stays where it is */
@@ -6249,7 +6256,9 @@ function wire() {
   }); }
   dragScroll(document.getElementById('ftsc'), true);
   dragScroll(document.getElementById('fsc'), true);
-  document.querySelectorAll('.fev.fstrip').forEach(n => dragScroll(n, false));   /* 4.4.2: a mouse drags the thumbnail strip sideways */
+  document.querySelectorAll('.fev.fstrip').forEach(n => { dragScroll(n, false);   /* 4.4.2: a mouse drags the thumbnail strip sideways */
+    const ends = () => { n.classList.toggle('atl', n.scrollLeft < 4); n.classList.toggle('atr', n.scrollLeft + n.clientWidth > n.scrollWidth - 4); };
+    if (!n._ends) { n._ends = 1; n.addEventListener('scroll', ends, { passive: true }); } ends(); });
   const sc = document.getElementById('fsc');
   if (sc) {
     /* a drag of the timeline must never count as a tap when the finger lifts (it jumped to the nearest alert) */
