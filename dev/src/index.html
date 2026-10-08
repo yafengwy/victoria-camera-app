@@ -3123,6 +3123,10 @@ function passes(e) {
 }
 function saveFilt() { store.set('filt3', Object.assign({}, S.filt, { motion: false })); }   /* 3.5.5: Motion is never remembered */
 S.filt.motion = false;
+/* 4.4.7: Review's Motion is never remembered either, and turns itself off when leaving Review (like the other pages);
+   if it was the only thing ticked, Interesting comes back */
+function rvMoOff() { const f = S.rv.f; if (!f.motion) return; f.motion = false; if (!f.int && !f.unint) f.int = true; store.set('rvf', f); }
+rvMoOff();
 /* 3.5.5: Motion turns itself off when leaving the page it was turned on in (Alerts page, camera view, or that camera's card) */
 const moCtx = () => S.view === 'events' ? 'events' : S.focus ? 'focus:' + S.focus.cam : S.expanded ? 'card:' + S.expanded : 'home';
 
@@ -3226,6 +3230,7 @@ function render() {
 }
 function render0() {
   if (S.filt.motion && S.moCtx && moCtx() !== S.moCtx) { S.filt.motion = false; S.moCtx = null; }
+  if (S.rv.f.motion && S.view !== 'review') rvMoOff();
   document.documentElement.dataset.mark = S.markStyle; savePage();
   document.documentElement.dataset.view = S.view;   /* cover screen: the side icons belong to the home page only */
   applyLook();
