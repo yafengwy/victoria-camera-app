@@ -2324,6 +2324,9 @@ const Playback = {
         const vt = this.vtime(p, camT(id) == null ? t : camT(id));
         const f0 = performance.now(); fetch(url, { credentials: 'include' }).then(r => r.text().then(x => Dbg.log('server answered', id, r.status, Math.round(performance.now() - f0) + 'ms', (x.match(/#EXTINF/g) || []).length + ' parts'))).catch(e => Dbg.log('server error', id, String(e)));
         v.src = url; if (vt != null) v.currentTime = vt; p.v.play().then(() => Dbg.log('play ok', id)).catch(e => Dbg.log('play refused', id, e && e.name));
+        /* 4.3.5: Doorbell 12:51 sat at 'ready 1' for 6 s on the iPhone: after 4 s without a picture, log what the player has and nudge it once */
+        setTimeout(() => { if (gone() || p.v.readyState >= 3 || camT(id) == null) return; const bf = p.v.buffered, br = bf.length ? bf.start(0).toFixed(1) + '-' + bf.end(bf.length - 1).toFixed(1) : 'none';
+          Dbg.log('native slow', id, 'ready ' + p.v.readyState, 'net ' + p.v.networkState, 'buffered ' + br, 'at ' + p.v.currentTime.toFixed(1)); try { p.v.currentTime = p.v.currentTime + 0.05; } catch (e) {} p.v.play().catch(() => {}); }, 4000);
       } else {
         /* start loading right at the wanted spot (not from the beginning and then jump), small buffer, play at once */
         const H = await this.hls(); if (gone()) return; if (!H.isSupported()) throw 0;
@@ -3184,7 +3187,7 @@ let pageReady = false;
 function savePage() { if (!pageReady) return; try { sessionStorage.setItem('vhpage', JSON.stringify({ v: S.view, f: S.focus ? S.focus.cam : null, d: S.evDay || 0 })); } catch (e) {} }
 function render() {
   const _t0 = performance.now();
-  try { render0(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300) Dbg.log('slow redraw', ms + 'ms', S.view); }
+  try { render0(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
 }
 function render0() {
   if (S.filt.motion && S.moCtx && moCtx() !== S.moCtx) { S.filt.motion = false; S.moCtx = null; }
