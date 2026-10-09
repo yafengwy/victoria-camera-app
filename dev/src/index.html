@@ -4152,6 +4152,15 @@ function fLineY(t) { return t == null ? FTOP : FTOP + (focusEnd() - t) / MIN * F
    instead of being stuck at the top (4.4.9 moved the line instead, which looked backwards). fSetScroll takes list
    coordinates (0 = now at the top). */
 function fPad() { return (S.focus && S.focus.pad) || 0; }
+/* 4.6.3: the room above "now" is exactly as tall as the blue line sits below the top, so the list's own top IS Live:
+   pulling down stops there natively (the 4.6.2 stop fought the iPhone's scrolling and shook). Changed only while
+   nobody is dragging, with the scroll moved by the same amount so nothing on screen jumps. */
+function fSetPad(sc, p) {
+  const fin = sc.querySelector('.fin'); if (!fin || !S.focus) return;
+  const d = p - fPad(); if (!d) return;
+  S.focus.pad = p; fin.style.marginTop = p + 'px';
+  const v = Math.max(0, sc.scrollTop + d); S.focus.progTop = v; sc.scrollTop = v;
+}
 function fSetScroll(sc, v) { v = Math.max(0, Math.round(v + fPad())); if (sc.scrollTop === v) return; S.focus.progTop = v; sc.scrollTop = v; }
 function fShow(t) { const sc = document.getElementById('fsc'); if (!sc) return; const y = fLineY(t), top = sc.scrollTop - fPad(); if (y < top + 10 || y > top + sc.clientHeight - 40) fSetScroll(sc, y - 120); fPaintLine(); }
 /* The blue line sits where the playing time is. Swiping the list moves the timeline under the line (scrubs);
@@ -4167,6 +4176,7 @@ function fPaintLine() {
   let y = t == null ? Math.max(FTOP, FTOP - top()) : fLineY(t) - top();   /* Live: the line rides on "now" while the list is pulled into the room above */
   if (t != null && (y < 0 || y > sc.clientHeight - 10) && !fScrubbing()) { fSetScroll(sc, fLineY(t) - Math.min(120, sc.clientHeight / 3)); y = fLineY(t) - top(); }
   S.focus.lineY = y; ln.style.top = y + 'px';
+  if (!fScrubbing() && !sc._ptr) { const want = Math.max(0, Math.round(y - FTOP)); if (Math.abs(want - fPad()) > 8 || (!want && fPad())) fSetPad(sc, want); }
 }
 /* Camera view alert list: one row per object, like the Alerts page — the Weee car, the package, the person each get
    their own row at the second they showed up, not one row from the first second of the whole alert. Interesting only
@@ -6011,7 +6021,7 @@ const ACT = {
   fdate() { openDateTime(camT(S.focus.cam), v => { const d0 = dayStart(v); S.focus.dayEnd = d0 === dayStart(now()) ? null : d0 + DAY; S.camTime[S.focus.cam] = v >= now() - 1000 ? null : v; render(); }); }
 };
 function openFocus(id) {
-  S.focus = { cam: id, dayEnd: null, pad: Math.max(900, Math.round(innerHeight)) }; S.full = false; S.fui = false; S.fpanel = false;
+  S.focus = { cam: id, dayEnd: null, pad: 0 }; S.full = false; S.fui = false; S.fpanel = false;
   if (isLand()) { S.full = true; S.autoFull = true; }   /* phone held sideways: open straight into full screen */
   render();
   /* 4.1.7: opened on Live: the list goes to the top (Live). The page put back the list's old scroll position, and that
@@ -6307,7 +6317,7 @@ function wire() {
   const sc = document.getElementById('fsc');
   if (sc) {
     /* a drag of the timeline must never count as a tap when the finger lifts (it jumped to the nearest alert) */
-    sc.addEventListener('touchstart', e => { sc._touch = true; sc._liveStop = null; sc._t0 = e.touches[0] ? [e.touches[0].clientX, e.touches[0].clientY] : null; sc._mv = e.touches.length > 1; }, { passive: true });
+    sc.addEventListener('touchstart', e => { sc._touch = true; sc._t0 = e.touches[0] ? [e.touches[0].clientX, e.touches[0].clientY] : null; sc._mv = e.touches.length > 1; }, { passive: true });
     sc.addEventListener('touchend', e => { if (!e.touches.length) { sc._touch = false; if (sc._mv) sc._scrolled = Math.max(sc._scrolled || 0, Date.now() - 300); } }, { passive: true });
     sc.addEventListener('touchcancel', () => { sc._touch = false; }, { passive: true });
     sc.addEventListener('touchmove', e => { const t = e.touches[0]; if (e.touches.length > 1 || (sc._t0 && t && Math.hypot(t.clientX - sc._t0[0], t.clientY - sc._t0[1]) > 8)) sc._mv = true; }, { passive: true });
@@ -6325,8 +6335,8 @@ function wire() {
        redrawing, the browser putting back an old position); at the top that counted as "go Live" and stopped an
        alert that had just started playing (09:12 played half a second, then jumped to Live) */
     const user = () => sc._touch || sc._ptr || Date.now() - Math.max(sc._wheelAt || 0, sc._upAt || 0) < 1200;
-    sc.addEventListener('wheel', () => { if (Date.now() - (sc._wheelAt || 0) > 300) sc._liveStop = null; sc._wheelAt = Date.now(); }, { passive: true });
-    sc.addEventListener('pointerdown', () => { sc._ptr = true; sc._liveStop = null; }, { passive: true });
+    sc.addEventListener('wheel', () => { sc._wheelAt = Date.now(); }, { passive: true });
+    sc.addEventListener('pointerdown', () => { sc._ptr = true; }, { passive: true });
     window.addEventListener('pointerup', () => { if (sc._ptr) { sc._ptr = false; sc._upAt = Date.now(); } }, { passive: true });
     sc.addEventListener('touchend', () => { sc._upAt = Date.now(); }, { passive: true });
     sc.addEventListener('scroll', () => {
@@ -6337,15 +6347,10 @@ function wire() {
       if (Date.now() - (S.focus.liveAt || 0) < 1500 && sc.scrollTop - fPad() > 4) { fPaintLine(); return; }   /* 4.3.3: the page settling right after Live */
       sc._scrolled = Date.now();
       const ly = S.focus.lineY == null ? FTOP : S.focus.lineY, y = sc.scrollTop - fPad() + ly;
-      /* 4.6.2: Live is the end. Once "now" reaches the blue line the list stops there: pulling further did nothing
-         useful and only showed empty room */
-      if (!S.focus.dayEnd && y < FTOP + 2) {
-        const stop = sc._liveStop != null ? sc._liveStop : (sc._liveStop = Math.round(fPad() - (ly - FTOP)));
-        if (sc.scrollTop < stop - 1) { S.focus.progTop = stop; sc.scrollTop = stop; }
-      } else sc._liveStop = null;
       S.camTime[S.focus.cam] = (!S.focus.dayEnd && y < FTOP + 2) ? null : focusEnd() - (y - FTOP) / FPX * MIN;
       paintFocus();
       /* pulled up into the room above "now": once the finger / mouse lets go on Live, the list settles back with now at the top */
+      clearTimeout(sc._padT); sc._padT = setTimeout(() => { if (S.focus && !sc._touch && !sc._ptr) fPaintLine(); }, 800);
       clearTimeout(sc._snapT);
       if (camT(S.focus.cam) == null && sc.scrollTop < fPad() - 1) sc._snapT = setTimeout(() => { if (S.focus && camT(S.focus.cam) == null && !sc._touch && !sc._ptr && sc.scrollTop < fPad() - 1) { S.focus.lineY = FTOP; fSetScroll(sc, 0); fPaintLine(); } }, 600);
     }, { passive: true });
