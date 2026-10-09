@@ -2660,7 +2660,7 @@ const People = {
       if (!r.ok) ok = false; else if (n) this.sub[d] = this.key(n); else delete this.sub[d];
       if (n && teach && this.faceOn) { const t = await this.post('/api/faces/train/' + encodeURIComponent(this.key(n)) + '/classify', { event_id: d }); if (t.ok) taught++; }
     }
-    return { ok, taught };
+    return { ok, taught, sent, miss };
   }
 };
 /* 3.1.4 Fix on cat / dog alerts: a detection marked Not Cat (false positive, sent to Frigate+) leaves the alert, and an
@@ -2790,12 +2790,12 @@ const CatFix = {
     }
     const notL = pick && pick[0] === '-' ? pick.slice(1) : null; if (notL) pick = '';
     const ds = notL && notL !== 'animal' ? all.filter(d => People.lab[d] === notL) : all;   /* 3.2.2 Not Animal: every animal in the card */
-    let ok = true, taught = 0, files = null; const why = [];
+    let ok = true, taught = 0, files = null, sent = 0, miss = 0; const why = [];
     for (const d of ds) {
       const was = People.lab[d];
       if (pick) {
         const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: pick }); if (r.ok) People.sub[d] = pick; else ok = false;
-        if (was !== 'cat' && !People.fp[d] && plus) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) { People.fp[d] = 1; why.push(d + ': ' + was + ' sent to Frigate+ as wrong'); } else why.push(d + ': Frigate+ refused ' + f.msg); }
+        if (was !== 'cat' && !People.fp[d] && plus) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) { People.fp[d] = 1; sent++; why.push(d + ': ' + was + ' sent to Frigate+ as wrong'); } else why.push(d + ': Frigate+ refused ' + f.msg); }
       } else {
         if (People.sub[d]) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: '' }); if (r.ok) delete People.sub[d]; }
         if (!People.fp[d]) { const f = await markWrong(d, plus); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else { ok = false; Dbg.log('fix refused', d, f.msg); } }
@@ -2803,6 +2803,7 @@ const CatFix = {
       if (teach && this.model && (this.objs || ['cat']).includes(was)) {
         if (!files) { try { files = await Frigate.get('/api/classification/' + encodeURIComponent(this.model) + '/train'); } catch (x) { files = []; } }
         const mine = (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-2); why.push(d + ': ' + mine.length + ' pics');
+        if (!mine.length && was === 'cat') miss++;
         for (const f of mine) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: pick || 'none', training_file: f }); if (t.ok) taught++; else why.push('refused ' + t.msg); }
       } else why.push(d + ': ' + (!teach ? 'teach off' : !this.model ? 'no cats model' : 'label ' + was));
     }
@@ -2810,7 +2811,7 @@ const CatFix = {
     /* split cards read each part from Arrive: update those too, so the card's title changes right away */
     ds.forEach(d => { const a = Arrive.det[d]; if (!a) return; a.sub = People.sub[d] || ''; if (People.fp[d]) a.fp = true; });
     Dbg.log('fix', k, pick || 'not ' + notL, 'parts ' + ds.join(','), ok ? 'ok' : 'not all taken', 'taught ' + taught, 'model ' + this.model, 'recent ' + (files ? files.length : '-'), why.join(' | '));
-    return { ok, taught };
+    return { ok, taught, sent, miss };
   }
 };
 const hasPerson = e => !e.motion && (e.label === 'Person' || (e.objs || []).some(o => /^person$/i.test(o)));
@@ -5503,7 +5504,7 @@ const ACT = {
     whoOf(e); fixPets(e); if (e.gone) Data.events = Data.events.filter(x => x !== e);
     S.modal = null; render();
     if (pickv === '0') e.who = String(e.who || '').split(' · ').filter(x => x && !CatFix.names.includes(x) && !['胖胖', '团团'].includes(x)).join(' · ');
-    toast((pickv === '0' ? 'Marked Not Ours' : pickv[0] !== '-' ? 'Saved As ' + niceName(pickv) : pickv === '-animal' ? 'Marked Not Animal' : 'Marked Not ' + objName(pickv.slice(1))) + (r.taught ? ' · Train Model To Learn' : teachv ? ' · No Saved Picture For The Cats Model' : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
+    toast((pickv === '0' ? 'Marked Not Ours' : pickv[0] !== '-' ? 'Saved As ' + niceName(pickv) : pickv === '-animal' ? 'Marked Not Animal' : 'Marked Not ' + objName(pickv.slice(1))) + (r.sent ? ' · Sent To Frigate+' : '') + (r.taught ? ' · Train Model To Learn' : teachv && r.miss && !r.sent ? ' · No Saved Picture For The Cats Model' : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
   },
   whopick(d) { const i = document.getElementById('whonew'); if (i) S.whoNew = i.value; S.whoName = S.whoName === d.v ? '' : d.v;
     if (S.whoName === '+' && S.whoTeach !== false) S.whoTeach = true;   /* a new person is meant to be learned */
