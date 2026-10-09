@@ -4162,6 +4162,8 @@ function fSetPad(sc, p) {
   const v = Math.max(0, sc.scrollTop + d); S.focus.progTop = v; sc.scrollTop = v;
 }
 function fSetScroll(sc, v) { v = Math.max(0, Math.round(v + fPad())); if (sc.scrollTop === v) return; S.focus.progTop = v; sc.scrollTop = v; }
+/* 4.6.5: Live puts the blue line a little below the top (15% of the list), "now" on it, the list at its top */
+function fGoLive(sc) { const ly = Math.max(FTOP, Math.round(sc.clientHeight * 0.15)); S.focus.lineY = ly; fSetPad(sc, ly - FTOP); S.focus.progTop = 0; sc.scrollTop = 0; fPaintLine(); }
 function fShow(t) { const sc = document.getElementById('fsc'); if (!sc) return; const y = fLineY(t), top = sc.scrollTop - fPad(); if (y < top + 10 || y > top + sc.clientHeight - 40) fSetScroll(sc, y - 120); fPaintLine(); }
 /* The blue line sits where the playing time is. Swiping the list moves the timeline under the line (scrubs);
    tapping an alert or an empty spot moves the line there instead of moving the list. */
@@ -5932,7 +5934,7 @@ const ACT = {
     if ((S.focus.dayEnd || null) !== de) { S.focus.dayEnd = de; render(); } else paintFocus();   /* crossed midnight: show that day's timeline */
     Playback.sync(); fShow(nt);
   },
-  flive() { const id = S.focus.cam; Dbg.log('tap live camera view', id, Playback.why ? Playback.why(id) : ''); S.focus.liveAt = Date.now(); S.camTime[id] = null; Playback.stop(id, 'live'); setTimeout(() => Playback.sync(), 0); S.focus.dayEnd = null; S.focus.lineY = FTOP; render(); const sc = document.getElementById('fsc'); if (sc) { fSetScroll(sc, 0); fPaintLine(); } const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
+  flive() { const id = S.focus.cam; Dbg.log('tap live camera view', id, Playback.why ? Playback.why(id) : ''); S.focus.liveAt = Date.now(); S.camTime[id] = null; Playback.stop(id, 'live'); setTimeout(() => Playback.sync(), 0); S.focus.dayEnd = null; render(); const sc = document.getElementById('fsc'); if (sc) fGoLive(sc); const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
   flist() { S.flist = !S.flist; render(); fShow(camT(S.focus.cam)); },
   rvlist() { S.rv.list = !S.rv.list; store.set('rvlist', S.rv.list); S.rv.fopen = S.rv.pick = S.rv.colsOpen = false; render(); requestAnimationFrame(() => { const c = document.querySelector('#rvlist .rvli.cur'); if (c) c.scrollIntoView({ block: 'center' }); }); },
   rvlpick(d, e) {   /* an alert in the list: every camera goes to that moment, the alert's camera comes first */
@@ -6026,7 +6028,7 @@ function openFocus(id) {
   render();
   /* 4.1.7: opened on Live: the list goes to the top (Live). The page put back the list's old scroll position, and that
      moved the time back to where it was the last time (12:56) right after opening */
-  if (camT(id) == null) { S.focus.lineY = FTOP; const sc = document.getElementById('fsc'); if (sc) { fSetScroll(sc, 0); fPaintLine(); } }
+  if (camT(id) == null) { const sc = document.getElementById('fsc'); if (sc) fGoLive(sc); }
   else fShow(camT(id));
 }
 /* Date + time (hours and minutes; seconds start at :00). Up to 7 days back. */
