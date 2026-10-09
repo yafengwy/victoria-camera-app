@@ -67,7 +67,7 @@ services:
     container_name: furbo
     build: https://github.com/willbeeching/ha-furbo.git#main:furbo-bridge
     image: furbo-bridge:local
-    restart: on-failure:5
+    restart: unless-stopped   # 2026-10-08: also comes back by itself after the mini PC loses power (on-failure did not)
     network_mode: host
     volumes:
       - ./furbo-data:/data
