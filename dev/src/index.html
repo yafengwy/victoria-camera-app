@@ -243,10 +243,7 @@ img.rf{opacity:0}
 .fov .pillk.fname{flex:0 0 auto}
 .focus .fvid > .tag{left:4px;bottom:40px}
 .fnmbr{position:absolute;left:4px;bottom:4px;z-index:3;height:30px;padding:0 10px;border-radius:15px;font-size:12px;font-weight:700;white-space:nowrap;display:flex;align-items:center;pointer-events:none}
-#ptr{position:fixed;left:50%;top:0;width:36px;height:36px;margin-left:-18px;border-radius:18px;background:var(--card);color:var(--text);box-shadow:0 2px 10px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;z-index:60;transform:translateY(-44px);pointer-events:none;transition:opacity .2s}
-#ptr svg{width:20px;height:20px}
-#ptr.armed,#ptr.go{background:var(--accent);color:#fff}
-#ptr.go svg{animation:ptrspin .8s linear infinite}
+#ptr{position:fixed;left:50%;top:0;z-index:60;transform:translate(-50%,-60px);background:#fff;color:var(--accent);font-size:13px;font-weight:600;padding:8px 16px;border-radius:20px;box-shadow:0 2px 10px rgba(0,0,0,.25);pointer-events:none;white-space:nowrap}
 @keyframes ptrspin{to{transform:rotate(360deg)}}
 .fov .dk,.fov .dk.ctl{width:32px;height:32px;border-radius:16px}
 .fov .dk + .dk{margin-left:-4px}
@@ -6158,10 +6155,12 @@ document.addEventListener('click', e => {
      flick in the camera list never reloads. The page redraws every few seconds and replaces the bar under the finger;
      touch moves then go to the old, removed bar and never reach the page, so the pull is followed on the touched
      element itself. While the finger is down a redraw must not move the page either. */
+  /* 4.7.5: works like the food map: a pill follows the finger, "Pull To Refresh" → "Release To Refresh" at 70 px,
+     "Refreshing…" when let go */
   let y0 = null, x0 = 0, d = 0, ind = null, t0 = 0, tgt = null;
-  const icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></svg>';
-  const show = () => { if (!ind) { ind = document.createElement('div'); ind.id = 'ptr'; ind.innerHTML = icon; document.body.appendChild(ind); } return ind; };
-  const hide = () => { if (ind) { ind.style.transform = 'translateY(-44px)'; ind.style.opacity = 0; } };
+  const TRIGGER = 70;
+  const show = () => { if (!ind) { ind = document.createElement('div'); ind.id = 'ptr'; document.body.appendChild(ind); } return ind; };
+  const hide = () => { if (ind) ind.style.transform = 'translate(-50%,-60px)'; };
   const stop = () => {
     if (tgt) { tgt.removeEventListener('touchmove', move); tgt.removeEventListener('touchend', end); tgt.removeEventListener('touchcancel', cancel); tgt = null; }
     y0 = null; d = 0; window.__ptr = false;
@@ -6170,18 +6169,16 @@ document.addEventListener('click', e => {
     if (y0 == null) return;
     const dy = e.touches[0].clientY - y0, dx = e.touches[0].clientX - x0;
     if (window.scrollY > 0 || (d === 0 && Math.abs(dx) > Math.abs(dy))) { stop(); hide(); return; }
-    d = Math.max(0, dy); const n = show(), k = Math.min(d, 140);
-    n.style.transform = 'translateY(' + (k * 0.6 - 30) + 'px) rotate(' + k * 2.4 + 'deg)' + (armed() ? ' scale(1.25)' : ''); n.style.opacity = Math.min(1, k / 80);
-    n.classList.toggle('armed', armed());   /* 3.10.2: it turns blue and grows once letting go will refresh */
+    d = Math.max(0, dy); const n = show();
+    n.style.transform = 'translate(-50%,' + (Math.min(d, 120) - 60) + 'px)';
+    n.textContent = armed() ? '↻ Release To Refresh' : '↓ Pull To Refresh';
   }
   function end() {
     const ok = y0 != null && armed() && ind; stop();
-    if (ok) { ind.classList.add('go'); ind.style.transform = 'translateY(40px)'; setTimeout(() => { try { sessionStorage.setItem('vhreload', 'pull down'); } catch (e) {} Live.keepAll(); Dbg.save(); location.reload(); }, 150); }
+    if (ok) { ind.textContent = 'Refreshing…'; ind.style.transform = 'translate(-50%,50px)'; setTimeout(() => { try { sessionStorage.setItem('vhreload', 'pull down'); } catch (e) {} Live.keepAll(); Dbg.save(); location.reload(); }, 150); }
     else hide();
   }
-  /* 3.10.2: ready at 110 px of pull and 250 ms (was 160 px and 450 ms with no sign of it, so a release often did nothing);
-     a quick flick is still ignored */
-  function armed() { return y0 != null && d > 110 && Date.now() - t0 > 250; }
+  function armed() { return y0 != null && d > TRIGGER; }
   function cancel() { stop(); hide(); }
   document.addEventListener('touchstart', e => {
     stop();
