@@ -3181,6 +3181,9 @@ const moCtx = () => S.view === 'events' ? 'events' : S.focus ? 'focus:' + S.focu
 function camTimeObj() {
   return new Proxy({}, { set(o, k, v) {
     const f = S && S.focus;
+    /* 4.7.6: a broken time (NaN) showed "NaN/NaN NaN:NaN:NaN" and "Invalid Date"; it becomes Live instead, and the log
+       says where it came from */
+    if (v != null && !isFinite(v)) { const st = (new Error().stack || '').split('\n').slice(2, 5).map(x => x.trim().replace(/^at /, '').replace(/\(.*\//, '(')).join(' < '); Dbg.log('bad time', k, String(v), 'line ' + (f && f.lineY) + ' pad ' + (f && f.pad), st); v = null; }
     if (v != null && f && k === f.cam && f.liveAt && Date.now() - f.liveAt < 5000) {
       const st = (new Error().stack || '').split('\n').slice(2, 4).map(x => x.trim().replace(/^at /, '').replace(/\(.*\//, '(')).join(' < ');
       const block = Date.now() - f.liveAt < 2000 && lastTouch <= f.liveAt;
