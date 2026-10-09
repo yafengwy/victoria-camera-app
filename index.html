@@ -2248,7 +2248,7 @@ const Dbg = {
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
   save() { clearTimeout(this.tm); try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} },
-  text() { return 'Version 4.5.8 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 4.5.9 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -2774,22 +2774,23 @@ const CatFix = {
     const all = await this.dets(k); if (!all.length) return { ok: false, msg: 'No Animal In This Alert' };
     /* 3.2.3 Not Ours ('0'): a real animal that is not one of the cats: name removed, its pictures taught as none */
     if (pick === '0') {
-      let ok = true, taught = 0, files = null;
+      let ok = true, taught = 0, files = null; const why = [];
       for (const d of all) {
         if (People.sub[d]) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: '' }); if (r.ok) delete People.sub[d]; else ok = false; }
         if (teach && this.model && (this.objs || ['cat']).includes(People.lab[d])) {
           if (!files) { try { files = await Frigate.get('/api/classification/' + encodeURIComponent(this.model) + '/train'); } catch (x) { files = []; } }
-          for (const f of (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-2)) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: 'none', training_file: f }); if (t.ok) taught++; }
-        }
+          const mine = (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-2); why.push(d + ': ' + mine.length + ' pics');
+          for (const f of mine) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: 'none', training_file: f }); if (t.ok) taught++; else why.push('refused ' + t.msg); }
+        } else why.push(d + ': ' + (!teach ? 'teach off' : !this.model ? 'no cats model' : 'label ' + People.lab[d]));
         const a = Arrive.det[d]; if (a) a.sub = '';
       }
       if (taught) CatPics.filed += taught;   /* 3.4.9: no training here: it runs only from Train Model (training made the mini PC slow) */
-      Dbg.log('fix', k, 'not ours', 'parts ' + all.join(','), ok ? 'ok' : 'not all taken', 'taught ' + taught);
+      Dbg.log('fix', k, 'not ours', 'parts ' + all.join(','), ok ? 'ok' : 'not all taken', 'taught ' + taught, 'model ' + this.model, 'recent ' + (files ? files.length : '-'), why.join(' | '));
       return { ok, taught };
     }
     const notL = pick && pick[0] === '-' ? pick.slice(1) : null; if (notL) pick = '';
     const ds = notL && notL !== 'animal' ? all.filter(d => People.lab[d] === notL) : all;   /* 3.2.2 Not Animal: every animal in the card */
-    let ok = true, taught = 0, files = null;
+    let ok = true, taught = 0, files = null; const why = [];
     for (const d of ds) {
       const was = People.lab[d];
       if (pick) {
@@ -2801,14 +2802,14 @@ const CatFix = {
       }
       if (teach && this.model && (this.objs || ['cat']).includes(was)) {
         if (!files) { try { files = await Frigate.get('/api/classification/' + encodeURIComponent(this.model) + '/train'); } catch (x) { files = []; } }
-        const mine = (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-2);
-        for (const f of mine) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: pick || 'none', training_file: f }); if (t.ok) taught++; }
-      }
+        const mine = (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-2); why.push(d + ': ' + mine.length + ' pics');
+        for (const f of mine) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: pick || 'none', training_file: f }); if (t.ok) taught++; else why.push('refused ' + t.msg); }
+      } else why.push(d + ': ' + (!teach ? 'teach off' : !this.model ? 'no cats model' : 'label ' + was));
     }
     if (taught) CatPics.filed += taught;   /* 3.4.9: no training here: it runs only from Train Model */
     /* split cards read each part from Arrive: update those too, so the card's title changes right away */
     ds.forEach(d => { const a = Arrive.det[d]; if (!a) return; a.sub = People.sub[d] || ''; if (People.fp[d]) a.fp = true; });
-    Dbg.log('fix', k, pick || 'not ' + notL, 'parts ' + ds.join(','), ok ? 'ok' : 'not all taken', 'taught ' + taught);
+    Dbg.log('fix', k, pick || 'not ' + notL, 'parts ' + ds.join(','), ok ? 'ok' : 'not all taken', 'taught ' + taught, 'model ' + this.model, 'recent ' + (files ? files.length : '-'), why.join(' | '));
     return { ok, taught };
   }
 };
@@ -5268,7 +5269,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.5.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.5.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -5367,7 +5368,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.5.8');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.5.9');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5384,7 +5385,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.5.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.5.9\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5497,12 +5498,12 @@ const ACT = {
   async fixsave() {
     if (S.fixBusy || !S.fixPick) return; const k = S.fixK, e = evE(k); if (!e) return;
     S.fixBusy = true; render();
-    const pickv = S.fixPick, r = await CatFix.save(k, pickv, S.fixTeach !== false, S.fixPlus !== false); S.fixBusy = false;
+    const pickv = S.fixPick, teachv = S.fixTeach !== false && !!CatFix.model, r = await CatFix.save(k, pickv, S.fixTeach !== false, S.fixPlus !== false); S.fixBusy = false;
     if (!r.ok && r.msg) { toast(r.msg); render(); return; }
     whoOf(e); fixPets(e); if (e.gone) Data.events = Data.events.filter(x => x !== e);
     S.modal = null; render();
     if (pickv === '0') e.who = String(e.who || '').split(' · ').filter(x => x && !CatFix.names.includes(x) && !['胖胖', '团团'].includes(x)).join(' · ');
-    toast((pickv === '0' ? 'Marked Not Ours' : pickv[0] !== '-' ? 'Saved As ' + niceName(pickv) : pickv === '-animal' ? 'Marked Not Animal' : 'Marked Not ' + objName(pickv.slice(1))) + (r.taught ? ' · Train Model To Learn' : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
+    toast((pickv === '0' ? 'Marked Not Ours' : pickv[0] !== '-' ? 'Saved As ' + niceName(pickv) : pickv === '-animal' ? 'Marked Not Animal' : 'Marked Not ' + objName(pickv.slice(1))) + (r.taught ? ' · Train Model To Learn' : teachv ? ' · No Saved Picture For The Cats Model' : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
   },
   whopick(d) { const i = document.getElementById('whonew'); if (i) S.whoNew = i.value; S.whoName = S.whoName === d.v ? '' : d.v;
     if (S.whoName === '+' && S.whoTeach !== false) S.whoTeach = true;   /* a new person is meant to be learned */
@@ -6539,7 +6540,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.5.8';
+    const BUILD = '4.5.9';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
