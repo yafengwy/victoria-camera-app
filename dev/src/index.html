@@ -4162,8 +4162,8 @@ function fSetPad(sc, p) {
   const v = Math.max(0, sc.scrollTop + d); S.focus.progTop = v; sc.scrollTop = v;
 }
 function fSetScroll(sc, v) { v = Math.max(0, Math.round(v + fPad())); if (sc.scrollTop === v) return; S.focus.progTop = v; sc.scrollTop = v; }
-/* 4.6.5: Live puts the blue line a little below the top (15% of the list), "now" on it, the list at its top */
-function fGoLive(sc) { const ly = Math.max(FTOP, Math.round(sc.clientHeight * 0.15)); S.focus.lineY = ly; fSetPad(sc, ly - FTOP); S.focus.progTop = 0; sc.scrollTop = 0; fPaintLine(); }
+/* 4.6.5: Live puts the blue line a little below the top (4.6.6: 10% of the list), "now" on it, the list at its top */
+function fGoLive(sc) { const ly = Math.max(FTOP, Math.round(sc.clientHeight * 0.10)); S.focus.lineY = ly; fSetPad(sc, ly - FTOP); S.focus.progTop = 0; sc.scrollTop = 0; fPaintLine(); }
 function fShow(t) { const sc = document.getElementById('fsc'); if (!sc) return; const y = fLineY(t), top = sc.scrollTop - fPad(); if (y < top + 10 || y > top + sc.clientHeight - 40) fSetScroll(sc, y - 120); fPaintLine(); }
 /* The blue line sits where the playing time is. Swiping the list moves the timeline under the line (scrubs);
    tapping an alert or an empty spot moves the line there instead of moving the list. */
