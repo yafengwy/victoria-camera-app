@@ -3357,9 +3357,7 @@ function bar() {
 
 /* Things used now and then live behind one button: layout, snooze, temporary rules */
 function moreMenu() {
-  const lay = (v, label, icon) => '<button data-act="layoutset" data-v="' + v + '" aria-pressed="' + (S.layout === v) + '">' + icon + label + '</button>';
   return '<div class="rvscrim" data-act="moreclose"></div><div class="moredd" role="dialog" aria-label="More">' +
-    '<div class="mrow"><span class="mlbl">Layout</span><div class="mseg">' + lay('list', 'List', I.rows) + lay('grid', 'Grid', I.grid4) + '</div></div>' +
     '<button class="mrow mbtn" data-act="snzopen">' + I.snooze + '<span class="mlbl">Snooze Notifications</span>' + (Snz.active() ? '<span class="msoon on">' + Snz.left() + '</span>' : '') + '</button>' +
     '<button class="mrow mbtn" data-act="ppopen">' + ICON_SVG.person.replace('viewBox', 'width="20" height="20" viewBox') + '<span class="mlbl">People</span></button>' +
     (Data.source === 'frigate' && CatFix.model ? '<button class="mrow mbtn" data-act="ctopen">' + ICON_SVG.cat.replace('viewBox', 'width="20" height="20" viewBox') + '<span class="mlbl">Cats</span></button>' : '') +
@@ -5305,14 +5303,15 @@ function filterZones() {
   return '<div class="lbl">In Zone · ' + esc(c.name) + '</div>' + zk(!z.length, '', 'Whole Camera') + c.zones.map(zn => zk(z.includes(zn), zn, zn)).join('');
 }
 function modalSettings() {
-  const seg = (act, cur, opts) => '<div class="sseg' + (opts.length > 5 ? ' wrap' : '') + '">' + opts.map(v => '<button data-act="' + act + '" data-v="' + v[0] + '" aria-pressed="' + (cur === v[0]) + '">' + v[1] + '</button>').join('') + '</div>';
+  const seg = (act, cur, opts, nowrap) => '<div class="sseg' + (opts.length > 5 && !nowrap ? ' wrap' : '') + '">' + opts.map(v => '<button data-act="' + act + '" data-v="' + v[0] + '" aria-pressed="' + (cur === v[0]) + '">' + v[1] + '</button>').join('') + '</div>';
   const row = (label, ctl) => '<div class="srow"><span class="slbl">' + label + '</span>' + ctl + '</div>';
   const d = detectCover();
   return '<div class="scrim" data-act="close" role="presentation"><div class="dialog set" role="dialog" aria-label="Settings" data-stop="1">' +
     '<div class="dhead">Settings<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
     row('Style', seg('theme', S.theme, [['glass', 'Glass'], ['google', 'Google'], ['blue', 'Blue'], ['green', 'Teal'], ['noir', 'Noir']])) +
     row('Appearance', seg('look', S.look, [['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']])) +
-    row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
+    /* 4.7.9: List (one per row on a phone) lives here too; it was only in the … menu, so Auto looked the same as 2 */
+    row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version __VER__ · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
@@ -5457,7 +5456,7 @@ const ACT = {
   cover(d) { S.cover = d.v; store.set('cover', d.v); render(); },
   furbo360(d) { if (d.v !== F360.want) F360.set(d.v); },
   look(d) { S.look = d.v; store.set('look', d.v); render(); },
-  colspref(d) { S.colsPref = d.v; store.set('colsPref', d.v); if (S.layout !== 'grid') { S.layout = 'grid'; store.set('layout', 'grid'); } render(); },
+  colspref(d) { if (d.v === 'list') { S.layout = 'list'; store.set('layout', 'list'); render(); return; } S.colsPref = d.v; store.set('colsPref', d.v); if (S.layout !== 'grid') { S.layout = 'grid'; store.set('layout', 'grid'); } render(); },
   more() { S.more = !S.more; render(); },
   moreclose() { S.more = false; render(); },
   layoutset(d) { S.layout = d.v; store.set('layout', S.layout); S.more = false; render(); },
