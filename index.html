@@ -2248,7 +2248,7 @@ const Dbg = {
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
   save() { clearTimeout(this.tm); try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} },
-  text() { return 'Version 4.5.7 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 4.5.8 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -2600,8 +2600,10 @@ async function markWrong(d, send) {
   if (!send) { NotX.add(d); People.fp[d] = 1; return { ok: true, msg: 'app only' }; }
   return People.post('/api/events/' + encodeURIComponent(d) + '/false_positive');
 }
-/* 4.5.7 her rule: every Fix also sends that detection's picture (with its box) to Frigate+ — a confirmed right one
-   as itself (cat, car, person…), so the next Frigate+ model learns from every correction. Once per detection. */
+/* 4.5.8 her rule: what each Fix teaches —
+   person name → Face Recognition only; Not Person → Frigate+;
+   胖胖 / 团团 / Not Ours → the name in this app + the Cats model folder only; Not Cat / Not Dog … → Frigate+;
+   a car: Mark As Car, Mark As FedEx / UPS …, or one of her car classes → Frigate+ (as that car). Once per detection. */
 async function sendPlus(d) {
   People.sent = People.sent || {}; if (People.sent[d] || People.fp[d]) return true;
   const p = await People.post('/api/events/' + encodeURIComponent(d) + '/plus', { include_annotation: 1 });
@@ -2780,7 +2782,6 @@ const CatFix = {
           for (const f of (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-2)) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: 'none', training_file: f }); if (t.ok) taught++; }
         }
         const a = Arrive.det[d]; if (a) a.sub = '';
-        if (plus) await sendPlus(d);   /* a real animal, just not ours */
       }
       if (taught) CatPics.filed += taught;   /* 3.4.9: no training here: it runs only from Train Model (training made the mini PC slow) */
       Dbg.log('fix', k, 'not ours', 'parts ' + all.join(','), ok ? 'ok' : 'not all taken', 'taught ' + taught);
@@ -2794,7 +2795,6 @@ const CatFix = {
       if (pick) {
         const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: pick }); if (r.ok) People.sub[d] = pick; else ok = false;
         if (was !== 'cat' && !People.fp[d] && plus) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; }
-        else if (was === 'cat' && plus) await sendPlus(d);
       } else {
         if (People.sub[d]) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: '' }); if (r.ok) delete People.sub[d]; }
         if (!People.fp[d]) { const f = await markWrong(d, plus); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else { ok = false; Dbg.log('fix refused', d, f.msg); } }
@@ -5268,7 +5268,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.5.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.5.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -5367,7 +5367,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.5.7');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.5.8');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5384,7 +5384,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.5.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.5.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5526,7 +5526,6 @@ const ACT = {
     S.whoNew = '';
     const teach = S.whoTeach === true && People.faceCams.includes(e.cam);
     People.busy = true; const r = await People.name(e, n, teach);
-    if (r.ok && S.fixPlus !== false) for (const d of e.dets || []) { if (People.lab[d] === 'person') await sendPlus(d); }
     People.busy = false;
     if (!r.ok) { toast(r.msg || 'Could Not Save The Name'); return; }
     whoOf(e); S.modal = null; render(); People.faces = null;
@@ -6540,7 +6539,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.5.7';
+    const BUILD = '4.5.8';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
