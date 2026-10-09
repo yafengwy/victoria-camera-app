@@ -59,6 +59,7 @@ services:
       - frigate
     volumes:
       - ./repo/clipwait.py:/clipwait.py:ro
+      - ./furbo-ctl:/ctl   # Settings button: which app gets the Upstairs & Bedroom Furbo (read by frigate-watchdog.py)
     command: ["sh", "-c", "apk add --no-cache ffmpeg >/dev/null 2>&1; exec python -u /clipwait.py"]
   # Furbo cameras (no local video of their own): the ha-furbo bridge holds the Furbo P2P session and serves
   # RTSP on 8564 for Frigate. Built on this machine from github.com/willbeeching/ha-furbo (furbo-bridge).

@@ -42,6 +42,14 @@ FURBO_RUNS, FURBO_GAP, FURBO_DAY = 10, 3600, 3
 # only) when alerts reach back fewer than 25 days (only once the system is older than that) or the disk has < 10% free.
 STORE_HOOK = 'http://192.168.1.252:8123/api/webhook/vh-camera-storage-865b860917997d36'
 STORE_DAYS, STORE_FREE, STORE_EVERY = 25, 0.10, 6 * 3600
+# Furbo 360s to the Furbo app (her choice, 2026-10-08): the bridge holds a session to every Furbo all the time, and a
+# Furbo takes one session only, so the Furbo app could not reach Upstairs / Bedroom. A button in the app's Settings
+# (served by clipwait, written to ~/frigate/furbo-ctl/want) hands those two to the Furbo app: the bridge then serves
+# only the two bowls (device_id in furbo-data/options.json) and is restarted; the button again gives them back.
+# While handed over, those two cameras never count as down and never restart the bridge.
+CTL = os.path.join(D, 'furbo-ctl', 'want')
+FURBO_BOWLS = '507B91E283B6,D07CB28A9D20'          # 胖胖饭桶, 团团饭桶
+FURBO_360 = {'upstairs_furbo', 'bedroom_furbo'}
 
 
 def get(path):
@@ -109,6 +117,45 @@ def top(d, n=4):
     return ', '.join('%s %d' % kv for kv in sorted(d.items(), key=lambda x: -x[1])[:n]) if d else 'None'
 
 
+def furbo_want():
+    try:
+        return open(CTL).read().strip()
+    except OSError:
+        return 'app'
+
+
+def released():
+    return FURBO_360 if furbo_want() == 'furbo' else set()
+
+
+def furbo360():
+    # makes the bridge's device_id match the Settings button; writes app/furbo360.txt for the app to show
+    want = furbo_want(); dev = FURBO_BOWLS if want == 'furbo' else ''
+    try:
+        o = json.load(open(os.path.join(D, 'furbo-data', 'options.json')))
+    except Exception:
+        return
+    cur = (o.get('device_id') or '').strip()
+    if cur != dev:
+        o['device_id'] = dev
+        tmp = os.path.join(D, '.furbo-options.tmp')
+        try:
+            json.dump(o, open(tmp, 'w'), indent=2); os.chmod(tmp, 0o600)
+            r = subprocess.run(['docker', 'cp', tmp, 'furbo:/data/options.json'], capture_output=True, text=True, timeout=60)
+            if r.returncode != 0:
+                log('furbo 360 switch failed: ' + (r.stderr or '').strip()[:150]); return
+            subprocess.run(['docker', 'restart', 'furbo'], capture_output=True, text=True, timeout=120)
+            log('furbo 360s given to the Furbo app (bridge serves the two bowls only)' if dev else 'furbo 360s back in the camera app (bridge serves all 4)')
+            cur = dev
+        finally:
+            try: os.remove(tmp)
+            except OSError: pass
+    try:
+        tmp = os.path.join(D, 'app', 'furbo360.txt.tmp'); open(tmp, 'w').write(json.dumps({'want': want, 'now': 'furbo' if cur else 'app'})); os.replace(tmp, os.path.join(D, 'app', 'furbo360.txt'))
+    except Exception:
+        pass
+
+
 def down_alerts(dead, st, t10):
     # returns lines for the Mini PC Log: cameras down now (since when) and the last alerts sent
     now = time.time(); dn = st.setdefault('down', {}); sent = st.setdefault('down_sent', {}); hist = st.setdefault('down_log', [])
@@ -119,8 +166,11 @@ def down_alerts(dead, st, t10):
             if sent.get(c, 0) > dn[c]:
                 hist.append(tz(now, '%m-%d %H:%M ') + c + ' picture back')
             del dn[c]
+    rel = released()
+    for c in list(dn):
+        if c in rel: del dn[c]
     for c in trying:
-        if c in QUIET:
+        if c in QUIET or c in rel:
             continue
         dn.setdefault(c, now)
         mins = int((now - dn[c]) // 60)
@@ -182,7 +232,7 @@ def storage_check(st):
 
 def furbo_fix(dead, st):
     # restarts the furbo container when a Furbo camera is stuck (see FURBO_* above); returns nothing, logs what it did
-    fd = [c for c in dead if 'furbo' in c]
+    fd = [c for c in dead if 'furbo' in c and c not in released()]
     if not fd:
         st['furbo_runs'] = 0; return
     t10 = sh(['docker', 'logs', 'frigate', '--since', '10m'])
@@ -340,6 +390,10 @@ def main():
         st = {}
     st.setdefault('dead_runs', 0); st.setdefault('gpu_runs', 0); st.setdefault('api_runs', 0); st.setdefault('last_restart', 0)
 
+    try:
+        furbo360()
+    except Exception as x:
+        log('furbo 360 switch error: ' + repr(x)[:150])
     now_ca = datetime.now(TZ) if TZ else datetime.now()
     if now_ca.hour == DAILY_HOUR and now_ca.minute < 10 and time.time() - st.get('last_daily', 0) > 20 * 3600:
         st['last_daily'] = st['last_restart'] = time.time(); json.dump(st, open(STATE, 'w'))   # saved first: never twice

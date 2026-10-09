@@ -272,7 +272,31 @@ def disk_put(key, body):
     except OSError:
         pass
 
+# Settings button "Upstairs & Bedroom Furbo" (only through the app's own web server, /ctl/): which app gets the two
+# Furbo 360s. Writes the wish to /ctl/want; the mini PC's watchdog applies it within a minute (frigate-watchdog.py).
+CTL = '/ctl/want'
+
 class H(BaseHTTPRequestHandler):
+    def ctl_reply(self, code, obj):
+        b = json.dumps(obj).encode()
+        self.send_response(code); self.send_header('Content-Type', 'application/json'); self.send_header('Content-Length', str(len(b))); self.end_headers(); self.wfile.write(b)
+
+    def do_POST(self):
+        if self.path.split('?')[0] != '/ctl/furbo360':
+            self.send_error(404); return
+        try:
+            n = int(self.headers.get('Content-Length') or 0); want = json.loads(self.rfile.read(min(n, 200)) or b'{}').get('want')
+        except Exception:
+            want = None
+        if want not in ('app', 'furbo'):
+            self.ctl_reply(400, {'error': 'want must be app or furbo'}); return
+        try:
+            os.makedirs('/ctl', exist_ok=True); open(CTL + '.tmp', 'w').write(want); os.replace(CTL + '.tmp', CTL)
+        except OSError as x:
+            self.ctl_reply(500, {'error': str(x)[:100]}); return
+        print('furbo360 want', want)
+        self.ctl_reply(200, {'want': want})
+
     def do_GET(self):
         st = STAMP.match(self.path.split('?')[0])
         if st:

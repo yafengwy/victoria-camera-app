@@ -2248,7 +2248,7 @@ const Dbg = {
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
   save() { clearTimeout(this.tm); try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} },
-  text() { return 'Version 4.6.6 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() { return 'Version 4.6.8 · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -3118,9 +3118,29 @@ const Diag = {
     try { const r = await fetch('diag.txt?t=' + Date.now(), { credentials: 'include' }); if (r.ok) this.srv = (await r.text()).trim().split('\n').join(' | ').slice(0, 300); } catch (e) {}
     try { const r = await fetch('health.txt?t=' + Date.now(), { credentials: 'include' }); if (r.ok) this.health = (await r.text()).trim(); } catch (e) {}
     try { const r = await fetch('update-log.txt?t=' + Date.now(), { credentials: 'include' }); if (r.ok) { const l = (await r.text()).trim().split('\n').filter(Boolean); this.log = l.slice(-3).join(' | ').slice(0, 300); } } catch (e) {}
+    await F360.load();
     if (S.modal === 'settings') render();
   }
 };
+/* 4.6.7: which app gets the Upstairs & Bedroom Furbo. A Furbo takes one connection; while the mini PC's bridge holds
+   them the Furbo app can't reach them. Furbo App = the bridge serves only the two bowls (applied by the mini PC within
+   a minute); Our App = all four back here. furbo360.txt is what the mini PC has actually done. */
+const F360 = {
+  want: null, now: null, at: 0,
+  CAMS: ['upstairs_furbo', 'bedroom_furbo'],
+  away(id) { return this.want === 'furbo' && this.CAMS.includes(id); },
+  tick() { if (Data.source !== 'frigate') return; const w = this.want; this.load().then(() => { if (this.want !== w && !S.modal) render(); }); },
+  async load() { try { const r = await fetch('furbo360.txt?t=' + Date.now(), { credentials: 'include' }); if (r.ok) { const j = JSON.parse(await r.text()); if (!this.at || Date.now() - this.at > 90000) this.want = j.want; this.now = j.now; } } catch (e) {} },
+  async set(v) {
+    const was = this.want; this.want = v; this.at = Date.now(); render();
+    try { const r = await fetch('ctl/furbo360', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ want: v }) }); if (!r.ok) throw new Error(r.status); }
+    catch (e) { this.want = was; this.at = 0; render(); toast('Could Not Switch · Try Again'); return; }
+    Dbg.log('furbo 360 to', v);
+    toast(v === 'furbo' ? 'Upstairs & Bedroom Go To The Furbo App · Within 1 Min' : 'Upstairs & Bedroom Come Back Here · Within 1 Min');
+    const poll = (n) => setTimeout(async () => { await this.load(); if (S.modal === 'settings') render(); if (this.now !== this.want && n < 12) poll(n + 1); }, 10000); poll(0);
+  }
+};
+setTimeout(() => F360.tick(), 2500); setInterval(() => { if (document.visibilityState === 'visible') F360.tick(); }, 60000);
 /* ===== State ===== */
 /* Served from the mini PC (home IP or victoriashome.app): talk to the real Frigate on the same address by default */
 const HOSTED = /^(192\.168\.|10\.|localhost$|frigate)|victoriashome\.app$/.test(location.hostname);
@@ -3391,7 +3411,8 @@ function viewHome() {
     '<button class="ic" data-act="modal" data-v="settings" aria-label="Settings">' + I.gear + '</button></div></header>' + (S.more ? moreMenu() : '') + '<main class="main">' + snoozeBanner() + waitBanner();
   groups.forEach(g => {
     /* cameras that are off go to the end of their group; the rest keep their order */
-    const cams = Data.cams.filter(c => c.group === g).sort((a, b) => (Ctl.on(b.id) ? 1 : 0) - (Ctl.on(a.id) ? 1 : 0));
+    const rank = c => F360.away(c.id) ? 2 : Ctl.on(c.id) ? 0 : 1;   /* 4.6.7: handed to the Furbo app = very last */
+    const cams = Data.cams.filter(c => c.group === g).sort((a, b) => rank(a) - rank(b));
     const open = S.open[g] !== false;
     h += '<section class="group bare"><button class="ghead" data-act="group" data-v="' + esc(g) + '" aria-expanded="' + open + '"><span class="gname">' + esc(g) + '</span><span class="gline"></span>' +
       '<span class="gchev" aria-hidden="true">' + (open ? I.up : I.down) + '</span></button>';
@@ -3486,7 +3507,8 @@ function camCard(c, fr, span2) {
     '</div>') +
     '<div class="frame vfit" style="--R:' + trueAr(c).toFixed(4) + '"><img id="img-' + c.id + '" src="' + (t == null ? Live.pic(c.id, f.img) : f.img) + '"' + (t == null && Live.pic(c.id, f.img) !== f.img ? ' data-frozen="1"' : '') + ' alt="' + esc(c.name) + '">' + Live.holder(Live.cardSrc(c.id), t != null) + Playback.holder(c.id) + (S.layout === 'grid' || slim ? '<div class="cnm' + rcnA(c.id) + '>' + esc(c.name) + '</div>' : '') +
     '<button class="hit" data-act="tap" data-id="' + c.id + '" aria-label="Show playback for ' + esc(c.name) + '"></button>' +
-    (off ? '<div class="offv" id="off-' + c.id + '" data-act="tap" data-id="' + c.id + '"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>' : '') +
+    (F360.away(c.id) ? '<div class="offv">' + I.power + '<b>Service Suspended</b><span>' + (F360.now === 'furbo' ? 'In The Furbo App Now' : 'Moving To The Furbo App · Within 1 Min') + '</span><button class="btn solid" data-act="furbo360" data-v="app">Bring Back</button></div>'
+    : off ? '<div class="offv" id="off-' + c.id + '" data-act="tap" data-id="' + c.id + '"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>' : '') +
     (slim ? '<div class="ctr">' + snz + badgeHtml(c.id, t, f) + '</div>' : badgeHtml(c.id, t, f)) + '<div class="ctm" id="ctm-' + c.id + '">' + hms(shownT(c.id, Live.cardSrc(c.id))) + '</div><div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="tag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div></article>';
 }
 /* The moment the picture on screen is from: the playback time; live video = now while the picture is moving,
@@ -5282,7 +5304,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.6.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.6.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
     (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
       ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
@@ -5291,6 +5313,8 @@ function modalSettings() {
     (Data.source === 'frigate' ? '<div class="dbg">Mini PC Log · Memory, Disk, Cameras, Errors, Hourly History <button class="btn" data-act="copyhealth">Copy</button></div>' : '') + (Data.source === 'frigate' ? '<div class="dbg">Frigate Log · Last 2 Hrs · Restarts, Recording, Errors <button class="btn" data-act="copyflog">Copy</button></div>' : '') + '</details>' +
     '<div class="srow"><span class="slbl">Frigate</span><input id="server" class="field" type="url" inputmode="url" placeholder="http://192.168.1.50:5000" value="' + esc(S.server) + '" autocomplete="off"></div>' +
     '<div class="srow">' + checkRow('demo', 'Use Demo Data', S.demo) + '<button class="btn solid" data-act="savesettings">Save</button></div>' +
+    (Data.source === 'frigate' && F360.want ? row('Upstairs & Bedroom Furbo', seg('furbo360', F360.want, [['app', 'Our App'], ['furbo', 'Furbo App']])) +
+      '<div class="wtnote" style="margin:-4px 2px 8px">' + (F360.now !== F360.want ? 'Switching · Within 1 Min' : F360.now === 'furbo' ? 'Now In The Furbo App · Not Here, Not Recorded' : 'Now Here And Recorded · The Furbo App Can\'t Reach Them') + '</div>' : '') +
     '</div></div></div>';
 }
 let toastTimer;
@@ -5381,7 +5405,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.6.6');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.6.8');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5398,7 +5422,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.6.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.6.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5417,6 +5441,7 @@ const ACT = {
   },
   markstyle(d) { S.markStyle = d.v; store.set('markStyle', d.v); render(); },
   cover(d) { S.cover = d.v; store.set('cover', d.v); render(); },
+  furbo360(d) { if (d.v !== F360.want) F360.set(d.v); },
   look(d) { S.look = d.v; store.set('look', d.v); render(); },
   colspref(d) { S.colsPref = d.v; store.set('colsPref', d.v); if (S.layout !== 'grid') { S.layout = 'grid'; store.set('layout', 'grid'); } render(); },
   more() { S.more = !S.more; render(); },
@@ -6554,7 +6579,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.6.6';
+    const BUILD = '4.6.8';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
