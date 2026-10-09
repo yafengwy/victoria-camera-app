@@ -2255,7 +2255,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 4.7.1 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 4.7.2 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -3154,7 +3154,7 @@ setTimeout(() => F360.tick(), 2500); setInterval(() => { if (document.visibility
 const HOSTED = /^(192\.168\.|10\.|localhost$|frigate)|victoriashome\.app$/.test(location.hostname);
 const S = {
   view: 'home', markStyle: ['a', 'e', 'd', 'b'].includes(store.get('markStyle', 'a')) ? store.get('markStyle', 'a') : 'a', cover: store.get('cover', 'auto'), look: store.get('look', 'auto'), colsPref: store.get('colsPref', 'auto'), forced: {}, mode: store.get('mode', 'home'), theme: ['glass', 'google', 'green', 'blue', 'noir'].includes(store.get('theme2', 'glass')) ? store.get('theme2', 'glass') : 'glass', layout: store.get('layout', 'list'),
-  server: store.get('server', HOSTED ? location.origin : ''), demo: store.get('demo', !HOSTED),
+  server: store.get('server', HOSTED ? location.origin : ''), demo: HOSTED ? false : store.get('demo', true),   /* 4.7.2: no Use Demo Data box any more; the real site never shows demo data */
   open: store.get('open', {}), expanded: null, camTime: camTimeObj(),
   winEnd: now(), pos: 1, win: store.get('win', 30 * MIN), playing: true, speed: 1, tab: 'events',
   filt: store.get('filt3', { int: true, unint: false, objs: { Person: true, Car: true, Cat: true, Dog: true, Package: true }, off: {}, zones: {} }),
@@ -5312,7 +5312,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.colsPref, [['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.7.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.7.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -5321,7 +5321,7 @@ function modalSettings() {
       '<div class="logrow"><span>Frigate Log · Last 2 Hrs</span><button class="btn" data-act="copyflog">Copy</button></div>' : '') +
     '</div>' + '</details>' +
     '<div class="srow"><span class="slbl">Frigate</span><input id="server" class="field" type="url" inputmode="url" placeholder="http://192.168.1.50:5000" value="' + esc(S.server) + '" autocomplete="off"></div>' +
-    '<div class="srow">' + checkRow('demo', 'Use Demo Data', S.demo) + '<button class="btn solid" data-act="savesettings">Save</button></div>' +
+    '<div class="srow" style="justify-content:flex-end"><button class="btn solid" data-act="savesettings">Save</button></div>' +
     (Data.source === 'frigate' && F360.want ? row('Upstairs & Bedroom Furbo', seg('furbo360', F360.want, [['app', 'Our App'], ['furbo', 'Furbo App']])) +
       '<div class="wtnote" style="margin:-4px 2px 8px">' + (F360.now !== F360.want ? 'Switching · Within 1 Min' : F360.now === 'furbo' ? 'Now In The Furbo App · Not Here, Not Recorded' : 'Now Here And Recorded') + '</div>' : '') +
     '</div></div></div>';
@@ -5414,7 +5414,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.7.1');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.7.2');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5431,7 +5431,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.7.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.7.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -6588,7 +6588,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.7.1';
+    const BUILD = '4.7.2';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

@@ -3154,7 +3154,7 @@ setTimeout(() => F360.tick(), 2500); setInterval(() => { if (document.visibility
 const HOSTED = /^(192\.168\.|10\.|localhost$|frigate)|victoriashome\.app$/.test(location.hostname);
 const S = {
   view: 'home', markStyle: ['a', 'e', 'd', 'b'].includes(store.get('markStyle', 'a')) ? store.get('markStyle', 'a') : 'a', cover: store.get('cover', 'auto'), look: store.get('look', 'auto'), colsPref: store.get('colsPref', 'auto'), forced: {}, mode: store.get('mode', 'home'), theme: ['glass', 'google', 'green', 'blue', 'noir'].includes(store.get('theme2', 'glass')) ? store.get('theme2', 'glass') : 'glass', layout: store.get('layout', 'list'),
-  server: store.get('server', HOSTED ? location.origin : ''), demo: store.get('demo', !HOSTED),
+  server: store.get('server', HOSTED ? location.origin : ''), demo: HOSTED ? false : store.get('demo', true),   /* 4.7.2: no Use Demo Data box any more; the real site never shows demo data */
   open: store.get('open', {}), expanded: null, camTime: camTimeObj(),
   winEnd: now(), pos: 1, win: store.get('win', 30 * MIN), playing: true, speed: 1, tab: 'events',
   filt: store.get('filt3', { int: true, unint: false, objs: { Person: true, Car: true, Cat: true, Dog: true, Package: true }, off: {}, zones: {} }),
@@ -5321,7 +5321,7 @@ function modalSettings() {
       '<div class="logrow"><span>Frigate Log · Last 2 Hrs</span><button class="btn" data-act="copyflog">Copy</button></div>' : '') +
     '</div>' + '</details>' +
     '<div class="srow"><span class="slbl">Frigate</span><input id="server" class="field" type="url" inputmode="url" placeholder="http://192.168.1.50:5000" value="' + esc(S.server) + '" autocomplete="off"></div>' +
-    '<div class="srow">' + checkRow('demo', 'Use Demo Data', S.demo) + '<button class="btn solid" data-act="savesettings">Save</button></div>' +
+    '<div class="srow" style="justify-content:flex-end"><button class="btn solid" data-act="savesettings">Save</button></div>' +
     (Data.source === 'frigate' && F360.want ? row('Upstairs & Bedroom Furbo', seg('furbo360', F360.want, [['app', 'Our App'], ['furbo', 'Furbo App']])) +
       '<div class="wtnote" style="margin:-4px 2px 8px">' + (F360.now !== F360.want ? 'Switching · Within 1 Min' : F360.now === 'furbo' ? 'Now In The Furbo App · Not Here, Not Recorded' : 'Now Here And Recorded') + '</div>' : '') +
     '</div></div></div>';
