@@ -2795,7 +2795,7 @@ const CatFix = {
       const was = People.lab[d];
       if (pick) {
         const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: pick }); if (r.ok) People.sub[d] = pick; else ok = false;
-        if (was !== 'cat' && !People.fp[d] && plus) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; }
+        if (was !== 'cat' && !People.fp[d] && plus) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) { People.fp[d] = 1; why.push(d + ': ' + was + ' sent to Frigate+ as wrong'); } else why.push(d + ': Frigate+ refused ' + f.msg); }
       } else {
         if (People.sub[d]) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: '' }); if (r.ok) delete People.sub[d]; }
         if (!People.fp[d]) { const f = await markWrong(d, plus); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else { ok = false; Dbg.log('fix refused', d, f.msg); } }
