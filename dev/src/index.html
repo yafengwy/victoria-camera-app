@@ -2330,10 +2330,12 @@ const Playback = {
     }, 80);
   },
   wall(p, ct) {          /* video seconds -> clock ms */
+    if (!p.win) return null;   /* 4.7.7: the camera was closed while its video was still loading */
     let acc = 0; for (const g of p.win.segs) { const d = g[1] - g[0]; if (ct <= acc + d) return (g[0] + (ct - acc)) * 1000; acc += d; }
     const l = p.win.segs[p.win.segs.length - 1]; return l ? l[1] * 1000 : p.win.a * 1000;
   },
   vtime(p, t) {          /* clock ms -> video seconds (null if t is past the loaded window) */
+    if (!p.win) return null;
     const ts = t / 1000; let acc = 0;
     for (const g of p.win.segs) { if (ts < g[0]) return acc; if (ts <= g[1]) return acc + ts - g[0]; acc += g[1] - g[0]; }
     return null;
@@ -4186,7 +4188,7 @@ function fPad() { return (S.focus && S.focus.pad) || 0; }
    pulling down stops there natively (the 4.6.2 stop fought the iPhone's scrolling and shook). Changed only while
    nobody is dragging, with the scroll moved by the same amount so nothing on screen jumps. */
 function fSetPad(sc, p) {
-  const fin = sc.querySelector('.fin'); if (!fin || !S.focus) return;
+  const fin = sc.querySelector('.fin'); if (!fin || !S.focus || !isFinite(p)) return;
   const d = p - fPad(); if (!d) return;
   S.focus.pad = p; fin.style.marginTop = p + 'px';
   const v = Math.max(0, sc.scrollTop + d); S.focus.progTop = v; sc.scrollTop = v;
@@ -4207,6 +4209,7 @@ function fPaintLine() {
   const top = () => Math.max(0, sc.scrollTop) - fPad();   /* 4.6.4: the iPhone's bounce past the top (negative) counts as the top */
   let y = t == null ? Math.max(FTOP, FTOP - top()) : fLineY(t) - top();   /* Live: the line rides on "now" while the list is pulled into the room above */
   if (t != null && (y < 0 || y > sc.clientHeight - 10) && !fScrubbing()) { fSetScroll(sc, fLineY(t) - Math.min(120, sc.clientHeight / 3)); y = fLineY(t) - top(); }
+  if (!isFinite(y)) { if (!fPaintLine.bad) { fPaintLine.bad = 1; Dbg.log('bad line', S.focus.cam, 't ' + t, 'top ' + sc.scrollTop, 'pad ' + fPad(), 'end ' + focusEnd()); } y = FTOP; }
   S.focus.lineY = y; ln.style.top = y + 'px';
   if (!fScrubbing() && !sc._ptr) { const want = Math.max(0, Math.round(y - FTOP)); if (Math.abs(want - fPad()) > 8 || (!want && fPad())) fSetPad(sc, want); }
 }
