@@ -742,6 +742,9 @@ img.rf{opacity:0}
 :root[data-cover] .main{padding-top:max(8px,env(safe-area-inset-top,0px))}
 .dbg{font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums;line-height:1.5}
 .dbg .btn{padding:3px 10px;font-size:11px;min-height:0;height:auto;margin-left:4px}
+.logrows{display:flex;flex-direction:column;gap:6px;margin:8px 0 4px}
+.logrow{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;color:var(--sub)}
+.logrow .btn{height:30px;min-height:0;padding:0 14px;font-size:12px;flex:none}
 .dbglog{font-size:10px;line-height:1.35;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-all;background:var(--card,rgba(0,0,0,.05));padding:6px;border-radius:8px;margin:6px 0 0;color:var(--sub)}
 
 /* ---- v21: review alert-type filter ---- */
@@ -2248,7 +2251,12 @@ const Dbg = {
     clearTimeout(this.tm); this.tm = setTimeout(() => { try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} }, 500);
   },
   save() { clearTimeout(this.tm); try { localStorage.setItem('vhlog', JSON.stringify(this.a)); } catch (e) {} },
-  text() { return 'Version __VER__ · ' + navigator.userAgent + '\n' + this.a.join('\n'); }
+  text() {
+    let h = '';
+    try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
+    if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
+    return 'Version __VER__ · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+  }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
    and the Playback Log gets how long, the page, how many live videos, the last tap and the slowest redraw just before */
@@ -5305,16 +5313,17 @@ function modalSettings() {
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version __VER__ · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
-    '<div class="dbg">' + d.w + ' × ' + d.h + ' · Ratio ' + (d.w / d.h).toFixed(2) + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '</div>' +
-    (Data.source === 'frigate' ? '<div class="dbg">Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Motion Updates ' + Motion.nm + ' · Topics ' + esc(Object.keys(Motion.seen || {}).slice(0, 8).join(', ')) +
-      ' · Feed Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + ' · State ' + (Motion.sock ? Motion.sock.readyState : '-') + (Motion.err ? ' · Last Close ' + esc(Motion.err) : '') + (Diag.srv ? '<br>Check: ' + esc(Diag.srv) : '') + (Diag.log ? '<br>Server: ' + esc(Diag.log) : '') + (Diag.health ? '<br>' + esc(Diag.health.split('\n\n').slice(0, 2).join('\n')).replace(/\n/g, '<br>') : '') + '</div>' : '') +
-    '<div class="dbg">Playback Log · ' + Dbg.a.length + ' Lines <button class="btn" data-act="copylog">Copy</button> <button class="btn" data-act="clearlog">Clear</button></div>' +
-    '<pre class="dbglog">' + esc(Dbg.a.slice(-40).join('\n')) + '</pre>' +
-    (Data.source === 'frigate' ? '<div class="dbg">Mini PC Log · Memory, Disk, Cameras, Errors, Hourly History <button class="btn" data-act="copyhealth">Copy</button></div>' : '') + (Data.source === 'frigate' ? '<div class="dbg">Frigate Log · Last 2 Hrs · Restarts, Recording, Errors <button class="btn" data-act="copyflog">Copy</button></div>' : '') + '</details>' +
+    /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
+       connection details moved into the copied Playback Log */
+    '<div class="logrows">' +
+    '<div class="logrow"><span>Playback Log · ' + Dbg.a.length + ' Lines</span><button class="btn" data-act="copylog">Copy</button></div>' +
+    (Data.source === 'frigate' ? '<div class="logrow"><span>Mini PC Log</span><button class="btn" data-act="copyhealth">Copy</button></div>' +
+      '<div class="logrow"><span>Frigate Log · Last 2 Hrs</span><button class="btn" data-act="copyflog">Copy</button></div>' : '') +
+    '</div>' + '</details>' +
     '<div class="srow"><span class="slbl">Frigate</span><input id="server" class="field" type="url" inputmode="url" placeholder="http://192.168.1.50:5000" value="' + esc(S.server) + '" autocomplete="off"></div>' +
     '<div class="srow">' + checkRow('demo', 'Use Demo Data', S.demo) + '<button class="btn solid" data-act="savesettings">Save</button></div>' +
     (Data.source === 'frigate' && F360.want ? row('Upstairs & Bedroom Furbo', seg('furbo360', F360.want, [['app', 'Our App'], ['furbo', 'Furbo App']])) +
-      '<div class="wtnote" style="margin:-4px 2px 8px">' + (F360.now !== F360.want ? 'Switching · Within 1 Min' : F360.now === 'furbo' ? 'Now In The Furbo App · Not Here, Not Recorded' : 'Now Here And Recorded · The Furbo App Can\'t Reach Them') + '</div>' : '') +
+      '<div class="wtnote" style="margin:-4px 2px 8px">' + (F360.now !== F360.want ? 'Switching · Within 1 Min' : F360.now === 'furbo' ? 'Now In The Furbo App · Not Here, Not Recorded' : 'Now Here And Recorded') + '</div>' : '') +
     '</div></div></div>';
 }
 let toastTimer;
