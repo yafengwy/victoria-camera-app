@@ -6307,7 +6307,7 @@ function wire() {
   const sc = document.getElementById('fsc');
   if (sc) {
     /* a drag of the timeline must never count as a tap when the finger lifts (it jumped to the nearest alert) */
-    sc.addEventListener('touchstart', e => { sc._touch = true; sc._t0 = e.touches[0] ? [e.touches[0].clientX, e.touches[0].clientY] : null; sc._mv = e.touches.length > 1; }, { passive: true });
+    sc.addEventListener('touchstart', e => { sc._touch = true; sc._liveStop = null; sc._t0 = e.touches[0] ? [e.touches[0].clientX, e.touches[0].clientY] : null; sc._mv = e.touches.length > 1; }, { passive: true });
     sc.addEventListener('touchend', e => { if (!e.touches.length) { sc._touch = false; if (sc._mv) sc._scrolled = Math.max(sc._scrolled || 0, Date.now() - 300); } }, { passive: true });
     sc.addEventListener('touchcancel', () => { sc._touch = false; }, { passive: true });
     sc.addEventListener('touchmove', e => { const t = e.touches[0]; if (e.touches.length > 1 || (sc._t0 && t && Math.hypot(t.clientX - sc._t0[0], t.clientY - sc._t0[1]) > 8)) sc._mv = true; }, { passive: true });
@@ -6325,8 +6325,8 @@ function wire() {
        redrawing, the browser putting back an old position); at the top that counted as "go Live" and stopped an
        alert that had just started playing (09:12 played half a second, then jumped to Live) */
     const user = () => sc._touch || sc._ptr || Date.now() - Math.max(sc._wheelAt || 0, sc._upAt || 0) < 1200;
-    sc.addEventListener('wheel', () => { sc._wheelAt = Date.now(); }, { passive: true });
-    sc.addEventListener('pointerdown', () => { sc._ptr = true; }, { passive: true });
+    sc.addEventListener('wheel', () => { if (Date.now() - (sc._wheelAt || 0) > 300) sc._liveStop = null; sc._wheelAt = Date.now(); }, { passive: true });
+    sc.addEventListener('pointerdown', () => { sc._ptr = true; sc._liveStop = null; }, { passive: true });
     window.addEventListener('pointerup', () => { if (sc._ptr) { sc._ptr = false; sc._upAt = Date.now(); } }, { passive: true });
     sc.addEventListener('touchend', () => { sc._upAt = Date.now(); }, { passive: true });
     sc.addEventListener('scroll', () => {
@@ -6337,6 +6337,12 @@ function wire() {
       if (Date.now() - (S.focus.liveAt || 0) < 1500 && sc.scrollTop - fPad() > 4) { fPaintLine(); return; }   /* 4.3.3: the page settling right after Live */
       sc._scrolled = Date.now();
       const ly = S.focus.lineY == null ? FTOP : S.focus.lineY, y = sc.scrollTop - fPad() + ly;
+      /* 4.6.2: Live is the end. Once "now" reaches the blue line the list stops there: pulling further did nothing
+         useful and only showed empty room */
+      if (!S.focus.dayEnd && y < FTOP + 2) {
+        const stop = sc._liveStop != null ? sc._liveStop : (sc._liveStop = Math.round(fPad() - (ly - FTOP)));
+        if (sc.scrollTop < stop - 1) { S.focus.progTop = stop; sc.scrollTop = stop; }
+      } else sc._liveStop = null;
       S.camTime[S.focus.cam] = (!S.focus.dayEnd && y < FTOP + 2) ? null : focusEnd() - (y - FTOP) / FPX * MIN;
       paintFocus();
       /* pulled up into the room above "now": once the finger / mouse lets go on Live, the list settles back with now at the top */
