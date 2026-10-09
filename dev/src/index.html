@@ -5325,7 +5325,7 @@ function modalSettings() {
     (HOSTED ? '' : '<div class="srow"><span class="slbl">Frigate</span><input id="server" class="field" type="url" inputmode="url" placeholder="http://192.168.1.50:5000" value="' + esc(S.server) + '" autocomplete="off"></div>' +
     '<div class="srow" style="justify-content:flex-end"><button class="btn solid" data-act="savesettings">Save</button></div>') +
     (Data.source === 'frigate' && F360.want ? row('Upstairs & Bedroom Furbo', seg('furbo360', F360.want, [['app', 'Our App'], ['furbo', 'Furbo App']])) +
-      '<div class="wtnote" style="margin:-4px 2px 8px">' + (F360.now !== F360.want ? 'Switching · Within 1 Min' : F360.now === 'furbo' ? 'Now In The Furbo App · Not Here, Not Recorded' : 'Now Here And Recorded') + '</div>' : '') +
+      (F360.now !== F360.want ? '<div class="wtnote" style="margin:-4px 2px 8px">Switching · Within 1 Min</div>' : '') : '') +
     '</div></div></div>';
 }
 let toastTimer;
