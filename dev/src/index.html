@@ -2600,6 +2600,14 @@ async function markWrong(d, send) {
   if (!send) { NotX.add(d); People.fp[d] = 1; return { ok: true, msg: 'app only' }; }
   return People.post('/api/events/' + encodeURIComponent(d) + '/false_positive');
 }
+/* 4.5.7 her rule: every Fix also sends that detection's picture (with its box) to Frigate+ — a confirmed right one
+   as itself (cat, car, person…), so the next Frigate+ model learns from every correction. Once per detection. */
+async function sendPlus(d) {
+  People.sent = People.sent || {}; if (People.sent[d] || People.fp[d]) return true;
+  const p = await People.post('/api/events/' + encodeURIComponent(d) + '/plus', { include_annotation: 1 });
+  if (p.ok || /already/i.test(p.msg || '')) { People.sent[d] = 1; return true; }
+  Dbg.log('frigate+ refused', d, p.msg || ''); return false;
+}
 const People = {
   sub: {}, person: {}, lab: {}, fp: Object.fromEntries(NotX.ids.map(d => [d, 1])), co: {}, faces: null, faceOn: false, faceCams: [], busy: false,
   /* 3.1.4: cats and dogs too: their names (the Cats model in Frigate, or Fix here) and the ones marked wrong (Not Cat) */
@@ -2687,7 +2695,7 @@ const CoFix = {
     if (pick === '=car') {
       /* 3.2.8 Just A Car: a car the model guessed as a delivery company. Frigate's sub label becomes "Car" (so the guess
          is gone after a restart too); nothing is sent to Frigate+ and the car model is not taught */
-      for (const d of all.filter(x => People.lab[x] === 'car')) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: 'Car' }); if (r.ok) People.co[d] = 'Car'; else ok = false; }
+      for (const d of all.filter(x => People.lab[x] === 'car')) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: 'Car' }); if (r.ok) People.co[d] = 'Car'; else ok = false; if (send && await sendPlus(d)) sent++; }
     } else if (pick[0] === '-') {
       const l = pick.slice(1);
       for (const d of all.filter(x => People.lab[x] === l)) { if (People.fp[d]) continue; const f = await markWrong(d, send); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else { ok = false; Dbg.log('fix refused', d, f.msg); } }
@@ -2695,7 +2703,8 @@ const CoFix = {
       const plus = isLogo(pick), key = plus ? pick.toLowerCase() : pick, cars = all.filter(d => People.lab[d] === 'car'), tgt = cars.length ? cars : all;
       for (const d of tgt) {
         const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: key }); if (r.ok) People.co[d] = key; else ok = false;
-        if (plus && send) { const p = await People.post('/api/events/' + encodeURIComponent(d) + '/plus', { include_annotation: 1 }); if (p.ok || /already/i.test(p.msg)) sent++; }
+        if (plus && send) { const p = await People.post('/api/events/' + encodeURIComponent(d) + '/plus', { include_annotation: 1 }); if (p.ok || /already/i.test(p.msg)) { sent++; People.sent = People.sent || {}; People.sent[d] = 1; } }
+        else if (send && await sendPlus(d)) sent++;
         if (!plus && send && this.model && People.lab[d] === 'car') {   /* 3.9.3 her rule: the car model folder only with Teach ticked */
           if (!files) { try { files = await Frigate.get('/api/classification/' + encodeURIComponent(this.model) + '/train'); } catch (x) { files = []; } }
           for (const f of (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-2)) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: key, training_file: f }); if (t.ok) taught++; }
@@ -2771,6 +2780,7 @@ const CatFix = {
           for (const f of (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-2)) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: 'none', training_file: f }); if (t.ok) taught++; }
         }
         const a = Arrive.det[d]; if (a) a.sub = '';
+        if (plus) await sendPlus(d);   /* a real animal, just not ours */
       }
       if (taught) CatPics.filed += taught;   /* 3.4.9: no training here: it runs only from Train Model (training made the mini PC slow) */
       Dbg.log('fix', k, 'not ours', 'parts ' + all.join(','), ok ? 'ok' : 'not all taken', 'taught ' + taught);
@@ -2784,6 +2794,7 @@ const CatFix = {
       if (pick) {
         const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: pick }); if (r.ok) People.sub[d] = pick; else ok = false;
         if (was !== 'cat' && !People.fp[d] && plus) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; }
+        else if (was === 'cat' && plus) await sendPlus(d);
       } else {
         if (People.sub[d]) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: '' }); if (r.ok) delete People.sub[d]; }
         if (!People.fp[d]) { const f = await markWrong(d, plus); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else { ok = false; Dbg.log('fix refused', d, f.msg); } }
@@ -5514,7 +5525,9 @@ const ACT = {
     if (!n) { toast(S.whoName === '+' ? 'Type The Name' : 'Pick A Name'); return; }
     S.whoNew = '';
     const teach = S.whoTeach === true && People.faceCams.includes(e.cam);
-    People.busy = true; const r = await People.name(e, n, teach); People.busy = false;
+    People.busy = true; const r = await People.name(e, n, teach);
+    if (r.ok && S.fixPlus !== false) for (const d of e.dets || []) { if (People.lab[d] === 'person') await sendPlus(d); }
+    People.busy = false;
     if (!r.ok) { toast(r.msg || 'Could Not Save The Name'); return; }
     whoOf(e); S.modal = null; render(); People.faces = null;
     toast('Saved As ' + niceName(n) + (teach && People.faceOn ? (r.taught ? ' · Face Learned' : ' · No Clear Face To Learn') : ''));
