@@ -2382,7 +2382,7 @@ const Playback = {
         /* a stray pause while hls.js was setting up left the video sitting ready but never playing: start it again */
         if (v.paused && S.playing && this.cams()[id]) { Dbg.log('kick play', id); v.play().catch(e => Dbg.log('play refused', id, e && e.name)); }
       }
-    } catch (e) { Dbg.log('load error', id, String(e && e.message || e)); if (gone()) return; p.win = { a, b, segs: [], at: performance.now() }; }
+    } catch (e) { Dbg.log('load error', id, String(e && e.message || e)); if (gone()) return; p.win = { a, b, segs: [], at: performance.now(), err: 1 }; }   /* err: Frigate didn't answer — ask again soon, whatever the time */
     p.loading = false;
   },
   el(id) {
@@ -2486,7 +2486,7 @@ const Playback = {
       /* a just-happened alert may not be saved yet: ask again every 2 s until it is */
       /* 4.5.5: only a just-happened time is asked again every 2 s; an older time with no recording is not (Upstairs Living
          14:36 asked Frigate 10 times in 20 s for a recording that was never kept) */
-      const stale = p.win && (!p.win.segs.length || vt == null) && performance.now() - (p.win.at || 0) > 2000 && t > now() - 3 * MIN;
+      const stale = p.win && (!p.win.segs.length || vt == null) && performance.now() - (p.win.at || 0) > 2000 && (p.win.err || t > now() - 3 * MIN);
       if (!p.win || stale || t / 1000 < p.win.a || t / 1000 >= p.win.b + 5 || (t / 1000 > p.win.b - 3 && performance.now() - (p.win.at || 0) > 2000)) { this.load(id, t).then(() => this.sync()); continue; }
       if (!p.win.segs.length || vt == null) { if (p.dbgNo !== t) { p.dbgNo = t; Dbg.log('no video here', id, hms(t)); } continue; }   /* nothing recorded here (yet): keep the snapshot */
       if (p.prep) continue;
