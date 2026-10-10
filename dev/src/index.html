@@ -1454,9 +1454,13 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .ltpickbar .btn[disabled],.ltd .btn[disabled],.ltwho .chip[disabled]{opacity:.45}
 .ltvid{position:relative;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000}
 .ltvid img,.ltvid video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
-.ltbar{display:flex;gap:0;height:7px}
-.ltbar i{height:7px;border-radius:4px;background:var(--strong)}
-.ltbar b{min-width:6px}
+.ltbar{position:relative;height:28px;display:flex;align-items:center;cursor:pointer;margin:-6px 0 -4px}
+.ltbarin{flex:1;display:flex;height:8px;pointer-events:none}
+.ltbar i{height:8px;border-radius:4px;background:var(--strong);pointer-events:none}
+.ltbar b{min-width:6px;pointer-events:none}
+.ltph{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:7px;background:var(--card);box-shadow:0 0 0 3px var(--strong);pointer-events:none}
+.ltvid .evclk{font-size:12px}
+.ltnorec{position:absolute;left:8px;bottom:8px;z-index:3;padding:3px 8px;border-radius:6px;background:rgba(18,22,24,.72);color:#fff;font-size:12px;font-weight:700}
 .ltmeta b{display:block;font-size:18px;font-weight:800;color:var(--head-fg)}
 .ltmeta span{font-size:13px;color:var(--sub);font-weight:600}
 .ltd .lbl{margin-top:4px}
@@ -3265,8 +3269,27 @@ const Litter = {
     const r = await fetch('ctl/litter', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op, ids }) });
     if (!r.ok) throw new Error(r.status); this.st = await r.json(); Dbg.log('litter', op, ids.length);
   },
-  find(id) { return this.groups().find(g => g.id === id); }
+  find(id) { return this.groups().find(g => g.id === id); },
+  /* 4.10.3: some visits would not play (the video list answered 404). Ask Frigate which recordings it has for that
+     time, write it to the log, and show Frigate's preview instead with a note */
+  async check(id) {
+    const g = this.find(id); if (!g) return;
+    const vs = Math.floor(g.t / 1000) - 2, ve = Math.ceil(g.end / 1000) + 3;
+    let st = 0; try { st = (await fetch(Frigate.base() + '/vod/' + g.cam + '/start/' + vs + '/end/' + ve + '/index.m3u8', { credentials: 'include' })).status; } catch (x) { st = -1; }
+    if (st !== 404) return;
+    let recs = '?'; try { const r = await Frigate.get('/api/' + g.cam + '/recordings?after=' + (vs - 600) + '&before=' + (ve + 600)); recs = (r || []).length + ' pieces within 10 min' + ((r || []).length ? ', nearest ' + hms(r.reduce((m, x) => Math.abs(x.start_time - vs) < Math.abs(m - vs) ? x.start_time : m, r[0].start_time) * 1000) : ''); } catch (x) { recs = 'failed'; }
+    Dbg.log('litter no recording', g.cam, ymdhms(g.t), Litter.dur(g), 'parts ' + g.ps.length, recs);
+    if (S.ltSel === id) { S.ltNoRec = id; render(); }
+  }
 };
+/* 如厕记录: the playing visit's clock in its top-left corner, and the dot on the bar under it */
+setInterval(() => {
+  if (S.modal !== 'litter' || !S.ltSel) return;
+  const v = document.querySelector('.ltvid video.evv'), c = document.querySelector('.ltvid .evclk'), bar = document.querySelector('.ltbar'); if (!v || !c) return;
+  if (!(v.currentTime > 0)) { c.hidden = true; return; }
+  const t = vodReal(v, v.currentTime); c.hidden = false; c.textContent = ymdhms(t);
+  if (bar) { const a = +bar.dataset.a, b = +bar.dataset.b, ph = bar.querySelector('.ltph'); if (ph) ph.style.left = (Math.max(0, Math.min(1, (t - a) / Math.max(1, b - a))) * 100).toFixed(1) + '%'; }
+}, 250);
 function modalCatHub() {
   const gs = Litter.groups(), td = Litter.dayKey(now()), today = gs.filter(g => Litter.dayKey(g.t) === td);
   const sub = Litter.rows ? (today.length ? '今天 · ' + Litter.summary(today) : '今天还没有记录') : '加载中…';
@@ -3295,10 +3318,15 @@ function modalLitter() {
     if (!g) return shell('如厕记录', '<div class="wtnote" style="margin:0">这条记录已经没有了</div>', 'ltback');
     const vs = Math.floor(g.t / 1000) - 2, ve = Math.ceil(g.end / 1000) + 3, vod = Frigate.base() + '/vod/' + g.cam + '/start/' + vs + '/end/' + ve + '/index.m3u8';
     const span = Math.max(1, g.end - g.t);
-    let bar = ''; if (g.ps.length > 1) { let at = g.t; g.ps.forEach(p => { if (p.t > at) bar += '<b style="flex:' + Math.max(0.02, (p.t - at) / span) + '"></b>'; bar += '<i style="flex:' + Math.max(0.03, (p.end - p.t) / span) + '"></i>'; at = Math.max(at, p.end); }); bar = '<div class="ltbar">' + bar + '</div>'; }
+    /* 4.10.3 her rule: the bar under the video shows the parts (gaps blank); tapping anywhere on it jumps there */
+    let bar = '', at0 = g.t; g.ps.forEach(p => { if (p.t > at0) bar += '<b style="flex:' + Math.max(0.02, (p.t - at0) / span) + '"></b>'; bar += '<i style="flex:' + Math.max(0.03, (p.end - p.t) / span) + '"></i>'; at0 = Math.max(at0, p.end); });
+    bar = '<div class="ltbar" data-act="ltseek" data-a="' + g.t + '" data-b="' + g.end + '" role="slider" aria-label="Jump"><div class="ltbarin">' + bar + '</div><em class="ltph" style="left:0"></em></div>';
+    const norec = S.ltNoRec === g.id;
     const plus = S.ltPlus !== false, rmv = S.ltRm !== false, busy = Litter.busy;
     return shell('如厕记录',
-      '<div class="ltvid"><img src="' + g.img + '" alt=""><video class="evv" data-hls="' + vod + '" data-cam="' + g.cam + '" data-vs="' + vs + '" data-ve="' + ve + '" data-at="' + Math.floor(g.t / 1000) + '" autoplay muted controls playsinline style="opacity:0"></video>' +
+      '<div class="ltvid"><img src="' + g.img + '" alt="">' + (norec
+        ? '<video src="' + Frigate.base() + '/api/review/' + encodeURIComponent(g.ps[0].id) + '/preview?format=mp4" autoplay muted loop playsinline></video><div class="ltnorec">Frigate 没有这段的录像 · 只有预览</div>'
+        : '<video class="evv" data-hls="' + vod + '" data-cam="' + g.cam + '" data-vs="' + vs + '" data-ve="' + ve + '" data-at="' + Math.floor(g.t / 1000) + '" autoplay muted controls playsinline style="opacity:0"></video><div class="evclk" hidden></div>') +
       '<button class="skip5 b" data-act="evskip" data-v="-5" aria-label="Back 5 Seconds">' + I.back5 + '</button><button class="skip5 f" data-act="evskip" data-v="5" aria-label="Forward 5 Seconds">' + I.fwd5 + '</button></div>' + bar +
       '<div class="ltmeta"><b>' + (g.ps.length > 1 ? hm(g.t) + ' – ' + hm(g.end) : hms(g.t)) + '</b><span>' + Litter.camName(g.cam) + (g.cam === 'closet' ? ' · Poop Spot' : '') + ' · ' + Litter.dayName(g.t) + (g.ps.length > 1 ? ' · ' + g.ps.length + ' 段' : '') + ' · ' + Litter.dur(g) + '</span></div>' +
       '<div class="lbl">是谁' + (g.ps.length > 1 ? '（改了 ' + g.ps.length + ' 段一起改）' : '') + '</div><div class="ltwho">' +
@@ -5884,7 +5912,7 @@ const ACT = {
   ltmore() { S.ltN = (S.ltN || 60) + 60; render(); },
   ltsel(d) {
     if (S.ltPick) { S.ltPick = Object.assign({}, S.ltPick, { [d.id]: !S.ltPick[d.id] }); render(); return; }
-    bigKeep(); S.ltSel = d.id; S.ltPlus = true; S.ltRm = true; render(); requestAnimationFrame(() => { const n = document.querySelector('.scrim .dialog'); if (n) n.scrollTop = 0; });
+    bigKeep(); S.ltSel = d.id; S.ltPlus = true; S.ltRm = true; S.ltNoRec = null; render(); Litter.check(d.id); requestAnimationFrame(() => { const n = document.querySelector('.scrim .dialog'); if (n) n.scrollTop = 0; });
   },
   ltlong(d) { if (S.modal !== 'litter' || S.ltSel) return; S.ltDelAsk = false; S.ltPick = Object.assign({}, S.ltPick || {}, { [d.id]: true }); try { navigator.vibrate && navigator.vibrate(15); } catch (x) {} render(); },
   ltpickno() { S.ltPick = null; S.ltDelAsk = false; render(); },
@@ -5901,6 +5929,11 @@ const ACT = {
     toast('已删除 ' + gs.length + ' 条 · 已发给 Frigate+：这里没有猫 / 狗' + (ok ? '' : ' · 有一部分没成功')); render();
   },
   ltback() { S.ltSel = null; render(); bigBack(); },
+  ltseek(d, ev) {
+    const bar = ev && ev.target.closest('.ltbar'), v = document.querySelector('.ltvid video.evv'); if (!bar || !v) return;
+    const r = bar.getBoundingClientRect(), f = Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)), t = +d.a + f * (+d.b - +d.a);
+    v.currentTime = Math.max(0, vodAt(v, t)); v.play().catch(() => {}); Dbg.log('litter jump', Math.round(f * 100) + '%', hms(t));
+  },
   ltplus() { S.ltPlus = S.ltPlus === false; render(); },
   ltrm() { S.ltRm = S.ltRm === false; render(); },
   async ltmerge() {
