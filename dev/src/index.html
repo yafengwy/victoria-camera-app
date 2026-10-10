@@ -1283,6 +1283,13 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .focus .fvid{overflow:hidden}
 /* 4.8.7: the picture and the timeline side are drawn as separate parts, so zooming one never repaints the other */
 .full .fside{contain:layout paint}
+/* 4.8.11: the Playback Log showed 60 frames a second with the timeline hidden and 2-4 with it shown (phone upright,
+   turned full screen): every video frame was repainting the 3-day timeline. The picture and the timeline are now
+   separate layers, and the timeline's long track is its own cached layer, so a new video frame never repaints it. */
+.full .fside{transform:translateZ(0);will-change:transform;isolation:isolate}
+.full .ftsc{transform:translateZ(0)}
+.full .ftrack{will-change:transform}
+.full .fvw{isolation:isolate}
 
 /* ---- v67: save video: ready bar (phones), camera view clip range ---- */
 .savebar{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:90;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;border-radius:28px;background:#1B1F23;color:#fff;font-size:14px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.3);white-space:nowrap}
