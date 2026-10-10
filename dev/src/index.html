@@ -1273,6 +1273,7 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .full .fvw{touch-action:none;overflow:hidden}
 .full .fov,.full .fullsteps,.full .fulltm,.full .fbot,.full .fuitop{touch-action:none}
 .full .fvw > :not(.fuitop):not(.fulltm):not(.fullsteps){transform:translate(var(--zx,0px),var(--zy,0px)) scale(var(--zs,1));transform-origin:0 0}
+.full .fvw.zooming > :not(.fuitop):not(.fulltm):not(.fullsteps){will-change:transform}
 
 /* ---- v67: save video: ready bar (phones), camera view clip range ---- */
 .savebar{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:90;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;border-radius:28px;background:#1B1F23;color:#fff;font-size:14px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.3);white-space:nowrap}
@@ -4445,57 +4446,83 @@ function fuiKick() {}
 /* Full screen: pinch to zoom into the picture (and drag it around) inside the app. The browser's own page zoom moved
    the whole page, so the timeline on the right slid off the screen; this zoom only enlarges the picture. */
 const FZ = {
-  s: 1, x: 0, y: 0, cam: null, moved: 0,
+  s: 1, x: 0, y: 0, cam: null, moved: 0, raf: 0,
   host() { return document.querySelector('#fullv .fvw'); },
+  /* 4.8.5 her rule: only the full screen zooms the picture (the camera view with the timeline below does not), and
+     the full screen's timeline (right side, or the strip that is the right side on a phone turned sideways) never
+     moves or grows with the picture. A wide foldable opened flat is already landscape, so it gets the same full screen
+     without turning. */
+  can() { return !!document.getElementById('fullv'); },
+  vars(w) { w.style.setProperty('--zs', this.s); w.style.setProperty('--zx', this.x + 'px'); w.style.setProperty('--zy', this.y + 'px'); w.classList.toggle('zoomed', this.s > 1.01); },
+  /* every layer zooms around the same point (the picture box's corner); read once per gesture, not on every move
+     (reading the layout on every finger move is what made the zoom stutter) */
+  prep(w) { for (const n of w.children) { if (n.classList.contains('fuitop') || n.classList.contains('fulltm') || n.classList.contains('fullsteps')) continue;
+      const o = (-n.offsetLeft) + 'px ' + (-n.offsetTop) + 'px'; if (n.style.transformOrigin !== o) n.style.transformOrigin = o; } },
   apply() {
     const w = this.host(); if (!w) return;
-    if (this.cam !== (S.focus && S.focus.cam)) { this.cam = S.focus && S.focus.cam; this.s = 1; this.x = 0; this.y = 0; }
-    w.style.setProperty('--zs', this.s); w.style.setProperty('--zx', this.x + 'px'); w.style.setProperty('--zy', this.y + 'px');
-    w.classList.toggle('zoomed', this.s > 1.01);
-    /* 3.10.11: every layer zooms around the same point (the picture box's corner). The picture sits centred inside the
-       box (letterbox), and zooming it around its own corner put it off from the video above it: a doubled strip showed. */
-    for (const n of w.children) { if (n.classList.contains('fuitop') || n.classList.contains('fulltm') || n.classList.contains('fullsteps')) continue;
-      const o = (-n.offsetLeft) + 'px ' + (-n.offsetTop) + 'px'; if (n.style.transformOrigin !== o) n.style.transformOrigin = o; }
+    if (this.cam !== (S.focus && S.focus.cam) || !this.can()) { this.cam = S.focus && S.focus.cam; this.s = 1; this.x = 0; this.y = 0; }
+    this.vars(w); this.prep(w);
   },
+  /* during a gesture: at most one paint per frame */
+  frame() { if (this.raf) return; this.raf = requestAnimationFrame(() => { this.raf = 0; const w = this.host(); if (w) this.vars(w); }); },
   reset() { this.s = 1; this.x = 0; this.y = 0; this.apply(); },
   local(w, cx, cy) { const r = w.getBoundingClientRect(); return w.closest('.rot') ? [cy - r.top, r.right - cx] : [cx - r.left, cy - r.top]; },
   size(w) { return w.closest('.rot') ? [w.offsetWidth, w.offsetHeight] : [w.clientWidth, w.clientHeight]; },
-  fit(w) { const [W, H] = this.size(w); this.x = Math.min(0, Math.max(W - W * this.s, this.x)); this.y = Math.min(0, Math.max(H - H * this.s, this.y)); },
+  fit(w) { const [W, H] = this._wh || this.size(w); this.x = Math.min(0, Math.max(W - W * this.s, this.x)); this.y = Math.min(0, Math.max(H - H * this.s, this.y)); },
+  begin(w) { this.prep(w); this._wh = this.size(w); this._r = w.getBoundingClientRect(); w.classList.add('zooming'); },
+  end(w) { this._wh = null; this._r = null; if (w) w.classList.remove('zooming'); },
+  /* finger position inside the picture box from the rect read at the gesture start */
+  at(w, cx, cy) { const r = this._r || w.getBoundingClientRect(); return w.closest('.rot') ? [cy - r.top, r.right - cx] : [cx - r.left, cy - r.top]; },
   wire() {
     const w = this.host(), fv = document.getElementById('fullv'); if (!w || !fv || fv._fz) { this.apply(); return; } fv._fz = true; this.apply();
     let g = null, lastTap = 0;
-    /* 3.10.10: fingers anywhere on the full view count (the picture, the buttons over it), not only on the picture box:
-       with the timeline shown, a finger on a button over the picture left the pinch to the browser, which zoomed the
-       whole page and that looked like turning the phone, so full screen closed. The timeline side keeps its own pinch. */
+    /* fingers anywhere on the full view count (the picture, the buttons over it) except the timeline side, which keeps
+       its own pinch; a two-finger touch is always taken from the browser so the page itself never zooms */
     const off = e => !!(e.target.closest && e.target.closest('.fside'));
-    const mid = (t) => this.local(w, (t[0].clientX + t[1].clientX) / 2, (t[0].clientY + t[1].clientY) / 2);
+    const mid = (t) => this.at(w, (t[0].clientX + t[1].clientX) / 2, (t[0].clientY + t[1].clientY) / 2);
     const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY) || 1;
     fv.addEventListener('touchstart', e => {
       if (off(e)) { g = null; return; }
       const t = e.touches;
-      if (t.length === 2) g = { pinch: true, d0: dist(t), m0: mid(t), s0: this.s, x0: this.x, y0: this.y };
-      else if (t.length === 1 && this.s > 1.01) g = { pinch: false, p0: this.local(w, t[0].clientX, t[0].clientY), x0: this.x, y0: this.y, moved: false };
+      if (t.length >= 2) e.preventDefault();
+      if (!this.can()) { g = null; return; }
+      if (t.length === 2) { this.begin(w); g = { pinch: true, d0: dist(t), m0: mid(t), s0: this.s, x0: this.x, y0: this.y }; }
+      else if (t.length === 1 && this.s > 1.01) { this.begin(w); g = { pinch: false, p0: this.at(w, t[0].clientX, t[0].clientY), x0: this.x, y0: this.y, moved: false }; }
       else g = null;
-    }, { passive: true });
+    }, { passive: false });
     fv.addEventListener('touchmove', e => {
+      if (e.touches.length >= 2 && !off(e)) e.preventDefault();
       if (!g) return; const t = e.touches; e.preventDefault();
       if (g.pinch && t.length === 2) {
         const m = mid(t), s = clamp(g.s0 * dist(t) / g.d0, 1, 6), cx = (g.m0[0] - g.x0) / g.s0, cy = (g.m0[1] - g.y0) / g.s0;
-        this.s = s; this.x = m[0] - cx * s; this.y = m[1] - cy * s; this.fit(w); this.apply(); this.moved = Date.now(); g.moved = true;
+        this.s = s; this.x = m[0] - cx * s; this.y = m[1] - cy * s; this.fit(w); this.frame(); this.moved = Date.now(); g.moved = true;
       } else if (!g.pinch && t.length === 1) {
-        const p = this.local(w, t[0].clientX, t[0].clientY), dx = p[0] - g.p0[0], dy = p[1] - g.p0[1];
+        const p = this.at(w, t[0].clientX, t[0].clientY), dx = p[0] - g.p0[0], dy = p[1] - g.p0[1];
         if (!g.moved && Math.hypot(dx, dy) < 6) return;
-        g.moved = true; this.x = g.x0 + dx; this.y = g.y0 + dy; this.fit(w); this.apply(); this.moved = Date.now();
+        g.moved = true; this.x = g.x0 + dx; this.y = g.y0 + dy; this.fit(w); this.frame(); this.moved = Date.now();
       }
     }, { passive: false });
     fv.addEventListener('touchend', e => {
-      if (g && g.pinch && e.touches.length === 1 && this.s > 1.01) { const t = e.touches[0]; g = { pinch: false, p0: this.local(w, t.clientX, t.clientY), x0: this.x, y0: this.y, moved: true }; return; }
+      if (g && g.pinch && e.touches.length === 1 && this.s > 1.01) { const t = e.touches[0]; g = { pinch: false, p0: this.at(w, t.clientX, t.clientY), x0: this.x, y0: this.y, moved: true }; return; }
       if (e.touches.length) return;
-      const tapped = g && !g.moved; g = null;
-      if (this.s < 1.03) this.reset();
+      const tapped = g && !g.moved; g = null; this.end(w);
+      if (this.s < 1.03) this.reset(); else this.vars(w);
       /* a double tap on a zoomed picture goes back to the whole picture */
       if ((tapped || this.s > 1.01) && e.changedTouches.length === 1) { const n = Date.now(); if (n - lastTap < 320 && this.s > 1.01) { this.reset(); this.moved = n; } lastTap = n; }
     }, { passive: true });
+    fv.addEventListener('touchcancel', () => { g = null; this.end(w); }, { passive: true });
+    /* computer: a trackpad pinch (or ctrl + scroll) over the picture zooms the picture, never the page; over the
+       timeline it keeps zooming the timeline (its own handler); a double click goes back to the whole picture */
+    let wt = 0;
+    fv.addEventListener('wheel', e => {
+      if (!e.ctrlKey) { if (this.s > 1.01 && !off(e) && this.can()) { e.preventDefault(); if (!this._r) this.begin(w); this.x -= e.deltaX; this.y -= e.deltaY; this.fit(w); this.frame(); clearTimeout(wt); wt = setTimeout(() => this.end(w), 200); } return; }
+      e.preventDefault(); if (off(e) || !this.can()) return;
+      if (!this._r) this.begin(w);
+      const p = this.at(w, e.clientX, e.clientY), s0 = this.s, s = clamp(s0 * Math.exp(-e.deltaY * 0.01), 1, 6);
+      this.x = p[0] - (p[0] - this.x) * s / s0; this.y = p[1] - (p[1] - this.y) * s / s0; this.s = s; this.fit(w); this.frame(); this.moved = Date.now();
+      clearTimeout(wt); wt = setTimeout(() => { this.end(w); if (this.s < 1.03) this.reset(); }, 200);
+    }, { passive: false });
+    w.addEventListener('dblclick', e => { if (this.s > 1.01) { e.preventDefault(); this.reset(); this.moved = Date.now(); } });
   }
 };
 /* behave like an app, not a web page: the page itself never zooms (pinch, double tap, or tapping a text box) and never
