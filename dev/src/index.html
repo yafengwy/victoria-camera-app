@@ -3335,7 +3335,7 @@ function fullButtons() {
   });
 }
 function render() {
-  if (fullLight()) { const _t1 = performance.now(); try { fullButtons(); paintFocus(); Live.policy(); } catch (e) { Dbg.log('script error', 'full light', String(e && e.message || e)); } const ms = Math.round(performance.now() - _t1); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', 'full'); return; }
+  if (fullLight()) { const _t1 = performance.now(); try { fullButtons(); paintFocus(); Playback.sync(); } catch (e) { Dbg.log('script error', 'full light', String(e && e.message || e)); } const ms = Math.round(performance.now() - _t1); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', 'full'); return; }
   const _t0 = performance.now();
   try { render0(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
 }
@@ -6148,7 +6148,10 @@ const ACT = {
   /* full screen with the alert panel: the page is redrawn to mark the picked alert; the panel keeps its scroll position
      (render keeps every scrolled list in place) */
   fseek(d) { Dbg.log('tap alert', hms(+d.t), Playback.why(S.focus.cam)); S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true;
-    if (S.fpanel) render(); else { paintFocus(); Playback.sync(); } fuiKick(); },
+    /* 4.9.5: the alert list is no longer redrawn for a tap (4.9.2 light redraw), so mark the tapped one here and load
+       its video directly; before, only the first tapped alert played */
+    if (S.fpanel) document.querySelectorAll('#fullv .fpi').forEach(n => n.classList.toggle('cur', n === (d.el || null) || +n.dataset.t === +d.t));
+    paintFocus(); Playback.sync(); fuiKick(); },
   reconn(d, ev) {
     if (Data.source !== 'frigate' || !Ctl.on(d.id)) { Dbg.log('reconnect skipped', d.id, Data.source, Ctl.on(d.id) ? 'on' : 'off'); return; }
     const ids = [Live.cardSrc(d.id), d.id, d.id + '_sub'].filter((x, i, a) => a.indexOf(x) === i && Live.els[x]);
