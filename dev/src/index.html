@@ -4552,7 +4552,7 @@ function mkZoom(cfg) { return {
       const o = (-n.offsetLeft) + 'px ' + (-n.offsetTop) + 'px'; if (n.style.transformOrigin !== o) n.style.transformOrigin = o; } },
   apply() {
     const w = this.host(); if (!w) return;
-    if (this.cam !== (S.focus && S.focus.cam) || !this.can()) { this.cam = S.focus && S.focus.cam; this.s = 1; this.x = 0; this.y = 0; }
+    if (this.cam !== (S.focus && S.focus.cam) || !this.root()) { this.cam = S.focus && S.focus.cam; this.s = 1; this.x = 0; this.y = 0; }   /* 4.9.6: showing the timeline keeps the zoom */
     this.vars(w); this.prep(w);
   },
   /* during a gesture: at most one paint per frame */
@@ -4623,7 +4623,7 @@ const FZ = mkZoom({
   host: () => document.querySelector('#fullv .fvw'), root: () => document.getElementById('fullv'),
   keep: n => n.classList.contains('fuitop') || n.classList.contains('fulltm') || n.classList.contains('fullsteps'),
   side: e => !!(e.target.closest && e.target.closest('.fside')),
-  can: () => !!document.getElementById('fullv') && !(window.matchMedia && matchMedia('(pointer:coarse)').matches)   /* 4.9.2 her ask: phones do not zoom the full screen for now (like the upright camera view); computers do */
+  can: () => !!document.getElementById('fullv') && (!S.fui || !(window.matchMedia && matchMedia('(pointer:coarse)').matches))   /* 4.9.6 her rule: on phones the full screen picture zooms only while the timeline is hidden (a zoomed picture stays zoomed when the timeline is shown); computers always */
 });
 /* 4.8.8: the computer's camera view (picture on the left, timeline on the right) zooms its picture the same way; the
    timeline never moves. On a phone held upright (timeline under the picture) the camera view does not zoom. */
@@ -6273,6 +6273,7 @@ const ACT = {
   fdate() { openDateTime(camT(S.focus.cam), v => { const d0 = dayStart(v); S.focus.back = 0; S.focus.dayEnd = d0 === dayStart(now()) ? null : d0 + DAY; S.camTime[S.focus.cam] = v >= now() - 1000 ? null : v; render(); }); }
 };
 function openFocus(id) {
+  FZF.s = 1; FZF.x = 0; FZF.y = 0; FZ.s = 1; FZ.x = 0; FZ.y = 0;
   S.focus = { cam: id, dayEnd: null, pad: 0, back: 0 }; S.full = false; S.fui = false; S.fpanel = false; FBack.load(id);
   if (isLand()) { S.full = true; S.autoFull = true; }   /* phone held sideways: open straight into full screen */
   render();

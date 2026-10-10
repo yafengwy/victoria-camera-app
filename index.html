@@ -2276,7 +2276,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 4.9.5 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 4.9.6 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4552,7 +4552,7 @@ function mkZoom(cfg) { return {
       const o = (-n.offsetLeft) + 'px ' + (-n.offsetTop) + 'px'; if (n.style.transformOrigin !== o) n.style.transformOrigin = o; } },
   apply() {
     const w = this.host(); if (!w) return;
-    if (this.cam !== (S.focus && S.focus.cam) || !this.can()) { this.cam = S.focus && S.focus.cam; this.s = 1; this.x = 0; this.y = 0; }
+    if (this.cam !== (S.focus && S.focus.cam) || !this.root()) { this.cam = S.focus && S.focus.cam; this.s = 1; this.x = 0; this.y = 0; }   /* 4.9.6: showing the timeline keeps the zoom */
     this.vars(w); this.prep(w);
   },
   /* during a gesture: at most one paint per frame */
@@ -4623,7 +4623,7 @@ const FZ = mkZoom({
   host: () => document.querySelector('#fullv .fvw'), root: () => document.getElementById('fullv'),
   keep: n => n.classList.contains('fuitop') || n.classList.contains('fulltm') || n.classList.contains('fullsteps'),
   side: e => !!(e.target.closest && e.target.closest('.fside')),
-  can: () => !!document.getElementById('fullv') && !(window.matchMedia && matchMedia('(pointer:coarse)').matches)   /* 4.9.2 her ask: phones do not zoom the full screen for now (like the upright camera view); computers do */
+  can: () => !!document.getElementById('fullv') && (!S.fui || !(window.matchMedia && matchMedia('(pointer:coarse)').matches))   /* 4.9.6 her rule: on phones the full screen picture zooms only while the timeline is hidden (a zoomed picture stays zoomed when the timeline is shown); computers always */
 });
 /* 4.8.8: the computer's camera view (picture on the left, timeline on the right) zooms its picture the same way; the
    timeline never moves. On a phone held upright (timeline under the picture) the camera view does not zoom. */
@@ -5483,7 +5483,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.9.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.9.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -5616,7 +5616,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.9.5');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.9.6');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5633,7 +5633,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.9.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.9.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -6273,6 +6273,7 @@ const ACT = {
   fdate() { openDateTime(camT(S.focus.cam), v => { const d0 = dayStart(v); S.focus.back = 0; S.focus.dayEnd = d0 === dayStart(now()) ? null : d0 + DAY; S.camTime[S.focus.cam] = v >= now() - 1000 ? null : v; render(); }); }
 };
 function openFocus(id) {
+  FZF.s = 1; FZF.x = 0; FZF.y = 0; FZ.s = 1; FZ.x = 0; FZ.y = 0;
   S.focus = { cam: id, dayEnd: null, pad: 0, back: 0 }; S.full = false; S.fui = false; S.fpanel = false; FBack.load(id);
   if (isLand()) { S.full = true; S.autoFull = true; }   /* phone held sideways: open straight into full screen */
   render();
@@ -6806,7 +6807,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.9.5';
+    const BUILD = '4.9.6';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
