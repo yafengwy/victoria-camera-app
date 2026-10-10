@@ -1421,8 +1421,8 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .lthrow small{font-size:12px;color:var(--sub);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lthrow>svg{flex:none;width:18px;height:18px;color:var(--sub)}
 .ltd{max-width:560px}
-.ltd .dhead{position:sticky;top:0;z-index:2;gap:4px;padding-left:10px}
-.ltd .ltttl{flex:1;padding-left:6px}
+.ltd .dhead{position:sticky;top:0;z-index:2;gap:4px}
+.ltd .ltttl{flex:1}
 .ltd .dbody{gap:8px;padding:10px 12px 14px}
 .ltchips,.ltwho{display:flex;gap:8px;flex-wrap:wrap}
 .ltwho .chip{flex:1;justify-content:center;height:46px;font-size:16px}
@@ -1485,8 +1485,8 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 [data-dark][data-app-theme="glass"] .ltpickbar{background:rgba(22,28,38,.92)}
 /* ---- 4.9.10 Cats / People: whole pictures in the grid; a tapped picture big with the names under it ---- */
 .pf img{object-fit:contain}
-.pfbigd .dhead{gap:4px;padding-left:6px}
-.pfbigt{flex:1;padding-left:4px}
+.pfbigd .dhead{gap:4px}
+.pfbigt{flex:1}
 .pfbig{border-radius:14px;overflow:hidden;background:#000}
 .pfbig img{display:block;width:100%;max-height:62vh;object-fit:contain}
 .pfbigc{display:flex;align-items:baseline;gap:8px;margin:4px 2px 0}
@@ -3096,7 +3096,7 @@ function modalPeople() {
       /* 4.9.10 same as Cats: the picked face big (the whole picture), the names under it */
       const x = all.find(y => y.f === sel);
       return '<div class="scrim" data-act="close" role="presentation"><div class="dialog snzd pfbigd" role="dialog" aria-label="People" data-stop="1">' +
-        '<div class="dhead"><button class="ic" style="color:var(--head-fg)" data-act="pfsel" data-v="' + esc(sel) + '" aria-label="Back">' + I.back + '</button><span class="pfbigt">People</span><button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
+        '<div class="dhead"><span class="pfbigt">People</span><button class="ic" style="color:var(--head-fg)" data-act="pfsel" data-v="' + esc(sel) + '" aria-label="Back">' + I.x + '</button></div><div class="dbody">' +
         '<div class="pfbig"><img src="' + bigSrc(x.f, Frigate.base() + '/clips/faces/train/' + encodeURIComponent(x.f)) + '" alt=""></div>' +
         '<div class="pfbigc"><b>' + (x.guess === 'unknown' ? 'Unknown' : esc(niceName(x.guess))) + (isFinite(x.score) && x.score > 0 ? ' ' + Math.round(x.score * 100) + '%' : '') + '</b><span>' + (x.ts ? hm(x.ts * 1000) + ' ' + dayLabel(x.ts * 1000) : '') + '</span></div>' +
         '<div class="ctsub">This Is</div>' +
@@ -3169,13 +3169,13 @@ function bigBack() { const y = S.bigY || 0; requestAnimationFrame(() => { const 
 function modalCats() {
   const rows = pfOrder(CatPics.rows(), S.ctSort || 'low'), n = S.ctN || 120, sel = S.ctSel || {}, picked = Object.keys(sel).filter(k => sel[k]), names = [...CatFix.names, 'none'];
   let h = '<div class="scrim" data-act="close" role="presentation"><div class="dialog snzd" role="dialog" aria-label="Cats" data-stop="1">' +
-    '<div class="dhead">Cats<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">';
+    '<div class="dhead">Cats<button class="ic" style="color:var(--head-fg)" data-act="cathub" aria-label="Back">' + I.x + '</button></div><div class="dbody">';
   if (CatPics.train == null) return h + '<div class="wtnote" style="margin:0">Loading…</div></div></div></div>';
   const ds = CatPics.ds || {};
   /* 4.9.10 her rule: tapping a picture shows it big (the whole picture, not cut to a square), with the names under it */
   const big = S.ctBig && rows.find(x => x.f === S.ctBig);
   if (big) return '<div class="scrim" data-act="close" role="presentation"><div class="dialog snzd pfbigd" role="dialog" aria-label="Cats" data-stop="1">' +
-    '<div class="dhead"><button class="ic" style="color:var(--head-fg)" data-act="ctbigx" aria-label="Back">' + I.back + '</button><span class="pfbigt">Cats</span><button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
+    '<div class="dhead"><span class="pfbigt">Cats</span><button class="ic" style="color:var(--head-fg)" data-act="ctbigx" aria-label="Back">' + I.x + '</button></div><div class="dbody">' +
     '<div class="pfbig"><img src="' + bigSrc(big.f, CatPics.url(big.f)) + '" alt=""></div>' +
     '<div class="pfbigc"><b>' + (big.guess === 'none' ? 'None' : esc(niceName(big.guess))) + (isFinite(big.score) && big.score > 0 ? ' ' + Math.round(big.score * 100) + '%' : '') + '</b><span>' + (big.ts ? hm(big.ts * 1000) + ' ' + dayLabel(big.ts * 1000) : '') + '</span></div>' +
     '<div class="ctsub">This Is</div><div class="ctnames">' +
@@ -3286,8 +3286,8 @@ function ltThumb(g, sel) {
 }
 function modalLitter() {
   const shell = (title, body, back) => '<div class="scrim" data-act="close" role="presentation"><div class="dialog ltd" role="dialog" aria-label="' + title + '" data-stop="1">' +
-    '<div class="dhead">' + (back ? '<button class="ic ltback" style="color:var(--head-fg)" data-act="' + back + '" aria-label="Back">' + I.back + '</button>' : '') + '<span class="ltttl">' + title + '</span>' +
-    '<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' + body + '</div></div></div>';
+    '<div class="dhead"><span class="ltttl">' + title + '</span>' +
+    '<button class="ic" style="color:var(--head-fg)" data-act="' + (back || 'cathub') + '" aria-label="Back">' + I.x + '</button></div><div class="dbody">' + body + '</div></div></div>';
   if (!Litter.rows) return shell('如厕记录', '<div class="wtnote" style="margin:0">加载中…</div>');
   const all = Litter.groups();
   if (S.ltSel) {
@@ -3324,7 +3324,7 @@ function modalLitter() {
   flush();
   if (gs.length > n) body += '<button class="btn momore" data-act="ltmore">再看 ' + Math.min(60, gs.length - n) + ' 条</button>';
   if (!sel && gs.length) body += '<div class="wtnote">长按一张可以选几条合并</div>';
-  return shell(sel ? '选择要合并的' : '如厕记录', body);
+  return shell(sel ? '选择要合并的' : '如厕记录', body, sel ? 'ltpickno' : 'cathub');
 }
 /* long-press (0.5 s, finger or mouse held still) on anything with data-lp runs that action; the click after it is skipped */
 (function longPress() {
@@ -5876,14 +5876,15 @@ document.addEventListener('touchend', e => {
 function tapTime(ev) { const n = performance.now(), ts = ev && ev.timeStamp; return ts > 0 && ts <= n + 50 && n - ts < 2000 ? ts : n; }
 const ACT = {
   /* 4.9.10 Cats → 认猫 / 如厕记录 */
-  cathub() { S.more = false; S.modal = 'cathub'; render(); Litter.load().then(() => { if (S.modal === 'cathub') render(); }).catch(x => Dbg.log('litter load failed', x && x.message)); },
+  /* 4.10.2 her rule: × goes back one step (record → 如厕记录 → Cats → closed); tapping outside the box closes it all */
+  cathub() { S.more = false; S.modal = 'cathub'; S.ltSel = null; S.ltPick = null; S.ltDelAsk = false; S.ctBig = null; render(); Litter.load().then(() => { if (S.modal === 'cathub') render(); }).catch(x => Dbg.log('litter load failed', x && x.message)); },
   ltopen() { S.modal = 'litter'; S.ltSel = null; S.ltPick = null; S.ltN = 60; render();
     Litter.load(true).then(() => { if (S.modal === 'litter') render(); }).catch(x => { Dbg.log('litter load failed', x && x.message); toast('如厕记录加载失败'); }); },
   ltcam(d) { S.ltCam = d.v; S.ltN = 60; render(); },
   ltmore() { S.ltN = (S.ltN || 60) + 60; render(); },
   ltsel(d) {
     if (S.ltPick) { S.ltPick = Object.assign({}, S.ltPick, { [d.id]: !S.ltPick[d.id] }); render(); return; }
-    S.ltSel = d.id; S.ltPlus = true; S.ltRm = true; render();
+    bigKeep(); S.ltSel = d.id; S.ltPlus = true; S.ltRm = true; render(); requestAnimationFrame(() => { const n = document.querySelector('.scrim .dialog'); if (n) n.scrollTop = 0; });
   },
   ltlong(d) { if (S.modal !== 'litter' || S.ltSel) return; S.ltDelAsk = false; S.ltPick = Object.assign({}, S.ltPick || {}, { [d.id]: true }); try { navigator.vibrate && navigator.vibrate(15); } catch (x) {} render(); },
   ltpickno() { S.ltPick = null; S.ltDelAsk = false; render(); },
@@ -5899,7 +5900,7 @@ const ACT = {
     Litter.busy = false; S.ltPick = null; S.ltDelAsk = false; Dbg.log('litter delete', gs.length + ' visits', ps.length + ' parts', 'frigate+ ' + sent, ok ? 'ok' : 'not all taken');
     toast('已删除 ' + gs.length + ' 条 · 已发给 Frigate+：这里没有猫 / 狗' + (ok ? '' : ' · 有一部分没成功')); render();
   },
-  ltback() { S.ltSel = null; render(); },
+  ltback() { S.ltSel = null; render(); bigBack(); },
   ltplus() { S.ltPlus = S.ltPlus === false; render(); },
   ltrm() { S.ltRm = S.ltRm === false; render(); },
   async ltmerge() {
