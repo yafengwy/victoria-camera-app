@@ -2827,7 +2827,7 @@ const CatFix = {
         if (People.sub[d]) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: '' }); if (r.ok) delete People.sub[d]; else ok = false; }
         if (teach && this.model && (this.objs || ['cat']).includes(People.lab[d])) {
           if (!files) { try { files = await Frigate.get('/api/classification/' + encodeURIComponent(this.model) + '/train'); } catch (x) { files = []; } }
-          const mine = (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-2); why.push(d + ': ' + mine.length + ' pics');
+          const mine = (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-1);   /* 4.9.8 her rule: one picture per sighting (the pictures of one sighting are near copies) */ why.push(d + ': ' + mine.length + ' pics');
           for (const f of mine) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: 'none', training_file: f }); if (t.ok) taught++; else why.push('refused ' + t.msg); }
         } else why.push(d + ': ' + (!teach ? 'teach off' : !this.model ? 'no cats model' : 'label ' + People.lab[d]));
         const a = Arrive.det[d]; if (a) a.sub = '';
@@ -2850,7 +2850,7 @@ const CatFix = {
       }
       if (teach && this.model && (this.objs || ['cat']).includes(was)) {
         if (!files) { try { files = await Frigate.get('/api/classification/' + encodeURIComponent(this.model) + '/train'); } catch (x) { files = []; } }
-        const mine = (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-2); why.push(d + ': ' + mine.length + ' pics');
+        const mine = (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-1);   /* 4.9.8 her rule: one picture per sighting (the pictures of one sighting are near copies) */ why.push(d + ': ' + mine.length + ' pics');
         if (!mine.length && was === 'cat') miss++;
         for (const f of mine) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: pick || 'none', training_file: f }); if (t.ok) taught++; else why.push('refused ' + t.msg); }
       } else { why.push(d + ': ' + (!teach ? 'teach off' : !this.model ? 'no cats model' : 'label ' + was)); if (teach && this.model && pick && isAnimal(was)) nc.add(was); }
