@@ -1288,6 +1288,11 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .savebar:has(.sbp) > .sbt,.savebar:has(.sbp) > .sbp{grid-column:1}
 .savebar:has(.sbp){display:grid;grid-template-columns:1fr auto;column-gap:10px;align-items:center;padding:10px 8px 10px 16px;border-radius:16px}
 .savebar:has(.sbp) .sx{grid-column:2;grid-row:1 / span 2}
+.savebar.ask{flex-wrap:wrap;width:min(340px,calc(100vw - 32px));white-space:normal;border-radius:18px;padding:10px 8px 10px 16px;row-gap:8px}
+.savebar.ask .sbr{flex:1}
+.savebar.ask .sbq{display:flex;gap:8px;width:100%;padding-right:8px}
+.savebar.ask .sbq .sv{flex:1;justify-content:center}
+.savebar.ask .sbq .sv.alt{background:rgba(255,255,255,.14);color:#fff}
 .fclipt{flex:1;min-width:0;font-size:12px;line-height:1.35;color:var(--dark-fg,#fff);font-variant-numeric:tabular-nums}
 .fclipt b{display:inline-block;width:36px;color:var(--dark-sub,#AEB6BE);font-weight:700}
 .fctl .dk.solid{background:#fff;color:#111}
@@ -2252,7 +2257,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 4.8.2 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 4.8.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -5314,7 +5319,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.8.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.8.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -5347,7 +5352,7 @@ const SaveBar = {
     b.querySelector('.sbl').textContent = text; b.querySelector('.sbn').textContent = Math.round(pct) + '%'; b.querySelector('.sbp i').style.width = pct.toFixed(1) + '%';
   },
   cancel() { if (this.ac) this.ac.abort(); this.end(); },
-  end() { clearInterval(this.tm); this.busy = false; this.ac = null; const b = document.getElementById('savebar'); if (b) { b.hidden = true; b.innerHTML = ''; } },
+  end() { clearInterval(this.tm); this.busy = false; this.ac = null; const b = document.getElementById('savebar'); if (b) { b.hidden = true; b.innerHTML = ''; b.classList.remove('ask'); } },
   /* slow climb toward `to` while waiting on the mini PC, about `est` ms to get most of the way */
   creep(text, from, to, est) { const t0 = Date.now(); clearInterval(this.tm); this.tm = setInterval(() => { this.show(text, from + (to - from) * (1 - Math.exp(-(Date.now() - t0) / est))); }, 200); this.show(text, from); }
 };
@@ -5385,9 +5390,22 @@ function deliver(blob, name) {
 /* Downloads come with the date and time burned into the top-left corner (made on the mini PC, which takes a moment);
    if that fails, the plain video is saved instead. */
 function stampUrl(cam, aS, bS) { return Frigate.base() + '/stamp/' + cam + '/' + aS + '/' + bS + '/' + (-new Date(aS * 1000).getTimezoneOffset() * 60) + '/clip.mp4' + (/iPhone|iPad|Android/.test(navigator.userAgent) || navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent) ? '' : '?full=1'); }   /* phone: smaller video; computer: the camera's own size */
+/* 4.8.3: every download first asks whether to add the date and time (slower, made on the mini PC) or save the plain video (faster) */
+function askStamp() {
+  return new Promise(res => {
+    clearInterval(SaveBar.tm); const b = SaveBar.el(); b.hidden = false; b.classList.add('ask'); const tn = document.getElementById('toast'); if (tn) tn.hidden = true;
+    b.innerHTML = '<span class="sbr">Add Date And Time?</span><button class="sx" aria-label="Cancel">' + I.x + '</button>' +
+      '<div class="sbq"><button class="sv" data-s="1">Add · Slower</button><button class="sv alt" data-s="0">No · Faster</button></div>';
+    const done = v => { b.classList.remove('ask'); b.hidden = true; b.innerHTML = ''; res(v); };
+    b.querySelector('.sx').onclick = () => done(null);
+    b.querySelectorAll('.sbq .sv').forEach(x => { x.onclick = () => done(x.dataset.s === '1'); });
+  });
+}
 async function saveClip(url, name, durS, cam, aS, bS) {
   if (Data.source !== 'frigate') { toast('Downloads Work Once The App Runs On The Mini PC'); return; }
-  if (SaveBar.busy) return; SaveBar.busy = true; SaveBar.ac = new AbortController();
+  if (SaveBar.busy) return; SaveBar.busy = true;
+  if (cam) { const st = await askStamp(); Dbg.log('save choice', st == null ? 'cancel' : st ? 'stamp' : 'plain', name); if (st == null) { SaveBar.busy = false; return; } if (!st) cam = null; }
+  SaveBar.ac = new AbortController();
   const d = durS || 30;
   try {
     let blob = null;
@@ -5418,7 +5436,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.8.2');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.8.3');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5435,7 +5453,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.8.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.8.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -6592,7 +6610,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.8.2';
+    const BUILD = '4.8.3';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

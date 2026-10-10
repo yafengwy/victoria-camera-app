@@ -1288,6 +1288,11 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .savebar:has(.sbp) > .sbt,.savebar:has(.sbp) > .sbp{grid-column:1}
 .savebar:has(.sbp){display:grid;grid-template-columns:1fr auto;column-gap:10px;align-items:center;padding:10px 8px 10px 16px;border-radius:16px}
 .savebar:has(.sbp) .sx{grid-column:2;grid-row:1 / span 2}
+.savebar.ask{flex-wrap:wrap;width:min(340px,calc(100vw - 32px));white-space:normal;border-radius:18px;padding:10px 8px 10px 16px;row-gap:8px}
+.savebar.ask .sbr{flex:1}
+.savebar.ask .sbq{display:flex;gap:8px;width:100%;padding-right:8px}
+.savebar.ask .sbq .sv{flex:1;justify-content:center}
+.savebar.ask .sbq .sv.alt{background:rgba(255,255,255,.14);color:#fff}
 .fclipt{flex:1;min-width:0;font-size:12px;line-height:1.35;color:var(--dark-fg,#fff);font-variant-numeric:tabular-nums}
 .fclipt b{display:inline-block;width:36px;color:var(--dark-sub,#AEB6BE);font-weight:700}
 .fctl .dk.solid{background:#fff;color:#111}
@@ -5347,7 +5352,7 @@ const SaveBar = {
     b.querySelector('.sbl').textContent = text; b.querySelector('.sbn').textContent = Math.round(pct) + '%'; b.querySelector('.sbp i').style.width = pct.toFixed(1) + '%';
   },
   cancel() { if (this.ac) this.ac.abort(); this.end(); },
-  end() { clearInterval(this.tm); this.busy = false; this.ac = null; const b = document.getElementById('savebar'); if (b) { b.hidden = true; b.innerHTML = ''; } },
+  end() { clearInterval(this.tm); this.busy = false; this.ac = null; const b = document.getElementById('savebar'); if (b) { b.hidden = true; b.innerHTML = ''; b.classList.remove('ask'); } },
   /* slow climb toward `to` while waiting on the mini PC, about `est` ms to get most of the way */
   creep(text, from, to, est) { const t0 = Date.now(); clearInterval(this.tm); this.tm = setInterval(() => { this.show(text, from + (to - from) * (1 - Math.exp(-(Date.now() - t0) / est))); }, 200); this.show(text, from); }
 };
@@ -5385,9 +5390,22 @@ function deliver(blob, name) {
 /* Downloads come with the date and time burned into the top-left corner (made on the mini PC, which takes a moment);
    if that fails, the plain video is saved instead. */
 function stampUrl(cam, aS, bS) { return Frigate.base() + '/stamp/' + cam + '/' + aS + '/' + bS + '/' + (-new Date(aS * 1000).getTimezoneOffset() * 60) + '/clip.mp4' + (/iPhone|iPad|Android/.test(navigator.userAgent) || navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent) ? '' : '?full=1'); }   /* phone: smaller video; computer: the camera's own size */
+/* 4.8.3: every download first asks whether to add the date and time (slower, made on the mini PC) or save the plain video (faster) */
+function askStamp() {
+  return new Promise(res => {
+    clearInterval(SaveBar.tm); const b = SaveBar.el(); b.hidden = false; b.classList.add('ask'); const tn = document.getElementById('toast'); if (tn) tn.hidden = true;
+    b.innerHTML = '<span class="sbr">Add Date And Time?</span><button class="sx" aria-label="Cancel">' + I.x + '</button>' +
+      '<div class="sbq"><button class="sv" data-s="1">Add · Slower</button><button class="sv alt" data-s="0">No · Faster</button></div>';
+    const done = v => { b.classList.remove('ask'); b.hidden = true; b.innerHTML = ''; res(v); };
+    b.querySelector('.sx').onclick = () => done(null);
+    b.querySelectorAll('.sbq .sv').forEach(x => { x.onclick = () => done(x.dataset.s === '1'); });
+  });
+}
 async function saveClip(url, name, durS, cam, aS, bS) {
   if (Data.source !== 'frigate') { toast('Downloads Work Once The App Runs On The Mini PC'); return; }
-  if (SaveBar.busy) return; SaveBar.busy = true; SaveBar.ac = new AbortController();
+  if (SaveBar.busy) return; SaveBar.busy = true;
+  if (cam) { const st = await askStamp(); Dbg.log('save choice', st == null ? 'cancel' : st ? 'stamp' : 'plain', name); if (st == null) { SaveBar.busy = false; return; } if (!st) cam = null; }
+  SaveBar.ac = new AbortController();
   const d = durS || 30;
   try {
     let blob = null;
