@@ -1274,6 +1274,9 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .full .fov,.full .fullsteps,.full .fulltm,.full .fbot,.full .fuitop{touch-action:none}
 .full .fvw > :not(.fuitop):not(.fulltm):not(.fullsteps){transform:translate(var(--zx,0px),var(--zy,0px)) scale(var(--zs,1));transform-origin:0 0}
 .full .fvw.zooming > :not(.fuitop):not(.fulltm):not(.fullsteps){will-change:transform}
+/* 4.8.7: the picture and the timeline side are drawn as separate parts, so zooming one never repaints the other */
+.full .fvw{contain:layout paint}
+.full .fside{contain:layout paint}
 
 /* ---- v67: save video: ready bar (phones), camera view clip range ---- */
 .savebar{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:90;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 16px;border-radius:28px;background:#1B1F23;color:#fff;font-size:14px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.3);white-space:nowrap}
@@ -4531,6 +4534,26 @@ const FZ = {
 /* 4.8.6: a trackpad pinch on a computer arrives as ctrl + scroll; it must never zoom the page (anywhere in the app),
    only the app's own zooms (picture, timelines) react to it */
 window.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
+/* 4.8.7 her idea: the full screen is two parts, the picture and the timeline side. Showing or hiding the timeline (a
+   tap on the picture) or switching it to the alert list only redraws the side and the buttons over the picture; the
+   picture and its running video are left alone. Redrawing the whole full screen restarted the HD video every tap
+   (1.3-1.9 s freezes, and the video's holding space overflowed). */
+function fullUi() {
+  const fv = document.getElementById('fullv'), c = S.focus && Data.cam(S.focus.cam), w = fv && fv.querySelector('.fvw');
+  if (!fv || !c || !w) { render(); return; }
+  const img = document.getElementById('fullimg'), tmp = document.createElement('div');
+  tmp.innerHTML = viewFull(c, camT(c.id), { img: img ? img.getAttribute('src') : '' });
+  const nfv = tmp.firstElementChild, nw = nfv && nfv.querySelector('.fvw'); if (!nw) { render(); return; }
+  fv.className = nfv.className;
+  w.querySelectorAll(':scope > .fullsteps, :scope > .fuitop').forEach(n => n.remove());
+  nw.querySelectorAll(':scope > .fullsteps, :scope > .fuitop').forEach(n => w.appendChild(n));
+  const os = fv.querySelector(':scope > .fside'), ns = nfv.querySelector(':scope > .fside');
+  if (os) os.remove(); if (ns) fv.appendChild(ns);
+  wireFull();
+  const fts = document.getElementById('ftsc');
+  if (fts) hoverPreview(fts, 'full', e => { const r = fts.getBoundingClientRect(); const y = fts.scrollTop + (e.clientY - r.top) - VTOP; return y < 0 ? null : focusEnd() - y / FFPX * MIN; }, paintFocus, 'v');
+  FZ.apply();
+}
 function wireFull() {
   FZ.wire();
   if (document.querySelector('.full.rot')) { rotDrag(document.getElementById('ftsc')); rotDrag(document.querySelector('.full .fpl')); }
@@ -5749,23 +5772,26 @@ const ACT = {
   modal(d) { S.modal = d.v; render(); },
   close() { S.modal = null; render(); },
   toast(d) { toast(d.v); },
-  tap(d) {
-    const t = Date.now();
-    if (lastTap.id === d.id && t - lastTap.at < 320) { clearTimeout(tapTimer); lastTap = { id: null, at: 0 }; S.camTime[d.id] = null; openFocus(d.id); return; }   /* 4.1.5: opens on Live, not where the card was paused */
+  tap(d, ev) {
+    /* 4.8.7: double taps were often missed: the gap is now taken from when the finger actually tapped (not when a busy
+       page got round to it) and may be up to 0.45 s; a single tap waits that long before it acts */
+    const t = ev && ev.timeStamp ? performance.timeOrigin + ev.timeStamp : Date.now();
+    if (lastTap.id === d.id && t - lastTap.at < 450) { clearTimeout(tapTimer); lastTap = { id: null, at: 0 }; S.camTime[d.id] = null; openFocus(d.id); return; }   /* 4.1.5: opens on Live, not where the card was paused */
     lastTap = { id: d.id, at: t };
     clearTimeout(tapTimer);
     tapTimer = setTimeout(() => {
+      lastTap = { id: null, at: 0 };
       if (S.expanded === d.id) { S.expanded = null; }
       else { S.expanded = d.id; const ct = camT(d.id); S.tab = 'events'; if (ct == null) { S.winEnd = now(); S.pos = 1; } else seek(d.id, ct); }
       render();
       const el = document.getElementById('cam-' + d.id); if (el && S.expanded) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }, 260);
+    }, 460);
   },
   focus(d) { S.camTime[d.id] = null; openFocus(d.id); },
   evtap(d, ev) {
     const e = evE(d.v); if (!e) return;
-    const t = Date.now();
-    if (evTapLast.id === d.v && t - evTapLast.at < 320) { clearTimeout(evTapTimer); evTapLast = { id: null, at: 0 }; evStop(); ACT.focusat({ id: e.cam, t: evP(d.v, S.filt).t }); return; }
+    const t = ev && ev.timeStamp ? performance.timeOrigin + ev.timeStamp : Date.now();
+    if (evTapLast.id === d.v && t - evTapLast.at < 450) { clearTimeout(evTapTimer); evTapLast = { id: null, at: 0 }; evStop(); ACT.focusat({ id: e.cam, t: evP(d.v, S.filt).t }); return; }
     evTapLast = { id: d.v, at: t };   /* single tap: play it here (Frigate); double tap: open the camera */
     if (Data.source === 'frigate' && S.evPlay !== d.v) ACT.evplay({ v: d.v }, ev);
   },
@@ -5993,9 +6019,9 @@ const ACT = {
     Snd.apply();
     const h = Snd.on && Snd.host(); if (h) h.querySelectorAll('video').forEach(v => { if (v.paused && v.readyState >= 2 && (v.classList.contains('pbv') ? S.playing && camT(v.closest('[data-pb]') ? v.closest('[data-pb]').dataset.pb : '') != null : true)) v.play().catch(() => {}); });
   },
-  fuitap(d, e) { if (e && e.target.closest('.fuitop')) return; if (Date.now() - FZ.moved < 400) return; S.fui = !S.fui; if (!S.fui) S.fpanel = false; render(); },
+  fuitap(d, e) { if (e && e.target.closest('.fuitop')) return; if (Date.now() - FZ.moved < 400) return; S.fui = !S.fui; if (!S.fui) S.fpanel = false; fullUi(); },
   fkick() { fuiKick(); },
-  fpanel() { S.fpanel = !S.fpanel; S.fui = true; render(); fuiKick(); },
+  fpanel() { S.fpanel = !S.fpanel; S.fui = true; fullUi(); fuiKick(); },
   /* full screen with the alert panel: the page is redrawn to mark the picked alert; the panel keeps its scroll position
      (render keeps every scrolled list in place) */
   fseek(d) { Dbg.log('tap alert', hms(+d.t), Playback.why(S.focus.cam)); S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true;
@@ -7156,12 +7182,20 @@ class VideoRTC extends HTMLElement {
                 }
             });
 
-            const buf = new Uint8Array(2 * 1024 * 1024);
+            let buf = new Uint8Array(2 * 1024 * 1024);
             let bufLen = 0;
 
             this.ondata = data => {
                 if (sb.updating || bufLen > 0) {
                     const b = new Uint8Array(data);
+                    /* 4.8.7: while the page was busy (1-2 s) more than 2 MB of HD video came in and buf.set threw
+                       "Range ... out of bounds" for every piece; the holding space now grows (up to 16 MB), and past
+                       that the held video is dropped and the picture catches up with the newest second */
+                    if (bufLen + b.byteLength > buf.length) {
+                        const need = bufLen + b.byteLength;
+                        if (need <= 16 * 1024 * 1024) { const nb = new Uint8Array(Math.min(16 * 1024 * 1024, Math.max(need, buf.length * 2))); nb.set(buf.subarray(0, bufLen)); buf = nb; }
+                        else { bufLen = 0; if (b.byteLength > buf.length) return; }
+                    }
                     buf.set(b, bufLen);
                     bufLen += b.byteLength;
                     // console.debug('VideoRTC.buffer', b.byteLength, bufLen);
