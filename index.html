@@ -1448,7 +1448,9 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .ltbot u.q{background:rgba(255,255,255,.28);color:#fff}
 .ltpickbar{position:sticky;top:44px;z-index:2;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:14px;background:var(--card);box-shadow:0 0 0 1px var(--line)}
 .ltpickbar span{flex:1;font-size:14px;font-weight:800}
-.ltpickbar .btn{height:36px;padding:0 14px}
+.ltpickbar .btn{height:36px;padding:0 12px}
+.ltpickbar span{line-height:1.3}
+.ltdelask{box-shadow:0 0 0 1.5px #E5534B}
 .ltpickbar .btn[disabled],.ltd .btn[disabled],.ltwho .chip[disabled]{opacity:.45}
 .ltvid{position:relative;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000}
 .ltvid img,.ltvid video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
@@ -2364,7 +2366,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 4.9.10 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 4.10.1 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -3095,7 +3097,7 @@ function modalPeople() {
       const x = all.find(y => y.f === sel);
       return '<div class="scrim" data-act="close" role="presentation"><div class="dialog snzd pfbigd" role="dialog" aria-label="People" data-stop="1">' +
         '<div class="dhead"><button class="ic" style="color:var(--head-fg)" data-act="pfsel" data-v="' + esc(sel) + '" aria-label="Back">' + I.back + '</button><span class="pfbigt">People</span><button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
-        '<div class="pfbig"><img src="' + Frigate.base() + '/clips/faces/train/' + encodeURIComponent(x.f) + '" alt=""></div>' +
+        '<div class="pfbig"><img src="' + bigSrc(x.f, Frigate.base() + '/clips/faces/train/' + encodeURIComponent(x.f)) + '" alt=""></div>' +
         '<div class="pfbigc"><b>' + (x.guess === 'unknown' ? 'Unknown' : esc(niceName(x.guess))) + (isFinite(x.score) && x.score > 0 ? ' ' + Math.round(x.score * 100) + '%' : '') + '</b><span>' + (x.ts ? hm(x.ts * 1000) + ' ' + dayLabel(x.ts * 1000) : '') + '</span></div>' +
         '<div class="ctsub">This Is</div>' +
         (names.length ? '<div class="ctnames">' + names.map(n => { const k = Object.keys(f).find(y => niceName(y) === n), ph = k && (f[k] || [])[0];
@@ -3154,6 +3156,13 @@ const CatPics = {
   },
   drop(ids) { const s = new Set(ids); this.train = (this.train || []).filter(f => !s.has(f)); }
 };
+/* 4.9.11 her rule: the big picture is Frigate's whole snapshot of that moment (with the box around the cat / face),
+   not the small cut-out the model saved; if there is no snapshot, the cut-out is shown instead */
+function bigSrc(f, crop) {
+  const ev = String(f).replace(/\.webp$/i, '').split('-').slice(0, -3).join('-');
+  if (!ev) return crop;
+  const u = Frigate.base() + '/api/events/' + encodeURIComponent(ev) + '/snapshot.jpg?bbox=1'; Frigate.fb[u] = crop; return u;
+}
 /* the list keeps its place when a big picture is opened and closed again */
 function bigKeep() { const n = document.querySelector('.scrim .dialog'); S.bigY = n ? n.scrollTop : 0; }
 function bigBack() { const y = S.bigY || 0; requestAnimationFrame(() => { const n = document.querySelector('.scrim .dialog'); if (n) n.scrollTop = y; }); }
@@ -3167,7 +3176,7 @@ function modalCats() {
   const big = S.ctBig && rows.find(x => x.f === S.ctBig);
   if (big) return '<div class="scrim" data-act="close" role="presentation"><div class="dialog snzd pfbigd" role="dialog" aria-label="Cats" data-stop="1">' +
     '<div class="dhead"><button class="ic" style="color:var(--head-fg)" data-act="ctbigx" aria-label="Back">' + I.back + '</button><span class="pfbigt">Cats</span><button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
-    '<div class="pfbig"><img src="' + CatPics.url(big.f) + '" alt=""></div>' +
+    '<div class="pfbig"><img src="' + bigSrc(big.f, CatPics.url(big.f)) + '" alt=""></div>' +
     '<div class="pfbigc"><b>' + (big.guess === 'none' ? 'None' : esc(niceName(big.guess))) + (isFinite(big.score) && big.score > 0 ? ' ' + Math.round(big.score * 100) + '%' : '') + '</b><span>' + (big.ts ? hm(big.ts * 1000) + ' ' + dayLabel(big.ts * 1000) : '') + '</span></div>' +
     '<div class="ctsub">This Is</div><div class="ctnames">' +
     names.map(c => { const fs = ds[c] || []; return '<button class="ctname" data-act="ctbigfile" data-v="' + esc(c) + '"' + (CatPics.busy ? ' disabled' : '') + '>' + (fs.length ? '<img src="' + Frigate.base() + '/clips/' + encodeURIComponent(CatFix.model) + '/dataset/' + encodeURIComponent(c) + '/' + encodeURIComponent(fs[fs.length - 1]) + '" alt="">' : '<i>' + ICON_SVG.cat + '</i>') + '<span>' + esc(c === 'none' ? 'None' : c) + '</span></button>'; }).join('') + '</div>' +
@@ -3263,7 +3272,7 @@ function modalCatHub() {
   const sub = Litter.rows ? (today.length ? '今天 · ' + Litter.summary(today) : '今天还没有记录') : '加载中…';
   return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm lthub" role="dialog" aria-label="Cats" data-stop="1">' +
     '<div class="dhead">Cats<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
-    '<button class="lthrow" data-act="ctopen"><i>' + ICON_SVG.cat + '</i><span><b>认猫</b><small>选照片 · 给每只猫标名字</small></span>' + '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>' + '</button>' +
+    '<button class="lthrow" data-act="ctopen"><i>🐱</i><span><b>认猫</b><small>选照片 · 给每只猫标名字</small></span>' + '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>' + '</button>' +
     '<button class="lthrow" data-act="ltopen"><i>💩</i><span><b>如厕记录</b><small>' + esc(sub) + '</small></span>' + '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>' + '</button>' +
     '</div></div></div>';
 }
@@ -3289,7 +3298,8 @@ function modalLitter() {
     let bar = ''; if (g.ps.length > 1) { let at = g.t; g.ps.forEach(p => { if (p.t > at) bar += '<b style="flex:' + Math.max(0.02, (p.t - at) / span) + '"></b>'; bar += '<i style="flex:' + Math.max(0.03, (p.end - p.t) / span) + '"></i>'; at = Math.max(at, p.end); }); bar = '<div class="ltbar">' + bar + '</div>'; }
     const plus = S.ltPlus !== false, rmv = S.ltRm !== false, busy = Litter.busy;
     return shell('如厕记录',
-      '<div class="ltvid"><img src="' + g.img + '" alt=""><video class="evv" data-hls="' + vod + '" data-cam="' + g.cam + '" data-vs="' + vs + '" data-ve="' + ve + '" data-at="' + Math.floor(g.t / 1000) + '" autoplay muted controls playsinline style="opacity:0"></video></div>' + bar +
+      '<div class="ltvid"><img src="' + g.img + '" alt=""><video class="evv" data-hls="' + vod + '" data-cam="' + g.cam + '" data-vs="' + vs + '" data-ve="' + ve + '" data-at="' + Math.floor(g.t / 1000) + '" autoplay muted controls playsinline style="opacity:0"></video>' +
+      '<button class="skip5 b" data-act="evskip" data-v="-5" aria-label="Back 5 Seconds">' + I.back5 + '</button><button class="skip5 f" data-act="evskip" data-v="5" aria-label="Forward 5 Seconds">' + I.fwd5 + '</button></div>' + bar +
       '<div class="ltmeta"><b>' + (g.ps.length > 1 ? hm(g.t) + ' – ' + hm(g.end) : hms(g.t)) + '</b><span>' + Litter.camName(g.cam) + (g.cam === 'closet' ? ' · Poop Spot' : '') + ' · ' + Litter.dayName(g.t) + (g.ps.length > 1 ? ' · ' + g.ps.length + ' 段' : '') + ' · ' + Litter.dur(g) + '</span></div>' +
       '<div class="lbl">是谁' + (g.ps.length > 1 ? '（改了 ' + g.ps.length + ' 段一起改）' : '') + '</div><div class="ltwho">' +
       Litter.names().map(n => '<button class="chip" data-act="ltname" data-v="' + esc(n) + '" aria-pressed="' + (g.name === n) + '"' + (busy ? ' disabled' : '') + '>' + esc(n) + '</button>').join('') + '</div>' +
@@ -3303,7 +3313,9 @@ function modalLitter() {
   let body = '';
   if (sel) {
     const ids = Object.keys(sel).filter(k => sel[k]), cams = new Set(all.filter(g => sel[g.id]).map(g => g.cam));
-    body += '<div class="ltpickbar"><span>已选 ' + ids.length + ' 条' + (cams.size > 1 ? ' · 只能合并同一个摄像头的' : '') + '</span><button class="btn" data-act="ltpickno">取消</button><button class="btn solid" data-act="ltmerge"' + (ids.length < 2 || cams.size > 1 || Litter.busy ? ' disabled' : '') + '>合并</button></div>';
+    body += S.ltDelAsk && ids.length
+      ? '<div class="ltpickbar ltdelask"><span>删除 ' + ids.length + ' 条，并发给 Frigate+ 说这里没有猫 / 狗？</span><button class="btn" data-act="ltdelno">取消</button><button class="btn pfred" data-act="ltdel"' + (Litter.busy ? ' disabled' : '') + '>' + (Litter.busy ? '删除中…' : '删除') + '</button></div>'
+      : '<div class="ltpickbar"><span>已选 ' + ids.length + ' 条' + (cams.size > 1 ? ' · 只能合并同一个摄像头的' : '') + '</span><button class="btn" data-act="ltpickno">取消</button><button class="btn pfred" data-act="ltdelask"' + (!ids.length || Litter.busy ? ' disabled' : '') + '>删除</button><button class="btn solid" data-act="ltmerge"' + (ids.length < 2 || cams.size > 1 || Litter.busy ? ' disabled' : '') + '>合并</button></div>';
   } else body += '<div class="ltchips">' + [['all', '全部'], ['litter_box', '猫砂盆'], ['closet', 'Closet']].map(c => '<button class="chip" data-act="ltcam" data-v="' + c[0] + '" aria-pressed="' + (cam === c[0]) + '">' + c[1] + '</button>').join('') + '</div>';
   if (!gs.length) body += '<div class="wtnote" style="margin:0">最近 30 天还没有记录</div>';
   const n = S.ltN || 60; let shown = 0, day = '', cur = [];
@@ -5739,7 +5751,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.9.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.10.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -5873,8 +5885,20 @@ const ACT = {
     if (S.ltPick) { S.ltPick = Object.assign({}, S.ltPick, { [d.id]: !S.ltPick[d.id] }); render(); return; }
     S.ltSel = d.id; S.ltPlus = true; S.ltRm = true; render();
   },
-  ltlong(d) { if (S.modal !== 'litter' || S.ltSel) return; S.ltPick = Object.assign({}, S.ltPick || {}, { [d.id]: true }); try { navigator.vibrate && navigator.vibrate(15); } catch (x) {} render(); },
-  ltpickno() { S.ltPick = null; render(); },
+  ltlong(d) { if (S.modal !== 'litter' || S.ltSel) return; S.ltDelAsk = false; S.ltPick = Object.assign({}, S.ltPick || {}, { [d.id]: true }); try { navigator.vibrate && navigator.vibrate(15); } catch (x) {} render(); },
+  ltpickno() { S.ltPick = null; S.ltDelAsk = false; render(); },
+  ltdelask() { S.ltDelAsk = true; render(); },
+  ltdelno() { S.ltDelAsk = false; render(); },
+  /* 4.10.1 her rule: 删除 in the pick bar = for every picked visit, Frigate+ gets its snapshot as "no cat / no dog here"
+     (false positive; she draws the boxes herself in Frigate+ later) and the visit leaves the log */
+  async ltdel() {
+    const gs = Litter.groups().filter(g => S.ltPick && S.ltPick[g.id]); if (!gs.length || Litter.busy) return;
+    Litter.busy = true; render(); let ok = true, sent = 0; const ps = gs.flatMap(g => g.ps);
+    for (const p of ps) { const k = 'lt~' + p.id; EVK[k] = { e: p }; try { const r = await CatFix.save(k, '-animal', false, true); if (r.ok) sent++; else ok = false; } catch (x) { ok = false; } }
+    try { await Litter.post('remove', ps.map(p => p.id)); } catch (x) { ok = false; }
+    Litter.busy = false; S.ltPick = null; S.ltDelAsk = false; Dbg.log('litter delete', gs.length + ' visits', ps.length + ' parts', 'frigate+ ' + sent, ok ? 'ok' : 'not all taken');
+    toast('已删除 ' + gs.length + ' 条 · 已发给 Frigate+：这里没有猫 / 狗' + (ok ? '' : ' · 有一部分没成功')); render();
+  },
   ltback() { S.ltSel = null; render(); },
   ltplus() { S.ltPlus = S.ltPlus === false; render(); },
   ltrm() { S.ltRm = S.ltRm === false; render(); },
@@ -5924,7 +5948,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.9.10');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.10.1');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5941,7 +5965,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.9.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.10.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -6244,7 +6268,7 @@ const ACT = {
   },
   /* computer / Samsung: back or forward 5 s in the playing alert (iPhone's own player has these buttons) */
   evskip(d, ev) {
-    const m = ev && ev.target.closest('.evmedia'), v = m && m.querySelector('video.evv'); if (!v) return;
+    const m = ev && ev.target.closest('.evmedia, .ltvid'), v = m && m.querySelector('video.evv'); if (!v) return;
     const end = isFinite(v.duration) ? v.duration - 0.1 : Infinity;
     v.currentTime = Math.max(0, Math.min(end, v.currentTime + +d.v));
     Dbg.log('video', 'skip ' + d.v, 'to ' + v.currentTime.toFixed(1));
@@ -7120,7 +7144,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.9.10';
+    const BUILD = '4.10.1';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
