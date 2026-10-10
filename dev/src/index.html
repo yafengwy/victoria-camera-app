@@ -2757,7 +2757,7 @@ const CoFix = {
         else if (send && await sendPlus(d)) sent++;
         if (!plus && send && this.model && People.lab[d] === 'car') {   /* 3.9.3 her rule: the car model folder only with Teach ticked */
           if (!files) { try { files = await Frigate.get('/api/classification/' + encodeURIComponent(this.model) + '/train'); } catch (x) { files = []; } }
-          for (const f of (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-2)) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: key, training_file: f }); if (t.ok) taught++; }
+          for (const f of (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-1)) {   /* 4.9.9: one picture per car too */ const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: key, training_file: f }); if (t.ok) taught++; }
         }
       }
       if (taught) await People.post('/api/classification/' + encodeURIComponent(this.model) + '/train');
