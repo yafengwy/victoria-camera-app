@@ -2274,7 +2274,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 4.9.2 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 4.9.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4447,20 +4447,28 @@ function focusObjs(g) {
   });
   return out.sort((a, b) => b.t - a.t);
 }
-function fTrack(c) {
+/* 4.9.3: the full screen timeline draws only the part around what is on screen. With the timeline zoomed in to
+   minutes (her setting, ~95 px a minute) the 3-day track was ~400,000 px tall with ~9,000 marks and labels, and the
+   phone spent every frame on it (1-5 frames a second as soon as the timeline was shown). Now ~3 screens above and
+   below the visible part are drawn and the band follows the scrolling. */
+function fBand(y) { const H = Math.max(window.innerHeight, window.innerWidth), top = Math.max(0, y - 3 * H); return [top, top + 7 * H]; }
+function fTrack(c, band) {
   const end = focusEnd(), Y = ms => (end - ms) / MIN * FFPX;
+  if (!band) { const t = camT(c.id); band = fBand(t == null ? 0 : Y(t)); }
+  const [ya, yb] = band, inB = y => y >= ya && y <= yb;
   const steps = [MIN, 5 * MIN, 10 * MIN, 15 * MIN, 30 * MIN, HOUR, 2 * HOUR, 3 * HOUR, 6 * HOUR, 12 * HOUR, DAY];
   const minor = steps.find(st => st / MIN * FFPX >= 8) || DAY;
   const major = steps.find(st => st >= minor && st % minor === 0 && st / MIN * FFPX >= 44) || DAY;
   const tz = new Date().getTimezoneOffset() * MIN;
   let tr = '';
-  for (let k = Math.ceil((end - FSPAN - tz) / minor) * minor + tz; k <= end; k += minor) {
+  const kA = end - yb / FFPX * MIN, kB = end - ya / FFPX * MIN;
+  for (let k = Math.ceil((Math.max(end - FSPAN, kA) - tz) / minor) * minor + tz; k <= Math.min(end, kB); k += minor) {
     const isMaj = ((k - tz) % major + major) % major === 0;
     tr += '<div class="ftk" style="top:' + Y(k).toFixed(1) + 'px;width:' + (isMaj ? 10 : 5) + 'px"></div>';
     if (isMaj) tr += '<div class="flb" style="top:' + Y(k).toFixed(1) + 'px">' + (new Date(k).getHours() === 0 && new Date(k).getMinutes() === 0 ? dayLabel(k) : hm(k)) + '</div>';
   }
   let lastIc = -1e9; const icons = [];
-  const fevs = camEvents(c.id).filter(e => e.t <= end && (e.end || e.t) > end - FSPAN); Arrive.want(fevs);
+  const fevs = camEvents(c.id).filter(e => e.t <= end && (e.end || e.t) > end - FSPAN && Y(e.t) >= ya - 40 && Y(Math.max(e.end || e.t, e.t + 5000)) <= yb + 40); Arrive.want(fevs);
   const fpk = new Map(fevs.map(e => [e, pick(e, S.filt)]));
   fevs.sort((a, b) => fpk.get(b).t - fpk.get(a).t).forEach(e => {
     const y0 = Y(Math.max(e.end || e.t, e.t + 5000)), y1 = Math.max(Y(e.t), y0 + 3);
@@ -4471,11 +4479,17 @@ function fTrack(c) {
   icons.forEach(g => { tr += '<span class="fico' + (g.e.interesting ? '' : ' un') + '" style="top:' + (g.yc - 7.5).toFixed(1) + 'px">' + objIcon(ico(g.e, fpk.get(g.e))) + (g.n > 1 ? '<b class="segn"><i>' + g.n + '</i></b>' : '') + '</span>'; });
   return tr;
 }
+function fTrackBand(force) {
+  const sc = document.getElementById('ftsc'), tr = document.getElementById('ftrack'); if (!sc || !tr || !S.focus) return;
+  const y = Math.max(0, sc.scrollTop + fFullY() - VTOP), H = Math.max(window.innerHeight, window.innerWidth);
+  if (!force && tr._b && y - tr._b[0] > H && tr._b[1] - y > 2 * H) return;   /* still well inside the drawn band */
+  tr._b = fBand(y); tr.innerHTML = fTrack(Data.cam(S.focus.cam), tr._b);
+}
 function fZoom(px) {
   px = clamp(px, 0.15, 80); if (Math.abs(Math.log(px / FFPX)) < 0.01) return;
   const t = camT(S.focus.cam); FFPX = px; store.set('fpx', px);
-  const tr = document.getElementById('ftrack'); if (tr) { tr.style.height = fTW() + 'px'; tr.innerHTML = fTrack(Data.cam(S.focus.cam)); }
-  fScrollTo(t);
+  const tr = document.getElementById('ftrack'); if (tr) { tr.style.height = fTW() + 'px'; }
+  fScrollTo(t); fTrackBand(true);
   const fts = document.getElementById('fts'), z = document.getElementById('fzoom');
   if (z && fts) { z.textContent = winLabel(fts.clientHeight / FFPX * MIN); z.hidden = false; clearTimeout(fZoom.tm); fZoom.tm = setTimeout(() => { z.hidden = true; }, 1200); }
 }
@@ -4483,7 +4497,7 @@ function fFullY() { return S.focus.fullY == null ? VTOP : S.focus.fullY; }
 function fScrollTo(t) {
   const sc = document.getElementById('ftsc'); if (!sc) return;
   if (t == null) S.focus.fullY = VTOP;
-  S.fLock = true; sc.scrollTop = t == null ? 0 : (focusEnd() - t) / MIN * FFPX - (fFullY() - VTOP);
+  S.fLock = true; sc.scrollTop = t == null ? 0 : (focusEnd() - t) / MIN * FFPX - (fFullY() - VTOP); fTrackBand();
   requestAnimationFrame(() => { S.fLock = false; });
   fullPaintLine();
 }
@@ -4666,6 +4680,7 @@ function wireFull() {
     sc.addEventListener('touchcancel', () => { sc._touch = false; }, { passive: true });
   sc.addEventListener('touchmove', e => { const t = e.touches[0]; if (e.touches.length > 1 || (sc._t0 && t && Math.hypot(t.clientX - sc._t0[0], t.clientY - sc._t0[1]) > 8)) sc._mv = true; }, { passive: true });
   sc.addEventListener('scroll', () => {
+    fTrackBand();
     if (S.fLock) return; sc._scrolled = Date.now();
     const y = sc.scrollTop + fFullY() - VTOP;
     S.camTime[S.focus.cam] = (y < 3 && !S.focus.dayEnd) ? null : focusEnd() - y / FFPX * MIN;
@@ -5466,7 +5481,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.9.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.9.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -5574,6 +5589,20 @@ function toast(msg) {
 function allLive1() { const u = now() + MIN; Data.cams.forEach(c => { if (Ctl.on(c.id)) S.forced[c.id] = u; }); Live.policy(); Data.cams.forEach(c => paintCam(c.id)); toast('All Cameras Live For 1 Minute'); }
 let tapTimer = null, lastTap = { id: null, at: 0 };
 /* when the finger tapped, on the page clock (falls back to now if the browser gives an odd time) */
+/* 4.9.3: on a phone the double tap is caught when the finger lifts, not from the click that follows: the first tap
+   opens the panel and redraws the page, and the iPhone then dropped the second tap's click (its card had just been
+   replaced), so the camera never opened, or the panel opened instead */
+let TapDbl = { id: null, at: 0, skip: 0 };
+document.addEventListener('touchend', e => {
+  if (e.changedTouches.length !== 1 || e.touches.length || TG.mv || S.focus) return;
+  const el = e.target.closest && e.target.closest('[data-act="tap"]'); if (!el || !el.dataset.id) return;
+  const id = el.dataset.id, t = tapTime(e);
+  if (TapDbl.id === id && t - TapDbl.at < 420) {
+    e.preventDefault(); clearTimeout(tapTimer); lastTap = { id: null, at: 0 }; TapDbl = { id: null, at: 0, skip: performance.now() + 700 };
+    Dbg.log('double tap', id); S.camTime[id] = null; openFocus(id); return;
+  }
+  TapDbl = { id, at: t, skip: TapDbl.skip };
+}, { capture: true, passive: false });
 function tapTime(ev) { const n = performance.now(), ts = ev && ev.timeStamp; return ts > 0 && ts <= n + 50 && n - ts < 2000 ? ts : n; }
 const ACT = {
   go(d) { S.view = d.v; S.modal = null; S.more = false; S.evPop = null; render(); window.scrollTo(0, 0); },
@@ -5585,7 +5614,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.9.2');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.9.3');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5602,7 +5631,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.9.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.9.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5864,6 +5893,7 @@ const ACT = {
   close() { S.modal = null; render(); },
   toast(d) { toast(d.v); },
   tap(d, ev) {
+    if (performance.now() < TapDbl.skip || S.focus) return;   /* the double tap already opened the camera */
     /* 4.8.8: a single tap opens the panel after 0.28 s (as before 4.8.7); a second tap up to 0.42 s after the first
        still opens the camera, even when the panel has already opened. The gap is measured from when the finger tapped
        (the event's own time), so a busy page does not turn a double tap into two single taps. */
@@ -6771,7 +6801,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.9.2';
+    const BUILD = '4.9.3';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
