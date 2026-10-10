@@ -47,6 +47,12 @@ STORE_DAYS, STORE_FREE, STORE_EVERY = 25, 0.10, 6 * 3600
 # (served by clipwait, written to ~/frigate/furbo-ctl/want) hands those two to the Furbo app: the bridge then serves
 # only the two bowls (device_id in furbo-data/options.json) and is restarted; the button again gives them back.
 # While handed over, those two cameras never count as down and never restart the bridge.
+# Xiaomi bridge stuck (her choice, 2026-10-09): 猫砂盆 (litter_box, the only camera on the xiaomi go2rtc) had no
+# picture and came back only by itself or by restarting the xiaomi container. When it has no picture and Frigate keeps
+# trying for 10 checks in a row (10 min), restart only the xiaomi container (猫砂盆 pauses ~30 s). At most once an hour
+# and 3 times a day; logged in Mini PC Log → Automatic Restarts.
+XIAOMI_CAMS = {'litter_box'}
+XIAOMI_RUNS, XIAOMI_GAP, XIAOMI_DAY = 10, 3600, 3
 CTL = os.path.join(D, 'furbo-ctl', 'want')
 FURBO_BOWLS = '507B91E283B6,D07CB28A9D20'          # 胖胖饭桶, 团团饭桶
 FURBO_360 = {'upstairs_furbo', 'bedroom_furbo'}
@@ -228,6 +234,32 @@ def storage_check(st):
             ok = 'not sent (' + repr(x)[:80] + ')'
         s['sent'] = now
         log('storage alert %s: %s' % (ok, ' · '.join(why)))
+
+
+def xiaomi_fix(dead, st):
+    # restarts the xiaomi container when its camera is stuck (see XIAOMI_* above)
+    xd = [c for c in dead if c in XIAOMI_CAMS]
+    if not xd:
+        st['xiaomi_runs'] = 0; return
+    t10 = sh(['docker', 'logs', 'frigate', '--since', '10m'])
+    trying = [c for c in xd if ('watchdog.%s ' % c) in t10 or ('ffmpeg.%s.' % c) in t10 or (': %s:' % c) in t10]
+    if not trying:
+        st['xiaomi_runs'] = 0; return
+    st['xiaomi_runs'] = st.get('xiaomi_runs', 0) + 1
+    if st['xiaomi_runs'] < XIAOMI_RUNS:
+        return
+    now = time.time(); day = [t for t in st.get('xiaomi_restarts', []) if now - t < 86400]
+    if day and now - day[-1] < XIAOMI_GAP:
+        return
+    if len(day) >= XIAOMI_DAY:
+        if not st.get('xiaomi_noted'):
+            log('xiaomi stuck again (%s), not restarted: already 3 restarts today' % ', '.join(trying)); st['xiaomi_noted'] = 1
+        return
+    st['xiaomi_noted'] = 0
+    log('restart xiaomi: no picture on %s for %d min' % (', '.join(trying), st['xiaomi_runs']))
+    r = subprocess.run(['docker', 'restart', 'xiaomi'], capture_output=True, text=True, timeout=120)
+    log('restart xiaomi done' if r.returncode == 0 else 'restart xiaomi failed: ' + (r.stderr or '').strip()[:150])
+    st['xiaomi_restarts'] = day + [now]; st['xiaomi_runs'] = 0
 
 
 def furbo_fix(dead, st):
@@ -446,6 +478,7 @@ def main():
         st['noted'] = 0
     if stats is not None and not why:
         furbo_fix(dead, st)
+        xiaomi_fix(dead, st)
         storage_check(st)
     health(dead, st, stats)
     json.dump(st, open(STATE, 'w'))
