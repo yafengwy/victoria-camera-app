@@ -376,7 +376,10 @@ img.rf{opacity:0}
 .fstep.fpp{min-width:52px;width:52px;padding:0;display:flex;align-items:center;justify-content:center}.fstep.fpp[hidden]{display:none}.fstep.fpp svg{width:22px;height:22px}
 .fstep{height:52px;min-width:64px;padding:0 12px;border-radius:26px;background:rgba(36,42,52,.94);color:#fff;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;box-shadow:0 6px 16px rgba(0,0,0,.35)}
 .fstep[disabled]{opacity:.35}
-.fullsteps{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:4;display:flex;align-items:center;gap:10px}
+.fullsteps{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(6px + env(safe-area-inset-bottom,0px));z-index:4;display:flex;align-items:center;gap:10px}
+/* 4.8.10 her ask: −10s / Live / +10s nearly touch the picture's bottom edge; on the turned full screen that edge is the
+   phone's side, which has no home-bar space */
+.full.rot .fullsteps{bottom:6px}
 .fullsteps .fstep{height:40px;min-width:56px;font-size:14px;background:rgba(0,0,0,.6)}
 .fullsteps .dk.wide{height:40px;min-width:56px;padding:0 14px;font-size:14px}
 .fullsteps .dk.wide[disabled]{opacity:.35}
