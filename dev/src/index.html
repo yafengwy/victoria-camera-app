@@ -1411,6 +1411,94 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .tabbody{height:126px;padding:5px 10px;gap:4px}
 .panel .btn{height:24px;padding:0 12px;font-size:12px}
 @media (hover:hover) and (pointer:fine){.tabbody{height:132px}}
+/* ---- 4.9.10 Cats → 认猫 / 如厕记录 (colours come from each theme; the 猫砂盆 / Closet tags sit on the picture, so they keep their own colours) ---- */
+.lthub .dbody{gap:8px;padding:12px 12px 14px}
+.lthrow{display:flex;align-items:center;gap:12px;width:100%;padding:12px;border-radius:16px;background:var(--track);color:var(--text);text-align:left}
+.lthrow>i{flex:none;width:46px;height:46px;border-radius:13px;background:var(--chip);display:flex;align-items:center;justify-content:center;font-size:24px;font-style:normal;color:var(--icon)}
+.lthrow>i svg{width:26px;height:26px}
+.lthrow span{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.lthrow b{font-size:16px;font-weight:800;color:var(--head-fg)}
+.lthrow small{font-size:12px;color:var(--sub);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lthrow>svg{flex:none;width:18px;height:18px;color:var(--sub)}
+.ltd{max-width:560px}
+.ltd .dhead{position:sticky;top:0;z-index:2;gap:4px;padding-left:10px}
+.ltd .ltttl{flex:1;padding-left:6px}
+.ltd .dbody{gap:8px;padding:10px 12px 14px}
+.ltchips,.ltwho{display:flex;gap:8px;flex-wrap:wrap}
+.ltwho .chip{flex:1;justify-content:center;height:46px;font-size:16px}
+.ltwho .chip[aria-pressed="true"]{background:var(--strong);color:var(--strong-fg);box-shadow:none}
+.ltday{font-size:13px;font-weight:800;color:var(--sub);margin-top:6px}
+.ltday em{font-style:normal;color:var(--text)}
+.ltgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.ltth{position:relative;display:block;aspect-ratio:4/3;border-radius:14px;overflow:hidden;background:#000;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+.ltth img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none}
+.ltth::after{content:"";position:absolute;inset:auto 0 0 0;height:46%;background:linear-gradient(transparent,rgba(0,0,0,.62));pointer-events:none}
+.ltth.on{outline:3px solid var(--accent,var(--strong));outline-offset:-3px}
+.ltcam{position:absolute;left:7px;top:7px;z-index:1;font-size:11px;font-weight:800;padding:2px 7px;border-radius:8px}
+.ltcam.lb{background:#7FC8FF;color:#06223A}
+.ltcam.cl{background:#FFB86B;color:#2B1700}
+.ltseg{position:absolute;right:7px;top:7px;z-index:1;font-size:11px;font-weight:800;font-style:normal;padding:2px 7px;border-radius:8px;background:rgba(0,0,0,.6);color:#fff}
+.ltck{position:absolute;right:7px;top:7px;z-index:1;width:24px;height:24px;border-radius:12px;border:2px solid #fff;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:var(--strong-fg)}
+.ltth.on .ltck{background:var(--strong);border-color:var(--strong)}
+.ltck svg{width:15px;height:15px}
+.ltbot{position:absolute;left:7px;right:7px;bottom:6px;z-index:1;display:flex;align-items:center;gap:4px}
+.ltbot b{font-size:14px;font-weight:800;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+.ltbot em{flex:1;text-align:center;font-style:normal;font-size:12px;font-weight:700;color:rgba(255,255,255,.9);text-shadow:0 1px 3px rgba(0,0,0,.8);white-space:nowrap}
+.ltbot u{text-decoration:none;font-size:12px;font-weight:800;padding:2px 8px;border-radius:9px;background:var(--strong);color:var(--strong-fg);white-space:nowrap}
+.ltbot u.q{background:rgba(255,255,255,.28);color:#fff}
+.ltpickbar{position:sticky;top:44px;z-index:2;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:14px;background:var(--card);box-shadow:0 0 0 1px var(--line)}
+.ltpickbar span{flex:1;font-size:14px;font-weight:800}
+.ltpickbar .btn{height:36px;padding:0 14px}
+.ltpickbar .btn[disabled],.ltd .btn[disabled],.ltwho .chip[disabled]{opacity:.45}
+.ltvid{position:relative;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000}
+.ltvid img,.ltvid video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.ltbar{display:flex;gap:0;height:7px}
+.ltbar i{height:7px;border-radius:4px;background:var(--strong)}
+.ltbar b{min-width:6px}
+.ltmeta b{display:block;font-size:18px;font-weight:800;color:var(--head-fg)}
+.ltmeta span{font-size:13px;color:var(--sub);font-weight:600}
+.ltd .lbl{margin-top:4px}
+.ltsplit{width:100%}
+.ltnot{margin-top:6px;border:1.5px solid #E5534B;border-radius:16px;padding:10px 12px 12px;display:flex;flex-direction:column;gap:2px}
+.ltnott{font-size:15px;font-weight:800;color:#E5534B}
+.ltnot .box{border-color:#E5534B}
+.ltnot .check[aria-checked="true"] .box{background:#E5534B;color:#fff}
+.ltgo{width:100%;margin-top:6px}
+/* theme looks: Green / Google squarer, rounded Material corners; Noir hairlines and outlined labels; Glass frosted */
+:is([data-app-theme="green"],[data-app-theme="google"]) .ltth{border-radius:16px}
+:is([data-app-theme="green"],[data-app-theme="google"]) .lthrow{border-radius:20px}
+:is([data-app-theme="green"],[data-app-theme="google"]) .ltwho .chip{border-radius:12px}
+[data-app-theme="noir"] .ltth{border-radius:4px}
+[data-app-theme="noir"] .lthrow{border-radius:6px;background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
+[data-app-theme="noir"] .lthrow>i{border-radius:4px}
+[data-app-theme="noir"] .lthrow b,[data-app-theme="noir"] .ltmeta b{font-family:var(--serif);font-size:19px;font-weight:600}
+[data-app-theme="noir"] .ltcam,[data-app-theme="noir"] .ltseg,[data-app-theme="noir"] .ltbot u{border-radius:2px}
+[data-app-theme="noir"] .ltwho .chip{border-radius:4px}
+[data-app-theme="noir"] .ltwho .chip[aria-pressed="true"]{background:var(--strong);color:var(--strong-fg)}
+[data-app-theme="noir"] .ltnot,[data-app-theme="noir"] .ltvid,[data-app-theme="noir"] .ltpickbar{border-radius:4px}
+[data-app-theme="glass"] .lthrow{background:rgba(255,255,255,.55);box-shadow:0 1px 0 rgba(255,255,255,.8) inset}
+[data-dark][data-app-theme="glass"] .lthrow{background:rgba(255,255,255,.06);box-shadow:none}
+[data-app-theme="glass"] .ltbot u{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+[data-app-theme="glass"] .ltpickbar{background:rgba(255,255,255,.85);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+[data-dark][data-app-theme="glass"] .ltpickbar{background:rgba(22,28,38,.92)}
+/* ---- 4.9.10 Cats / People: whole pictures in the grid; a tapped picture big with the names under it ---- */
+.pf img{object-fit:contain}
+.pfbigd .dhead{gap:4px;padding-left:6px}
+.pfbigt{flex:1;padding-left:4px}
+.pfbig{border-radius:14px;overflow:hidden;background:#000}
+.pfbig img{display:block;width:100%;max-height:62vh;object-fit:contain}
+.pfbigc{display:flex;align-items:baseline;gap:8px;margin:4px 2px 0}
+.pfbigc b{font-size:16px;font-weight:800;color:var(--head-fg)}
+.pfbigc span{font-size:13px;color:var(--sub);font-weight:600}
+.pfbigd .ctsub{margin-top:6px}
+.pfbigdel{width:100%;margin-top:10px}
+[data-app-theme="noir"] .pfbig{border-radius:4px}
+:is([data-app-theme="green"],[data-app-theme="google"]) .pfbig{border-radius:20px}
+/* ---- 4.9.10 her rule: alert card buttons closer together (Fix / Who? and the three icons), still easy to hit: full height, a bit narrower ---- */
+.evh .whob{padding:5px 7px;margin-right:0}
+.evh .whob + .whob{margin-left:2px}
+.evcard .evh .ic,.evh .ic{width:25px}
+.evcard .evh{padding-right:6px}
 </style>
 
 <div id="app" class="app"></div>
@@ -3002,7 +3090,20 @@ function modalPeople() {
     h += '<div class="lbl pfhead">New Faces · ' + all.length + (tr.length > 1 ? pfSortBar('pfsort', S.pfSort || 'low') : '') + (tr.length ? '<button class="pfdall" data-act="pfdallask">Delete All</button>' : '') + '</div>';
     if (S.pfDelAll && tr.length) h += '<div class="pfbar pfconf"><b>Delete All ' + People.train().length + ' New Faces?</b><span>They Are Not Saved To Anyone. This Can&#39;t Be Undone.</span>' +
       '<div class="pfcb"><button class="btn" data-act="pfdallno">Cancel</button><button class="btn solid pfred" data-act="pfdall">Delete All</button></div></div>';
-    if (sel && tr.length) {
+    if (sel && all.some(x => x.f === sel)) {
+      /* 4.9.10 same as Cats: the picked face big (the whole picture), the names under it */
+      const x = all.find(y => y.f === sel);
+      return '<div class="scrim" data-act="close" role="presentation"><div class="dialog snzd pfbigd" role="dialog" aria-label="People" data-stop="1">' +
+        '<div class="dhead"><button class="ic" style="color:var(--head-fg)" data-act="pfsel" data-v="' + esc(sel) + '" aria-label="Back">' + I.back + '</button><span class="pfbigt">People</span><button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
+        '<div class="pfbig"><img src="' + Frigate.base() + '/clips/faces/train/' + encodeURIComponent(x.f) + '" alt=""></div>' +
+        '<div class="pfbigc"><b>' + (x.guess === 'unknown' ? 'Unknown' : esc(niceName(x.guess))) + (isFinite(x.score) && x.score > 0 ? ' ' + Math.round(x.score * 100) + '%' : '') + '</b><span>' + (x.ts ? hm(x.ts * 1000) + ' ' + dayLabel(x.ts * 1000) : '') + '</span></div>' +
+        '<div class="ctsub">This Is</div>' +
+        (names.length ? '<div class="ctnames">' + names.map(n => { const k = Object.keys(f).find(y => niceName(y) === n), ph = k && (f[k] || [])[0];
+          return '<button class="ctname" data-act="pfassign" data-v="' + esc(n) + '">' + (ph ? '<img src="' + Frigate.base() + '/clips/faces/' + encodeURIComponent(k) + '/' + encodeURIComponent(ph) + '" alt="">' : '<i>' + ICON_SVG.person + '</i>') + '<span>' + esc(n) + '</span></button>'; }).join('') + '</div>' : '') +
+        '<div class="pfnew"><input id="pfnew" class="field" type="text" placeholder="New Name" autocomplete="off"><button class="btn solid" data-act="pfassign" data-v="">Add</button></div>' +
+        '<button class="btn pfred pfbigdel" data-act="pfdel">Delete This Picture</button></div></div></div>';
+    }
+    if (false) {
       h += '<div class="pfbar ctbar"><div class="cthd"><b>1 Picked</b><button class="ctlk" data-act="pfsel" data-v="' + esc(sel) + '">Unpick</button><button class="ctlk ctred" data-act="pfdel">Delete</button></div><div class="ctsub">This Is</div>' +
         (names.length ? '<div class="ctnames">' + names.map(n => { const k = Object.keys(f).find(x => niceName(x) === n), ph = k && (f[k] || [])[0];
           return '<button class="ctname" data-act="pfassign" data-v="' + esc(n) + '">' + (ph ? '<img src="' + Frigate.base() + '/clips/faces/' + encodeURIComponent(k) + '/' + encodeURIComponent(ph) + '" alt="">' : '<i>' + ICON_SVG.person + '</i>') + '<span>' + esc(n) + '</span></button>'; }).join('') + '</div>' : '') +
@@ -3053,12 +3154,24 @@ const CatPics = {
   },
   drop(ids) { const s = new Set(ids); this.train = (this.train || []).filter(f => !s.has(f)); }
 };
+/* the list keeps its place when a big picture is opened and closed again */
+function bigKeep() { const n = document.querySelector('.scrim .dialog'); S.bigY = n ? n.scrollTop : 0; }
+function bigBack() { const y = S.bigY || 0; requestAnimationFrame(() => { const n = document.querySelector('.scrim .dialog'); if (n) n.scrollTop = y; }); }
 function modalCats() {
   const rows = pfOrder(CatPics.rows(), S.ctSort || 'low'), n = S.ctN || 120, sel = S.ctSel || {}, picked = Object.keys(sel).filter(k => sel[k]), names = [...CatFix.names, 'none'];
   let h = '<div class="scrim" data-act="close" role="presentation"><div class="dialog snzd" role="dialog" aria-label="Cats" data-stop="1">' +
     '<div class="dhead">Cats<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">';
   if (CatPics.train == null) return h + '<div class="wtnote" style="margin:0">Loading…</div></div></div></div>';
   const ds = CatPics.ds || {};
+  /* 4.9.10 her rule: tapping a picture shows it big (the whole picture, not cut to a square), with the names under it */
+  const big = S.ctBig && rows.find(x => x.f === S.ctBig);
+  if (big) return '<div class="scrim" data-act="close" role="presentation"><div class="dialog snzd pfbigd" role="dialog" aria-label="Cats" data-stop="1">' +
+    '<div class="dhead"><button class="ic" style="color:var(--head-fg)" data-act="ctbigx" aria-label="Back">' + I.back + '</button><span class="pfbigt">Cats</span><button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
+    '<div class="pfbig"><img src="' + CatPics.url(big.f) + '" alt=""></div>' +
+    '<div class="pfbigc"><b>' + (big.guess === 'none' ? 'None' : esc(niceName(big.guess))) + (isFinite(big.score) && big.score > 0 ? ' ' + Math.round(big.score * 100) + '%' : '') + '</b><span>' + (big.ts ? hm(big.ts * 1000) + ' ' + dayLabel(big.ts * 1000) : '') + '</span></div>' +
+    '<div class="ctsub">This Is</div><div class="ctnames">' +
+    names.map(c => { const fs = ds[c] || []; return '<button class="ctname" data-act="ctbigfile" data-v="' + esc(c) + '"' + (CatPics.busy ? ' disabled' : '') + '>' + (fs.length ? '<img src="' + Frigate.base() + '/clips/' + encodeURIComponent(CatFix.model) + '/dataset/' + encodeURIComponent(c) + '/' + encodeURIComponent(fs[fs.length - 1]) + '" alt="">' : '<i>' + ICON_SVG.cat + '</i>') + '<span>' + esc(c === 'none' ? 'None' : c) + '</span></button>'; }).join('') + '</div>' +
+    '<button class="btn pfred pfbigdel" data-act="ctbigdel"' + (CatPics.busy ? ' disabled' : '') + '>Delete This Picture</button></div></div></div>';
   h += '<div class="lbl" style="margin-top:0">Learned Pictures</div><div class="pflist pfrow">' + names.map(c => { const fs = ds[c] || []; return '<div class="pfp">' + (fs[0] ? '<img src="' + Frigate.base() + '/clips/' + encodeURIComponent(CatFix.model) + '/dataset/' + encodeURIComponent(c) + '/' + encodeURIComponent(fs[fs.length - 1]) + '" alt="">' : '<i class="pfnone">' + ICON_SVG.cat + '</i>') + '<span><b>' + esc(c === 'none' ? 'None' : c) + '</b><small>' + fs.length + (fs.length === 1 ? ' Photo' : ' Photos') + '</small></span></div>'; }).join('') + '</div>';
   h += '<button class="btn solid ctrain" data-act="cttrain">Train Model' + (CatPics.filed ? ' · ' + CatPics.filed + ' New' : '') + '</button>';
   h += '<div class="lbl pfhead">Recent · ' + rows.length + (rows.length > 1 ? pfSortBar('ctsort', S.ctSort || 'low') : '') + (rows.length ? '<button class="pfdall" data-act="ctdallask">Delete All Left</button>' : '') + '</div>';
@@ -3067,10 +3180,151 @@ function modalCats() {
   if (picked.length) h += '<div class="pfbar ctbar"><div class="cthd"><b>' + picked.length + ' Picked</b><button class="ctlk" data-act="ctclear">Unpick</button><button class="ctlk ctred" data-act="ctdel">Delete</button></div><div class="ctsub">File Under</div><div class="ctnames">' +
     names.map(c => { const fs = ds[c] || []; return '<button class="ctname" data-act="ctfile" data-v="' + esc(c) + '">' + (fs.length ? '<img src="' + Frigate.base() + '/clips/' + encodeURIComponent(CatFix.model) + '/dataset/' + encodeURIComponent(c) + '/' + encodeURIComponent(fs[fs.length - 1]) + '" alt="">' : '<i>' + ICON_SVG.cat + '</i>') + '<span>' + esc(c === 'none' ? 'None' : c) + '</span></button>'; }).join('') + '</div></div>';
   if (!rows.length) h += '<div class="wtnote" style="margin:0">No Pictures Yet. They Show Up Here After The Cameras See A Cat.</div>';
-  else h += '<div class="pfgrid">' + rows.slice(0, n).map(x => '<button class="pf' + (sel[x.f] ? ' on' : '') + '" data-act="ctsel" data-v="' + esc(x.f) + '"><img src="' + CatPics.url(x.f) + '" alt="" loading="lazy"><span>' + (x.guess === 'none' ? 'None' : esc(x.guess)) + (isFinite(x.score) ? ' ' + Math.round(x.score * 100) + '%' : '') + '</span><small>' + (x.ts ? hm(x.ts * 1000) + (dayStart(x.ts * 1000) === dayStart(now()) ? '' : ' ' + dayLabel(x.ts * 1000)) : '') + '</small></button>').join('') + '</div>' +
+  else h += '<div class="pfgrid">' + rows.slice(0, n).map(x => '<button class="pf' + (sel[x.f] ? ' on' : '') + '" data-act="ctbig" data-lp="ctsel" data-v="' + esc(x.f) + '"><img src="' + CatPics.url(x.f) + '" alt="" loading="lazy"><span>' + (x.guess === 'none' ? 'None' : esc(x.guess)) + (isFinite(x.score) ? ' ' + Math.round(x.score * 100) + '%' : '') + '</span><small>' + (x.ts ? hm(x.ts * 1000) + (dayStart(x.ts * 1000) === dayStart(now()) ? '' : ' ' + dayLabel(x.ts * 1000)) : '') + '</small></button>').join('') + '</div>' +
     (rows.length > n ? '<button class="btn momore" data-act="ctmore">Show More · ' + (rows.length - n) + ' Left</button>' : '');
   return h + '</div></div></div>';
 }
+/* ===== 4.9.10 如厕记录 (Cats → 如厕记录). Her design (2026-10-10):
+   - visits = 猫砂盆 alerts with an animal, and Closet alerts whose animal was in the Poop Spot zone (Frigate makes a cat
+     stay 30 s there before it counts, so a cat walking past is not a visit)
+   - one picture per visit: top-left 猫砂盆 (blue) / Closet (orange), bottom-left the time, middle how long, bottom-right
+     the cat's name; days with a summary line (胖胖 ×3 · 团团 ×2 · 没认出 ×1)
+   - same camera within 3 minutes = the same visit, joined by itself; she can also join by hand (long-press, pick, 合并)
+     and split a joined one again (拆开). Joined visits play as one video, first start to last end.
+   - tap a visit: play it, 是谁 (names every part, teaches the Cats model one picture each, as Fix does), 不是如厕
+     (Frigate+ "not a cat / not a dog" and / or removed from the log; both ticked by default)
+   Her hand-made joins, splits and removals live on the mini PC (/ctl/litter), so every phone sees the same log. */
+const Litter = {
+  rows: null, at: 0, busy: false, st: { merge: [], solo: [], removed: [] },
+  GAP: 3 * MIN, CAMS: ['litter_box', 'closet'],
+  names() { return [...new Set(['胖胖', '团团', ...(CatFix.names || [])])].filter(n => n && n.toLowerCase() !== 'none'); },
+  async load(force) {
+    if (!force && this.rows && Date.now() - this.at < 60000) return;
+    const after = Math.floor((now() - 31 * DAY) / 1000);
+    const [rows, st] = await Promise.all([
+      Frigate.get('/api/review?cameras=' + this.CAMS.join(',') + '&limit=3000&after=' + after),
+      fetch('ctl/litter?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.json() : null).catch(() => null)]);
+    if (st) this.st = st;
+    const out = [];
+    (rows || []).forEach(r => {
+      const objs = ((r.data && r.data.objects) || []).map(o => String(o).replace(/-verified$/, ''));
+      if (!objs.some(isAnimal)) return;
+      if (r.camera === 'closet' && !((r.data && r.data.zones) || []).includes('poop_spot')) return;
+      if (!this.CAMS.includes(r.camera)) return;
+      /* an alert whose animal was marked wrong is gone from the alert lists, but stays here unless she removed it */
+      let e = Frigate.mapReviews([r])[0];
+      if (!e) { const det = r.data && r.data.detections && r.data.detections[0]; e = { id: r.id, cam: r.camera, t: r.start_time * 1000, end: (r.end_time || r.start_time) * 1000, dets: (r.data && r.data.detections) || [], who: '', img: Frigate.thumb(r, det), objs: [] }; }
+      e.end = Math.max(e.end || e.t, e.t);
+      out.push(e);
+    });
+    this.rows = out.sort((a, b) => a.t - b.t); this.at = Date.now();
+    Dbg.log('litter loaded', out.length, 'visits from', (rows || []).length, 'alerts', 'merged', this.st.merge.length, 'removed', this.st.removed.length);
+  },
+  nameOf(e) { const ns = this.names(); return String(e.who || '').split(' · ').find(x => ns.includes(x)) || ''; },
+  /* visits: her own joins first, then the same camera within 3 minutes (never across a split she made) */
+  groups() {
+    if (!this.rows) return [];
+    const rm = new Set(this.st.removed || []), solo = new Set(this.st.solo || []), byId = new Map(this.rows.map(e => [e.id, e])), used = new Set(), gs = [];
+    (this.st.merge || []).forEach(ids => { const ps = ids.map(i => byId.get(i)).filter(e => e && !rm.has(e.id) && !used.has(e.id)); if (!ps.length) return; ps.forEach(e => used.add(e.id)); gs.push({ ps, hand: true }); });
+    const last = {};
+    this.rows.forEach(e => {
+      if (rm.has(e.id) || used.has(e.id)) return;
+      const g = last[e.cam];
+      if (g && !g.hand && !solo.has(e.id) && !g.ps.some(p => solo.has(p.id)) && e.t - Math.max(...g.ps.map(p => p.end)) <= this.GAP) { g.ps.push(e); return; }
+      const ng = { ps: [e], hand: false }; gs.push(ng); last[e.cam] = ng;
+    });
+    return gs.map(g => {
+      const ps = g.ps.slice().sort((a, b) => a.t - b.t), cnt = {};
+      ps.forEach(p => { const n = this.nameOf(p); if (n) cnt[n] = (cnt[n] || 0) + 1; });
+      const name = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || '';
+      return { id: ps[0].id, ps, cam: ps[0].cam, t: ps[0].t, end: Math.max(...ps.map(p => p.end)), name, img: ps[0].img };
+    }).sort((a, b) => b.t - a.t);
+  },
+  dur(g) { const s = Math.max(1, Math.round((g.end - g.t) / 1000)); return s < 60 ? s + ' 秒' : Math.round(s / 60) + ' 分钟'; },
+  dayKey(t) { const d = new Date(t); return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); },
+  dayName(t) {
+    const d = new Date(t), td = new Date(); td.setHours(0, 0, 0, 0); const dd = new Date(d); dd.setHours(0, 0, 0, 0);
+    const n = Math.round((td - dd) / DAY);
+    return n === 0 ? '今天' : n === 1 ? '昨天' : (d.getMonth() + 1) + '月' + d.getDate() + '日 · 周' + '日一二三四五六'[d.getDay()];
+  },
+  summary(gs) {
+    const c = {}; let un = 0; gs.forEach(g => { if (g.name) c[g.name] = (c[g.name] || 0) + 1; else un++; });
+    const parts = this.names().filter(n => c[n]).map(n => n + ' ×' + c[n]); if (un) parts.push('没认出 ×' + un); return parts.join(' · ');
+  },
+  camName: c => c === 'litter_box' ? '猫砂盆' : 'Closet',
+  async post(op, ids) {
+    const r = await fetch('ctl/litter', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ op, ids }) });
+    if (!r.ok) throw new Error(r.status); this.st = await r.json(); Dbg.log('litter', op, ids.length);
+  },
+  find(id) { return this.groups().find(g => g.id === id); }
+};
+function modalCatHub() {
+  const gs = Litter.groups(), td = Litter.dayKey(now()), today = gs.filter(g => Litter.dayKey(g.t) === td);
+  const sub = Litter.rows ? (today.length ? '今天 · ' + Litter.summary(today) : '今天还没有记录') : '加载中…';
+  return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm lthub" role="dialog" aria-label="Cats" data-stop="1">' +
+    '<div class="dhead">Cats<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
+    '<button class="lthrow" data-act="ctopen"><i>' + ICON_SVG.cat + '</i><span><b>认猫</b><small>选照片 · 给每只猫标名字</small></span>' + '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>' + '</button>' +
+    '<button class="lthrow" data-act="ltopen"><i>💩</i><span><b>如厕记录</b><small>' + esc(sub) + '</small></span>' + '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>' + '</button>' +
+    '</div></div></div>';
+}
+function ltThumb(g, sel) {
+  const on = sel && sel[g.id];
+  return '<button class="ltth' + (on ? ' on' : '') + '" data-act="ltsel" data-lp="ltlong" data-id="' + esc(g.id) + '">' +
+    '<img src="' + g.img + '" alt="" loading="lazy">' +
+    '<b class="ltcam ' + (g.cam === 'closet' ? 'cl' : 'lb') + '">' + Litter.camName(g.cam) + '</b>' +
+    (sel ? '<i class="ltck">' + (on ? I.check : '') + '</i>' : g.ps.length > 1 ? '<i class="ltseg">' + g.ps.length + ' 段</i>' : '') +
+    '<span class="ltbot"><b>' + hm(g.t) + '</b><em>' + Litter.dur(g) + '</em><u class="' + (g.name ? '' : 'q') + '">' + esc(g.name || '没认出') + '</u></span></button>';
+}
+function modalLitter() {
+  const shell = (title, body, back) => '<div class="scrim" data-act="close" role="presentation"><div class="dialog ltd" role="dialog" aria-label="' + title + '" data-stop="1">' +
+    '<div class="dhead">' + (back ? '<button class="ic ltback" style="color:var(--head-fg)" data-act="' + back + '" aria-label="Back">' + I.back + '</button>' : '') + '<span class="ltttl">' + title + '</span>' +
+    '<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' + body + '</div></div></div>';
+  if (!Litter.rows) return shell('如厕记录', '<div class="wtnote" style="margin:0">加载中…</div>');
+  const all = Litter.groups();
+  if (S.ltSel) {
+    const g = all.find(x => x.id === S.ltSel);
+    if (!g) return shell('如厕记录', '<div class="wtnote" style="margin:0">这条记录已经没有了</div>', 'ltback');
+    const vs = Math.floor(g.t / 1000) - 2, ve = Math.ceil(g.end / 1000) + 3, vod = Frigate.base() + '/vod/' + g.cam + '/start/' + vs + '/end/' + ve + '/index.m3u8';
+    const span = Math.max(1, g.end - g.t);
+    let bar = ''; if (g.ps.length > 1) { let at = g.t; g.ps.forEach(p => { if (p.t > at) bar += '<b style="flex:' + Math.max(0.02, (p.t - at) / span) + '"></b>'; bar += '<i style="flex:' + Math.max(0.03, (p.end - p.t) / span) + '"></i>'; at = Math.max(at, p.end); }); bar = '<div class="ltbar">' + bar + '</div>'; }
+    const plus = S.ltPlus !== false, rmv = S.ltRm !== false, busy = Litter.busy;
+    return shell('如厕记录',
+      '<div class="ltvid"><img src="' + g.img + '" alt=""><video class="evv" data-hls="' + vod + '" data-cam="' + g.cam + '" data-vs="' + vs + '" data-ve="' + ve + '" data-at="' + Math.floor(g.t / 1000) + '" autoplay muted controls playsinline style="opacity:0"></video></div>' + bar +
+      '<div class="ltmeta"><b>' + (g.ps.length > 1 ? hm(g.t) + ' – ' + hm(g.end) : hms(g.t)) + '</b><span>' + Litter.camName(g.cam) + (g.cam === 'closet' ? ' · Poop Spot' : '') + ' · ' + Litter.dayName(g.t) + (g.ps.length > 1 ? ' · ' + g.ps.length + ' 段' : '') + ' · ' + Litter.dur(g) + '</span></div>' +
+      '<div class="lbl">是谁' + (g.ps.length > 1 ? '（改了 ' + g.ps.length + ' 段一起改）' : '') + '</div><div class="ltwho">' +
+      Litter.names().map(n => '<button class="chip" data-act="ltname" data-v="' + esc(n) + '" aria-pressed="' + (g.name === n) + '"' + (busy ? ' disabled' : '') + '>' + esc(n) + '</button>').join('') + '</div>' +
+      (g.ps.length > 1 ? '<button class="btn ltsplit" data-act="ltsplit"' + (busy ? ' disabled' : '') + '>拆开</button>' : '') +
+      '<div class="ltnot"><div class="ltnott">不是如厕</div>' +
+      '<button class="check" role="checkbox" aria-checked="' + plus + '" data-act="ltplus"><span class="box">' + (plus ? I.check : '') + '</span>发给 Frigate+：不是猫 / 不是狗</button>' +
+      '<button class="check" role="checkbox" aria-checked="' + rmv + '" data-act="ltrm"><span class="box">' + (rmv ? I.check : '') + '</span>从如厕记录里删掉</button>' +
+      '<button class="btn solid pfred ltgo" data-act="ltnot"' + (busy || !(plus || rmv) ? ' disabled' : '') + '>' + (busy ? '保存中…' : '确认') + '</button></div>', 'ltback');
+  }
+  const cam = S.ltCam || 'all', gs = all.filter(g => cam === 'all' || g.cam === cam), sel = S.ltPick;
+  let body = '';
+  if (sel) {
+    const ids = Object.keys(sel).filter(k => sel[k]), cams = new Set(all.filter(g => sel[g.id]).map(g => g.cam));
+    body += '<div class="ltpickbar"><span>已选 ' + ids.length + ' 条' + (cams.size > 1 ? ' · 只能合并同一个摄像头的' : '') + '</span><button class="btn" data-act="ltpickno">取消</button><button class="btn solid" data-act="ltmerge"' + (ids.length < 2 || cams.size > 1 || Litter.busy ? ' disabled' : '') + '>合并</button></div>';
+  } else body += '<div class="ltchips">' + [['all', '全部'], ['litter_box', '猫砂盆'], ['closet', 'Closet']].map(c => '<button class="chip" data-act="ltcam" data-v="' + c[0] + '" aria-pressed="' + (cam === c[0]) + '">' + c[1] + '</button>').join('') + '</div>';
+  if (!gs.length) body += '<div class="wtnote" style="margin:0">最近 30 天还没有记录</div>';
+  const n = S.ltN || 60; let shown = 0, day = '', cur = [];
+  const flush = () => { if (!cur.length) return; body += '<div class="ltday">' + Litter.dayName(cur[0].t) + ' · <em>' + esc(Litter.summary(cur)) + '</em></div><div class="ltgrid">' + cur.map(g => ltThumb(g, sel)).join('') + '</div>'; cur = []; };
+  for (const g of gs) { if (shown >= n) break; const k = Litter.dayKey(g.t); if (k !== day) { flush(); day = k; } cur.push(g); shown++; }
+  flush();
+  if (gs.length > n) body += '<button class="btn momore" data-act="ltmore">再看 ' + Math.min(60, gs.length - n) + ' 条</button>';
+  if (!sel && gs.length) body += '<div class="wtnote">长按一张可以选几条合并</div>';
+  return shell(sel ? '选择要合并的' : '如厕记录', body);
+}
+/* long-press (0.5 s, finger or mouse held still) on anything with data-lp runs that action; the click after it is skipped */
+(function longPress() {
+  let tm = null, x0 = 0, y0 = 0, fired = 0;
+  const off = () => { clearTimeout(tm); tm = null; };
+  document.addEventListener('pointerdown', e => { const el = e.target.closest && e.target.closest('[data-lp]'); if (!el) return; x0 = e.clientX; y0 = e.clientY; off();
+    tm = setTimeout(() => { tm = null; fired = Date.now(); const fn = ACT[el.dataset.lp]; if (fn) fn(el.dataset, e); }, 500); }, { passive: true });
+  document.addEventListener('pointermove', e => { if (tm && Math.hypot(e.clientX - x0, e.clientY - y0) > 10) off(); }, { passive: true });
+  ['pointerup', 'pointercancel', 'scroll'].forEach(n => document.addEventListener(n, off, { passive: true, capture: true }));
+  document.addEventListener('click', e => { if (Date.now() - fired < 700 && e.target.closest && e.target.closest('[data-lp]')) { e.stopPropagation(); e.preventDefault(); } }, true);
+  document.addEventListener('contextmenu', e => { if (e.target.closest && e.target.closest('[data-lp]')) e.preventDefault(); });
+})();
 function waitBanner() {
   if (!Wait.active()) return '';
   return '<div class="snzban wtban">' + I.box + '<div class="snzt"><b>Waiting For ' + esc(Wait.names()) + '</b><span>Until ' + hm(Wait.st.until * 1000) + '</span></div><button data-act="wtstop">Stop</button></div>';
@@ -3359,6 +3613,8 @@ function render0() {
   if (S.modal === 'del') h += modalDel();
   if (S.modal === 'people') h += modalPeople();
   if (S.modal === 'cats') h += modalCats();
+  if (S.modal === 'cathub') h += modalCatHub();
+  if (S.modal === 'litter') h += modalLitter();
   if (S.modal === 'wpick') h += modalWatchPick();
   const fo = document.getElementById('fsc'), fscTop = fo && S.focus ? fo.scrollTop : null;
   const keep = {}; ['thumbs', 'flist'].forEach(id => { const n = document.getElementById(id); if (n) keep[id] = [n.scrollLeft, n.scrollTop]; });
@@ -3421,7 +3677,7 @@ function moreMenu() {
   return '<div class="rvscrim" data-act="moreclose"></div><div class="moredd" role="dialog" aria-label="More">' +
     '<button class="mrow mbtn" data-act="snzopen">' + I.snooze + '<span class="mlbl">Snooze Notifications</span>' + (Snz.active() ? '<span class="msoon on">' + Snz.left() + '</span>' : '') + '</button>' +
     '<button class="mrow mbtn" data-act="ppopen">' + ICON_SVG.person.replace('viewBox', 'width="20" height="20" viewBox') + '<span class="mlbl">People</span></button>' +
-    (Data.source === 'frigate' && CatFix.model ? '<button class="mrow mbtn" data-act="ctopen">' + ICON_SVG.cat.replace('viewBox', 'width="20" height="20" viewBox') + '<span class="mlbl">Cats</span></button>' : '') +
+    (Data.source === 'frigate' && CatFix.model ? '<button class="mrow mbtn" data-act="cathub">' + ICON_SVG.cat.replace('viewBox', 'width="20" height="20" viewBox') + '<span class="mlbl">Cats</span></button>' : '') +
     '<button class="mrow mbtn" data-act="wpick">' + I.grid4.replace(/22/g, '20') + '<span class="mlbl">Watch Cameras</span></button>' +
     '<button class="mrow mbtn" data-act="wtopen">' + I.box + '<span class="mlbl">Today&#39;s Waiting</span>' + (Wait.active() ? '<span class="msoon wt">' + esc(Wait.names()) + '</span>' : '') + '</button></div>';
 }
@@ -5607,6 +5863,58 @@ document.addEventListener('touchend', e => {
 }, { capture: true, passive: false });
 function tapTime(ev) { const n = performance.now(), ts = ev && ev.timeStamp; return ts > 0 && ts <= n + 50 && n - ts < 2000 ? ts : n; }
 const ACT = {
+  /* 4.9.10 Cats → 认猫 / 如厕记录 */
+  cathub() { S.more = false; S.modal = 'cathub'; render(); Litter.load().then(() => { if (S.modal === 'cathub') render(); }).catch(x => Dbg.log('litter load failed', x && x.message)); },
+  ltopen() { S.modal = 'litter'; S.ltSel = null; S.ltPick = null; S.ltN = 60; render();
+    Litter.load(true).then(() => { if (S.modal === 'litter') render(); }).catch(x => { Dbg.log('litter load failed', x && x.message); toast('如厕记录加载失败'); }); },
+  ltcam(d) { S.ltCam = d.v; S.ltN = 60; render(); },
+  ltmore() { S.ltN = (S.ltN || 60) + 60; render(); },
+  ltsel(d) {
+    if (S.ltPick) { S.ltPick = Object.assign({}, S.ltPick, { [d.id]: !S.ltPick[d.id] }); render(); return; }
+    S.ltSel = d.id; S.ltPlus = true; S.ltRm = true; render();
+  },
+  ltlong(d) { if (S.modal !== 'litter' || S.ltSel) return; S.ltPick = Object.assign({}, S.ltPick || {}, { [d.id]: true }); try { navigator.vibrate && navigator.vibrate(15); } catch (x) {} render(); },
+  ltpickno() { S.ltPick = null; render(); },
+  ltback() { S.ltSel = null; render(); },
+  ltplus() { S.ltPlus = S.ltPlus === false; render(); },
+  ltrm() { S.ltRm = S.ltRm === false; render(); },
+  async ltmerge() {
+    const gs = Litter.groups().filter(g => S.ltPick && S.ltPick[g.id]); if (gs.length < 2 || Litter.busy) return;
+    if (new Set(gs.map(g => g.cam)).size > 1) { toast('只能合并同一个摄像头的'); return; }
+    Litter.busy = true; render();
+    try { await Litter.post('merge', gs.flatMap(g => g.ps.map(p => p.id))); S.ltPick = null; toast('已合并 · ' + gs.reduce((n, g) => n + g.ps.length, 0) + ' 段'); }
+    catch (x) { toast('合并没成功 · ' + (x && x.message)); }
+    Litter.busy = false; render();
+  },
+  async ltsplit() {
+    const g = Litter.find(S.ltSel); if (!g || g.ps.length < 2 || Litter.busy) return;
+    Litter.busy = true; render();
+    try { await Litter.post('split', g.ps.map(p => p.id)); S.ltSel = null; toast('已拆开 · ' + g.ps.length + ' 条'); }
+    catch (x) { toast('拆开没成功 · ' + (x && x.message)); }
+    Litter.busy = false; render();
+  },
+  /* 是谁: every part gets that name (Frigate sub label) and teaches the Cats model one picture, exactly as Fix does */
+  async ltname(d) {
+    const g = Litter.find(S.ltSel); if (!g || Litter.busy) return;
+    Litter.busy = true; render(); let ok = true, taught = 0;
+    for (const p of g.ps) {
+      const k = 'lt~' + p.id; EVK[k] = { e: p };
+      try { const r = await CatFix.save(k, d.v, true, true); if (!r.ok) ok = false; taught += r.taught || 0; } catch (x) { ok = false; }
+      whoOf(p); const de = Data.events.find(x => x.id === p.id); if (de && de !== p) whoOf(de);
+    }
+    Litter.busy = false; Dbg.log('litter name', d.v, g.ps.length + ' parts', ok ? 'ok' : 'not all taken', 'taught ' + taught);
+    toast('已存为 ' + d.v + (taught ? ' · 认猫里点 Train Model 学习' : '') + (ok ? '' : ' · Frigate 没全部收下')); render();
+  },
+  /* 不是如厕: Frigate+ gets "not a cat / not a dog" for its animals, and / or it leaves the log */
+  async ltnot() {
+    const g = Litter.find(S.ltSel); if (!g || Litter.busy) return;
+    const plus = S.ltPlus !== false, rmv = S.ltRm !== false; if (!plus && !rmv) return;
+    Litter.busy = true; render(); let ok = true;
+    if (plus) for (const p of g.ps) { const k = 'lt~' + p.id; EVK[k] = { e: p }; try { const r = await CatFix.save(k, '-animal', false, true); if (!r.ok) ok = false; } catch (x) { ok = false; } }
+    if (rmv) { try { await Litter.post('remove', g.ps.map(p => p.id)); } catch (x) { ok = false; } }
+    Litter.busy = false; S.ltSel = null; Dbg.log('litter not a visit', g.ps.length + ' parts', plus ? 'frigate+' : '', rmv ? 'removed' : '', ok ? 'ok' : 'not all taken');
+    toast((plus ? '已发给 Frigate+' : '') + (plus && rmv ? ' · ' : '') + (rmv ? '已从如厕记录删掉' : '') + (ok ? '' : ' · 有一部分没成功')); render();
+  },
   go(d) { S.view = d.v; S.modal = null; S.more = false; S.evPop = null; render(); window.scrollTo(0, 0); },
   copylog() {
     const txt = Dbg.text();
@@ -5802,7 +6110,12 @@ const ACT = {
   wmain(d) { S.wmain = d.id; render(); },
   wlay(d) { S.wlay = d.v; store.set('wlay', d.v); render(); },
   ppopen() { S.more = false; S.pfSel = null; S.pfN = 120; S.pfSort = 'low'; S.modal = 'people'; render(); People.loadFaces().then(() => { if (S.modal === 'people') render(); }); },
-  pfsel(d) { S.pfSel = S.pfSel === d.v ? null : d.v; render(); },
+  pfsel(d) { const open = !S.pfSel; if (open) bigKeep(); S.pfSel = S.pfSel === d.v ? null : d.v; render(); if (!S.pfSel) bigBack(); else requestAnimationFrame(() => { const n = document.querySelector('.scrim .dialog'); if (n) n.scrollTop = 0; }); },
+  /* 4.9.10 Cats: tap a picture = see it big (while several are picked by long-press, a tap picks / unpicks instead) */
+  ctbig(d) { if (Object.values(S.ctSel || {}).some(Boolean)) return ACT.ctsel(d); bigKeep(); S.ctBig = d.v; render(); requestAnimationFrame(() => { const n = document.querySelector('.scrim .dialog'); if (n) n.scrollTop = 0; }); },
+  ctbigx() { S.ctBig = null; render(); bigBack(); },
+  async ctbigfile(d) { const f = S.ctBig; if (!f || CatPics.busy) return; S.ctSel = { [f]: true }; S.ctBig = null; await ACT.ctfile(d); bigBack(); },
+  async ctbigdel() { const f = S.ctBig; if (!f || CatPics.busy) return; S.ctSel = { [f]: true }; S.ctBig = null; await ACT.ctdel(); bigBack(); },
   ctopen() { S.more = false; S.ctSort = 'low'; S.ctSel = {}; S.ctN = 120; S.ctDelAll = false; CatPics.train = null; S.modal = 'cats'; render(); CatPics.load().then(() => { if (S.modal === 'cats') render(); }); },
   ctsel(d) { S.ctSel = S.ctSel || {}; S.ctSel[d.v] = !S.ctSel[d.v]; render(); },
   ctclear() { S.ctSel = {}; render(); },

@@ -276,12 +276,60 @@ def disk_put(key, body):
 # Furbo 360s. Writes the wish to /ctl/want; the mini PC's watchdog applies it within a minute (frigate-watchdog.py).
 CTL = '/ctl/want'
 
+# 如厕记录 (Cats → 如厕记录 in the app): what she changed by hand, shared by every phone. Kept in /ctl/litter.json:
+#   merge  = groups of alert ids she joined into one visit;  solo = ids she split apart (never joined automatically);
+#   removed = ids she said were not a visit.  Entries older than 40 days are dropped.
+LITTER = '/ctl/litter.json'
+LITTER_LOCK = threading.Lock()
+
+def litter_load():
+    try:
+        d = json.load(open(LITTER))
+    except Exception:
+        d = {}
+    return {'merge': [list(map(str, g)) for g in d.get('merge', []) if isinstance(g, list)],
+            'solo': [str(x) for x in d.get('solo', [])], 'removed': [str(x) for x in d.get('removed', [])]}
+
+def litter_change(op, ids):
+    ids = [str(x)[:64] for x in ids if str(x)][:50]
+    with LITTER_LOCK:
+        d = litter_load()
+        cut = time.time() - 40 * 86400
+        old = lambda x: (float(x.split('-')[0]) if x.split('-')[0].replace('.', '', 1).isdigit() else time.time()) < cut
+        d['merge'] = [g for g in d['merge'] if not all(old(x) for x in g)]
+        d['solo'] = [x for x in d['solo'] if not old(x)]
+        d['removed'] = [x for x in d['removed'] if not old(x)]
+        if op == 'merge' and len(ids) > 1:
+            d['merge'] = [g for g in d['merge'] if not set(g) & set(ids)] + [sorted(set(ids))]
+            d['solo'] = [x for x in d['solo'] if x not in ids]
+        elif op == 'split':
+            d['merge'] = [g for g in d['merge'] if not set(g) & set(ids)]
+            d['solo'] = sorted(set(d['solo']) | set(ids))
+        elif op == 'remove':
+            d['removed'] = sorted(set(d['removed']) | set(ids))
+        elif op == 'restore':
+            d['removed'] = [x for x in d['removed'] if x not in ids]
+        else:
+            raise ValueError('unknown op')
+        os.makedirs('/ctl', exist_ok=True)
+        open(LITTER + '.tmp', 'w').write(json.dumps(d))
+        os.replace(LITTER + '.tmp', LITTER)
+        return d
+
 class H(BaseHTTPRequestHandler):
     def ctl_reply(self, code, obj):
         b = json.dumps(obj).encode()
         self.send_response(code); self.send_header('Content-Type', 'application/json'); self.send_header('Content-Length', str(len(b))); self.end_headers(); self.wfile.write(b)
 
     def do_POST(self):
+        if self.path.split('?')[0] == '/ctl/litter':
+            try:
+                n = int(self.headers.get('Content-Length') or 0); q = json.loads(self.rfile.read(min(n, 8000)) or b'{}')
+                d = litter_change(str(q.get('op')), list(q.get('ids') or []))
+            except Exception as x:
+                self.ctl_reply(400, {'error': str(x)[:100]}); return
+            print('litter', q.get('op'), len(q.get('ids') or []), flush=True)
+            self.ctl_reply(200, d); return
         if self.path.split('?')[0] != '/ctl/furbo360':
             self.send_error(404); return
         try:
@@ -298,6 +346,10 @@ class H(BaseHTTPRequestHandler):
         self.ctl_reply(200, {'want': want})
 
     def do_GET(self):
+        if self.path.split('?')[0] == '/ctl/litter':
+            with LITTER_LOCK:
+                d = litter_load()
+            self.ctl_reply(200, d); return
         st = STAMP.match(self.path.split('?')[0])
         if st:
             try:
