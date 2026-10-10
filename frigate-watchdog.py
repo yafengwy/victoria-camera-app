@@ -343,7 +343,14 @@ def health(dead, st, stats):
         L.append('Memory Free %.1f GB of %.1f GB · Swap Used %d MB' % (mem['MemAvailable'] / 1024, mem['MemTotal'] / 1024, mem['SwapTotal'] - mem['SwapFree']))
     except Exception: pass
     try:
-        du = shutil.disk_usage('/'); L.append('Disk Free %d GB of %d GB' % (du.free // 2**30, du.total // 2**30))
+        du = shutil.disk_usage('/'); L.append('System Disk Free %d GB of %d GB · %d%% Used' % (du.free // 2**30, du.total // 2**30, round(100 * du.used / du.total)))
+    except Exception: pass
+    try:   # 2026-10-09: recordings moved to the Samsung 990 PRO mounted on ~/frigate/storage; show both disks
+        sp = os.path.join(D, 'storage')
+        if os.path.ismount(sp):
+            dr = shutil.disk_usage(sp); L.append('Recordings Disk Free %d GB of %d GB · %d%% Used' % (dr.free // 2**30, dr.total // 2**30, round(100 * dr.used / dr.total)))
+        else:
+            L.append('Recordings Disk Not Mounted · Recordings Are Going To The System Disk')
     except Exception: pass
     sto = st.get('store') or {}
     if 'days' in sto: L.append('Storage: Alerts Go Back %d Days · Recordings Disk Free %d%% (%d GB)' % (sto['days'], sto.get('free', 0), sto.get('gb', 0)))
