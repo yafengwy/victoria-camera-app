@@ -4528,6 +4528,9 @@ const FZ = {
 /* behave like an app, not a web page: the page itself never zooms (pinch, double tap, or tapping a text box) and never
    slides sideways; the app's own pinches (timelines, full-screen zoom) use touch events and keep working */
 ['gesturestart', 'gesturechange', 'gestureend'].forEach(n => document.addEventListener(n, e => e.preventDefault(), { passive: false }));
+/* 4.8.6: a trackpad pinch on a computer arrives as ctrl + scroll; it must never zoom the page (anywhere in the app),
+   only the app's own zooms (picture, timelines) react to it */
+window.addEventListener('wheel', e => { if (e.ctrlKey) e.preventDefault(); }, { passive: false });
 function wireFull() {
   FZ.wire();
   if (document.querySelector('.full.rot')) { rotDrag(document.getElementById('ftsc')); rotDrag(document.querySelector('.full .fpl')); }
