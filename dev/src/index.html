@@ -1500,10 +1500,11 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .pfbigdel{width:100%;margin-top:10px}
 [data-app-theme="noir"] .pfbig{border-radius:4px}
 :is([data-app-theme="green"],[data-app-theme="google"]) .pfbig{border-radius:20px}
-/* ---- 4.9.10 her rule: alert card buttons closer together (Fix / Who? and the three icons), still easy to hit: full height, a bit narrower ---- */
-.evh .whob{padding:5px 7px;margin-right:0}
-.evh .whob + .whob{margin-left:2px}
-.evcard .evh .ic,.evh .ic{width:25px}
+/* ---- 4.9.10 / 4.10.4 her rule: alert card buttons closer together (Fix / Who? and the three icons), still easy to hit: full height, a bit narrower ---- */
+/* 4.10.4 her rule: Fix and Who? count as icons — the same 5 px between every two of them (Fix · Who? · ⤓ · 🗑 · ▶) */
+.evh .whob{background:none;padding:5px 2.5px;margin:0;border-radius:6px}
+.evh .whob:active{background:var(--track)}
+.evcard .evh .ic,.evh .ic{width:23px}
 .evcard .evh{padding-right:6px}
 </style>
 
