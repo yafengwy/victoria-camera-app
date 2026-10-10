@@ -2257,7 +2257,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 4.8.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 4.8.4 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -2653,7 +2653,12 @@ const People = {
   async post(path, body, noQueue) {
     /* 3.3.3: Frigate 0.18 takes "false positive" as PUT (POST answered 405, so Not Person / Not Dog were never saved) */
     const fp = /\/false_positive$/.test(path);
-    const r = await fetch(Frigate.base() + path, { method: fp ? 'PUT' : 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '1' }, body: JSON.stringify(body || {}) });
+    /* 4.8.4: a request that fails or hangs (Frigate busy, phone between Wi-Fi and 5G) used to throw and leave every
+       Save stuck with no reaction; now it gives up after 30 s and answers "not ok" */
+    let r; const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 30000);
+    try { r = await fetch(Frigate.base() + path, { method: fp ? 'PUT' : 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '1' }, body: JSON.stringify(body || {}), signal: ac.signal }); }
+    catch (e) { clearTimeout(tm); const msg = e && e.name === 'AbortError' ? 'No Answer In 30 s' : 'Network ' + ((e && e.message) || 'Error'); Dbg.log('request failed', path, msg); return { ok: false, msg }; }
+    clearTimeout(tm);
     let j = {}; try { j = await r.json(); } catch (e) {} const res = { ok: r.ok && j.success !== false, msg: j.message || String(r.status) };
     /* 3.3.5: an object still being tracked (a pillow seen as a dog stays "there") has no snapshot until it ends, and
        Frigate+ needs that snapshot: such a "not this" is kept on this phone and sent again every 2 min until it goes */
@@ -5319,7 +5324,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.8.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.8.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -5436,7 +5441,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.8.3');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.8.4');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5453,7 +5458,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.8.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.8.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5579,9 +5584,15 @@ const ACT = {
     render(); if (S.whoName === '+') { const n = document.getElementById('whonew'); if (n) n.focus(); } },
   whoteach() { S.whoTeach = !S.whoTeach; render(); },
   async whosave() {
-    const e = Data.events.find(x => x.id === S.whoId); if (!e || People.busy) return;
+    const e = Data.events.find(x => x.id === S.whoId);
+    /* 4.8.4: a Save that did nothing now says why; a step stuck over 60 s no longer blocks Save */
+    if (People.busy && Date.now() - (People.busyAt || 0) > 60000) { Dbg.log('who save: old step stuck, freed'); People.busy = false; }
+    Dbg.log('who save', S.whoId, S.whoName, e ? 'alert found' : 'alert not found', People.busy ? 'busy' : '');
+    if (!e) { toast('This Alert Is No Longer Loaded · Close And Try Again'); return; }
+    if (People.busy) { toast('Still Saving…'); return; }
+    People.busyAt = Date.now();
     if (S.whoName === '-person') {   /* Not Person: every person detection in this alert marked wrong (Frigate+) */
-      People.busy = true; let ok = true;
+      People.busy = true; People.busyAt = Date.now(); let ok = true; toast('Saving…');
       for (const d of e.dets || []) {
         if (!People.lab[d]) { try { const r = await Frigate.get('/api/events/' + encodeURIComponent(d)); People.lab[d] = r.label; if (r.false_positive) People.fp[d] = 1; } catch (x) {} }
         if (People.lab[d] !== 'person' || People.fp[d]) continue;
@@ -5595,7 +5606,7 @@ const ACT = {
     if (!n) { toast(S.whoName === '+' ? 'Type The Name' : 'Pick A Name'); return; }
     S.whoNew = '';
     const teach = S.whoTeach === true && People.faceCams.includes(e.cam);
-    People.busy = true; const r = await People.name(e, n, teach);
+    People.busy = true; People.busyAt = Date.now(); toast('Saving…'); let r; try { r = await People.name(e, n, teach); } catch (x) { r = { ok: false, msg: 'Could Not Save The Name' }; Dbg.log('who save error', String(x && x.message || x)); }
     People.busy = false;
     if (!r.ok) { toast(r.msg || 'Could Not Save The Name'); return; }
     whoOf(e); S.modal = null; render(); People.faces = null;
@@ -5603,7 +5614,7 @@ const ACT = {
   },
   async whoclear() {
     const e = Data.events.find(x => x.id === S.whoId); if (!e || People.busy) return;
-    People.busy = true; const r = await People.name(e, '', false); People.busy = false;
+    People.busy = true; People.busyAt = Date.now(); const r = await People.name(e, '', false); People.busy = false;
     if (!r.ok) { toast('Could Not Remove The Name'); return; }
     whoOf(e); S.modal = null; render(); toast('Name Removed');
   },
@@ -5660,7 +5671,7 @@ const ACT = {
   async pfassign(d) {
     const f = S.pfSel; if (!f || People.busy) return;
     const n = (d.v || ((document.getElementById('pfnew') || {}).value || '')).trim(); if (!n) { toast('Type A Name'); return; }
-    People.busy = true; toast('Saving As ' + niceName(n) + '…'); Dbg.log('face assign', f, '→', People.key(n));
+    People.busy = true; People.busyAt = Date.now(); toast('Saving As ' + niceName(n) + '…'); Dbg.log('face assign', f, '→', People.key(n));
     const r = await People.post('/api/faces/train/' + encodeURIComponent(People.key(n)) + '/classify', { training_file: f }); People.busy = false;
     Dbg.log('face assign answer', r.ok, r.msg);
     if (!r.ok) { toast(r.msg || 'Could Not Save'); return; }
@@ -5668,7 +5679,7 @@ const ACT = {
   },
   async pfdel() {
     const f = S.pfSel; if (!f || People.busy) return;
-    People.busy = true; const r = await People.post('/api/faces/train/delete', { ids: [f] }); People.busy = false;
+    People.busy = true; People.busyAt = Date.now(); const r = await People.post('/api/faces/train/delete', { ids: [f] }); People.busy = false;
     Dbg.log('face delete', f, r.ok, r.msg);
     if (!r.ok) { toast('Could Not Delete'); return; }
     S.pfSel = null; People.dropTrain([f]); render(); toast('Deleted');
@@ -5678,7 +5689,7 @@ const ACT = {
   pfdallno() { S.pfDelAll = false; render(); },
   async pfdall() {
     if (People.busy) return; const ids = ((People.faces && People.faces.train) || []).slice(); if (!ids.length) { S.pfDelAll = false; render(); return; }
-    People.busy = true; toast('Deleting ' + ids.length + ' Faces…'); const r = await People.post('/api/faces/train/delete', { ids }); People.busy = false;
+    People.busy = true; People.busyAt = Date.now(); toast('Deleting ' + ids.length + ' Faces…'); const r = await People.post('/api/faces/train/delete', { ids }); People.busy = false;
     Dbg.log('face delete all', ids.length, r.ok, r.msg);
     S.pfDelAll = false;
     if (!r.ok) { toast('Could Not Delete'); render(); return; }
@@ -6610,7 +6621,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.8.3';
+    const BUILD = '4.8.4';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
