@@ -3279,7 +3279,8 @@ const Litter = {
     let st = 0; try { st = (await fetch(Frigate.base() + '/vod/' + g.cam + '/start/' + vs + '/end/' + ve + '/index.m3u8', { credentials: 'include' })).status; } catch (x) { st = -1; }
     if (st !== 404) return;
     let recs = '?'; try { const r = await Frigate.get('/api/' + g.cam + '/recordings?after=' + (vs - 600) + '&before=' + (ve + 600)); recs = (r || []).length + ' pieces within 10 min' + ((r || []).length ? ', nearest ' + hms(r.reduce((m, x) => Math.abs(x.start_time - vs) < Math.abs(m - vs) ? x.start_time : m, r[0].start_time) * 1000) : ''); } catch (x) { recs = 'failed'; }
-    Dbg.log('litter no recording', g.cam, ymdhms(g.t), Litter.dur(g), 'parts ' + g.ps.length, recs);
+    let days = '?'; try { const d = ((await Frigate.get('/api/' + g.cam + '/recordings/summary')) || []).map(r => r.day).filter(Boolean).sort(); days = d.length ? 'recorded days ' + d.length + ', first ' + d[0] + (d.length > 1 ? ', ' + d.slice(0, 6).join(' ') : '') : 'no recorded days'; } catch (x) { days = 'summary failed'; }
+    Dbg.log('litter no recording', g.cam, ymdhms(g.t), Litter.dur(g), 'parts ' + g.ps.length, recs, '|', days);
     if (S.ltSel === id) { S.ltNoRec = id; render(); }
   }
 };
