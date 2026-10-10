@@ -3313,7 +3313,27 @@ window.addEventListener('popstate', () => {
 /* the page being looked at, so a refresh (pull down, or an app update) comes back to it instead of the home page */
 let pageReady = false;
 function savePage() { if (!pageReady) return; try { sessionStorage.setItem('vhpage', JSON.stringify({ v: S.view, f: S.focus ? S.focus.cam : null, d: S.evDay || 0 })); } catch (e) {} }
+/* 4.9.2: the Playback Log showed full screen redraws of 1.1-1.3 s (the whole app: home page, the camera view behind,
+   and the full screen with its 3-day timeline) several times a minute while the timeline was out, each one freezing
+   the phone and jumping the timeline back to the playing time. While full screen stays the same full screen, a redraw
+   now only refreshes the buttons and the picture; the timeline is left alone. */
+function fullLight() {
+  if (!S.full || !S.focus || S.watch || S.modal) return false;
+  const fv = document.getElementById('fullv'); if (!fv || fv.dataset.cam !== S.focus.cam) return false;
+  return fv.classList.contains('rot') === fullRot() && !!fv.querySelector(':scope > .fside') === !!S.fui && !!fv.querySelector('.fpl') === !!(S.fui && S.fpanel);
+}
+function fullButtons() {
+  const fv = document.getElementById('fullv'), c = Data.cam(S.focus.cam), w = fv && fv.querySelector('.fvw'); if (!w || !c) return;
+  const img = document.getElementById('fullimg'), tmp = document.createElement('div');
+  tmp.innerHTML = viewFull(c, camT(c.id), { img: img ? img.getAttribute('src') : '' });
+  const nfv = tmp.firstElementChild; if (!nfv) return;
+  ['.fvw > .fuitop', '.fvw > .fullsteps', '.fside > .fsh', '.fside > .fsb'].forEach(q => {
+    const o = fv.querySelectorAll(':scope ' + q), n = nfv.querySelectorAll(':scope ' + q);
+    o.forEach((x, i) => { if (n[i] && x.innerHTML !== n[i].innerHTML) x.replaceWith(n[i]); });
+  });
+}
 function render() {
+  if (fullLight()) { const _t1 = performance.now(); try { fullButtons(); paintFocus(); Live.policy(); } catch (e) { Dbg.log('script error', 'full light', String(e && e.message || e)); } const ms = Math.round(performance.now() - _t1); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', 'full'); return; }
   const _t0 = performance.now();
   try { render0(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
 }
@@ -4408,7 +4428,7 @@ function viewFull(c, t, f) {
       '</div>' +
       (S.fpanel ? '' : '<div class="fsb zdesk2"><button class="dk sm" data-act="fzoombtn" data-v="out" aria-label="Show Longer Time">−</button><button class="dk sm" data-act="fzoombtn" data-v="in" aria-label="Show Shorter Time">+</button></div>') + '</aside>';
   }
-  return '<div class="full' + (c.id === 'nest_doorbell' ? ' door' : '') + (S.fui ? ' ui' : '') + (fullRot() ? ' rot' : '') + '" id="fullv"><div class="fvw vfit vcon" style="--R:' + trueAr(c).toFixed(4) + '" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.quick(c.id, t != null, 'fullquick') + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
+  return '<div class="full' + (c.id === 'nest_doorbell' ? ' door' : '') + (S.fui ? ' ui' : '') + (fullRot() ? ' rot' : '') + '" id="fullv" data-cam="' + esc(c.id) + '"><div class="fvw vfit vcon" style="--R:' + trueAr(c).toFixed(4) + '" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.quick(c.id, t != null, 'fullquick') + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
     '<div class="fulltm" id="fulltm">' + dtShort(shownT(c.id, c.id)) + '</div>' +
     (S.fui ? '<div class="fullsteps"><button class="dk sm wide" data-act="fstep" data-v="-10" aria-label="Back 10 Seconds">−10s</button><button class="fstep" data-act="flive" aria-label="Go Live">Live</button>' +
       '<button class="dk sm wide" id="fullstepf" data-act="fstep" data-v="10" aria-label="Forward 10 Seconds"' + (t == null ? ' disabled' : '') + '>+10s</button></div>' : '') +
@@ -4587,7 +4607,7 @@ const FZ = mkZoom({
   host: () => document.querySelector('#fullv .fvw'), root: () => document.getElementById('fullv'),
   keep: n => n.classList.contains('fuitop') || n.classList.contains('fulltm') || n.classList.contains('fullsteps'),
   side: e => !!(e.target.closest && e.target.closest('.fside')),
-  can: () => !!document.getElementById('fullv')
+  can: () => !!document.getElementById('fullv') && !(window.matchMedia && matchMedia('(pointer:coarse)').matches)   /* 4.9.2 her ask: phones do not zoom the full screen for now (like the upright camera view); computers do */
 });
 /* 4.8.8: the computer's camera view (picture on the left, timeline on the right) zooms its picture the same way; the
    timeline never moves. On a phone held upright (timeline under the picture) the camera view does not zoom. */
