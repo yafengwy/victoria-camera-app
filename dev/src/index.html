@@ -387,7 +387,9 @@ img.rf{opacity:0}
 .fullsteps .dk.sm{background:rgba(0,0,0,.6);color:#fff}
 .livepill{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:5;height:52px;padding:0 24px;border-radius:26px;background:#B9CCFF;color:#13223F;font-size:16px;font-weight:700;display:flex;align-items:center;gap:8px;box-shadow:0 6px 16px rgba(0,0,0,.35)}
 /* Wide screens: video on the left, date bar + timeline/list on the right */
-@media (min-width:1000px) and (min-height:560px){
+/* 4.9.4 her rule: a wide foldable opened flat (a small-tablet screen held sideways) gets this layout too: the picture as
+   tall as the screen on the left, the same native-scrolling timeline as the upright phone on the right */
+@media (min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px){
   .focus{--fw:clamp(270px,24vw,300px);display:grid;grid-template-columns:minmax(0,1fr) var(--fw);grid-template-rows:68px minmax(0,1fr)}
   .focus>.fvid{grid-column:1;grid-row:1/3;align-self:center;justify-self:center;max-width:none;width:min(calc(100% - 32px),calc((100vh - env(safe-area-inset-top,0px) - 32px) * 16 / 9));margin:0 16px;border-radius:14px;overflow:hidden}
   .focus>.fvid.tall{width:min(calc(100% - 32px),calc((100vh - env(safe-area-inset-top,0px) - 32px) * var(--ar)))}
