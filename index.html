@@ -1279,7 +1279,6 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .focus .fvid.zooming > :not(.fov):not(.fnmbr):not(.tag):not(.offv):not(.pillk){will-change:transform}
 .focus .fvid{overflow:hidden}
 /* 4.8.7: the picture and the timeline side are drawn as separate parts, so zooming one never repaints the other */
-.full .fvw{contain:layout paint}
 .full .fside{contain:layout paint}
 
 /* ---- v67: save video: ready bar (phones), camera view clip range ---- */
@@ -2265,7 +2264,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 4.8.8 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 4.8.9 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -2279,6 +2278,18 @@ setInterval(() => {
   }
   Jank.hidden = document.visibilityState !== 'visible'; Jank.slow = 0;
 }, 250);
+/* 4.8.9: full screen smoothness, measured: every 5 s in full screen the Playback Log gets the frames per second, the
+   longest frame, whether the screen is the turned one (phone upright) and the zoom, to compare upright vs sideways */
+const FullFps = { n: 0, worst: 0, last: 0, at: 0,
+  tick(t) {
+    if (S.full && document.visibilityState === 'visible') {
+      if (this.last) { const d = t - this.last; this.n++; if (d > this.worst) this.worst = d; }
+      this.last = t; if (!this.at) this.at = t;
+      if (t - this.at >= 5000) { const fv = document.getElementById('fullv'); Dbg.log('full view fps', Math.round(this.n * 1000 / (t - this.at)), 'longest frame ' + Math.round(this.worst) + 'ms', fv && fv.classList.contains('rot') ? 'turned (phone upright)' : 'sideways', 'zoom ' + FZ.s.toFixed(1), 'timeline ' + (S.fui ? 'shown' : 'hidden'), camT(S.focus.cam) == null ? 'live' : 'recording'); this.n = 0; this.worst = 0; this.at = t; }
+    } else { this.last = 0; this.at = 0; this.n = 0; this.worst = 0; }
+    requestAnimationFrame(x => this.tick(x));
+  } };
+requestAnimationFrame(x => FullFps.tick(x));
 /* 3.7.10: hls.js problems go to the Playback Log (a clip that got its list but never its video said nothing) */
 function hlsLog(h, H, tag) {
   let n = 0;
@@ -5425,7 +5436,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.8.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.8.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -5544,7 +5555,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.8.8');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.8.9');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5561,7 +5572,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.8.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.8.9\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -6730,7 +6741,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.8.8';
+    const BUILD = '4.8.9';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

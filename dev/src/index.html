@@ -1279,7 +1279,6 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .focus .fvid.zooming > :not(.fov):not(.fnmbr):not(.tag):not(.offv):not(.pillk){will-change:transform}
 .focus .fvid{overflow:hidden}
 /* 4.8.7: the picture and the timeline side are drawn as separate parts, so zooming one never repaints the other */
-.full .fvw{contain:layout paint}
 .full .fside{contain:layout paint}
 
 /* ---- v67: save video: ready bar (phones), camera view clip range ---- */
@@ -2279,6 +2278,18 @@ setInterval(() => {
   }
   Jank.hidden = document.visibilityState !== 'visible'; Jank.slow = 0;
 }, 250);
+/* 4.8.9: full screen smoothness, measured: every 5 s in full screen the Playback Log gets the frames per second, the
+   longest frame, whether the screen is the turned one (phone upright) and the zoom, to compare upright vs sideways */
+const FullFps = { n: 0, worst: 0, last: 0, at: 0,
+  tick(t) {
+    if (S.full && document.visibilityState === 'visible') {
+      if (this.last) { const d = t - this.last; this.n++; if (d > this.worst) this.worst = d; }
+      this.last = t; if (!this.at) this.at = t;
+      if (t - this.at >= 5000) { const fv = document.getElementById('fullv'); Dbg.log('full view fps', Math.round(this.n * 1000 / (t - this.at)), 'longest frame ' + Math.round(this.worst) + 'ms', fv && fv.classList.contains('rot') ? 'turned (phone upright)' : 'sideways', 'zoom ' + FZ.s.toFixed(1), 'timeline ' + (S.fui ? 'shown' : 'hidden'), camT(S.focus.cam) == null ? 'live' : 'recording'); this.n = 0; this.worst = 0; this.at = t; }
+    } else { this.last = 0; this.at = 0; this.n = 0; this.worst = 0; }
+    requestAnimationFrame(x => this.tick(x));
+  } };
+requestAnimationFrame(x => FullFps.tick(x));
 /* 3.7.10: hls.js problems go to the Playback Log (a clip that got its list but never its video said nothing) */
 function hlsLog(h, H, tag) {
   let n = 0;
