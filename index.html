@@ -260,6 +260,7 @@ img.rf{opacity:0}
 .fline{position:absolute;left:0;right:0;top:24px;height:2px;margin-top:-1px;background:var(--dark-accent);pointer-events:none;z-index:2}
 .frail{position:absolute;top:0;bottom:0;left:62px;width:2px;background:var(--dark-line)}
 .fhr{position:absolute;left:12px;font-size:12px;font-weight:700;color:var(--dark-sub);font-variant-numeric:tabular-nums}
+.fhr.fday0{color:var(--dark-fg,#fff);white-space:nowrap;z-index:1}
 .fev{position:absolute;left:54px;right:12px;height:60px;display:flex;align-items:center;gap:12px;text-align:left}
 .fev i{width:18px;height:18px;border-radius:5px;background:#5FD3B4;flex-shrink:0}
 .fev.fstrip{gap:4px;padding:0 2px;justify-content:flex-start}
@@ -1274,6 +1275,9 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .full .fov,.full .fullsteps,.full .fulltm,.full .fbot,.full .fuitop{touch-action:none}
 .full .fvw > :not(.fuitop):not(.fulltm):not(.fullsteps){transform:translate(var(--zx,0px),var(--zy,0px)) scale(var(--zs,1));transform-origin:0 0}
 .full .fvw.zooming > :not(.fuitop):not(.fulltm):not(.fullsteps){will-change:transform}
+.focus .fvid.zoomed > :not(.fov):not(.fnmbr):not(.tag):not(.offv):not(.pillk){transform:translate(var(--zx,0px),var(--zy,0px)) scale(var(--zs,1))}
+.focus .fvid.zooming > :not(.fov):not(.fnmbr):not(.tag):not(.offv):not(.pillk){will-change:transform}
+.focus .fvid{overflow:hidden}
 /* 4.8.7: the picture and the timeline side are drawn as separate parts, so zooming one never repaints the other */
 .full .fvw{contain:layout paint}
 .full .fside{contain:layout paint}
@@ -2261,7 +2265,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 4.8.7 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 4.8.8 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -3520,12 +3524,8 @@ function camCard(c, fr, span2) {
   const snz = Snz.has(c.id) ? '<span class="snzb">' + I.snooze + (Snz.st.mode === 'c' ? 'Clear' : Snz.left()) + '</span>' : '';
   return '<article class="cam' + (c.id === 'nest_doorbell' ? ' door' : '') + (c.id === 'front_door' ? ' fdoor' : '') + (c.id === S.expanded ? ' on' : '') + (off ? ' off' : '') + (tall ? ' tall' : '') + (span2 ? ' span2' : '') + (slim ? ' slim' : '') + '" id="cam-' + c.id + '"' + (tall || fr ? ' style="' + (tall ? '--ar:' + c.ar.toFixed(4) + ';' : '') + (fr ? '--fr:' + fr.toFixed(4) : '') + '"' : '') + '>' +
     (slim ? '' : '<div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button>' + snz +
-    (S.layout === 'list' && c.id === S.expanded ? '<div class="chctl">' +
-      '<span id="pfix" class="ffixw">' + focusFix(c.id, 'chlive pfixl') + '</span>' +
-      (Data.source === 'frigate' && !off ? '<button class="ic" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
-      (Data.source === 'frigate' ? '<button class="ic bxh" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
-      sndC(c.id) + '<button class="chlive" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button></div>'
-      : '') +
+    /* 4.8.8 her rule: in List too, the opened camera's buttons sit at the right end of the playback row under it (the
+       row had empty room), not over the picture's top right */
     '</div>') +
     '<div class="frame vfit" style="--R:' + trueAr(c).toFixed(4) + '"><img id="img-' + c.id + '" src="' + (t == null ? Live.pic(c.id, f.img) : f.img) + '"' + (t == null && Live.pic(c.id, f.img) !== f.img ? ' data-frozen="1"' : '') + ' alt="' + esc(c.name) + '">' + Live.holder(Live.cardSrc(c.id), t != null) + Playback.holder(c.id) + (S.layout === 'grid' || slim ? '<div class="cnm' + rcnA(c.id) + '>' + esc(c.name) + '</div>' : '') +
     '<button class="hit" data-act="tap" data-id="' + c.id + '" aria-label="Show playback for ' + esc(c.name) + '"></button>' +
@@ -3563,7 +3563,7 @@ function paintTimes() {
   /* camera view timeline: the date button names the day of the moment on screen (it said Today while showing yesterday) */
   if (S.focus && !S.flist) { const b = document.querySelector('.focus .fday'); if (b) { const w = dayLabel(shownT(S.focus.cam, S.focus.cam)); if (b._w !== w) { b._w = w; b.innerHTML = I.cal + w; } } }
   { const ff = document.getElementById('ffix'); if (ff && S.focus) { const v = focusFix(S.focus.cam); if (ff._v !== v) { ff._v = v; ff.innerHTML = v; } } }
-  { const pf = document.getElementById('pfix'); if (pf && S.expanded) { const v = focusFix(S.expanded, S.layout === 'list' ? 'chlive pfixl' : 'round pfixb'); if (pf._v !== v) { pf._v = v; pf.innerHTML = v; } } }
+  { const pf = document.getElementById('pfix'); if (pf && S.expanded) { const v = focusFix(S.expanded, 'round pfixb'); if (pf._v !== v) { pf._v = v; pf.innerHTML = v; } } }
   ['ftm', 'fulltm'].forEach(k => { const f = document.getElementById(k); if (f && S.focus) { const v = (k === 'ftm' ? dtHdr : dtShort)(shownT(S.focus.cam, S.focus.cam)); if (f.textContent !== v) f.textContent = v; } });
 }
 setInterval(paintTimes, 500);
@@ -3734,7 +3734,7 @@ function panel(c, col) {
       '<div class="cliptxt">' + (cl.a ? 'Start ' + hms(cl.a) : 'Start —') + ' · ' + (cl.b ? 'End ' + hms(cl.b) : 'End —') + '</div>';
   }
   return '<div class="panel' + (col ? ' half' : '') + '" id="panel"' + (col ? ' style="grid-column:' + col + ' / span 2"' : '') + '>' +
-    (S.layout === 'list' ? '<div class="pctl solo">' : '<div class="pctl g3"><span class="psp pl"></span>') +
+    '<div class="pctl g3"><span class="psp pl"></span>' +
     '<div class="trio">' +
     '<button data-act="pstep" data-v="-5" aria-label="Back 5 Seconds">' + I.back5 + '</button>' +   /* 3.10.4: −5 s / +5 s beside Pause */
     '<button data-act="playpause" aria-label="' + (S.playing ? 'Pause' : 'Play') + '">' + (S.playing ? I.pause : I.play) + '</button>' +
@@ -3742,7 +3742,7 @@ function panel(c, col) {
     '</div>' +
     /* grid cards have no title row, so their controls sit at the panel's right, in the same order as every other
        page's top right: Power, Date, Boxes, Sound, Live; on narrow phones Power, Sound | Play | Boxes, Date, Live (CSS order) */
-    (S.layout === 'list' ? '' : '<span class="psp pr"></span><span class="pg gl">' +
+    ('<span class="psp pr"></span><span class="pg gl">' +
       '<span id="pfix" class="ffixw">' + focusFix(c.id, 'round pfixb') + '</span>' +
       (Data.source === 'frigate' && Ctl.on(c.id) ? '<button class="round o-pw" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
       Snd.btn('round o-sn') + '</span><span class="pg gr">' +
@@ -4188,7 +4188,39 @@ function fclipMarks(id) {
   return h;
 }
 function focusEnd() { return S.focus.dayEnd || now(); }
-function focusSpan() { return S.focus.dayEnd ? DAY : (now() - dayStart(now()) + HOUR); }
+/* 4.8.8 her rule: the camera view's timeline keeps going back as you scroll, day after day, to the oldest recording
+   (one more day is added each time you get near the bottom), instead of stopping at the start of the day shown */
+function focusSpan() { return (S.focus.dayEnd ? DAY : (now() - dayStart(now()) + HOUR)) + (S.focus.back || 0) * DAY; }
+const FBack = {
+  max: {},   /* camera → how many whole days before the shown day still have recordings */
+  async load(cam) {
+    if (this.max[cam] != null) return;
+    if (Data.source !== 'frigate') { this.max[cam] = 3; return; }
+    try {
+      const rows = await Frigate.get('/api/' + cam + '/recordings/summary');
+      const days = (rows || []).map(r => r.day).filter(Boolean).sort();
+      if (days.length) { const [y, m, d] = days[0].split('-').map(Number); this.max[cam] = Math.max(0, Math.round((dayStart(now()) - new Date(y, m - 1, d).getTime()) / DAY)); }
+      else this.max[cam] = 0;
+    } catch (e) { this.max[cam] = 7; }
+    if (S.focus && S.focus.cam === cam) this.fill();
+  },
+  /* a short day (just after midnight) or a tall screen left nothing to scroll, so the earlier days could never be
+     reached: keep adding days until the list is taller than the screen */
+  fill() { const sc = document.getElementById('fsc'); for (let i = 0; i < 3 && sc && sc.scrollHeight < sc.clientHeight * 2.5 && this.left() > 0; i++) this.more(); },
+  left() { if (!S.focus) return 0; const m = this.max[S.focus.cam]; if (m == null) return 1; const shown = S.focus.dayEnd ? Math.round((dayStart(now()) + DAY - S.focus.dayEnd) / DAY) : 0; return Math.max(0, m - shown - (S.focus.back || 0)); },
+  /* add one more day under the list without redrawing the picture: only the list's inside is replaced, and since the
+     new day goes at the bottom the place you are looking at does not move */
+  more() {
+    if (!S.focus || S.flist || this.busy || this.left() <= 0) return;
+    const sc = document.getElementById('fsc'), fin = sc && sc.querySelector('.fin'); if (!fin) return;
+    this.busy = true; S.focus.back = (S.focus.back || 0) + 1;
+    try {
+      const tmp = document.createElement('div'); tmp.innerHTML = viewFocus();
+      const nf = tmp.querySelector('#fsc .fin'); if (nf) { const top = sc.scrollTop; fin.replaceWith(nf); sc.scrollTop = top; }
+      Dbg.log('timeline back one more day', S.focus.cam, S.focus.back);
+    } finally { this.busy = false; }
+  }
+};
 function fLineY(t) { return t == null ? FTOP : FTOP + (focusEnd() - t) / MIN * FPX; }
 /* keep the playing time in view without jumping: only scroll when it is off screen */
 /* 4.5.2: the camera view list has empty room above "now" (pad, one screen tall). With the blue line sitting lower
@@ -4261,7 +4293,7 @@ function viewFocus() {
     const height = FTOP + span / MIN * FPX + 400;
     let rows = '';
     for (let k = Math.floor(end / HOUR) * HOUR; k > end - span; k -= HOUR)
-      rows += '<div class="fhr" style="top:' + (FTOP + (end - k) / MIN * FPX - 8) + 'px">' + pad(new Date(k).getHours()) + '</div>';
+      rows += '<div class="fhr' + (new Date(k).getHours() === 0 ? ' fday0' : '') + '" style="top:' + (FTOP + (end - k) / MIN * FPX - 8) + 'px">' + (new Date(k).getHours() === 0 && k < dayStart(now()) + 1 ? dayLabel(k) + ' ' : '') + pad(new Date(k).getHours()) + '</div>';
     /* One grouping for both the icons and the cards: alerts closer than one card height (~35 min) form a group.
        The group gets one card and one icon per kind (with a count). Tapping either plays the same alert; a group of
        several opens into a strip of all its alerts so each one can be picked. */
@@ -4448,18 +4480,18 @@ function fullLocalY(e, el) { const r = el.getBoundingClientRect(), fv = document
 function fuiKick() {}
 /* Full screen: pinch to zoom into the picture (and drag it around) inside the app. The browser's own page zoom moved
    the whole page, so the timeline on the right slid off the screen; this zoom only enlarges the picture. */
-const FZ = {
+function mkZoom(cfg) { return {
   s: 1, x: 0, y: 0, cam: null, moved: 0, raf: 0,
-  host() { return document.querySelector('#fullv .fvw'); },
+  host: cfg.host, root: cfg.root, keep: cfg.keep, side: cfg.side,
   /* 4.8.5 her rule: only the full screen zooms the picture (the camera view with the timeline below does not), and
      the full screen's timeline (right side, or the strip that is the right side on a phone turned sideways) never
      moves or grows with the picture. A wide foldable opened flat is already landscape, so it gets the same full screen
      without turning. */
-  can() { return !!document.getElementById('fullv'); },
+  can: cfg.can,
   vars(w) { w.style.setProperty('--zs', this.s); w.style.setProperty('--zx', this.x + 'px'); w.style.setProperty('--zy', this.y + 'px'); w.classList.toggle('zoomed', this.s > 1.01); },
   /* every layer zooms around the same point (the picture box's corner); read once per gesture, not on every move
      (reading the layout on every finger move is what made the zoom stutter) */
-  prep(w) { for (const n of w.children) { if (n.classList.contains('fuitop') || n.classList.contains('fulltm') || n.classList.contains('fullsteps')) continue;
+  prep(w) { for (const n of w.children) { if (this.keep(n)) continue;
       const o = (-n.offsetLeft) + 'px ' + (-n.offsetTop) + 'px'; if (n.style.transformOrigin !== o) n.style.transformOrigin = o; } },
   apply() {
     const w = this.host(); if (!w) return;
@@ -4477,24 +4509,24 @@ const FZ = {
   /* finger position inside the picture box from the rect read at the gesture start */
   at(w, cx, cy) { const r = this._r || w.getBoundingClientRect(); return w.closest('.rot') ? [cy - r.top, r.right - cx] : [cx - r.left, cy - r.top]; },
   wire() {
-    const w = this.host(), fv = document.getElementById('fullv'); if (!w || !fv || fv._fz) { this.apply(); return; } fv._fz = true; this.apply();
+    const w = this.host(), fv = this.root(); if (!w || !fv || fv._fz) { this.apply(); return; } fv._fz = true; this.apply();
     let g = null, lastTap = 0;
     /* fingers anywhere on the full view count (the picture, the buttons over it) except the timeline side, which keeps
        its own pinch; a two-finger touch is always taken from the browser so the page itself never zooms */
-    const off = e => !!(e.target.closest && e.target.closest('.fside'));
+    const off = e => this.side(e);
     const mid = (t) => this.at(w, (t[0].clientX + t[1].clientX) / 2, (t[0].clientY + t[1].clientY) / 2);
     const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY) || 1;
     fv.addEventListener('touchstart', e => {
       if (off(e)) { g = null; return; }
       const t = e.touches;
-      if (t.length >= 2) e.preventDefault();
+      if (t.length >= 2) { e.preventDefault(); this.multi = Date.now(); }
       if (!this.can()) { g = null; return; }
       if (t.length === 2) { this.begin(w); g = { pinch: true, d0: dist(t), m0: mid(t), s0: this.s, x0: this.x, y0: this.y }; }
       else if (t.length === 1 && this.s > 1.01) { this.begin(w); g = { pinch: false, p0: this.at(w, t[0].clientX, t[0].clientY), x0: this.x, y0: this.y, moved: false }; }
       else g = null;
     }, { passive: false });
     fv.addEventListener('touchmove', e => {
-      if (e.touches.length >= 2 && !off(e)) e.preventDefault();
+      if (e.touches.length >= 2) { this.multi = Date.now(); if (!off(e)) e.preventDefault(); }
       if (!g) return; const t = e.touches; e.preventDefault();
       if (g.pinch && t.length === 2) {
         const m = mid(t), s = clamp(g.s0 * dist(t) / g.d0, 1, 6), cx = (g.m0[0] - g.x0) / g.s0, cy = (g.m0[1] - g.y0) / g.s0;
@@ -4511,7 +4543,9 @@ const FZ = {
       const tapped = g && !g.moved; g = null; this.end(w);
       if (this.s < 1.03) this.reset(); else this.vars(w);
       /* a double tap on a zoomed picture goes back to the whole picture */
-      if ((tapped || this.s > 1.01) && e.changedTouches.length === 1) { const n = Date.now(); if (n - lastTap < 320 && this.s > 1.01) { this.reset(); this.moved = n; } lastTap = n; }
+      /* 4.8.8: only real taps count; the end of a pinch used to count as the first tap, so the next tap (meant to show
+         the timeline) was taken as a double tap: the zoom was undone and the timeline stayed hidden */
+      if (tapped && e.changedTouches.length === 1) { const n = Date.now(); if (n - lastTap < 320 && this.s > 1.01) { this.reset(); this.moved = n; lastTap = 0; return; } lastTap = n; }
     }, { passive: true });
     fv.addEventListener('touchcancel', () => { g = null; this.end(w); }, { passive: true });
     /* computer: a trackpad pinch (or ctrl + scroll) over the picture zooms the picture, never the page; over the
@@ -4527,7 +4561,21 @@ const FZ = {
     }, { passive: false });
     w.addEventListener('dblclick', e => { if (this.s > 1.01) { e.preventDefault(); this.reset(); this.moved = Date.now(); } });
   }
-};
+}; }
+const FZ = mkZoom({
+  host: () => document.querySelector('#fullv .fvw'), root: () => document.getElementById('fullv'),
+  keep: n => n.classList.contains('fuitop') || n.classList.contains('fulltm') || n.classList.contains('fullsteps'),
+  side: e => !!(e.target.closest && e.target.closest('.fside')),
+  can: () => !!document.getElementById('fullv')
+});
+/* 4.8.8: the computer's camera view (picture on the left, timeline on the right) zooms its picture the same way; the
+   timeline never moves. On a phone held upright (timeline under the picture) the camera view does not zoom. */
+const FZF = mkZoom({
+  host: () => document.querySelector('.focus .fvid'), root: () => document.querySelector('.focus .fvid'),
+  keep: n => ['fov', 'fnmbr', 'tag', 'offv', 'pillk'].some(k => n.classList.contains(k)),
+  side: e => !!(e.target.closest && e.target.closest('.fov')) && !(e.touches && e.touches.length > 1),
+  can: () => { if (S.full) return false; const v = document.querySelector('.focus .fvid'), sc = document.querySelector('.focus .fscroll'); if (!v || !sc) return false; return sc.getBoundingClientRect().left >= v.getBoundingClientRect().right - 4; }
+});
 /* behave like an app, not a web page: the page itself never zooms (pinch, double tap, or tapping a text box) and never
    slides sideways; the app's own pinches (timelines, full-screen zoom) use touch events and keep working */
 ['gesturestart', 'gesturechange', 'gestureend'].forEach(n => document.addEventListener(n, e => e.preventDefault(), { passive: false }));
@@ -4584,9 +4632,9 @@ function wireFull() {
        4 times a second and once more when the finger stops (redrawing everything on each move made the drag stick) */
     const t = camT(S.focus.cam), bub = document.getElementById('fbub'), ft = document.getElementById('fulltm');
     if (bub) bub.textContent = t == null ? 'Live' : hm(t); if (ft) ft.textContent = t == null ? '' : dtShort(t);
-    clearTimeout(sc._pf); const n = performance.now();
-    if (n - (sc._pfAt || 0) > 250) { sc._pfAt = n; paintFocus(); }
-    else sc._pf = setTimeout(() => { sc._pfAt = performance.now(); if (S.focus) paintFocus(); }, 140);
+    /* 4.8.8: while the timeline moves only its labels change; the picture follows once it stops for a moment, so the
+       timeline is never held up by the picture or the video loading */
+    clearTimeout(sc._pf); sc._pf = setTimeout(() => { if (S.focus) paintFocus(); }, 160);
   }, { passive: true });
   sc.addEventListener('click', e => {           /* tap an empty spot on the rail: go to that time */
     if (e.target.closest('button')) return;
@@ -5377,7 +5425,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.8.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.8.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -5484,6 +5532,8 @@ function toast(msg) {
    Still after 1 minute without motion as usual */
 function allLive1() { const u = now() + MIN; Data.cams.forEach(c => { if (Ctl.on(c.id)) S.forced[c.id] = u; }); Live.policy(); Data.cams.forEach(c => paintCam(c.id)); toast('All Cameras Live For 1 Minute'); }
 let tapTimer = null, lastTap = { id: null, at: 0 };
+/* when the finger tapped, on the page clock (falls back to now if the browser gives an odd time) */
+function tapTime(ev) { const n = performance.now(), ts = ev && ev.timeStamp; return ts > 0 && ts <= n + 50 && n - ts < 2000 ? ts : n; }
 const ACT = {
   go(d) { S.view = d.v; S.modal = null; S.more = false; S.evPop = null; render(); window.scrollTo(0, 0); },
   copylog() {
@@ -5494,7 +5544,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.8.7');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.8.8');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -5511,7 +5561,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.8.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.8.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -5773,25 +5823,25 @@ const ACT = {
   close() { S.modal = null; render(); },
   toast(d) { toast(d.v); },
   tap(d, ev) {
-    /* 4.8.7: double taps were often missed: the gap is now taken from when the finger actually tapped (not when a busy
-       page got round to it) and may be up to 0.45 s; a single tap waits that long before it acts */
-    const t = ev && ev.timeStamp ? performance.timeOrigin + ev.timeStamp : Date.now();
-    if (lastTap.id === d.id && t - lastTap.at < 450) { clearTimeout(tapTimer); lastTap = { id: null, at: 0 }; S.camTime[d.id] = null; openFocus(d.id); return; }   /* 4.1.5: opens on Live, not where the card was paused */
+    /* 4.8.8: a single tap opens the panel after 0.28 s (as before 4.8.7); a second tap up to 0.42 s after the first
+       still opens the camera, even when the panel has already opened. The gap is measured from when the finger tapped
+       (the event's own time), so a busy page does not turn a double tap into two single taps. */
+    const t = tapTime(ev);
+    if (lastTap.id === d.id && t - lastTap.at < 420) { clearTimeout(tapTimer); lastTap = { id: null, at: 0 }; S.camTime[d.id] = null; openFocus(d.id); return; }   /* 4.1.5: opens on Live, not where the card was paused */
     lastTap = { id: d.id, at: t };
     clearTimeout(tapTimer);
     tapTimer = setTimeout(() => {
-      lastTap = { id: null, at: 0 };
       if (S.expanded === d.id) { S.expanded = null; }
       else { S.expanded = d.id; const ct = camT(d.id); S.tab = 'events'; if (ct == null) { S.winEnd = now(); S.pos = 1; } else seek(d.id, ct); }
       render();
       const el = document.getElementById('cam-' + d.id); if (el && S.expanded) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    }, 460);
+    }, 280);
   },
   focus(d) { S.camTime[d.id] = null; openFocus(d.id); },
   evtap(d, ev) {
     const e = evE(d.v); if (!e) return;
-    const t = ev && ev.timeStamp ? performance.timeOrigin + ev.timeStamp : Date.now();
-    if (evTapLast.id === d.v && t - evTapLast.at < 450) { clearTimeout(evTapTimer); evTapLast = { id: null, at: 0 }; evStop(); ACT.focusat({ id: e.cam, t: evP(d.v, S.filt).t }); return; }
+    const t = tapTime(ev);
+    if (evTapLast.id === d.v && t - evTapLast.at < 420) { clearTimeout(evTapTimer); evTapLast = { id: null, at: 0 }; evStop(); ACT.focusat({ id: e.cam, t: evP(d.v, S.filt).t }); return; }
     evTapLast = { id: d.v, at: t };   /* single tap: play it here (Frigate); double tap: open the camera */
     if (Data.source === 'frigate' && S.evPlay !== d.v) ACT.evplay({ v: d.v }, ev);
   },
@@ -6054,7 +6104,8 @@ const ACT = {
     }
     S.camTime[id] = nt;
     const ds = dayStart(nt), de = ds === dayStart(now()) ? null : ds + DAY;
-    if ((S.focus.dayEnd || null) !== de) { S.focus.dayEnd = de; render(); } else paintFocus();   /* crossed midnight: show that day's timeline */
+    if (nt > focusEnd() - focusSpan() && nt <= focusEnd()) paintFocus();   /* 4.8.8: still inside the days the timeline shows */
+    else if ((S.focus.dayEnd || null) !== de) { S.focus.dayEnd = de; S.focus.back = 0; render(); } else paintFocus();   /* crossed midnight: show that day's timeline */
     Playback.sync(); fShow(nt);
   },
   flive() { const id = S.focus.cam; Dbg.log('tap live camera view', id, Playback.why ? Playback.why(id) : ''); S.focus.liveAt = Date.now(); S.camTime[id] = null; Playback.stop(id, 'live'); setTimeout(() => Playback.sync(), 0); S.focus.dayEnd = null; render(); const sc = document.getElementById('fsc'); if (sc) fGoLive(sc); const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
@@ -6143,10 +6194,10 @@ const ACT = {
     document.querySelectorAll('.fsi').forEach(n => n.classList.toggle('cur', +n.dataset.t === +d.t));
     Playback.sync();
   },
-  fdate() { openDateTime(camT(S.focus.cam), v => { const d0 = dayStart(v); S.focus.dayEnd = d0 === dayStart(now()) ? null : d0 + DAY; S.camTime[S.focus.cam] = v >= now() - 1000 ? null : v; render(); }); }
+  fdate() { openDateTime(camT(S.focus.cam), v => { const d0 = dayStart(v); S.focus.back = 0; S.focus.dayEnd = d0 === dayStart(now()) ? null : d0 + DAY; S.camTime[S.focus.cam] = v >= now() - 1000 ? null : v; render(); }); }
 };
 function openFocus(id) {
-  S.focus = { cam: id, dayEnd: null, pad: 0 }; S.full = false; S.fui = false; S.fpanel = false;
+  S.focus = { cam: id, dayEnd: null, pad: 0, back: 0 }; S.full = false; S.fui = false; S.fpanel = false; FBack.load(id);
   if (isLand()) { S.full = true; S.autoFull = true; }   /* phone held sideways: open straight into full screen */
   render();
   /* 4.1.7: opened on Live: the list goes to the top (Live). The page put back the list's old scroll position, and that
@@ -6186,7 +6237,7 @@ function dtCur(kind) { return kind === 'rv' ? S.rv.t : kind === 'focus' ? (S.foc
 function dtGo(kind) {
   /* camera view Today button: same as picking a date there before (the iPhone needs the finger on the date box itself) */
   if (kind === 'focus') return v => { if (!S.focus) return;
-    if (S.flist) { fListGo(v); return; }   /* alert list: scroll to that day and time instead of cutting the list to one day */ const d0 = dayStart(v); S.focus.dayEnd = d0 === dayStart(now()) ? null : d0 + DAY; S.camTime[S.focus.cam] = v >= now() - 1000 ? null : v; render(); };
+    if (S.flist) { fListGo(v); return; }   /* alert list: scroll to that day and time instead of cutting the list to one day */ const d0 = dayStart(v); S.focus.back = 0; S.focus.dayEnd = d0 === dayStart(now()) ? null : d0 + DAY; S.camTime[S.focus.cam] = v >= now() - 1000 ? null : v; render(); };
   if (kind === 'rv') return v => { S.rv.t = v >= now() - 1000 ? null : Math.max(rvEnd - RSPAN, v); S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); paintReview(); };
   return v => {
     if (S.expanded) { if (v >= now() - 1000) { S.camTime[S.expanded] = null; S.winEnd = now(); S.pos = 1; } else { S.winEnd = Math.min(now(), v + S.win / 2); seek(S.expanded, v); S.pos = (v - (S.winEnd - S.win)) / S.win; } }
@@ -6396,8 +6447,9 @@ function wire() {
     el.addEventListener('pointerup', () => { y0 = null; }); el.addEventListener('pointercancel', () => { y0 = null; });
   };
   swipe(document.getElementById('fctl'), dy => dy > 45, () => { ACT.full(); });
-  swipe(document.querySelector('#fullv .fvw'), dy => dy < -60 && FZ.s <= 1.01 && Date.now() - FZ.moved > 400, () => { ACT.unfull(); });
+  swipe(document.querySelector('#fullv .fvw'), dy => dy < -60 && FZ.s <= 1.01 && Date.now() - FZ.moved > 400 && Date.now() - (FZ.multi || 0) > 800, () => { ACT.unfull(); });   /* 4.8.8: a pinch is never taken as the swipe that leaves full screen */
   if (S.full) wireFull();
+  else if (S.focus) { FZF.wire(); FBack.fill(); }
   if (S.expanded && document.getElementById('track')) refreshTrack();
   if (!document.getElementById('hovtip') || S.hov) { S.hov = null; const ht = document.getElementById('hovtip'); if (ht) ht.hidden = true; }
   const trk = document.getElementById('track');
@@ -6466,6 +6518,7 @@ function wire() {
     sc.addEventListener('touchend', () => { sc._upAt = Date.now(); }, { passive: true });
     sc.addEventListener('scroll', () => {
       if (!S.focus) return;
+      if (sc.scrollTop + sc.clientHeight * 2.5 > sc.scrollHeight) FBack.more();   /* 4.8.8: near the bottom: one more day */
       if (S.focus.progTop != null && Math.abs(sc.scrollTop - S.focus.progTop) < 2) { S.focus.progTop = null; return; }
       S.focus.progTop = null;
       if (!user()) { fPaintLine(); return; }
@@ -6677,7 +6730,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.8.7';
+    const BUILD = '4.8.8';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
