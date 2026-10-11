@@ -3024,13 +3024,25 @@ const CatFix = {
   /* pick = a cat's name, or '-<label>' for Not <label>: only that kind's detections are marked wrong. Frigate+ files a
      false positive under the detection's own label (dog under dog), so it learns that one. A non-cat animal given a
      cat's name is marked wrong too (it was a cat, not a dog). */
+  /* 5.3.3: before a name changes, what Frigate has now; after, tell Home Assistant (Camera Cat Names) so the
+     phone notification of that alert moves the count to the new name. Frigate tells nobody once an alert has ended. */
+  async pre(d) {
+    try { const r = await Frigate.get('/api/events/' + encodeURIComponent(d)); const o = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label;
+      return { id: d, camera: r.camera, label: String(r.label || '').replace(/-verified$/, ''), start: Math.floor(r.start_time || 0), ended: !!r.end_time, old: o ? String(o) : '' }; } catch (x) { return null; }
+  },
+  tellHA(p, nw) {
+    if (!p || p.old === nw || (!p.old && !nw)) return;
+    fetch(Frigate.base() + '/ha/catrename', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({}, p, { new: nw })) })
+      .then(r => Dbg.log('cat rename to HA', p.camera, p.id, (p.old || '-') + ' → ' + (nw || '-'), r.status)).catch(x => Dbg.log('cat rename to HA failed', p.id, String(x)));
+  },
   async save(k, pick, teach, plus) {
     const all = await this.dets(k); if (!all.length) return { ok: false, msg: 'No Animal In This Alert' };
     /* 3.2.3 Not Ours ('0'): a real animal that is not one of the cats: name removed, its pictures taught as none */
     if (pick === '0') {
       let ok = true, taught = 0, files = null; const why = [];
       for (const d of all) {
-        if (People.sub[d]) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: '' }); if (r.ok) delete People.sub[d]; else ok = false; }
+        const pr = await this.pre(d);
+        if (People.sub[d] || (pr && pr.old)) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: '' }); if (r.ok) { delete People.sub[d]; this.tellHA(pr, ''); } else ok = false; }
         if (teach && this.model && (this.objs || ['cat']).includes(People.lab[d])) {
           if (!files) { try { files = await Frigate.get('/api/classification/' + encodeURIComponent(this.model) + '/train'); } catch (x) { files = []; } }
           const mine = (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-1);   /* 4.9.8 her rule: one picture per sighting (the pictures of one sighting are near copies) */ why.push(d + ': ' + mine.length + ' pics');
@@ -3048,7 +3060,8 @@ const CatFix = {
     for (const d of ds) {
       const was = People.lab[d];
       if (pick) {
-        const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: pick }); if (r.ok) People.sub[d] = pick; else ok = false;
+        const pr = await this.pre(d);
+        const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: pick }); if (r.ok) { People.sub[d] = pick; this.tellHA(pr, pick); } else ok = false;
         if (was !== 'cat' && !People.fp[d] && plus && Once.plus()) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) { People.fp[d] = 1; sent++; why.push(d + ': ' + was + ' sent to Frigate+ as wrong'); } else why.push(d + ': Frigate+ refused ' + f.msg); }
       } else {
         if (People.sub[d]) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: '' }); if (r.ok) delete People.sub[d]; }

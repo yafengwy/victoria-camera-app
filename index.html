@@ -2465,7 +2465,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.3.2 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.3.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -3024,13 +3024,25 @@ const CatFix = {
   /* pick = a cat's name, or '-<label>' for Not <label>: only that kind's detections are marked wrong. Frigate+ files a
      false positive under the detection's own label (dog under dog), so it learns that one. A non-cat animal given a
      cat's name is marked wrong too (it was a cat, not a dog). */
+  /* 5.3.3: before a name changes, what Frigate has now; after, tell Home Assistant (Camera Cat Names) so the
+     phone notification of that alert moves the count to the new name. Frigate tells nobody once an alert has ended. */
+  async pre(d) {
+    try { const r = await Frigate.get('/api/events/' + encodeURIComponent(d)); const o = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label;
+      return { id: d, camera: r.camera, label: String(r.label || '').replace(/-verified$/, ''), start: Math.floor(r.start_time || 0), ended: !!r.end_time, old: o ? String(o) : '' }; } catch (x) { return null; }
+  },
+  tellHA(p, nw) {
+    if (!p || p.old === nw || (!p.old && !nw)) return;
+    fetch(Frigate.base() + '/ha/catrename', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({}, p, { new: nw })) })
+      .then(r => Dbg.log('cat rename to HA', p.camera, p.id, (p.old || '-') + ' → ' + (nw || '-'), r.status)).catch(x => Dbg.log('cat rename to HA failed', p.id, String(x)));
+  },
   async save(k, pick, teach, plus) {
     const all = await this.dets(k); if (!all.length) return { ok: false, msg: 'No Animal In This Alert' };
     /* 3.2.3 Not Ours ('0'): a real animal that is not one of the cats: name removed, its pictures taught as none */
     if (pick === '0') {
       let ok = true, taught = 0, files = null; const why = [];
       for (const d of all) {
-        if (People.sub[d]) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: '' }); if (r.ok) delete People.sub[d]; else ok = false; }
+        const pr = await this.pre(d);
+        if (People.sub[d] || (pr && pr.old)) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: '' }); if (r.ok) { delete People.sub[d]; this.tellHA(pr, ''); } else ok = false; }
         if (teach && this.model && (this.objs || ['cat']).includes(People.lab[d])) {
           if (!files) { try { files = await Frigate.get('/api/classification/' + encodeURIComponent(this.model) + '/train'); } catch (x) { files = []; } }
           const mine = (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-1);   /* 4.9.8 her rule: one picture per sighting (the pictures of one sighting are near copies) */ why.push(d + ': ' + mine.length + ' pics');
@@ -3048,7 +3060,8 @@ const CatFix = {
     for (const d of ds) {
       const was = People.lab[d];
       if (pick) {
-        const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: pick }); if (r.ok) People.sub[d] = pick; else ok = false;
+        const pr = await this.pre(d);
+        const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: pick }); if (r.ok) { People.sub[d] = pick; this.tellHA(pr, pick); } else ok = false;
         if (was !== 'cat' && !People.fp[d] && plus && Once.plus()) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) { People.fp[d] = 1; sent++; why.push(d + ': ' + was + ' sent to Frigate+ as wrong'); } else why.push(d + ': Frigate+ refused ' + f.msg); }
       } else {
         if (People.sub[d]) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: '' }); if (r.ok) delete People.sub[d]; }
@@ -6038,7 +6051,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.3.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.3.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6295,7 +6308,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.3.2');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.3.3');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6312,7 +6325,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.3.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.3.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7550,7 +7563,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.3.2';
+    const BUILD = '5.3.3';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
