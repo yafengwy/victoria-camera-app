@@ -110,6 +110,8 @@ img.rf{opacity:0}
   left:calc((100cqw - min(100cqw, 100cqh * var(--R,1.7778))) / 2)!important;top:calc((100cqh - min(100cqh, 100cqw / var(--R,1.7778))) / 2)!important}
 @media (orientation:landscape){.full:not(.ui) .fvw.vfit > img,.full:not(.ui) .fvw.vfit video{width:max(100cqw, 100cqh * var(--R,1.7778))!important;height:max(100cqh, 100cqw / var(--R,1.7778))!important;
   left:calc((100cqw - max(100cqw, 100cqh * var(--R,1.7778))) / 2)!important;top:calc((100cqh - max(100cqh, 100cqw / var(--R,1.7778))) / 2)!important}}
+/* 5.1.8: Doorbell alert clips: the true upright 3:4 picture in the middle of the card (its video is flagged 4:3) */
+.evmedia.door img,.evmedia.door video.evv{position:absolute;inset:0;margin:auto;width:auto!important;height:100%!important;max-width:100%;aspect-ratio:3/4;object-fit:fill!important}
 .full.door .fvw img,.full.door .fvw video{position:absolute;inset:0;margin:auto;width:auto!important;height:100%!important;max-width:100%;aspect-ratio:3/4;object-fit:fill!important}
 /* the two beside the Doorbell keep the right edge of their picture */
 .fbside .frame{--px:1}
@@ -2373,7 +2375,7 @@ const Box = {
       const ar = (media && media.videoWidth ? media.videoWidth / media.videoHeight : 0) || c.ar || (media && media.naturalWidth ? media.naturalWidth / media.naturalHeight : 0) || 16 / 9;
       const fit = media ? getComputedStyle(media).objectFit : 'cover', wide = W / H > ar;
       let dw = (fit === 'contain') === wide ? H * ar : W, dh = dw / ar, ox = (W - dw) / 2, oy = (H - dh) / 2;
-      if (media && media.closest('.vfit')) { const mr = media.getBoundingClientRect(), hr = g.host.getBoundingClientRect(); if (mr.width) { dw = mr.width; dh = mr.height; ox = mr.left - hr.left; oy = mr.top - hr.top; } }
+      if (media && (media.closest('.vfit') || media.closest('.evmedia.door'))) { const mr = media.getBoundingClientRect(), hr = g.host.getBoundingClientRect(); if (mr.width) { dw = mr.width; dh = mr.height; ox = mr.left - hr.left; oy = mr.top - hr.top; } }
       /* 5.1.3: no tracked object here (motion only): show where it moved. Frigate keeps, for every recording piece
          (~10 s), a 16 × 16 grid of the motion it saw (motion_heatmap, from /api/<cam>/recordings); those cells are
          tinted yellow, stronger where there was more motion */
@@ -4477,7 +4479,7 @@ function viewEvents() {
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(sk) + '">' + I.dl + '</button>' +
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(sk) + '">' + I.trash + '</button>' : '') +
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(sk) + '">' + (S.evPlay === sk && !evPaused(sk) ? I.pause : I.playO) + '</button></div>' +
-        '<div class="evmedia" id="evm-' + esc(sk) + '" data-act="evtap" data-v="' + esc(sk) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(sel, sp)) + ' At ' + hms(sp.t) + ' Full Screen">' + evMedia(sel, sk) + '</div></article>';
+        '<div class="evmedia' + (sel.cam === 'nest_doorbell' ? ' door' : '') + '" id="evm-' + esc(sk) + '" data-act="evtap" data-v="' + esc(sk) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(sel, sp)) + ' At ' + hms(sp.t) + ' Full Screen">' + evMedia(sel, sk) + '</div></article>';
     } else h += '<div class="empty">No alerts on this day with the current filters.</div>';
     h += '</div><div class="evlist">';
   } else h += '<div class="evwrap"><div class="evlist">';
@@ -4502,7 +4504,7 @@ function viewEvents() {
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(k) + '">' + I.trash + '</button>' : '') +
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(k) + '">' + (S.evPlay === k && !evPaused(k) ? I.pause : I.playO) + '</button>' +
 '</div>' +
-        '<div class="evmedia" id="evm-' + esc(k) + '" data-act="evtap" data-v="' + esc(k) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(e, p)) + ' At ' + hms(p.t) + ' Full Screen">' + evMedia(e, k) + '</div></article>';
+        '<div class="evmedia' + (e.cam === 'nest_doorbell' ? ' door' : '') + '" id="evm-' + esc(k) + '" data-act="evtap" data-v="' + esc(k) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(e, p)) + ' At ' + hms(p.t) + ' Full Screen">' + evMedia(e, k) + '</div></article>';
     });
   });
   if (moLeft) h += '<button class="btn momore" data-act="momore">Load More Motion · ' + moLeft + ' Left</button>';
