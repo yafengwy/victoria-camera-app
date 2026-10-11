@@ -1145,6 +1145,9 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
 :is([data-app-theme="noir"]) :is(.top,.evtop,.rvtop){background:var(--bg);border-color:var(--line)}
 :is([data-app-theme="noir"]) .cam .cname{font-family:var(--serif);font-size:18px;font-weight:500;letter-spacing:.005em}
 :is([data-app-theme="noir"]) .chip{background:transparent;box-shadow:inset 0 0 0 1px var(--line);color:var(--text);font-weight:600}
+/* 5.3.6: the line above also beat the picked chip (same weight, later), so in Noir a picked chip (Fix 胖胖 / 团团, filters…)
+   looked exactly like the others. Picked = filled, like Noir's picked day */
+:is([data-app-theme="noir"]) .chip:where(:not(.bxchip))[aria-pressed="true"]{background:var(--strong);color:var(--strong-fg);box-shadow:none}
 :is([data-app-theme="noir"]) .group.bare .gname{font-family:var(--font);font-size:14px;letter-spacing:.14em;color:var(--head-fg)}
 :is([data-app-theme="noir"]) .evbar>span{font-family:var(--serif);font-size:25px;font-weight:600}
 :is([data-app-theme="noir"]) .day{background:transparent;box-shadow:inset 0 0 0 1px var(--line);color:var(--text)}
