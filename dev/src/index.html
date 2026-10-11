@@ -2567,7 +2567,11 @@ const Playback = {
   sync() {
     if (Data.source !== 'frigate') return;
     Live.policy();
+    /* 4.10.6: while a camera is open full screen over the Alerts page, the alert card behind it does not play.
+       2026-10-10 18:45 it restarted behind Living Room's full view (two videos loading at once, a 6 s stall) */
+    if (S.focus) document.querySelectorAll('.evmedia video.evv[data-on]').forEach(v => { if (!v.paused) { v.pause(); Dbg.log('alert clip paused behind full view'); } if (v._hls) { try { v._hls.stopLoad(); } catch (x) {} } });
     document.querySelectorAll('video[data-hls]:not([data-on])').forEach(v => {     /* alert cards */
+      if (S.focus && v.closest('.evmedia')) return;
       v.dataset.on = '1'; const u = v.dataset.hls, cam = v.dataset.cam, vs = +v.dataset.vs || 0, ve = +v.dataset.ve || 0, at = +v.dataset.at || 0;
       v.addEventListener('playing', () => { v.style.opacity = '1'; });
       /* the recorded pieces in the player's window, so video time ↔ clock time stays right even when the minute
@@ -6557,7 +6561,10 @@ const ACT = {
     else if ((S.focus.dayEnd || null) !== de) { S.focus.dayEnd = de; S.focus.back = 0; render(); } else paintFocus();   /* crossed midnight: show that day's timeline */
     Playback.sync(); fShow(nt);
   },
-  flive() { const id = S.focus.cam; Dbg.log('tap live camera view', id, Playback.why ? Playback.why(id) : ''); S.focus.liveAt = Date.now(); S.camTime[id] = null; Playback.stop(id, 'live'); setTimeout(() => Playback.sync(), 0); S.focus.dayEnd = null; render(); const sc = document.getElementById('fsc'); if (sc) fGoLive(sc); const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
+  flive() { const id = S.focus.cam; Dbg.log('tap live camera view', id, Playback.why ? Playback.why(id) : ''); S.focus.liveAt = Date.now(); S.camTime[id] = null; Playback.stop(id, 'live');
+    /* 4.10.6: going live also stops the recording from downloading (18:46 it kept fetching a 3.9 MB piece for 9.5 s next
+       to two live streams, and the live picture froze 7.5 s); going back to the recording loads it fresh */
+    { const p = Playback.st[id]; if (p && p.h) { try { p.h.stopLoad(); } catch (x) {} p.win = null; p.loading = false; p.lastSet = null; Dbg.log('recording download stopped for live', id); } } setTimeout(() => Playback.sync(), 0); S.focus.dayEnd = null; render(); const sc = document.getElementById('fsc'); if (sc) fGoLive(sc); const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
   flist() { S.flist = !S.flist; render(); fShow(camT(S.focus.cam)); },
   rvlist() { S.rv.list = !S.rv.list; store.set('rvlist', S.rv.list); S.rv.fopen = S.rv.pick = S.rv.colsOpen = false; render(); requestAnimationFrame(() => { const c = document.querySelector('#rvlist .rvli.cur'); if (c) c.scrollIntoView({ block: 'center' }); }); },
   rvlpick(d, e) {   /* an alert in the list: every camera goes to that moment, the alert's camera comes first */

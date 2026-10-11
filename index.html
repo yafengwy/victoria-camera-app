@@ -2371,7 +2371,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 4.10.5 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 4.10.6 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -2567,7 +2567,11 @@ const Playback = {
   sync() {
     if (Data.source !== 'frigate') return;
     Live.policy();
+    /* 4.10.6: while a camera is open full screen over the Alerts page, the alert card behind it does not play.
+       2026-10-10 18:45 it restarted behind Living Room's full view (two videos loading at once, a 6 s stall) */
+    if (S.focus) document.querySelectorAll('.evmedia video.evv[data-on]').forEach(v => { if (!v.paused) { v.pause(); Dbg.log('alert clip paused behind full view'); } if (v._hls) { try { v._hls.stopLoad(); } catch (x) {} } });
     document.querySelectorAll('video[data-hls]:not([data-on])').forEach(v => {     /* alert cards */
+      if (S.focus && v.closest('.evmedia')) return;
       v.dataset.on = '1'; const u = v.dataset.hls, cam = v.dataset.cam, vs = +v.dataset.vs || 0, ve = +v.dataset.ve || 0, at = +v.dataset.at || 0;
       v.addEventListener('playing', () => { v.style.opacity = '1'; });
       /* the recorded pieces in the player's window, so video time ↔ clock time stays right even when the minute
@@ -5781,7 +5785,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.10.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.10.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -5984,7 +5988,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.10.5');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.10.6');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6001,7 +6005,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.10.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.10.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -6557,7 +6561,10 @@ const ACT = {
     else if ((S.focus.dayEnd || null) !== de) { S.focus.dayEnd = de; S.focus.back = 0; render(); } else paintFocus();   /* crossed midnight: show that day's timeline */
     Playback.sync(); fShow(nt);
   },
-  flive() { const id = S.focus.cam; Dbg.log('tap live camera view', id, Playback.why ? Playback.why(id) : ''); S.focus.liveAt = Date.now(); S.camTime[id] = null; Playback.stop(id, 'live'); setTimeout(() => Playback.sync(), 0); S.focus.dayEnd = null; render(); const sc = document.getElementById('fsc'); if (sc) fGoLive(sc); const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
+  flive() { const id = S.focus.cam; Dbg.log('tap live camera view', id, Playback.why ? Playback.why(id) : ''); S.focus.liveAt = Date.now(); S.camTime[id] = null; Playback.stop(id, 'live');
+    /* 4.10.6: going live also stops the recording from downloading (18:46 it kept fetching a 3.9 MB piece for 9.5 s next
+       to two live streams, and the live picture froze 7.5 s); going back to the recording loads it fresh */
+    { const p = Playback.st[id]; if (p && p.h) { try { p.h.stopLoad(); } catch (x) {} p.win = null; p.loading = false; p.lastSet = null; Dbg.log('recording download stopped for live', id); } } setTimeout(() => Playback.sync(), 0); S.focus.dayEnd = null; render(); const sc = document.getElementById('fsc'); if (sc) fGoLive(sc); const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
   flist() { S.flist = !S.flist; render(); fShow(camT(S.focus.cam)); },
   rvlist() { S.rv.list = !S.rv.list; store.set('rvlist', S.rv.list); S.rv.fopen = S.rv.pick = S.rv.colsOpen = false; render(); requestAnimationFrame(() => { const c = document.querySelector('#rvlist .rvli.cur'); if (c) c.scrollIntoView({ block: 'center' }); }); },
   rvlpick(d, e) {   /* an alert in the list: every camera goes to that moment, the alert's camera comes first */
@@ -7180,7 +7187,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.10.5';
+    const BUILD = '4.10.6';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
