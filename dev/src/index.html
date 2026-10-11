@@ -914,7 +914,8 @@ input,select,textarea{font-size:16px}
 /* 5.1.4: ±10 s outside ±5 s (Alerts and 如厕记录) */
 .skip5.b10{left:10px}.skip5.b{left:62px}.skip5.f{right:62px}.skip5.f10{right:10px}
 /* 5.2.2: iPhone's own player draws its ±10 in the middle, over ours: there only ±5, at the edges as before */
-html.ios .skip5.b10,html.ios .skip5.f10{display:none}html.ios .skip5.b{left:10px}html.ios .skip5.f{right:10px}.skip5:active{background:rgba(18,22,24,.8)}
+html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios .evmedia .skip5.b{left:10px}html.ios .evmedia .skip5.f{right:10px}
+.skip5.pp{left:50%;margin-left:-22px}.skip5:active{background:rgba(18,22,24,.8)}
 .evclk{position:absolute;left:8px;top:8px;z-index:3;padding:2px 7px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none}
 .evmedia img,.evmedia video{width:100%;height:100%;object-fit:cover;display:block}
 .evmedia .evnm{position:absolute;left:4px;bottom:4px;z-index:3;height:26px;padding:0 9px;border-radius:13px;font-size:12px;font-weight:700;white-space:nowrap;max-width:calc(100% - 8px);overflow:hidden;text-overflow:ellipsis;display:block;line-height:26px;pointer-events:none}
@@ -3445,9 +3446,12 @@ const Litter = {
     if (S.ltSel === id) { S.ltNoRec = id; render(); }
   }
 };
+/* 5.2.8: the middle button shows Pause while playing, Play while stopped */
+function ltPpIcon() { const v = document.querySelector('.ltvid video.evv'), b = document.querySelector('.ltvid .skip5.pp'); if (!v || !b) return; const p = v.paused; if (b._p !== p) { b._p = p; b.innerHTML = p ? I.play : I.pause; b.setAttribute('aria-label', p ? 'Play' : 'Pause'); } }
 /* 如厕记录: the playing visit's clock in its top-left corner, and the dot on the bar under it */
 setInterval(() => {
   if (S.modal !== 'litter' || !S.ltSel) return;
+  ltPpIcon();
   const v = document.querySelector('.ltvid video.evv'), c = document.querySelector('.ltvid .evclk'), bar = document.querySelector('.ltbar'); if (!v || !c) return;
   if (!(v.currentTime > 0)) { c.hidden = true; return; }
   const t = vodReal(v, v.currentTime); c.hidden = false; c.textContent = ymdhms(t);
@@ -3492,8 +3496,11 @@ function modalLitter() {
     return shell('如厕记录',
       '<div class="ltvid" data-act="ltvtap" data-cam="' + g.cam + '" data-t="' + g.t + '"><img src="' + g.img + '" alt="">' + (norec
         ? '<video src="' + Frigate.base() + '/api/review/' + encodeURIComponent(g.ps[0].id) + '/preview?format=mp4" autoplay muted loop playsinline></video><div class="ltnorec">Frigate 没有这段的录像 · 只有预览</div>'
-        : '<video class="evv" data-hls="' + vod + '" data-cam="' + g.cam + '" data-vs="' + vs + '" data-ve="' + ve + '" data-at="' + Math.floor(g.t / 1000) + '" autoplay muted controls playsinline style="opacity:0"></video><div class="evclk" hidden></div>') +
-      '<button class="skip5 b10" data-act="evskip" data-v="-10" aria-label="Back 10 Seconds">' + I.back10c + '</button><button class="skip5 b" data-act="evskip" data-v="-5" aria-label="Back 5 Seconds">' + I.back5 + '</button><button class="skip5 f" data-act="evskip" data-v="5" aria-label="Forward 5 Seconds">' + I.fwd5 + '</button><button class="skip5 f10" data-act="evskip" data-v="10" aria-label="Forward 10 Seconds">' + I.fwd10c + '</button></div>' + bar +
+        : '<video class="evv" data-hls="' + vod + '" data-cam="' + g.cam + '" data-vs="' + vs + '" data-ve="' + ve + '" data-at="' + Math.floor(g.t / 1000) + '" autoplay muted playsinline style="opacity:0"></video><div class="evclk" hidden></div>') +
+      '<button class="skip5 b10" data-act="evskip" data-v="-10" aria-label="Back 10 Seconds">' + I.back10c + '</button><button class="skip5 b" data-act="evskip" data-v="-5" aria-label="Back 5 Seconds">' + I.back5 + '</button><button class="skip5 f" data-act="evskip" data-v="5" aria-label="Forward 5 Seconds">' + I.fwd5 + '</button><button class="skip5 f10" data-act="evskip" data-v="10" aria-label="Forward 10 Seconds">' + I.fwd10c + '</button>' +
+      /* 5.2.8 her request: pause in the middle (stop on the frame first, then Fix); the phone's own player controls are
+         off here so nothing sits on top of these */
+      '<button class="skip5 pp" data-act="ltpp" aria-label="Pause">' + I.pause + '</button></div>' + bar +
       /* 5.2.4 her redesign: lighter text; 不是猫 and 删除 are small buttons beside the time, each opening its own
          confirm only when tapped (a name tap can't land on a ready 确认 any more) */
       '<div class="ltmrow"><div class="ltmeta"><b>' + (g.ps.length > 1 ? hm(g.t) + ' – ' + hm(g.end) : hms(g.t)) + '</b><span>' + Litter.camName(g.cam) + (g.ps.some(p => p.spot) ? ' · Poop Spot' : '') + (g.motion ? ' · Motion' : '') + (g.out ? ' · 已从全部移出' : '') + ' · ' + Litter.dayName(g.t) + (g.ps.length > 1 ? ' · ' + g.ps.length + ' 段' : '') + ' · ' + Litter.dur(g) + '</span></div>' +
@@ -6166,11 +6173,12 @@ const ACT = {
     S.ltBack = { sel: S.ltSel, cam: S.ltCam };   /* 5.2.6: Back in the camera view returns to this visit */
     S.modal = null; S.more = false; S.ltSel = null; S.camTime[d.cam] = at; openFocus(d.cam);
   },
+  ltpp() { const v = document.querySelector('.ltvid video.evv'); if (!v) return; if (v.paused) { v._up = false; v.play().catch(() => {}); } else { v._up = true; v.pause(); } ltPpIcon(); },
   ltfixopen() {
     if (S.ltFix && S.ltFix.id === S.ltSel) { S.ltFix = null; render(); return; }
     const g = Litter.find(S.ltSel); if (!g) return;
     const v = document.querySelector('.ltvid video.evv'), t = v && v.currentTime > 0 ? vodReal(v, v.currentTime) : g.t + 2000;
-    if (v && !v.paused) v.pause();   /* the frame she saw stays on screen */
+    if (v && !v.paused) { v._up = true; v.pause(); ltPpIcon(); }   /* the frame she saw stays on screen */
     S.ltFix = { id: g.id, t: Math.round(t), lab: null, plus: true }; S.ltNotOpen = null; S.ltDelOne = null; Dbg.log('motion fix frame', g.cam, hms(t)); render();
   },
   ltfixlab(d) { if (!S.ltFix) return; S.ltFix.lab = d.v; render(); },
