@@ -761,6 +761,7 @@ img.rf{opacity:0}
 :root[data-dark]{--rvgrey:#5A6268}
 .rvscrim{position:fixed;inset:0;z-index:40}
 .bbx{position:absolute;inset:0;pointer-events:none;z-index:4;overflow:hidden}
+.bbx s{position:absolute;background:#FFD400;text-decoration:none}
 .bbx i{position:absolute;border:2px solid #FFD400;border-radius:3px;box-shadow:0 0 0 1px rgba(0,0,0,.45)}
 .bbx b{position:absolute;left:-2px;bottom:100%;margin-bottom:2px;background:#FFD400;color:#111;font-size:10px;font-weight:800;line-height:15px;padding:0 5px;border-radius:3px;white-space:nowrap}
 .dk.bxbtn[aria-pressed="true"]{background:#FFD400;color:#111}
@@ -2282,6 +2283,22 @@ const Snd = {
     v.play = function () { return HTMLMediaElement.prototype.play.call(this).catch(e => { if (!this.muted && e && e.name === 'NotAllowedError') { this.muted = true; Snd.off(); return HTMLMediaElement.prototype.play.call(this); } throw e; }); };
   }
 };
+/* 5.1.3: Alerts → sound on / off for the alert clips (off each time the app opens). A phone that refuses to play with
+   sound plays it muted and the button goes back to off */
+const EvSnd = {
+  on: false,
+  btn() { return '<button class="ic evsnd" data-act="evsound" aria-pressed="' + this.on + '" aria-label="' + (this.on ? 'Mute' : 'Turn Sound On') + '">' + (this.on ? I.soundOn : I.soundOff) + '</button>'; },
+  prep(v) {
+    v.muted = !this.on; if (v._es) return; v._es = true;
+    v.play = function () { return HTMLMediaElement.prototype.play.call(this).catch(e => { if (!this.muted && e && e.name === 'NotAllowedError') { this.muted = true; EvSnd.set(false, true); return HTMLMediaElement.prototype.play.call(this); } throw e; }); };
+  },
+  set(on, refused) {
+    this.on = on;
+    document.querySelectorAll('.evmedia video.evv').forEach(v => { v.muted = !on; if (on && v.paused && v.readyState >= 2) v.play().catch(() => {}); });
+    document.querySelectorAll('.evsnd').forEach(b => { b.setAttribute('aria-pressed', on); b.setAttribute('aria-label', on ? 'Mute' : 'Turn Sound On'); b.innerHTML = on ? I.soundOn : I.soundOff; });
+    toast(refused ? 'This Phone Blocked Sound · Tap The Speaker Again' : on ? 'Alert Sound On' : 'Alert Sound Off');
+  }
+};
 const Box = {
   on: false, cache: {}, timer: null,
   get(det, label) {
@@ -2354,11 +2371,36 @@ const Box = {
       const fit = media ? getComputedStyle(media).objectFit : 'cover', wide = W / H > ar;
       let dw = (fit === 'contain') === wide ? H * ar : W, dh = dw / ar, ox = (W - dw) / 2, oy = (H - dh) / 2;
       if (media && media.closest('.vfit')) { const mr = media.getBoundingClientRect(), hr = g.host.getBoundingClientRect(); if (mr.width) { dw = mr.width; dh = mr.height; ox = mr.left - hr.left; oy = mr.top - hr.top; } }
-      ov.innerHTML = boxes.map(([b, lab]) => '<i style="left:' + (ox + b[0] * dw).toFixed(1) + 'px;top:' + (oy + b[1] * dh).toFixed(1) + 'px;width:' + (b[2] * dw).toFixed(1) + 'px;height:' + (b[3] * dh).toFixed(1) + 'px"><b>' + esc(objName(lab)) + '</b></i>').join('');
+      /* 5.1.3: no tracked object here (motion only): show where it moved. Frigate keeps, for every recording piece
+         (~10 s), a 16 × 16 grid of the motion it saw (motion_heatmap, from /api/<cam>/recordings); those cells are
+         tinted yellow, stronger where there was more motion */
+      let heat = '';
+      if (!boxes.length) { const r = Heat.seg(g.cam, ts), hm = r && r.motion_heatmap;
+        if (hm && typeof hm === 'object') { const vals = Object.values(hm).map(Number).filter(v => v > 0), mx = Math.max(1, ...vals), cw = dw / 16, ch = dh / 16;
+          heat = Object.entries(hm).map(([k, v]) => { const i = +k, x = i % 16, y = (i - x) / 16; if (!(v > 0) || y > 15) return '';
+            return '<s style="left:' + (ox + x * cw).toFixed(1) + 'px;top:' + (oy + y * ch).toFixed(1) + 'px;width:' + cw.toFixed(1) + 'px;height:' + ch.toFixed(1) + 'px;opacity:' + (0.1 + 0.3 * v / mx).toFixed(2) + '"></s>'; }).join(''); } }
+      ov.innerHTML = heat + boxes.map(([b, lab]) => '<i style="left:' + (ox + b[0] * dw).toFixed(1) + 'px;top:' + (oy + b[1] * dh).toFixed(1) + 'px;width:' + (b[2] * dw).toFixed(1) + 'px;height:' + (b[3] * dh).toFixed(1) + 'px"><b>' + esc(objName(lab)) + '</b></i>').join('');
     });
     document.querySelectorAll('.bbx').forEach(n => { if (!seen.has(n)) n.innerHTML = ''; });
   },
   set(on) { this.on = on; store.set('boxes', on); clearInterval(this.timer); this.timer = on ? setInterval(() => this.paint(), 120) : null; this.paint(); }
+};
+
+/* 5.1.3: Frigate's recording pieces for a camera, fetched per 10 minutes (only while Boxes is on and a recording is
+   on screen), to find the motion grid of the piece playing at a moment */
+const Heat = {
+  cache: {},
+  seg(cam, ts) {
+    const b = Math.floor(ts / 600) * 600, k = cam + '|' + b, nowS = Date.now() / 1000;
+    let c = this.cache[k];
+    if (!c || (!c.busy && b + 660 > nowS && nowS - c.at > 20)) {   /* the newest 10 minutes are asked again every 20 s */
+      c = this.cache[k] = Object.assign(c || { rows: [] }, { busy: true, at: nowS });
+      Frigate.get('/api/' + encodeURIComponent(cam) + '/recordings?after=' + b + '&before=' + (b + 600))
+        .then(r => { c.rows = Array.isArray(r) ? r : []; if (!c.logged) { c.logged = 1; Dbg.log('motion grid', cam, c.rows.length + ' pieces', c.rows.filter(x => x.motion_heatmap).length + ' with motion'); } })
+        .catch(() => {}).then(() => { c.busy = false; });
+    }
+    return c.rows.find(r => r.start_time <= ts && ts < r.end_time) || null;
+  }
 };
 
 /* Playback log: what the phone did while loading and playing a recording, to copy from Settings when something is stuck */
@@ -2374,7 +2416,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.1.2 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.1.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -2576,6 +2618,7 @@ const Playback = {
     document.querySelectorAll('video[data-hls]:not([data-on])').forEach(v => {     /* alert cards */
       if (S.focus && v.closest('.evmedia')) return;
       v.dataset.on = '1'; const u = v.dataset.hls, cam = v.dataset.cam, vs = +v.dataset.vs || 0, ve = +v.dataset.ve || 0, at = +v.dataset.at || 0;
+      if (v.closest('.evmedia')) EvSnd.prep(v);   /* 5.1.3: Alerts sound button */
       v.addEventListener('playing', () => { v.style.opacity = '1'; });
       /* the recorded pieces in the player's window, so video time ↔ clock time stays right even when the minute
          before the alert has no recording or has gaps (the player joins only what was recorded) */
@@ -4424,6 +4467,7 @@ function viewEvents() {
       h += '<article class="evcard big' + (sel.interesting || sel.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + (sel.motion ? '<i class="modot"></i>Motion' : '<i class="lico">' + objIcon(ico(sel, sp)) + '</i>' + ttlHtml(sk, sc0.g ? labGroup(sc0.g) : labAll(sel, sp, f))) + ' At ' + hms(sp.t) + '</b></div>' +
         (isPet(sel, sk) ? '<button class="whob" data-act="fixopen" data-v="' + esc(sk) + '">Fix</button>' : (coOf(sel) && Data.source === 'frigate' && !sel.motion) || hasPkg(sel) ? '<button class="whob" data-act="cofixopen" data-v="' + esc(sk) + '">Fix</button>' : '') +
         (hasPerson(sel) && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(sel.id) + '">' + (sel.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
+        (Data.source === 'frigate' ? EvSnd.btn() : '') +
         '<button class="ic" aria-label="Open Camera" data-act="focusat" data-id="' + esc(sel.cam) + '" data-t="' + sp.t + '">' + I.expand + '</button>' +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(sk) + '">' + I.dl + '</button>' +
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(sk) + '">' + I.trash + '</button>' : '') +
@@ -4448,6 +4492,7 @@ function viewEvents() {
       h += '<article class="evcard' + (e.interesting || e.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + icn + (e.motion ? esc(ttl) : ttlHtml(k, ttl)) + ' At ' + hms(p.t) + '</b></div>' +
         (isPet(e, k) ? '<button class="whob" data-act="fixopen" data-v="' + esc(k) + '">Fix</button>' : (coOf(e) && Data.source === 'frigate' && !e.motion) || hasPkg(e) ? '<button class="whob" data-act="cofixopen" data-v="' + esc(k) + '">Fix</button>' : '') +
         (hasPerson(e) && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
+        (Data.source === 'frigate' ? EvSnd.btn() : '') +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(k) + '">' + I.dl + '</button>' +
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(k) + '">' + I.trash + '</button>' : '') +
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(k) + '">' + (S.evPlay === k ? I.pause : I.playO) + '</button>' +
@@ -5831,7 +5876,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.1.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.1.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6039,7 +6084,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.1.2');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.1.3');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6056,7 +6101,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.1.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.1.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -6571,6 +6616,7 @@ const ACT = {
   },
   full() { S.full = true; S.fui = false; S.fpanel = false; render(); },
   unfull() { FZ.s = 1; FZ.x = 0; FZ.y = 0; S.full = false; S.autoFull = false; S.fpanel = false; clearTimeout(fuiTimer); render(); },
+  evsound() { EvSnd.set(!EvSnd.on); },
   sound(d) {
     if (d.id && !S.full && !S.focus) { if (Snd.on && (Snd.cam || S.expanded) !== d.id) { Snd.cam = d.id; } else { Snd.on = !Snd.on; Snd.cam = d.id; } }
     else { Snd.on = !Snd.on; Snd.cam = null; }
@@ -7245,7 +7291,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.1.2';
+    const BUILD = '5.1.3';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
