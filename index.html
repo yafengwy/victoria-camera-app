@@ -405,6 +405,12 @@ img.rf{opacity:0}
   .focus>.fctl{padding:0 10px}
   .focus .fday{height:40px;padding:0 12px;font-size:13px}
   .focus .fctl .dk{width:40px;height:40px}
+  /* 5.3.4: the narrow column has no room for the Start / End text next to Alert [ ] Download: the times show on the
+     timeline's Start / End marks instead */
+  .focus .fctl .fclipt{display:none}
+  .focus .fctl .dk.fclipal{margin-left:auto;width:auto;padding:0 10px;font-size:12px}
+  .focus .fctl .fclipal~.fbk{margin-left:0}
+  .focus .fcmk em{display:inline}
   .focus .fhr{left:8px}
   .focus .frail{left:66px}
   .focus .fmark.ico.dim{left:58px}
@@ -1328,9 +1334,13 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 /* ---- v68: camera view download range ---- */
 .fctl .dk.fbk{font-size:20px;font-weight:800;color:#FF8A3D;flex-shrink:0}
 .fctl .dk.fbk.set{background:#FF8A3D;color:#1A0E05}
+.fctl .dk.fclipal{width:auto;padding:0 12px;border-radius:999px;font-size:13px;font-weight:800;color:#FF8A3D;flex-shrink:0}
+.fctl .dk.fclipal.set{background:#FF8A3D;color:#1A0E05}
 .fcmk{position:absolute;left:42px;width:40px;height:3px;margin-top:-1.5px;border-radius:2px;background:#FF8A3D;z-index:3;pointer-events:none}
 .fcmk span{position:absolute;left:-2px;top:5px;font-size:9px;font-weight:800;color:#FF8A3D;letter-spacing:.02em}
 .fcmk.e span{top:-14px}
+.fcmk span{white-space:nowrap}
+.fcmk em{display:none;font-style:normal}
 .fcband{position:absolute;left:52px;width:24px;background:rgba(255,138,61,.35);border-radius:3px;z-index:2;pointer-events:none}
 
 /* ---- v69: Alerts on wide screens: big player on the left, compact list on the right ---- */
@@ -2465,7 +2475,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.3.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.3.4 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4782,14 +4792,24 @@ function checkRow(k, label, on) {
 /* ===== Focus view (double tap) ===== */
 const FPX = 2; /* pixels per minute on the vertical timeline */
 const FTOP = 24;
+/* 5.3.4: the alert on screen at time t (the one the camera view frames: t within 3 s of it), a real alert before a
+   motion piece, the latest one if two overlap */
+function fclipAlert(cam, t) {
+  const e = camEvents(cam).filter(x => t >= x.t - 3000 && t <= (x.end || now()) + 3000).sort((x, y) => (x.motion ? 1 : 0) - (y.motion ? 1 : 0) || y.t - x.t)[0];
+  if (!e) return null;
+  const a = Math.floor(e.t / 1000) * 1000; let b = e.end ? Math.ceil(e.end / 1000) * 1000 : null, cut = false;
+  if (b && b - a < 2000) b = a + 2000;
+  if (b && b - a > 30 * MIN) { b = a + 30 * MIN; cut = true; }
+  return { a, b, cut };
+}
 /* the download range on the camera view timeline: an orange band with a short line at Start and End */
 function fclipMarks(id) {
   const c = S.fclip; if (!c || c.cam !== id) return '';
   const Y = t => FTOP + (focusEnd() - t) / MIN * FPX;
   let h = '';
   if (c.a && c.b) h += '<div class="fcband" style="top:' + Y(c.b).toFixed(1) + 'px;height:' + Math.max(2, Y(c.a) - Y(c.b)).toFixed(1) + 'px"></div>';
-  if (c.a) h += '<div class="fcmk" style="top:' + Y(c.a).toFixed(1) + 'px"><span>Start</span></div>';
-  if (c.b) h += '<div class="fcmk e" style="top:' + Y(c.b).toFixed(1) + 'px"><span>End</span></div>';
+  if (c.a) h += '<div class="fcmk" style="top:' + Y(c.a).toFixed(1) + 'px"><span>Start<em> ' + hms(c.a) + '</em></span></div>';
+  if (c.b) h += '<div class="fcmk e" style="top:' + Y(c.b).toFixed(1) + 'px"><span>End<em> ' + hms(c.b) + '</em></span></div>';
   return h;
 }
 function focusEnd() { return S.focus.dayEnd || now(); }
@@ -4947,6 +4967,7 @@ function viewFocus() {
     '<div class="fvid vfit' + (c.id === 'nest_doorbell' ? ' door' : '') + (isTall(c) ? ' tall' : '') + '" style="--R:' + trueAr(c).toFixed(4) + (isTall(c) ? ';--ar:' + c.ar.toFixed(4) : trueAr(c) >= 1.2 && trueAr(c) < 1.7 ? ';aspect-ratio:' + trueAr(c).toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.quick(c.id, t != null, 'fquick') + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fctl" id="fctl">' + (S.fclip && S.fclip.cam === c.id ?
       '<button class="dk" data-act="fclipx" aria-label="Cancel Download">' + I.x + '</button><div class="fclipt"><b>Start</b> ' + (S.fclip.a ? hms(S.fclip.a) : '—') + '<br><b>End</b> ' + (S.fclip.b ? hms(S.fclip.b) : '—') + '</div>' +
+      (S.fclip.al ? '<button class="dk fclipal' + (S.fclip.a === S.fclip.al.a && S.fclip.b === S.fclip.al.b ? ' set' : '') + '" data-act="fclipal" aria-label="Whole Alert">Alert</button>' : '') +
       '<button class="dk fbk' + (S.fclip.a ? ' set' : '') + '" data-act="fclipmark" data-v="a" aria-label="Set Start Here">[</button><button class="dk fbk' + (S.fclip.b ? ' set' : '') + '" data-act="fclipmark" data-v="b" aria-label="Set End Here">]</button>' +
       '<button class="dk solid" data-act="fclipdl" aria-label="Download"' + (S.fclip.a && S.fclip.b ? '' : ' style="opacity:.45"') + '>' + I.dl + '</button></div>' :
     dtOver('<button class="fday" data-act="fdate">' + I.cal + (S.flist ? 'Today' : dayLabel(shownT(c.id, c.id))) + '</button>', 'focus') + '<div style="flex:1"></div>' +
@@ -6051,7 +6072,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.3.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.3.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6308,7 +6329,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.3.3');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.3.4');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6325,7 +6346,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.3.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.3.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -6848,7 +6869,13 @@ const ACT = {
      can be set by moving to the end and tapping Set End */
   /* the download button starts a clip at the second being watched; [ and ] move the start / end to the second being
      watched now (move the timeline first); both show as orange marks on the timeline */
-  fclip() { const cam = S.focus.cam, t = camT(cam); S.fclip = { cam, a: Math.floor((t == null ? now() : t) / 1000) * 1000, b: null }; render(); },
+  /* 5.3.4 (her design): with an alert on screen (the framed one), Download starts with that whole alert: Start = its
+     start, End = its end (still going: End waits for ]); [ and ] still move one end; Alert puts both back */
+  fclip() { const cam = S.focus.cam, t = camT(cam), al = fclipAlert(cam, t == null ? now() : t);
+    S.fclip = al ? { cam, a: al.a, b: al.b, al } : { cam, a: Math.floor((t == null ? now() : t) / 1000) * 1000, b: null };
+    if (al && al.cut) toast('Up To 30 Minutes · End Moved');
+    Dbg.log('download', cam, al ? 'alert ' + hms(al.a) + ' to ' + (al.b ? hms(al.b) : 'still going') : 'no alert here'); render(); },
+  fclipal() { const c = S.fclip; if (!c || !c.al) return; c.a = c.al.a; c.b = c.al.b; render(); },
   fclipx() { S.fclip = null; render(); },
   fclipmark(d) {
     const c = S.fclip; if (!c) return; const t = camT(c.cam), v = Math.round((t == null ? now() : t) / 1000) * 1000;
@@ -7563,7 +7590,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.3.3';
+    const BUILD = '5.3.4';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
