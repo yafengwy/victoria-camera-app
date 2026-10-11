@@ -2446,7 +2446,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.2.2 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.2.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -3312,15 +3312,18 @@ const Litter = {
       fetch('ctl/litter?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.json() : null).catch(() => null)]);
     if (st) this.st = st;
     const out = [];
+    /* 5.2.3 her three pages: 全部 = 猫砂盆 alerts with an animal + Closet poop_spot alerts with an animal (her
+       "不是猫" takes one out of 全部 only); 猫砂盆 = every 猫砂盆 alert (any object, also the ones taken out of 全部) plus
+       its plain motion; Closet = every Closet alert with an animal (whole room). So every review of both cameras is kept */
     (rows || []).forEach(r => {
       const objs = ((r.data && r.data.objects) || []).map(o => String(o).replace(/-verified$/, ''));
-      if (!objs.some(isAnimal)) return;
-      if (r.camera === 'closet' && !((r.data && r.data.zones) || []).includes('poop_spot')) return;
+      const anim = objs.some(isAnimal), spot = ((r.data && r.data.zones) || []).includes('poop_spot');
       if (!this.CAMS.includes(r.camera)) return;
+      if (r.camera === 'closet' && !anim) return;
       /* an alert whose animal was marked wrong is gone from the alert lists, but stays here unless she removed it */
       let e = Frigate.mapReviews([r])[0];
       if (!e) { const det = r.data && r.data.detections && r.data.detections[0]; e = { id: r.id, cam: r.camera, t: r.start_time * 1000, end: (r.end_time || r.start_time) * 1000, dets: (r.data && r.data.detections) || [], who: '', img: Frigate.thumb(r, det), objs: [] }; }
-      e.end = Math.max(e.end || e.t, e.t);
+      e.end = Math.max(e.end || e.t, e.t); e.inAll = anim && (r.camera === 'litter_box' || spot); e.spot = spot;
       out.push(e);
     });
     this.rows = out.sort((a, b) => a.t - b.t); this.at = Date.now();
@@ -3328,13 +3331,35 @@ const Litter = {
   },
   nameOf(e) { const ns = this.names(); return String(e.who || '').split(' · ').find(x => ns.includes(x)) || ''; },
   /* visits: her own joins first, then the same camera within 3 minutes (never across a split she made) */
-  groups() {
+  /* motion stretches on 猫砂盆 (Frigate's motion record, 30 s steps), read a few days at a time only while that page is
+     open: 7 days first, 7 more each time she asks; any part an alert covers is cut out (nothing twice) */
+  mo: {}, moDays: 0, moBusy: false,
+  async loadMotion(days) {
+    if (this.moBusy || Data.source !== 'frigate') return; this.moBusy = true;
+    const today = dayStart(now()), want = []; for (let i = 0; i < Math.min(days, 30); i++) { const d0 = today - i * DAY; if (!this.mo[d0] || (i === 0 && now() - this.mo[d0].at > 60000)) want.push(d0); }
+    let j = 0; const one = async () => { while (j < want.length) { const d0 = want[j++];
+      let rows = []; try { rows = await Frigate.get('/api/review/activity/motion?cameras=litter_box&after=' + Math.floor(d0 / 1000) + '&before=' + Math.floor(Math.min(d0 + DAY, now()) / 1000) + '&scale=30'); } catch (x) {}
+      const ts = (rows || []).filter(r => r && r.camera).map(r => +r.start_time * 1000).sort((x, y) => x - y), runs = [];
+      ts.forEach(t => { const r = runs[runs.length - 1]; if (r && t - r.en <= MIN && t + 30000 - r.t <= 10 * MIN) r.en = t + 30000; else runs.push({ t, en: t + 30000 }); });
+      const evs = (this.rows || []).filter(e => e.cam === 'litter_box').map(e => [e.t - 2000, e.end + 8000]), segs = [];
+      runs.forEach(r => { let parts = [[r.t, r.en]]; evs.forEach(([x, y]) => { parts = parts.flatMap(([a, b]) => y <= a || x >= b ? [[a, b]] : [[a, x], [y, b]].filter(([u, v]) => v - u >= 5000)); });
+        parts.forEach(([a, b]) => { const m = MotionList.ev('litter_box', a, b); m.moLt = true; segs.push(m); }); });
+      this.mo[d0] = { at: now(), segs }; } };
+    try { await Promise.all([one(), one(), one()]); } finally { this.moBusy = false; }
+    this.moDays = Math.max(this.moDays, days); Dbg.log('litter motion', want.length + ' days read', Object.values(this.mo).reduce((n, x) => n + x.segs.length, 0) + ' stretches');
+    if (S.modal === 'litter') render();
+  },
+  tab() { return S.ltCam || 'all'; },
+  groups(tab) {
     if (!this.rows) return [];
-    const rm = new Set(this.st.removed || []), solo = new Set(this.st.solo || []), byId = new Map(this.rows.map(e => [e.id, e])), used = new Set(), gs = [];
-    (this.st.merge || []).forEach(ids => { const ps = ids.map(i => byId.get(i)).filter(e => e && !rm.has(e.id) && !used.has(e.id)); if (!ps.length) return; ps.forEach(e => used.add(e.id)); gs.push({ ps, hand: true }); });
+    tab = tab || this.tab();
+    const rm = new Set(this.st.removed || []), solo = new Set(this.st.solo || []), used = new Set(), gs = [];
+    const pass = e => tab === 'all' ? e.inAll && !rm.has(e.id) : e.cam === tab;
+    const rows = this.rows.filter(pass), byId = new Map(rows.map(e => [e.id, e]));
+    (this.st.merge || []).forEach(ids => { const ps = ids.map(i => byId.get(i)).filter(e => e && !used.has(e.id)); if (!ps.length) return; ps.forEach(e => used.add(e.id)); gs.push({ ps, hand: true }); });
     const last = {};
-    this.rows.forEach(e => {
-      if (rm.has(e.id) || used.has(e.id)) return;
+    rows.forEach(e => {
+      if (used.has(e.id)) return;
       const g = last[e.cam];
       if (g && !g.hand && !solo.has(e.id) && !g.ps.some(p => solo.has(p.id)) && e.t - Math.max(...g.ps.map(p => p.end)) <= this.GAP) { g.ps.push(e); return; }
       const ng = { ps: [e], hand: false }; gs.push(ng); last[e.cam] = ng;
@@ -3343,8 +3368,10 @@ const Litter = {
       const ps = g.ps.slice().sort((a, b) => a.t - b.t), cnt = {};
       ps.forEach(p => { const n = this.nameOf(p); if (n) cnt[n] = (cnt[n] || 0) + 1; });
       const name = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || '';
-      return { id: ps[0].id, ps, cam: ps[0].cam, t: ps[0].t, end: Math.max(...ps.map(p => p.end)), name, img: ps[0].img };
-    }).sort((a, b) => b.t - a.t);
+      /* visit = it counts in the day's 胖胖 ×N · 团团 ×N (only what 全部 shows); out = taken out of 全部 by her */
+      return { id: ps[0].id, ps, cam: ps[0].cam, t: ps[0].t, end: Math.max(...ps.map(p => p.end)), name, img: ps[0].img, visit: ps.some(p => p.inAll && !rm.has(p.id)), out: ps.every(p => rm.has(p.id)) };
+    }).concat(tab === 'litter_box' ? Object.values(this.mo).flatMap(x => x.segs).map(m => ({ id: m.id, ps: [m], cam: 'litter_box', t: m.t, end: m.end, name: '', img: m.img, motion: true, visit: false })) : [])
+      .sort((a, b) => b.t - a.t);
   },
   dur(g) { const s = Math.max(1, Math.round((g.end - g.t) / 1000)); return s < 60 ? s + ' 秒' : Math.round(s / 60) + ' 分钟'; },
   dayKey(t) { const d = new Date(t); return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate(); },
@@ -3354,8 +3381,8 @@ const Litter = {
     return n === 0 ? '今天' : n === 1 ? '昨天' : (d.getMonth() + 1) + '月' + d.getDate() + '日 · 周' + '日一二三四五六'[d.getDay()];
   },
   summary(gs) {
-    const c = {}; let un = 0; gs.forEach(g => { if (g.name) c[g.name] = (c[g.name] || 0) + 1; else un++; });
-    const parts = this.names().filter(n => c[n]).map(n => n + ' ×' + c[n]); if (un) parts.push('没认出 ×' + un); return parts.join(' · ');
+    const c = {}; let un = 0, mo = 0; gs.forEach(g => { if (g.motion) { mo++; return; } if (!g.visit) return; if (g.name) c[g.name] = (c[g.name] || 0) + 1; else un++; });
+    const parts = this.names().filter(n => c[n]).map(n => n + ' ×' + c[n]); if (un) parts.push('没认出 ×' + un); if (mo) parts.push('Motion ×' + mo); return parts.join(' · ');
   },
   camName: c => c === 'litter_box' ? '猫砂盆' : 'Closet',
   async post(op, ids) {
@@ -3363,10 +3390,27 @@ const Litter = {
     if (!r.ok) throw new Error(r.status); this.st = await r.json(); Dbg.log('litter', op, ids.length);
   },
   find(id) { return this.groups().find(g => g.id === id); },
+  /* 5.2.3 her rule: 删除 = delete in Frigate (any page). An alert: its objects, then the alert with its video; a motion
+     stretch: its recording pieces, keeping any piece with an object in it */
+  async delFrigate(ps) {
+    const h = { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '1' }; let ok = 0;
+    for (const p of ps) {
+      try {
+        if (p.motion) { const r = await fetch(Frigate.base() + '/api/recordings/start/' + Math.floor(p.t / 1000) + '/end/' + Math.ceil(p.end / 1000) + '?cameras=litter_box&keep=object', { method: 'DELETE', credentials: 'include', headers: h });
+          let j = {}; try { j = await r.json(); } catch (x) {} if (!r.ok || j.success === false) throw new Error(r.status);
+          Object.values(this.mo).forEach(x => { x.segs = x.segs.filter(m => m !== p); }); }
+        else { if (p.dets && p.dets.length) await fetch(Frigate.base() + '/api/events/', { method: 'DELETE', credentials: 'include', headers: h, body: JSON.stringify({ event_ids: p.dets }) });
+          const r = await fetch(Frigate.base() + '/api/reviews/delete', { method: 'POST', credentials: 'include', headers: h, body: JSON.stringify({ ids: [p.id] }) }); if (!r.ok) throw new Error(r.status);
+          this.rows = this.rows.filter(x => x.id !== p.id); Data.events = Data.events.filter(x => x.id !== p.id); }
+        ok++;
+      } catch (x) { Dbg.log('litter delete failed', p.cam, hms(p.t), x && x.message); }
+    }
+    Dbg.log('litter deleted in frigate', ok + ' of ' + ps.length); return ok;
+  },
   /* 4.10.3: some visits would not play (the video list answered 404). Ask Frigate which recordings it has for that
      time, write it to the log, and show Frigate's preview instead with a note */
   async check(id) {
-    const g = this.find(id); if (!g) return;
+    const g = this.find(id); if (!g || g.motion) return;
     const vs = Math.floor(g.t / 1000) - 2, ve = Math.ceil(g.end / 1000) + 3;
     let st = 0; try { st = (await fetch(Frigate.base() + '/vod/' + g.cam + '/start/' + vs + '/end/' + ve + '/index.m3u8', { credentials: 'include' })).status; } catch (x) { st = -1; }
     if (st !== 404) return;
@@ -3385,7 +3429,7 @@ setInterval(() => {
   if (bar) { const a = +bar.dataset.a, b = +bar.dataset.b, ph = bar.querySelector('.ltph'); if (ph) ph.style.left = (Math.max(0, Math.min(1, (t - a) / Math.max(1, b - a))) * 100).toFixed(1) + '%'; }
 }, 250);
 function modalCatHub() {
-  const gs = Litter.groups(), td = Litter.dayKey(now()), today = gs.filter(g => Litter.dayKey(g.t) === td);
+  const gs = Litter.groups('all'), td = Litter.dayKey(now()), today = gs.filter(g => Litter.dayKey(g.t) === td);
   const sub = Litter.rows ? (today.length ? '今天 · ' + Litter.summary(today) : '今天还没有记录') : '加载中…';
   return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm lthub" role="dialog" aria-label="Cats" data-stop="1">' +
     '<div class="dhead">Cats<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
@@ -3399,7 +3443,7 @@ function ltThumb(g, sel) {
     '<img src="' + g.img + '" alt="" loading="lazy">' +
     '<b class="ltcam ' + (g.cam === 'closet' ? 'cl' : 'lb') + '">' + Litter.camName(g.cam) + '</b>' +
     (sel ? '<i class="ltck">' + (on ? I.check : '') + '</i>' : g.ps.length > 1 ? '<i class="ltseg">' + g.ps.length + ' 段</i>' : '') +
-    '<span class="ltbot"><b>' + hm(g.t) + '</b><em>' + Litter.dur(g) + '</em><u class="' + (g.name ? '' : 'q') + '">' + esc(g.name || '没认出') + '</u></span></button>';
+    '<span class="ltbot"><b>' + hm(g.t) + '</b><em>' + Litter.dur(g) + '</em><u class="' + (g.name && !g.out ? '' : 'q') + '">' + esc(g.motion ? 'Motion' : g.out ? '不是猫' : g.name || '没认出') + '</u></span></button>';
 }
 function modalLitter() {
   const shell = (title, body, back) => '<div class="scrim" data-act="close" role="presentation"><div class="dialog ltd" role="dialog" aria-label="' + title + '" data-stop="1">' +
@@ -3407,6 +3451,7 @@ function modalLitter() {
     '<button class="ic" style="color:var(--head-fg)" data-act="' + (back || 'cathub') + '" aria-label="Back">' + I.x + '</button></div><div class="dbody">' + body + '</div></div></div>';
   if (!Litter.rows) return shell('如厕记录', '<div class="wtnote" style="margin:0">加载中…</div>');
   const all = Litter.groups();
+  if (Litter.tab() === 'litter_box' && Litter.moDays < 7) Litter.loadMotion(7);
   if (S.ltSel) {
     const g = all.find(x => x.id === S.ltSel);
     if (!g) return shell('如厕记录', '<div class="wtnote" style="margin:0">这条记录已经没有了</div>', 'ltback');
@@ -3422,29 +3467,34 @@ function modalLitter() {
         ? '<video src="' + Frigate.base() + '/api/review/' + encodeURIComponent(g.ps[0].id) + '/preview?format=mp4" autoplay muted loop playsinline></video><div class="ltnorec">Frigate 没有这段的录像 · 只有预览</div>'
         : '<video class="evv" data-hls="' + vod + '" data-cam="' + g.cam + '" data-vs="' + vs + '" data-ve="' + ve + '" data-at="' + Math.floor(g.t / 1000) + '" autoplay muted controls playsinline style="opacity:0"></video><div class="evclk" hidden></div>') +
       '<button class="skip5 b10" data-act="evskip" data-v="-10" aria-label="Back 10 Seconds">' + I.back10c + '</button><button class="skip5 b" data-act="evskip" data-v="-5" aria-label="Back 5 Seconds">' + I.back5 + '</button><button class="skip5 f" data-act="evskip" data-v="5" aria-label="Forward 5 Seconds">' + I.fwd5 + '</button><button class="skip5 f10" data-act="evskip" data-v="10" aria-label="Forward 10 Seconds">' + I.fwd10c + '</button></div>' + bar +
-      '<div class="ltmeta"><b>' + (g.ps.length > 1 ? hm(g.t) + ' – ' + hm(g.end) : hms(g.t)) + '</b><span>' + Litter.camName(g.cam) + (g.cam === 'closet' ? ' · Poop Spot' : '') + ' · ' + Litter.dayName(g.t) + (g.ps.length > 1 ? ' · ' + g.ps.length + ' 段' : '') + ' · ' + Litter.dur(g) + '</span></div>' +
-      '<div class="lbl">是谁' + (g.ps.length > 1 ? '（改了 ' + g.ps.length + ' 段一起改）' : '') + '</div><div class="ltwho">' +
+      '<div class="ltmeta"><b>' + (g.ps.length > 1 ? hm(g.t) + ' – ' + hm(g.end) : hms(g.t)) + '</b><span>' + Litter.camName(g.cam) + (g.ps.some(p => p.spot) ? ' · Poop Spot' : '') + (g.motion ? ' · Motion' : '') + (g.out ? ' · 已从全部移出' : '') + ' · ' + Litter.dayName(g.t) + (g.ps.length > 1 ? ' · ' + g.ps.length + ' 段' : '') + ' · ' + Litter.dur(g) + '</span></div>' +
+      (g.motion ? '' : '<div class="lbl">是谁' + (g.ps.length > 1 ? '（改了 ' + g.ps.length + ' 段一起改）' : '') + '</div><div class="ltwho">' +
       Litter.names().map(n => '<button class="chip" data-act="ltname" data-v="' + esc(n) + '" aria-pressed="' + (g.name === n) + '"' + (busy ? ' disabled' : '') + '>' + esc(n) + '</button>').join('') + '</div>' +
       (g.ps.length > 1 ? '<button class="btn ltsplit" data-act="ltsplit"' + (busy ? ' disabled' : '') + '>拆开</button>' : '') +
-      '<div class="ltnot"><div class="ltnott">不是如厕</div>' +
+      '<div class="ltnot"><div class="ltnott">不是猫</div>' +
       '<button class="check" role="checkbox" aria-checked="' + plus + '" data-act="ltplus"><span class="box">' + (plus ? I.check : '') + '</span>发给 Frigate+：不是猫 / 不是狗</button>' +
-      '<button class="check" role="checkbox" aria-checked="' + rmv + '" data-act="ltrm"><span class="box">' + (rmv ? I.check : '') + '</span>从如厕记录里删掉</button>' +
-      '<button class="btn solid pfred ltgo" data-act="ltnot"' + (busy || !(plus || rmv) ? ' disabled' : '') + '>' + (busy ? '保存中…' : '确认') + '</button></div>', 'ltback');
+      '<button class="check" role="checkbox" aria-checked="' + rmv + '" data-act="ltrm"><span class="box">' + (rmv ? I.check : '') + '</span>从「全部」里移出（猫砂盆 / Closet 里还在）</button>' +
+      '<button class="btn solid pfred ltgo" data-act="ltnot"' + (busy || !(plus || rmv) ? ' disabled' : '') + '>' + (busy ? '保存中…' : '确认') + '</button></div>') +
+      /* 5.2.3: 删除 = delete in Frigate, on every page */
+      (S.ltDelOne === g.id
+        ? '<div class="ltnot"><div class="ltnott">从 Frigate 删除' + (g.ps.length > 1 ? '这 ' + g.ps.length + ' 段' : '') + '？视频和图片都会删掉，不能恢复</div><div class="ltwho"><button class="chip" data-act="ltdelonex">取消</button><button class="chip pfred" data-act="ltdelone"' + (busy ? ' disabled' : '') + '>' + (busy ? '删除中…' : '删除') + '</button></div></div>'
+        : '<button class="btn ltgo" data-act="ltdeloneask"' + (busy ? ' disabled' : '') + '>删除（从 Frigate 删掉）</button>'), 'ltback');
   }
   const cam = S.ltCam || 'all', gs = all.filter(g => cam === 'all' || g.cam === cam), sel = S.ltPick;
   let body = '';
   if (sel) {
     const ids = Object.keys(sel).filter(k => sel[k]), cams = new Set(all.filter(g => sel[g.id]).map(g => g.cam));
     body += S.ltDelAsk && ids.length
-      ? '<div class="ltpickbar ltdelask"><span>删除 ' + ids.length + ' 条，并发给 Frigate+ 说这里没有猫 / 狗？</span><button class="btn" data-act="ltdelno">取消</button><button class="btn pfred" data-act="ltdel"' + (Litter.busy ? ' disabled' : '') + '>' + (Litter.busy ? '删除中…' : '删除') + '</button></div>'
+      ? '<div class="ltpickbar ltdelask"><span>从 Frigate 删除 ' + ids.length + ' 条？视频和图片都会删掉，不能恢复</span><button class="btn" data-act="ltdelno">取消</button><button class="btn pfred" data-act="ltdel"' + (Litter.busy ? ' disabled' : '') + '>' + (Litter.busy ? '删除中…' : '删除') + '</button></div>'
       : '<div class="ltpickbar"><span>已选 ' + ids.length + ' 条' + (cams.size > 1 ? ' · 只能合并同一个摄像头的' : '') + '</span><button class="btn" data-act="ltpickno">取消</button><button class="btn pfred" data-act="ltdelask"' + (!ids.length || Litter.busy ? ' disabled' : '') + '>删除</button><button class="btn solid" data-act="ltmerge"' + (ids.length < 2 || cams.size > 1 || Litter.busy ? ' disabled' : '') + '>合并</button></div>';
   } else body += '<div class="ltchips">' + [['all', '全部'], ['litter_box', '猫砂盆'], ['closet', 'Closet']].map(c => '<button class="chip" data-act="ltcam" data-v="' + c[0] + '" aria-pressed="' + (cam === c[0]) + '">' + c[1] + '</button>').join('') + '</div>';
-  if (!gs.length) body += '<div class="wtnote" style="margin:0">最近 30 天还没有记录</div>';
+  if (!gs.length) body += '<div class="wtnote" style="margin:0">' + (cam === 'litter_box' && Litter.moBusy ? '加载中…' : '最近 30 天还没有记录') + '</div>';
   const n = S.ltN || 60; let shown = 0, day = '', cur = [];
-  const flush = () => { if (!cur.length) return; body += '<div class="ltday">' + Litter.dayName(cur[0].t) + ' · <em>' + esc(Litter.summary(cur)) + '</em></div><div class="ltgrid">' + cur.map(g => ltThumb(g, sel)).join('') + '</div>'; cur = []; };
+  const flush = () => { if (!cur.length) return; const sm = Litter.summary(cur); body += '<div class="ltday">' + Litter.dayName(cur[0].t) + (sm ? ' · <em>' + esc(sm) + '</em>' : '') + '</div><div class="ltgrid">' + cur.map(g => ltThumb(g, sel)).join('') + '</div>'; cur = []; };
   for (const g of gs) { if (shown >= n) break; const k = Litter.dayKey(g.t); if (k !== day) { flush(); day = k; } cur.push(g); shown++; }
   flush();
   if (gs.length > n) body += '<button class="btn momore" data-act="ltmore">再看 ' + Math.min(60, gs.length - n) + ' 条</button>';
+  else if (cam === 'litter_box' && Litter.moDays < 30) body += '<button class="btn momore" data-act="ltmomore"' + (Litter.moBusy ? ' disabled' : '') + '>' + (Litter.moBusy ? '加载 Motion 中…' : '再看更早 7 天的 Motion') + '</button>';
   if (!sel && gs.length) body += '<div class="wtnote">长按一张可以选几条合并</div>';
   return shell(sel ? '选择要合并的' : '如厕记录', body, sel ? 'ltpickno' : 'cathub');
 }
@@ -5919,7 +5969,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.2.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.2.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6050,7 +6100,7 @@ const ACT = {
   cathub() { S.more = false; S.modal = 'cathub'; S.ltSel = null; S.ltPick = null; S.ltDelAsk = false; S.ctBig = null; render(); Litter.load().then(() => { if (S.modal === 'cathub') render(); }).catch(x => Dbg.log('litter load failed', x && x.message)); },
   ltopen() { S.modal = 'litter'; S.ltSel = null; S.ltPick = null; S.ltN = 60; render();
     Litter.load(true).then(() => { if (S.modal === 'litter') render(); }).catch(x => { Dbg.log('litter load failed', x && x.message); toast('如厕记录加载失败'); }); },
-  ltcam(d) { S.ltCam = d.v; S.ltN = 60; render(); },
+  ltcam(d) { S.ltCam = d.v; S.ltN = 60; S.ltPick = null; render(); },
   ltmore() { S.ltN = (S.ltN || 60) + 60; render(); },
   ltsel(d) {
     if (S.ltPick) { S.ltPick = Object.assign({}, S.ltPick, { [d.id]: !S.ltPick[d.id] }); render(); return; }
@@ -6062,15 +6112,22 @@ const ACT = {
   ltdelno() { S.ltDelAsk = false; render(); },
   /* 4.10.1 her rule: 删除 in the pick bar = for every picked visit, Frigate+ gets its snapshot as "no cat / no dog here"
      (false positive; she draws the boxes herself in Frigate+ later) and the visit leaves the log */
+  /* 5.2.3 her rule: 删除 (pick bar, any page) = delete in Frigate */
   async ltdel() {
-    Once.start('litter delete');
     const gs = Litter.groups().filter(g => S.ltPick && S.ltPick[g.id]); if (!gs.length || Litter.busy) return;
-    Litter.busy = true; render(); let ok = true, sent = 0; const ps = gs.flatMap(g => g.ps);
-    for (const p of ps) { const k = 'lt~' + p.id; EVK[k] = { e: p }; try { const r = await CatFix.save(k, '-animal', false, true); if (r.ok) sent++; else ok = false; } catch (x) { ok = false; } }
-    try { await Litter.post('remove', ps.map(p => p.id)); } catch (x) { ok = false; }
-    Litter.busy = false; S.ltPick = null; S.ltDelAsk = false; Dbg.log('litter delete', gs.length + ' visits', ps.length + ' parts', 'frigate+ ' + sent, ok ? 'ok' : 'not all taken');
-    toast('已删除 ' + gs.length + ' 条 · 已发给 Frigate+：这里没有猫 / 狗' + (ok ? '' : ' · 有一部分没成功')); render();
+    Litter.busy = true; render(); const ps = gs.flatMap(g => g.ps), ok = await Litter.delFrigate(ps);
+    Litter.busy = false; S.ltPick = null; S.ltDelAsk = false;
+    toast(ok === ps.length ? '已从 Frigate 删除 ' + gs.length + ' 条' : '删除了 ' + ok + ' / ' + ps.length + ' 段 · 有一部分没成功'); render();
   },
+  ltdeloneask() { S.ltDelOne = S.ltSel; render(); },
+  ltdelonex() { S.ltDelOne = null; render(); },
+  async ltdelone() {
+    const g = Litter.find(S.ltSel); if (!g || Litter.busy) return;
+    Litter.busy = true; render(); const ok = await Litter.delFrigate(g.ps);
+    Litter.busy = false; S.ltDelOne = null; if (ok === g.ps.length) S.ltSel = null;
+    toast(ok === g.ps.length ? '已从 Frigate 删除' : '删除了 ' + ok + ' / ' + g.ps.length + ' 段 · 有一部分没成功'); render(); bigBack();
+  },
+  ltmomore() { Litter.loadMotion(Litter.moDays + 7); render(); },
   ltback() { S.ltSel = null; render(); bigBack(); },
   ltseek(d, ev) {
     const bar = ev && ev.target.closest('.ltbar'), v = document.querySelector('.ltvid video.evv'); if (!bar || !v) return;
@@ -6082,6 +6139,7 @@ const ACT = {
   async ltmerge() {
     const gs = Litter.groups().filter(g => S.ltPick && S.ltPick[g.id]); if (gs.length < 2 || Litter.busy) return;
     if (new Set(gs.map(g => g.cam)).size > 1) { toast('只能合并同一个摄像头的'); return; }
+    if (gs.some(g => g.motion)) { toast('Motion 不能合并'); return; }
     Litter.busy = true; render();
     try { await Litter.post('merge', gs.flatMap(g => g.ps.map(p => p.id))); S.ltPick = null; toast('已合并 · ' + gs.reduce((n, g) => n + g.ps.length, 0) + ' 段'); }
     catch (x) { toast('合并没成功 · ' + (x && x.message)); }
@@ -6127,7 +6185,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.2.2');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.2.3');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6144,7 +6202,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.2.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.2.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7361,7 +7419,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.2.2';
+    const BUILD = '5.2.3';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
