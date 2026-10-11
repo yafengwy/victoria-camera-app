@@ -6409,8 +6409,10 @@ const ACT = {
       if (!e || e.suspended) { S.forced[d.id] = now() + MIN; Live.policy(); paintCam(d.id); toast('Live For 1 Minute'); return; } }
     const still = !PHONE_LIVE() && t == null && !(m.active || (m.last != null && now() - m.last < 5000)) && !(S.forced[d.id] > now());
     if (still) { S.forced[d.id] = now() + 5 * MIN; paintCam(d.id); toast('Live video for 5 minutes'); return; }
-    if (t == null) { syncAll(null); if (S.view === 'home') { allLive1(); return; } toast('All cameras are live'); }
-    else { syncAll(t); toast('All cameras moved to ' + hms(t)); }
+    /* 5.1.2 (her choice): a card already showing Live does nothing on a tap (every camera live = double tap on the
+       panel's Live). Still = this camera live; a playback time = every camera to that time (both unchanged) */
+    if (t == null) return;
+    syncAll(t); toast('All cameras moved to ' + hms(t));
     render();
   },
   live1(d) {   /* tap: this camera goes live. Second tap within 0.45 s (double tap): every camera goes live */
