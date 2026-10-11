@@ -3785,7 +3785,7 @@ window.addEventListener('popstate', () => {
   else if (S.watch && S.wbig) S.wbig = null;
   else if (S.watch) { S.watch = false; try { sessionStorage.removeItem('vhwatch'); } catch (e) {} }
   else if (S.focus && S.full) { S.full = false; S.autoFull = false; S.fpanel = false; }
-  else if (S.focus) { const fid = S.focus.cam; if (camT(fid) == null) setTimeout(() => Snap.refreshOne(fid), 0); S.focus = null; S.full = false; }
+  else if (S.focus) { const fid = S.focus.cam; if (camT(fid) == null) setTimeout(() => Snap.refreshOne(fid), 0); S.focus = null; S.full = false; ltReturn(); }
   else if (S.view !== 'home') S.view = 'home';
   render();
 });
@@ -6139,7 +6139,8 @@ const ACT = {
     if (!(L.last && t - L.last < 420)) { L.last = t; return; }
     L.last = 0; const v = document.querySelector('.ltvid video.evv'), at = v && v.currentTime > 0 ? vodReal(v, v.currentTime) : +d.t;
     Dbg.log('litter to camera view', d.cam, hms(at));
-    S.modal = null; S.ltSel = null; S.camTime[d.cam] = at; openFocus(d.cam);
+    S.ltBack = { sel: S.ltSel, cam: S.ltCam };   /* 5.2.6: Back in the camera view returns to this visit */
+    S.modal = null; S.more = false; S.ltSel = null; S.camTime[d.cam] = at; openFocus(d.cam);
   },
   ltdeloneask() { S.ltDelOne = S.ltDelOne === S.ltSel ? null : S.ltSel; S.ltNotOpen = null; render(); },
   ltnotopen() { S.ltNotOpen = S.ltNotOpen === S.ltSel ? null : S.ltSel; S.ltDelOne = null; render(); },
@@ -6734,13 +6735,15 @@ const ACT = {
   },
   /* 5.1.11: camera view → Review with every camera at the moment shown here (Live stays Live), this camera first */
   focusreview(d) {
-    const id = d.id, t = camT(id);
+    const id = d.id, t = camT(id); S.ltBack = null;
     S.focus = null; S.full = false; S.fclip = null;
     S.rv.t = t; S.playing = t != null; S.rv.feat = id; S.rv.autoFeat = null; S.rv.lp = t == null ? null : { id, a: t - 3000, b: t + 8000 };
     Dbg.log('camera view to review', id, t == null ? 'live' : hms(t));
     S.view = 'review'; S.modal = null; S.more = false; render(); window.scrollTo(0, 0);
   },
-  unfocus() { const id = S.focus && S.focus.cam, live = id && camT(id) == null; S.focus = null; S.full = false; S.fclip = null; render(); if (live) Snap.refreshOne(id); },
+  unfocus() { const id = S.focus && S.focus.cam, live = id && camT(id) == null; S.focus = null; S.full = false; S.fclip = null;
+    /* 5.2.6 her rule: opened from a 如厕记录 visit (double tap) → Back goes to that visit again */
+    ltReturn(); render(); if (live) Snap.refreshOne(id); },
   /* camera view download: start = the second being watched (Live: the last 30 s); end defaults to 30 s later and
      can be set by moving to the end and tapping Set End */
   /* the download button starts a clip at the second being watched; [ and ] move the start / end to the second being
@@ -6902,6 +6905,8 @@ const ACT = {
   },
   fdate() { openDateTime(camT(S.focus.cam), v => { const d0 = dayStart(v); S.focus.back = 0; S.focus.dayEnd = d0 === dayStart(now()) ? null : d0 + DAY; S.camTime[S.focus.cam] = v >= now() - 1000 ? null : v; render(); }); }
 };
+/* 5.2.6 her rule: a camera view opened from a 如厕记录 visit (double tap) goes back to that visit */
+function ltReturn() { const b = S.ltBack; if (!b) return; S.ltBack = null; S.more = false; S.modal = 'litter'; S.ltCam = b.cam; S.ltSel = b.sel; S.ltPlus = true; S.ltRm = true; S.ltNotOpen = null; S.ltDelOne = null; }
 function openFocus(id) {
   FZF.s = 1; FZF.x = 0; FZF.y = 0; FZ.s = 1; FZ.x = 0; FZ.y = 0;
   S.focus = { cam: id, dayEnd: null, pad: 0, back: 0 }; S.full = false; S.fui = false; S.fpanel = false; FBack.load(id);
