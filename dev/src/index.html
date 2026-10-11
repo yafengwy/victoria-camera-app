@@ -3916,7 +3916,7 @@ function camCard(c, fr, span2) {
     '<button class="hit" data-act="tap" data-id="' + c.id + '" aria-label="Show playback for ' + esc(c.name) + '"></button>' +
     (F360.away(c.id) ? '<div class="offv">' + I.power + '<b>Service Suspended</b><span>' + (F360.now === 'furbo' ? 'In The Furbo App Now' : 'Moving To The Furbo App · Within 1 Min') + '</span><button class="btn solid" data-act="furbo360" data-v="app">Bring Back</button></div>'
     : off ? '<div class="offv" id="off-' + c.id + '" data-act="tap" data-id="' + c.id + '"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>' : '') +
-    (slim ? '<div class="ctr">' + snz + badgeHtml(c.id, t, f) + '</div>' : badgeHtml(c.id, t, f)) + '<div class="ctm" id="ctm-' + c.id + '">' + hms(shownT(c.id, Live.cardSrc(c.id))) + '</div><div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="tag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div></article>';
+    (slim ? '<div class="ctr">' + snz + badgeHtml(c.id, t, f) + '</div>' : badgeHtml(c.id, t, f)) + '<div class="ctm" id="ctm-' + c.id + '"' + (t != null ? ' hidden' : '') + '>' + hms(shownT(c.id, Live.cardSrc(c.id))) + '</div><div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="tag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div></article>';
 }
 /* The moment the picture on screen is from: the playback time; live video = now while the picture is moving,
    and when it stops (Still) the moment it last moved; a still snapshot = when that snapshot was taken. */
@@ -3944,7 +3944,9 @@ const dtHdr = t => { if (dayStart(t) === dayStart(now())) return hms(t); const d
 function paintTimes() {
   if (S.watch) document.querySelectorAll('.wt').forEach(w => { const id = w.id.slice(3), t = document.getElementById('wtm-' + id), b = document.getElementById('wbd-' + id);
     if (t) { const v = hms(shownT(id, w.dataset.src)); if (t.textContent !== v) t.textContent = v; } if (b) { const v = stillInner(id); if (b.innerHTML !== v) b.innerHTML = v; } });
-  if (S.view === 'home') Data.cams.forEach(c => { const n = document.getElementById('ctm-' + c.id); if (n) { const v = hms(shownT(c.id, Live.cardSrc(c.id))); if (n.textContent !== v) n.textContent = v; } });
+  /* 5.1.1: while a card plays a recording the top-right badge already shows that time, so the top-left time hides;
+     live and Still keep it (Still = the moment the picture stopped) */
+  if (S.view === 'home') Data.cams.forEach(c => { const n = document.getElementById('ctm-' + c.id); if (n) { const pb = camT(c.id) != null; if (n.hidden !== pb) n.hidden = pb; const v = hms(shownT(c.id, Live.cardSrc(c.id))); if (n.textContent !== v) n.textContent = v; } });
   /* camera view timeline: the date button names the day of the moment on screen (it said Today while showing yesterday) */
   if (S.focus && !S.flist) { const b = document.querySelector('.focus .fday'); if (b) { const w = dayLabel(shownT(S.focus.cam, S.focus.cam)); if (b._w !== w) { b._w = w; b.innerHTML = I.cal + w; } } }
   { const ff = document.getElementById('ffix'); if (ff && S.focus) { const v = focusFix(S.focus.cam); if (ff._v !== v) { ff._v = v; ff.innerHTML = v; } } }
