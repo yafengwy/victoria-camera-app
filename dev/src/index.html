@@ -7124,7 +7124,11 @@ function evAutoPlay() {
     if (S.view !== 'events' || S.modal || Data.source !== 'frigate') return;
     const top = evTopPx(), h = window.innerHeight;
     const card = [...document.querySelectorAll('.evmedia[id^="evm-"]')].find(m => { const r = m.getBoundingClientRect(); const vis = Math.min(r.bottom, h) - Math.max(r.top, top); return vis >= r.height * 0.6; });
-    if (!card) return;
+    /* 5.1.9: the clip that was playing (or paused) is scrolled right off the screen and no other card took over:
+       it goes back to its picture and lets go of its video, so it no longer downloads */
+    if (!card) { const pm = S.evPlay && document.getElementById('evm-' + S.evPlay), r = pm && pm.getBoundingClientRect();
+      if (r && (r.bottom <= top || r.top >= h)) { const k = S.evPlay, e = evE(k); evStop(); relIn(pm); if (e) pm.innerHTML = evMedia(e, k); evIcons(); Dbg.log('alert clip scrolled away', k); }
+      return; }
     const id = card.id.slice(4);
     if (S.evPlay !== id) ACT.evplay({ v: id });
   }, 600);
