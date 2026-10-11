@@ -1459,7 +1459,7 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .ltpickbar .btn[disabled],.ltd .btn[disabled],.ltwho .chip[disabled]{opacity:.45}
 .ltvid{position:relative;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000}
 .ltvid img,.ltvid video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
-.ltbar{position:relative;height:28px;display:flex;align-items:center;cursor:pointer;margin:-6px 0 -4px}
+.ltbar{position:relative;height:28px;display:flex;align-items:center;cursor:pointer;margin:-6px 0 -4px;touch-action:none}
 .ltbarin{flex:1;display:flex;height:8px;pointer-events:none}
 .ltbar i{height:8px;border-radius:4px;background:var(--strong);pointer-events:none}
 .ltbar b{min-width:6px;pointer-events:none}
@@ -3446,11 +3446,25 @@ const Litter = {
     if (S.ltSel === id) { S.ltNoRec = id; render(); }
   }
 };
+/* 5.2.10 her request: the bar under a 如厕记录 video can be dragged (it was tap-to-jump only): the dot follows the
+   finger and the video follows every 150 ms; a paused video stays paused */
+const LtDrag = { on: false, at: 0, bar: null };
+function ltDragTo(x, final) {
+  const bar = LtDrag.bar, v = document.querySelector('.ltvid video.evv'); if (!bar || !v) return;
+  const r = bar.getBoundingClientRect(), f = Math.max(0, Math.min(1, (x - r.left) / r.width)), a = +bar.dataset.a, b = +bar.dataset.b, t = a + f * (b - a);
+  const ph = bar.querySelector('.ltph'); if (ph) ph.style.left = (f * 100).toFixed(1) + '%';
+  const c = document.querySelector('.ltvid .evclk'); if (c) { c.hidden = false; c.textContent = ymdhms(t); }
+  if (final || performance.now() - LtDrag.at > 150) { LtDrag.at = performance.now(); try { v.currentTime = Math.max(0, vodAt(v, t)); } catch (x) {} }
+  if (final) Dbg.log('litter drag', Math.round(f * 100) + '%', hms(t));
+}
+document.addEventListener('pointerdown', e => { const bar = e.target.closest && e.target.closest('.ltbar'); if (!bar) return; LtDrag.on = true; LtDrag.bar = bar; LtDrag.moved = false; LtDrag.x0 = e.clientX; try { bar.setPointerCapture(e.pointerId); } catch (x) {} }, true);
+document.addEventListener('pointermove', e => { if (!LtDrag.on) return; if (Math.abs(e.clientX - LtDrag.x0) > 4) LtDrag.moved = true; if (LtDrag.moved) ltDragTo(e.clientX, false); }, true);
+['pointerup', 'pointercancel'].forEach(n => document.addEventListener(n, e => { if (!LtDrag.on) return; if (LtDrag.moved) ltDragTo(e.clientX, true); LtDrag.on = false; LtDrag.bar = null; }, true));
 /* 5.2.8: the middle button shows Pause while playing, Play while stopped */
 function ltPpIcon() { const v = document.querySelector('.ltvid video.evv'), b = document.querySelector('.ltvid .skip5.pp'); if (!v || !b) return; const p = v.paused; if (b._p !== p) { b._p = p; b.innerHTML = p ? I.play : I.pause; b.setAttribute('aria-label', p ? 'Play' : 'Pause'); } }
 /* 如厕记录: the playing visit's clock in its top-left corner, and the dot on the bar under it */
 setInterval(() => {
-  if (S.modal !== 'litter' || !S.ltSel) return;
+  if (S.modal !== 'litter' || !S.ltSel || LtDrag.on) return;
   ltPpIcon();
   const v = document.querySelector('.ltvid video.evv'), c = document.querySelector('.ltvid .evclk'), bar = document.querySelector('.ltbar'); if (!v || !c) return;
   if (!(v.currentTime > 0)) { c.hidden = true; return; }
@@ -6211,7 +6225,7 @@ const ACT = {
   ltseek(d, ev) {
     const bar = ev && ev.target.closest('.ltbar'), v = document.querySelector('.ltvid video.evv'); if (!bar || !v) return;
     const r = bar.getBoundingClientRect(), f = Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width)), t = +d.a + f * (+d.b - +d.a);
-    v.currentTime = Math.max(0, vodAt(v, t)); v.play().catch(() => {}); Dbg.log('litter jump', Math.round(f * 100) + '%', hms(t));
+    v.currentTime = Math.max(0, vodAt(v, t)); if (!v._up) v.play().catch(() => {}); Dbg.log('litter jump', Math.round(f * 100) + '%', hms(t));
   },
   ltplus() { S.ltPlus = S.ltPlus === false; render(); },
   ltrm() { S.ltRm = S.ltRm === false; render(); },
