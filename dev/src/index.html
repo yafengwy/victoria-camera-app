@@ -2923,7 +2923,7 @@ const People = {
       if (!r.ok) ok = false; else if (n) this.sub[d] = this.key(n); else delete this.sub[d];
       if (n && teach && this.faceOn) { const t = await this.post('/api/faces/train/' + encodeURIComponent(this.key(n)) + '/classify', { event_id: d }); if (t.ok) taught++; }
     }
-    return { ok, taught, sent, miss, nc: [...nc] };
+    return { ok, taught };   /* 5.3.5: was the cat Fix's return (copied here by mistake in 4.6.1): 'sent is not defined' after the name was already saved */
   }
 };
 /* 3.1.4 Fix on cat / dog alerts: a detection marked Not Cat (false positive, sent to Frigate+) leaves the alert, and an
