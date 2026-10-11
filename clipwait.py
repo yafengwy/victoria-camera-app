@@ -117,6 +117,17 @@ def faststart(body):
     except Exception:
         return body
 
+def clipdur(body, a, b):
+    # how long Frigate's clip really is (it starts on the full picture before the asked second)
+    try:
+        with tempfile.NamedTemporaryFile(suffix='.mp4') as f:
+            f.write(body); f.flush()
+            d = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', f.name],
+                                     capture_output=True, text=True, timeout=10).stdout.strip() or 0)
+        return f'{d:.1f}s long (asked {b - a}s)'
+    except Exception:
+        return f'(asked {b - a}s)'
+
 def gif(body, keep=0):
     # keep: only the last `keep` seconds go into the GIF. The clip is asked for with a few seconds before it, so the
     # decoder starts on a full picture; a clip that starts between full pictures (HEVC cameras) otherwise decodes to
@@ -209,6 +220,7 @@ def make(path, cam, s, e, kind):
         if covered(cam, s, e):
             ok = True; break
         time.sleep(0.5)
+    tw = time.time() - t0
     # Frigate sometimes can't cut a very short piece right at the edge of a recording segment (some cameras,
     # like Treat Feeder, write longer segments): try the asked seconds, then a slightly wider window once more.
     body, err = None, None
@@ -217,15 +229,21 @@ def make(path, cam, s, e, kind):
     for a, b, wait in (((s, e, 0), (s - 1, e + 3, 2)) if ok else ()):
         try:
             time.sleep(wait)
+            t1 = time.time()
             with urllib.request.urlopen(f'{FRIGATE}/api/{cam}/start/{a}/end/{b}/clip.mp4', timeout=30) as r:
                 body = r.read()
+            t2 = time.time()
             # 2026-10-08 13:33 Treat Feeder: Frigate's clip had only sound, no picture, so the GIF failed and the phone got
             # 502. A clip with no picture counts as failed: the wider window, then the live stream, are tried next.
             if kind != 'sound.mp4' and 'video' not in streams(body):
                 raise RuntimeError('clip has no picture: ' + streams(body))
             if kind == 'sound.mp4':
                 print('sound clip from Frigate', cam, a, b, 'streams:', streams(body), flush=True)
+            n0, raw0 = len(body), body
             body = gif(body) if kind == 'clip.gif' else faststart(body) if kind == 'sound.mp4' else silent(body)
+            # 2026-10-10 19:22 a Fish Tofu GIF took 70.6 s (the iPhone had given up): say where the time goes
+            print('clip timing', cam, kind, f'wait {tw:.1f}s', f'frigate clip {t2 - t1:.1f}s {n0 // 1024} KB {clipdur(raw0, a, b)}',
+                  f'convert {time.time() - t2:.1f}s -> {len(body) // 1024} KB', flush=True)
             if kind == 'sound.mp4':
                 print('sound clip sent', cam, 'streams:', streams(body), flush=True)
             break
