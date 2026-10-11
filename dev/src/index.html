@@ -2634,7 +2634,8 @@ const Playback = {
       /* alert-card and full-screen players: say what happened, so a clip that never starts shows up in the Playback Log */
       const tag = (u.match(/\/vod\/([^/]+)\/start\/(\d+)\/end\/(\d+)/) || []).slice(1).map((x, i) => i ? hms(+x * 1000) : x).join(' ');
       Dbg.log('alert clip', tag, this.native(cam) ? 'native' : 'hls.js');
-      ['loadedmetadata', 'playing', 'stalled', 'error'].forEach(ev => v.addEventListener(ev, () => Dbg.log('alert clip', ev, tag, ev === 'error' && v.error ? 'code ' + v.error.code + ' ' + (v.error.message || '') : 'at ' + v.currentTime.toFixed(1))));
+      /* 5.1.7: also 'waiting' (stuck for more video) and 'pause', to tell a stuck clip from one the page paused */
+      ['loadedmetadata', 'playing', 'waiting', 'pause', 'stalled', 'error'].forEach(ev => v.addEventListener(ev, () => Dbg.log('alert clip', ev, tag, ev === 'error' && v.error ? 'code ' + v.error.code + ' ' + (v.error.message || '') : 'at ' + v.currentTime.toFixed(1))));
       fetch(u, { credentials: 'include' }).then(r => r.text().then(t => Dbg.log('alert clip list', tag, r.status, (t.match(/#EXTINF/g) || []).length + ' parts'))).catch(e => Dbg.log('alert clip list', tag, 'failed'));
       if (this.native(cam)) { v.src = u; v.play().catch(() => {}); }
       else this.hls().then(H => { const h = new H(); v._hls = h; v.disableRemotePlayback = true; hlsLog(h, H, 'alert clip ' + tag); h.loadSource(u); h.attachMedia(v); v.play().catch(() => {});
@@ -7248,6 +7249,7 @@ setInterval(() => {
 }, 1000);
 
 document.addEventListener('visibilitychange', () => { if (document.hidden) { Live.keepAll(); S.forced = {}; } });
+document.addEventListener('visibilitychange', () => Dbg.log('page', document.hidden ? 'hidden' : 'shown'));   /* 5.1.7 */
 window.addEventListener('pagehide', () => { Live.keepAll(); Dbg.save(); });
 let resizeTimer, lastCols = null;
 /* Turning the phone sideways while a camera is open goes full screen; turning it back returns to the camera view. */

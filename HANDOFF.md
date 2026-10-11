@@ -182,3 +182,4 @@ Read this first when picking the app up in a new conversation. No secrets live i
 - 5.1.4 (2026-10-11, her request): alert clips (and 如厕记录 video, same buttons) have −10 / +10 round buttons outside −5 / +5 (I.back10c / I.fwd10c; .skip5.b10 left 10px, .b 62px, mirrored right).
 - 5.1.5: Playback Log now logs 'boxes on/off <view>' and 'motion grid failed <cam> <err>' (2026-10-11 her log had no 'motion grid' line at all, so Boxes was most likely off).
 - 5.1.6 (2026-10-11, her choice): Alerts title-row ⏸ pauses the clip where it is (v._up), ▶ resumes from there (was: stop, back to the picture). wakeVideos and the Alerts sound button skip v._up videos. Choosing another alert still stops the old one.
+- 5.1.7: Playback Log also logs alert clip 'waiting' / 'pause' and 'page hidden/shown' (her 01:20–01:22 log: upstairs_furbo clip advanced 2 s in 25 s with no stalled/error line; could be Chrome pausing a hidden tab — now measurable).
