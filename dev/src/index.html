@@ -2743,8 +2743,17 @@ const NotX = {
   ids: (() => { try { return JSON.parse(localStorage.getItem('vhnotx') || '[]'); } catch (e) { return []; } })(),
   add(d) { if (!this.ids.includes(d)) { this.ids.push(d); if (this.ids.length > 3000) this.ids.splice(0, this.ids.length - 3000); try { localStorage.setItem('vhnotx', JSON.stringify(this.ids)); } catch (e) {} } }
 };
+/* 4.10.8 her rule: one tap sends at most ONE picture to Frigate+ and teaches at most ONE picture to a model, however
+   many detections the alert (or the joined 如厕 visit, or the picked visits) has. Each Save / 是谁 / 不是如厕 / 删除
+   starts a new allowance; the other detections are still marked in this app (wrong / named), just not sent. */
+const Once = {
+  p: 1, t: 1,
+  start(why) { this.p = 1; this.t = 1; Dbg.log('one picture rule', why || ''); },
+  plus() { if (this.p > 0) { this.p--; return true; } return false; },
+  teach() { if (this.t > 0) { this.t--; return true; } return false; }
+};
 async function markWrong(d, send) {
-  if (!send) { NotX.add(d); People.fp[d] = 1; return { ok: true, msg: 'app only' }; }
+  if (!send || !Once.plus()) { NotX.add(d); People.fp[d] = 1; return { ok: true, msg: 'app only' }; }
   return People.post('/api/events/' + encodeURIComponent(d) + '/false_positive');
 }
 /* 4.5.8 her rule: what each Fix teaches —
@@ -2753,6 +2762,7 @@ async function markWrong(d, send) {
    a car: Mark As Car, Mark As FedEx / UPS …, or one of her car classes → Frigate+ (as that car). Once per detection. */
 async function sendPlus(d) {
   People.sent = People.sent || {}; if (People.sent[d] || People.fp[d]) return true;
+  if (!Once.plus()) return false;
   const p = await People.post('/api/events/' + encodeURIComponent(d) + '/plus', { include_annotation: 1 });
   if (p.ok || /already/i.test(p.msg || '')) { People.sent[d] = 1; return true; }
   Dbg.log('frigate+ refused', d, p.msg || ''); return false;
@@ -2857,11 +2867,12 @@ const CoFix = {
       const plus = isLogo(pick), key = plus ? pick.toLowerCase() : pick, cars = all.filter(d => People.lab[d] === 'car'), tgt = cars.length ? cars : all;
       for (const d of tgt) {
         const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: key }); if (r.ok) People.co[d] = key; else ok = false;
-        if (plus && send) { const p = await People.post('/api/events/' + encodeURIComponent(d) + '/plus', { include_annotation: 1 }); if (p.ok || /already/i.test(p.msg)) { sent++; People.sent = People.sent || {}; People.sent[d] = 1; } }
+        if (plus && send && Once.plus()) { const p = await People.post('/api/events/' + encodeURIComponent(d) + '/plus', { include_annotation: 1 }); if (p.ok || /already/i.test(p.msg)) { sent++; People.sent = People.sent || {}; People.sent[d] = 1; } }
         else if (send && await sendPlus(d)) sent++;
         if (!plus && send && this.model && People.lab[d] === 'car') {   /* 3.9.3 her rule: the car model folder only with Teach ticked */
           if (!files) { try { files = await Frigate.get('/api/classification/' + encodeURIComponent(this.model) + '/train'); } catch (x) { files = []; } }
-          for (const f of (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-1)) {   /* 4.9.9: one picture per car too */ const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: key, training_file: f }); if (t.ok) taught++; }
+          const one = (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-1);
+          for (const f of (one.length && Once.teach() ? one : [])) {   /* 4.9.9: one picture per car too; 4.10.8: one per tap */ const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: key, training_file: f }); if (t.ok) taught++; }
         }
       }
       if (taught) await People.post('/api/classification/' + encodeURIComponent(this.model) + '/train');
@@ -2932,7 +2943,7 @@ const CatFix = {
         if (teach && this.model && (this.objs || ['cat']).includes(People.lab[d])) {
           if (!files) { try { files = await Frigate.get('/api/classification/' + encodeURIComponent(this.model) + '/train'); } catch (x) { files = []; } }
           const mine = (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-1);   /* 4.9.8 her rule: one picture per sighting (the pictures of one sighting are near copies) */ why.push(d + ': ' + mine.length + ' pics');
-          for (const f of mine) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: 'none', training_file: f }); if (t.ok) taught++; else why.push('refused ' + t.msg); }
+          for (const f of (mine.length && Once.teach() ? mine : [])) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: 'none', training_file: f }); if (t.ok) taught++; else why.push('refused ' + t.msg); }
         } else why.push(d + ': ' + (!teach ? 'teach off' : !this.model ? 'no cats model' : 'label ' + People.lab[d]));
         const a = Arrive.det[d]; if (a) a.sub = '';
       }
@@ -2947,7 +2958,7 @@ const CatFix = {
       const was = People.lab[d];
       if (pick) {
         const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: pick }); if (r.ok) People.sub[d] = pick; else ok = false;
-        if (was !== 'cat' && !People.fp[d] && plus) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) { People.fp[d] = 1; sent++; why.push(d + ': ' + was + ' sent to Frigate+ as wrong'); } else why.push(d + ': Frigate+ refused ' + f.msg); }
+        if (was !== 'cat' && !People.fp[d] && plus && Once.plus()) { const f = await People.post('/api/events/' + encodeURIComponent(d) + '/false_positive'); if (f.ok || /already/i.test(f.msg)) { People.fp[d] = 1; sent++; why.push(d + ': ' + was + ' sent to Frigate+ as wrong'); } else why.push(d + ': Frigate+ refused ' + f.msg); }
       } else {
         if (People.sub[d]) { const r = await People.post('/api/events/' + encodeURIComponent(d) + '/sub_label', { subLabel: '' }); if (r.ok) delete People.sub[d]; }
         if (!People.fp[d]) { const f = await markWrong(d, plus); if (f.ok || /already/i.test(f.msg)) People.fp[d] = 1; else { ok = false; Dbg.log('fix refused', d, f.msg); } }
@@ -2956,7 +2967,7 @@ const CatFix = {
         if (!files) { try { files = await Frigate.get('/api/classification/' + encodeURIComponent(this.model) + '/train'); } catch (x) { files = []; } }
         const mine = (files || []).filter(f => f.startsWith(d + '-')).sort().slice(-1);   /* 4.9.8 her rule: one picture per sighting (the pictures of one sighting are near copies) */ why.push(d + ': ' + mine.length + ' pics');
         if (!mine.length && was === 'cat') miss++;
-        for (const f of mine) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: pick || 'none', training_file: f }); if (t.ok) taught++; else why.push('refused ' + t.msg); }
+        for (const f of (mine.length && Once.teach() ? mine : [])) { const t = await People.post('/api/classification/' + encodeURIComponent(this.model) + '/dataset/categorize', { category: pick || 'none', training_file: f }); if (t.ok) taught++; else why.push('refused ' + t.msg); }
       } else { why.push(d + ': ' + (!teach ? 'teach off' : !this.model ? 'no cats model' : 'label ' + was)); if (teach && this.model && pick && isAnimal(was)) nc.add(was); }
     }
     if (taught) CatPics.filed += taught;   /* 3.4.9: no training here: it runs only from Train Model */
@@ -5948,6 +5959,7 @@ const ACT = {
   /* 4.10.1 her rule: 删除 in the pick bar = for every picked visit, Frigate+ gets its snapshot as "no cat / no dog here"
      (false positive; she draws the boxes herself in Frigate+ later) and the visit leaves the log */
   async ltdel() {
+    Once.start('litter delete');
     const gs = Litter.groups().filter(g => S.ltPick && S.ltPick[g.id]); if (!gs.length || Litter.busy) return;
     Litter.busy = true; render(); let ok = true, sent = 0; const ps = gs.flatMap(g => g.ps);
     for (const p of ps) { const k = 'lt~' + p.id; EVK[k] = { e: p }; try { const r = await CatFix.save(k, '-animal', false, true); if (r.ok) sent++; else ok = false; } catch (x) { ok = false; } }
@@ -5980,6 +5992,7 @@ const ACT = {
   },
   /* 是谁: every part gets that name (Frigate sub label) and teaches the Cats model one picture, exactly as Fix does */
   async ltname(d) {
+    Once.start('litter name');
     const g = Litter.find(S.ltSel); if (!g || Litter.busy) return;
     Litter.busy = true; render(); let ok = true, taught = 0;
     for (const p of g.ps) {
@@ -5992,6 +6005,7 @@ const ACT = {
   },
   /* 不是如厕: Frigate+ gets "not a cat / not a dog" for its animals, and / or it leaves the log */
   async ltnot() {
+    Once.start('litter not a visit');
     const g = Litter.find(S.ltSel); if (!g || Litter.busy) return;
     const plus = S.ltPlus !== false, rmv = S.ltRm !== false; if (!plus && !rmv) return;
     Litter.busy = true; render(); let ok = true;
@@ -6108,6 +6122,7 @@ const ACT = {
   cofixopen(d) { S.fixK = d.v; S.fixPick = ''; S.fixTeach = true; S.fixBusy = false; S.fixKinds = []; S.modal = 'cofix'; render();
     Promise.all([CoFix.loadNames(), CoFix.kinds(d.v).then(ks => { S.fixKinds = ks; })]).then(() => { if (S.modal === 'cofix') render(); }); },
   async cofixsave() {
+    Once.start('company fix');
     if (S.fixBusy || !S.fixPick) return; const k = S.fixK, e = evE(k); if (!e) return;
     let v = S.fixPick;
     /* 3.1.8 New Company: a new class in her car model (Frigate keeps classes as folders; this makes the folder) */
@@ -6138,6 +6153,7 @@ const ACT = {
   fixteach() { S.fixTeach = S.fixTeach === false; render(); },
   fixplus() { S.fixPlus = S.fixPlus === false; render(); },
   async fixsave() {
+    Once.start('fix');
     if (S.fixBusy || !S.fixPick) return; const k = S.fixK, e = evE(k); if (!e) return;
     S.fixBusy = true; render();
     const pickv = S.fixPick, teachv = S.fixTeach !== false && !!CatFix.model, r = await CatFix.save(k, pickv, S.fixTeach !== false, S.fixPlus !== false); S.fixBusy = false;
@@ -6152,6 +6168,7 @@ const ACT = {
     render(); if (S.whoName === '+') { const n = document.getElementById('whonew'); if (n) n.focus(); } },
   whoteach() { S.whoTeach = !S.whoTeach; render(); },
   async whosave() {
+    Once.start('who');
     const e = Data.events.find(x => x.id === S.whoId);
     /* 4.8.4: a Save that did nothing now says why; a step stuck over 60 s no longer blocks Save */
     if (People.busy && Date.now() - (People.busyAt || 0) > 60000) { Dbg.log('who save: old step stuck, freed'); People.busy = false; }
