@@ -4475,7 +4475,8 @@ function viewEvents() {
         (isPet(sel, sk) ? '<button class="whob" data-act="fixopen" data-v="' + esc(sk) + '">Fix</button>' : (coOf(sel) && Data.source === 'frigate' && !sel.motion) || hasPkg(sel) ? '<button class="whob" data-act="cofixopen" data-v="' + esc(sk) + '">Fix</button>' : '') +
         (hasPerson(sel) && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(sel.id) + '">' + (sel.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         (Data.source === 'frigate' ? EvSnd.btn() : '') +
-        '<button class="ic" aria-label="Open Camera" data-act="focusat" data-id="' + esc(sel.cam) + '" data-t="' + sp.t + '">' + I.expand + '</button>' +
+        /* 5.1.10 (her choice): Review at this moment instead of Open Camera (a double tap on the picture already opens it) */
+        '<button class="ic" aria-label="All Cameras At This Time" data-act="evreview" data-v="' + esc(sk) + '">' + I.review + '</button>' +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(sk) + '">' + I.dl + '</button>' +
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(sk) + '">' + I.trash + '</button>' : '') +
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(sk) + '">' + (S.evPlay === sk && !evPaused(sk) ? I.pause : I.playO) + '</button></div>' +
@@ -4500,6 +4501,7 @@ function viewEvents() {
         (isPet(e, k) ? '<button class="whob" data-act="fixopen" data-v="' + esc(k) + '">Fix</button>' : (coOf(e) && Data.source === 'frigate' && !e.motion) || hasPkg(e) ? '<button class="whob" data-act="cofixopen" data-v="' + esc(k) + '">Fix</button>' : '') +
         (hasPerson(e) && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         (Data.source === 'frigate' ? EvSnd.btn() : '') +
+        '<button class="ic" aria-label="All Cameras At This Time" data-act="evreview" data-v="' + esc(k) + '">' + I.review + '</button>' +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(k) + '">' + I.dl + '</button>' +
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(k) + '">' + I.trash + '</button>' : '') +
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(k) + '">' + (S.evPlay === k && !evPaused(k) ? I.pause : I.playO) + '</button>' +
@@ -6408,6 +6410,16 @@ const ACT = {
     saveClip(e.clip, (Data.cam(e.cam) ? Data.cam(e.cam).name : e.cam) + ' ' + objName(p.label) + ' ' + fileTime(p.t) + '.mp4', bS - aS, e.cam, aS, bS);
   },
   /* wide screens: pick an alert in the list to play it in the big player */
+  /* 5.1.10: Review with every camera at this alert (from 3 s before), its camera first — the same as picking it in
+     Review's own alert list */
+  evreview(d) {
+    const e = evE(d.v); if (!e) return; const p = evP(d.v, S.filt) || { t: e.t };
+    const at = p.t - 3000; if (at < now() - RSPAN) { toast('Review Goes Back 7 Days Only'); return; }
+    if (S.evPlay) { const m = document.getElementById('evm-' + S.evPlay); relIn(m); evStop(); }
+    S.rv.t = at; S.playing = true; S.rv.feat = e.cam; S.rv.autoFeat = null; S.rv.lp = { id: e.cam, a: Math.min(p.t, e.t) - 3000, b: (e.end || p.t) + 8000 };
+    Dbg.log('alert to review', e.cam, hms(p.t));
+    S.view = 'review'; S.modal = null; S.more = false; S.evPop = null; render(); window.scrollTo(0, 0);
+  },
   evsel(d) {
     if (S.evSel === d.v) return;
     evStop(); S.evSel = d.v; render();
