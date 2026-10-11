@@ -2457,7 +2457,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.2.4 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.2.5 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -3474,7 +3474,7 @@ function modalLitter() {
     const norec = S.ltNoRec === g.id;
     const plus = S.ltPlus !== false, rmv = S.ltRm !== false, busy = Litter.busy;
     return shell('如厕记录',
-      '<div class="ltvid"><img src="' + g.img + '" alt="">' + (norec
+      '<div class="ltvid" data-act="ltvtap" data-cam="' + g.cam + '" data-t="' + g.t + '"><img src="' + g.img + '" alt="">' + (norec
         ? '<video src="' + Frigate.base() + '/api/review/' + encodeURIComponent(g.ps[0].id) + '/preview?format=mp4" autoplay muted loop playsinline></video><div class="ltnorec">Frigate 没有这段的录像 · 只有预览</div>'
         : '<video class="evv" data-hls="' + vod + '" data-cam="' + g.cam + '" data-vs="' + vs + '" data-ve="' + ve + '" data-at="' + Math.floor(g.t / 1000) + '" autoplay muted controls playsinline style="opacity:0"></video><div class="evclk" hidden></div>') +
       '<button class="skip5 b10" data-act="evskip" data-v="-10" aria-label="Back 10 Seconds">' + I.back10c + '</button><button class="skip5 b" data-act="evskip" data-v="-5" aria-label="Back 5 Seconds">' + I.back5 + '</button><button class="skip5 f" data-act="evskip" data-v="5" aria-label="Forward 5 Seconds">' + I.fwd5 + '</button><button class="skip5 f10" data-act="evskip" data-v="10" aria-label="Forward 10 Seconds">' + I.fwd10c + '</button></div>' + bar +
@@ -5982,7 +5982,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.2.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.2.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6132,6 +6132,15 @@ const ACT = {
     Litter.busy = false; S.ltPick = null; S.ltDelAsk = false;
     toast(ok === ps.length ? '已从 Frigate 删除 ' + gs.length + ' 条' : '删除了 ' + ok + ' / ' + ps.length + ' 段 · 有一部分没成功'); render();
   },
+  /* 5.2.5 her request: double tap the playing visit = that camera full view at the second being shown */
+  ltvtap(d, ev) {
+    if (ev && ev.target.closest('.skip5')) return;
+    const t = tapTime(ev), L = ACT.ltvtap;
+    if (!(L.last && t - L.last < 420)) { L.last = t; return; }
+    L.last = 0; const v = document.querySelector('.ltvid video.evv'), at = v && v.currentTime > 0 ? vodReal(v, v.currentTime) : +d.t;
+    Dbg.log('litter to camera view', d.cam, hms(at));
+    S.modal = null; S.ltSel = null; S.camTime[d.cam] = at; openFocus(d.cam);
+  },
   ltdeloneask() { S.ltDelOne = S.ltDelOne === S.ltSel ? null : S.ltSel; S.ltNotOpen = null; render(); },
   ltnotopen() { S.ltNotOpen = S.ltNotOpen === S.ltSel ? null : S.ltSel; S.ltDelOne = null; render(); },
   ltdelonex() { S.ltDelOne = null; render(); },
@@ -6199,7 +6208,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.2.4');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.2.5');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6216,7 +6225,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.2.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.2.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -6968,9 +6977,24 @@ function openDate(cb) {
 /* Any finger drag that ends on the camera view (list, rail, cards, full screen) is not a tap. The page can redraw
    during a drag, so this is tracked on the whole page instead of on one element. */
 const TG = { mv: false, end: 0, t0: null };
-document.addEventListener('touchstart', e => { const t = e.touches[0]; TG.t0 = t ? [t.clientX, t.clientY] : null; TG.mv = e.touches.length > 1; }, { capture: true, passive: true });
+document.addEventListener('touchstart', e => { const t = e.touches[0]; TG.t0 = t ? [t.clientX, t.clientY] : null; TG.mv = e.touches.length > 1; TG.at = Date.now();
+  const a = e.target.closest && e.target.closest('[data-act]'); TG.act = a ? a.dataset.act : null;
+  /* 5.2.5: the lift is followed on the touched element itself: once it has been redrawn away, the page no longer
+     hears about it (a removed element's events don't reach the page) */
+  if (a) { const tg = e.target; tg.addEventListener('touchend', ev => lostTap(ev, tg), { once: true, passive: true }); } }, { capture: true, passive: true });
 document.addEventListener('touchmove', e => { const t = e.touches[0]; if (e.touches.length > 1 || (TG.t0 && t && Math.hypot(t.clientX - TG.t0[0], t.clientY - TG.t0[1]) > 10)) TG.mv = true; }, { capture: true, passive: true });
 document.addEventListener('touchend', e => { if (!e.touches.length) TG.end = Date.now(); }, { capture: true, passive: true });
+/* 5.2.5: the page redraws every few seconds; when the button under the finger was replaced by its new copy before
+   the finger lifted, the phone sends no tap at all (More needed ~5 taps, 2026-10-11 02:42). Such a tap is logged
+   and given to the new copy of the same button at that spot */
+function lostTap(e, tg) {
+  if (tg.isConnected) return;
+  TG.end = Date.now();
+  if (e.touches.length || TG.mv || !TG.act || Date.now() - TG.at > 600 || !TG.t0) return;
+  const n = document.elementFromPoint(TG.t0[0], TG.t0[1]), a = n && n.closest('[data-act]');
+  Dbg.log('tap lost (redrawn under finger)', TG.act, a && a.dataset.act === TG.act ? 'given to new copy' : 'no same button there');
+  if (a && a.dataset.act === TG.act) { TG.replay = Date.now(); a.click(); }
+}
 document.addEventListener('click', e => {
   if (TG.mv && Date.now() - TG.end < 800 && e.target.closest && e.target.closest('.focus, .full, #fsc, #ftsc, .rvcam')) {
     const a = e.target.closest('[data-act]'); if (a) Dbg.log('drag end not a tap', a.dataset.act);
@@ -6980,6 +7004,7 @@ document.addEventListener('click', e => {
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]');
   if (!el) return;
+  if (e.isTrusted && TG.replay && Date.now() - TG.replay < 700) { TG.replay = 0; return; }   /* 5.2.5: that tap was already given (a browser that still sends it) */
   /* lifting the finger after dragging the camera-view timeline is not a tap on the alert card under it */
   const scr = e.target.closest('#fsc, #ftsc');
   if (scr && (scr._mv || Date.now() - (scr._scrolled || 0) < 350)) return;
@@ -7433,7 +7458,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.2.4';
+    const BUILD = '5.2.5';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
