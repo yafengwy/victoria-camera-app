@@ -1375,14 +1375,12 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .dvpill{flex:none;min-width:0;display:flex;align-items:center;gap:6px;height:26px;padding:0;background:none;color:var(--head-fg);font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden}
 .dvpill .dvi{width:16px;height:16px}.dvpill .dvi svg{width:16px;height:16px}
 .dvpill.on .dvi{color:#F5B400}   /* lights: only the bulb turns yellow */
-.pctl.g3 .pfixb{order:4}.pctl.g3 .o-pw{order:4}.pctl.g3 .o-dt{order:5}.pctl.g3 .o-bx{order:6}.pctl.g3 .o-sn{order:7}.pctl.g3 .o-lv{order:8}
-.pctl.g3 .pg{display:contents}
+/* 4.10.10: one layout everywhere: left group | trio | right group, the two groups equally wide so the trio is exactly
+   in the middle */
+.pctl.g3 .psp{display:none}
+.pctl.g3 .pg{display:flex;align-items:center;flex:1 1 0;gap:6px;min-width:0}
+.pctl.g3 .gl{order:1}.pctl.g3 .trio{order:2;flex:none}.pctl.g3 .gr{order:3;justify-content:flex-end}
 @media (max-width:600px){
-  .pctl.g3 .psp{display:none}
-  .pctl.g3 .pg{display:flex;flex:1 1 0;gap:6px;min-width:0}
-  .pctl.g3 .gl{order:1}.pctl.g3 .trio{order:2}.pctl.g3 .gr{order:3;justify-content:flex-end}
-  .pctl.g3 .pfixb{order:0}
-  .pctl.g3 .o-pw,.pctl.g3 .o-bx{order:1}.pctl.g3 .o-sn,.pctl.g3 .o-dt{order:2}.pctl.g3 .o-lv{order:3}
   .pctl.g3 .round{width:38px;height:38px}
 }
 /* v71: tighter camera panel in every theme, so the picture keeps the room: smaller buttons, less space above and
@@ -4127,13 +4125,13 @@ function panel(c, col) {
     '<button data-act="playpause" aria-label="' + (S.playing ? 'Pause' : 'Play') + '">' + (S.playing ? I.pause : I.play) + '</button>' +
     '<button data-act="pstep" data-v="5" aria-label="Forward 5 Seconds">' + I.fwd5 + '</button>' +
     '</div>' +
-    /* grid cards have no title row, so their controls sit at the panel's right, in the same order as every other
-       page's top right: Power, Date, Boxes, Sound, Live; on narrow phones Power, Sound | Play | Boxes, Date, Live (CSS order) */
+    /* 4.10.10 (her layout, same on phone and computer): Power, Boxes at the left | −5 Pause +5 in the exact middle |
+       Sound, Live at the right (Live last) */
     ('<span class="psp pr"></span><span class="pg gl">' +
       '<span id="pfix" class="ffixw">' + focusFix(c.id, 'round pfixb') + '</span>' +
       (Data.source === 'frigate' && Ctl.on(c.id) ? '<button class="round o-pw" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
-      Snd.btn('round o-sn') + '</span><span class="pg gr">' +
       (Data.source === 'frigate' ? '<button class="round bxr o-bx" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
+      '</span><span class="pg gr">' + Snd.btn('round o-sn') +
       '<button class="round o-lv" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button></span>') + '</div>' +
     '<div class="tl"><div class="tlrow"><span id="tlstart">' + hm(start) + ' ' + dayLabel(start) + '</span><button class="pill" id="winpill" data-act="modal" data-v="win" aria-label="Change Timeline Length">' + winLabel(S.win) + '</button><span id="tlend">' + (S.winEnd >= now() - 2000 ? 'Now' : hm(S.winEnd)) + '</span></div>' +
     '<div class="track' + (S.markStyle === 'b' ? ' lanes' : '') + '" id="track" role="slider" aria-label="Playback Time" aria-valuetext="' + (live ? 'Live' : hms(t)) + '" tabindex="0">' + clipBand(c.id, start) + segs +
