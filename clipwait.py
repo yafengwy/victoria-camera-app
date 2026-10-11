@@ -306,18 +306,28 @@ def litter_load():
     except Exception:
         d = {}
     return {'merge': [list(map(str, g)) for g in d.get('merge', []) if isinstance(g, list)],
-            'solo': [str(x) for x in d.get('solo', [])], 'removed': [str(x) for x in d.get('removed', [])]}
+            'solo': [str(x) for x in d.get('solo', [])], 'removed': [str(x) for x in d.get('removed', [])],
+            # 5.2.7: what she saw in a motion stretch (Fix): {"mo-litter_box-<start>": "cat"}
+            'marks': {str(k): str(v)[:40] for k, v in (d.get('marks') or {}).items()} if isinstance(d.get('marks'), dict) else {}}
 
-def litter_change(op, ids):
+def litter_change(op, ids, label=''):
     ids = [str(x)[:64] for x in ids if str(x)][:50]
     with LITTER_LOCK:
         d = litter_load()
         cut = time.time() - 40 * 86400
-        old = lambda x: (float(x.split('-')[0]) if x.split('-')[0].replace('.', '', 1).isdigit() else time.time()) < cut
+        def stamp(x):   # alert ids start with the time; motion ids (mo-<camera>-<time>) end with it
+            p = x.split('-')[-1] if x.startswith('mo-') else x.split('-')[0]
+            return float(p) if p.replace('.', '', 1).isdigit() else time.time()
+        old = lambda x: stamp(x) < cut
         d['merge'] = [g for g in d['merge'] if not all(old(x) for x in g)]
         d['solo'] = [x for x in d['solo'] if not old(x)]
         d['removed'] = [x for x in d['removed'] if not old(x)]
-        if op == 'merge' and len(ids) > 1:
+        d['marks'] = {k: v for k, v in d['marks'].items() if not old(k)}
+        if op == 'mark' and label:
+            for x in ids: d['marks'][x] = str(label)[:40]
+        elif op == 'unmark':
+            for x in ids: d['marks'].pop(x, None)
+        elif op == 'merge' and len(ids) > 1:
             d['merge'] = [g for g in d['merge'] if not set(g) & set(ids)] + [sorted(set(ids))]
             d['solo'] = [x for x in d['solo'] if x not in ids]
         elif op == 'split':
@@ -343,7 +353,7 @@ class H(BaseHTTPRequestHandler):
         if self.path.split('?')[0] == '/ctl/litter':
             try:
                 n = int(self.headers.get('Content-Length') or 0); q = json.loads(self.rfile.read(min(n, 8000)) or b'{}')
-                d = litter_change(str(q.get('op')), list(q.get('ids') or []))
+                d = litter_change(str(q.get('op')), list(q.get('ids') or []), str(q.get('label') or ''))
             except Exception as x:
                 self.ctl_reply(400, {'error': str(x)[:100]}); return
             print('litter', q.get('op'), len(q.get('ids') or []), flush=True)
