@@ -1506,6 +1506,11 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .evh .whob:active{background:var(--track)}
 .evcard .evh .ic,.evh .ic{width:23px}
 .evcard .evh{padding-right:6px}
+.evwin{display:flex;align-items:center;gap:10px;margin:6px 12px 2px;padding:8px 8px 8px 12px;border-radius:14px;background:var(--chip);color:var(--head-fg);font-size:13px;font-weight:700}
+.evwin span{flex:1;min-width:0}
+.evwin b{font-weight:800}
+.evwin .btn{height:32px;padding:0 12px;font-size:12px}
+[data-app-theme="noir"] .evwin{border-radius:4px;background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
 </style>
 
 <div id="app" class="app"></div>
@@ -2371,7 +2376,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 4.10.6 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 4.10.7 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -3588,6 +3593,18 @@ function detectCover() {
 /* A notification opens the app at its alert: https://cam.victoriashome.app/#cam=front_door&t=<ms> */
 function openLink() {
   const q = new URLSearchParams(location.hash.slice(1)), id = q.get('cam'), t = +q.get('t');
+  /* 4.10.7: an animal notification (20-minute window): the Alerts page with only those cameras and that time */
+  const win = q.get('win');
+  if (win) {
+    const cams = win.split(',').filter(c => Data.cam(c)), a = +q.get('a'), b = +q.get('b');
+    history.replaceState(history.state, '', location.pathname + location.search);
+    if (!cams.length || !a) return;
+    Dbg.log('notification link window', cams.join(','), hms(a), hms(b));
+    S.focus = null; S.full = false; S.modal = null; S.view = 'events'; S.evPlay = null;
+    S.evWin = { cams, a, b: b || a + 20 * MIN, n: q.get('n') || cams.map(c => Data.cam(c).name).join(' · ') };
+    S.evDay = Math.max(0, Math.min(6, Math.round((dayStart(now()) - dayStart(a)) / DAY)));
+    render(); window.scrollTo(0, 0); Frigate.refresh(); return;
+  }
   if (!id || !Data.cam(id)) return;
   Dbg.log('notification link', id, t ? hms(t) : '');
   history.replaceState(history.state, '', location.pathname + location.search);
@@ -4343,17 +4360,21 @@ function viewEvents() {
   const days = [];
   for (let i = 0; i < 7; i++) { const d0 = today - i * DAY; days.push({ i, d0, n: visible.filter(e => e.t >= d0 && e.t < d0 + DAY).length }); }
   const d0 = days[S.evDay].d0;
-  const list = visible.filter(e => e.t >= d0 && e.t < d0 + DAY); Arrive.want(list); Arrive.recheck(list);
+  if (S.evWin && S.view !== 'events') S.evWin = null;
+  /* 4.10.7 her rule: an animal notification opens here with only its cameras and its 20 minutes (Show All goes back) */
+  const W = S.evWin;
+  const list = W ? Data.events.filter(e => W.cams.includes(e.cam) && e.t >= W.a && e.t <= W.b) : visible.filter(e => e.t >= d0 && e.t < d0 + DAY); Arrive.want(list); Arrive.recheck(list);
   const EONE = !COVER && rvOneRow();   /* computer: one row like Review — Reset, Cameras, Objects, Boxes on the left */
   let h = EONE ? '<div class="evtop"><div class="evbar one">' + evBarOne(visible.length) + '</div>' : '<div class="evtop"><div class="evbar"><span style="flex:1">Alerts</span>' + (COVER ? evStrip() : '') + (Data.source === 'frigate' ? '<button class="ic bxbtn2" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '<button class="ic" style="color:var(--head-fg)" data-act="go" data-v="home" aria-label="Close">' + I.x + '</button></div>';
   if (!COVER && !EONE) h += '<button class="fbtn" data-act="filters" aria-expanded="' + S.filtersOpen + '"><span>Filters</span><span class="fcount">' + visible.length + ' In 7 Days</span><span style="color:var(--sub);display:flex">' + (S.filtersOpen ? I.up : I.down) + '</span></button>';
   if (!COVER && !EONE && S.filtersOpen) h += filterPanel();
   if ((COVER || EONE) && S.evPop) h += evDropdown();
-  h += '<div class="days">' + days.map(d => '<button class="day" data-act="day" data-v="' + d.i + '" aria-pressed="' + (S.evDay === d.i) + '">' + dayLabel(d.d0) + '<b>' + d.n + '</b></button>').join('') + '</div></div>';
+  h += '<div class="days">' + days.map(d => '<button class="day" data-act="day" data-v="' + d.i + '" aria-pressed="' + (!W && S.evDay === d.i) + '">' + dayLabel(d.d0) + '<b>' + d.n + '</b></button>').join('') + '</div>' +
+    (W ? '<div class="evwin"><span><b>' + esc(W.n) + '</b> · ' + hm(W.a) + ' – ' + hm(W.b) + ' · ' + list.length + (list.length === 1 ? ' Alert' : ' Alerts') + '</span><button class="btn" data-act="evwinx">Show All</button></div>' : '') + '</div>';
   for (const k in EVK) delete EVK[k];
   const cards = [];
   let moLeft = 0, moWait = false;
-  if (f.motion && Data.source === 'frigate') {
+  if (f.motion && Data.source === 'frigate' && !W) {
     if (MotionList.stale(d0)) MotionList.load(d0);
     const all = (MotionList.get(d0) || []).filter(m => !f.off[m.cam]);
     moWait = !MotionList.get(d0);
@@ -5785,7 +5806,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.10.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 4.10.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -5988,7 +6009,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.10.6');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 4.10.7');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6005,7 +6026,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 4.10.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 4.10.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -6459,7 +6480,8 @@ const ACT = {
   filters() { S.filtersOpen = !S.filtersOpen; render(); },
   evpop(d) { S.evPop = S.evPop === d.v ? null : d.v; render(); },
   evpclose() { S.evPop = null; render(); },
-  day(d) { S.evDay = +d.v; render(); window.scrollTo(0, 0); },
+  day(d) { S.evDay = +d.v; S.evWin = null; render(); window.scrollTo(0, 0); },
+  evwinx() { const a = S.evWin && S.evWin.a; S.evWin = null; if (a) S.evDay = Math.max(0, Math.min(6, Math.round((dayStart(now()) - dayStart(a)) / DAY))); render(); window.scrollTo(0, 0); },
   hour(d) {
     const el = document.getElementById('hr-' + d.v);
     const cnt = +(el && el.dataset.n || 0);
@@ -7187,7 +7209,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '4.10.6';
+    const BUILD = '4.10.7';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
