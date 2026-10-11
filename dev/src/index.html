@@ -3897,6 +3897,7 @@ function fullButtons() {
   });
 }
 function render() {
+  TapLog.draws++;
   if (fullLight()) { const _t1 = performance.now(); try { fullButtons(); paintFocus(); Playback.sync(); } catch (e) { Dbg.log('script error', 'full light', String(e && e.message || e)); } const ms = Math.round(performance.now() - _t1); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', 'full'); return; }
   const _t0 = performance.now();
   try { render0(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
@@ -7115,13 +7116,31 @@ function openDate(cb) {
 /* Any finger drag that ends on the camera view (list, rail, cards, full screen) is not a tap. The page can redraw
    during a drag, so this is tracked on the whole page instead of on one element. */
 const TG = { mv: false, end: 0, t0: null };
-document.addEventListener('touchstart', e => { const t = e.touches[0]; TG.t0 = t ? [t.clientX, t.clientY] : null; TG.mv = e.touches.length > 1; TG.at = Date.now();
+/* 5.3.8: why a tap gets no answer ("I have to tap 3 times", 2026-10-11). Every lifted, unmoved finger is watched for
+   600 ms; if nothing ran, one log line says what was under the finger and what the page was doing: redrawn during the
+   touch, the list still scrolling, a guard that dropped it, or no button there at all */
+const TapLog = { draws: 0, d0: 0, ran: 0, why: '', sc: 0,
+  name(n) { if (!n || !n.tagName) return '-'; const a = n.closest && n.closest('[data-act]'); return a ? a.dataset.act + (a.dataset.v ? ':' + String(a.dataset.v).slice(0, 12) : '') : n.tagName.toLowerCase() + (n.id ? '#' + n.id : '') + (n.className && typeof n.className === 'string' ? '.' + n.className.trim().split(/\s+/).slice(0, 2).join('.') : ''); },
+  start() { this.d0 = this.draws; this.ran = 0; this.why = ''; },
+  end() {
+    if (TG.mv || !TG.t0) return;
+    const t0 = TG.t0, d0 = this.d0, held = Date.now() - (TG.at || Date.now()), at = TG.at;
+    setTimeout(() => {
+      if (this.ran >= at || TG.at !== at) return;
+      const n = document.elementFromPoint(t0[0], t0[1]);
+      if (!(n && n.closest && n.closest('[data-act]')) && !TG.act) return;   /* only app buttons: a picture, the background or a native control answers nothing on purpose */
+      Dbg.log('tap no answer', this.name(n) + (TG.act && !(n && n.closest && n.closest('[data-act="' + TG.act + '"]')) ? ' (touched ' + TG.act + ')' : ''), this.why || 'no click came', 'redraws ' + (this.draws - d0), 'held ' + held + 'ms', Date.now() - this.sc < 900 ? 'list was scrolling' : '', S.view + (S.focus ? ' camera view' : '') + (S.modal ? ' ' + S.modal : ''));
+    }, 600);
+  }
+};
+window.addEventListener('scroll', () => { TapLog.sc = Date.now(); }, { capture: true, passive: true });
+document.addEventListener('touchstart', e => { const t = e.touches[0]; TG.t0 = t ? [t.clientX, t.clientY] : null; TG.mv = e.touches.length > 1; TG.at = Date.now(); TapLog.start();
   const a = e.target.closest && e.target.closest('[data-act]'); TG.act = a ? a.dataset.act : null;
   /* 5.2.5: the lift is followed on the touched element itself: once it has been redrawn away, the page no longer
      hears about it (a removed element's events don't reach the page) */
   if (a) { const tg = e.target; tg.addEventListener('touchend', ev => lostTap(ev, tg), { once: true, passive: true }); } }, { capture: true, passive: true });
 document.addEventListener('touchmove', e => { const t = e.touches[0]; if (e.touches.length > 1 || (TG.t0 && t && Math.hypot(t.clientX - TG.t0[0], t.clientY - TG.t0[1]) > 10)) TG.mv = true; }, { capture: true, passive: true });
-document.addEventListener('touchend', e => { if (!e.touches.length) TG.end = Date.now(); }, { capture: true, passive: true });
+document.addEventListener('touchend', e => { if (!e.touches.length) { TG.end = Date.now(); TapLog.end(); } }, { capture: true, passive: true });
 /* 5.2.5: the page redraws every few seconds; when the button under the finger was replaced by its new copy before
    the finger lifted, the phone sends no tap at all (More needed ~5 taps, 2026-10-11 02:42). Such a tap is logged
    and given to the new copy of the same button at that spot */
@@ -7135,19 +7154,20 @@ function lostTap(e, tg) {
 }
 document.addEventListener('click', e => {
   if (TG.mv && Date.now() - TG.end < 800 && e.target.closest && e.target.closest('.focus, .full, #fsc, #ftsc, .rvcam')) {
-    const a = e.target.closest('[data-act]'); if (a) Dbg.log('drag end not a tap', a.dataset.act);
+    const a = e.target.closest('[data-act]'); if (a) Dbg.log('drag end not a tap', a.dataset.act); TapLog.why = 'taken as the end of a drag';
     e.stopPropagation(); e.preventDefault(); TG.mv = false;
   }
 }, true);
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]');
   if (!el) return;
-  if (e.isTrusted && TG.replay && Date.now() - TG.replay < 700) { TG.replay = 0; return; }   /* 5.2.5: that tap was already given (a browser that still sends it) */
+  if (e.isTrusted && TG.replay && Date.now() - TG.replay < 700) { TG.replay = 0; TapLog.ran = Date.now(); return; }   /* 5.2.5: that tap was already given (a browser that still sends it) */
   /* lifting the finger after dragging the camera-view timeline is not a tap on the alert card under it */
   const scr = e.target.closest('#fsc, #ftsc');
-  if (scr && (scr._mv || Date.now() - (scr._scrolled || 0) < 350)) return;
+  if (scr && (scr._mv || Date.now() - (scr._scrolled || 0) < 350)) { TapLog.why = 'timeline still moving (' + (scr._mv ? 'dragged' : Date.now() - (scr._scrolled || 0) + 'ms after scroll') + ')'; return; }
   if (el.dataset.act === 'close' && e.target.closest('[data-stop]') && !e.target.closest('button[data-act="close"]')) return;
   Jank.act = el.dataset.act + (el.dataset.id ? ' ' + el.dataset.id : '');
+  TapLog.ran = Date.now();
   const fn = ACT[el.dataset.act]; if (fn) { try { fn(el.dataset, e); } catch (x) { Dbg.log('script error', el.dataset.act, String(x && x.message || x)); throw x; } }
 });
 (function pullToRefresh() {
