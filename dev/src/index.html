@@ -3489,6 +3489,20 @@ const Diag = {
 /* 4.6.7: which app gets the Upstairs & Bedroom Furbo. A Furbo takes one connection; while the mini PC's bridge holds
    them the Furbo app can't reach them. Furbo App = the bridge serves only the two bowls (applied by the mini PC within
    a minute); Our App = all four back here. furbo360.txt is what the mini PC has actually done. */
+/* 4.10.9: Settings → 猫砂盆 Restart. Writes the ask through clipwait (/ctl/xiaomi); frigate-watchdog.py restarts only the
+   xiaomi container within a minute (猫砂盆 pauses ~30 s) and logs it in Mini PC Log → Automatic Restarts. */
+const XR = {
+  at: 0,
+  busy() { return Date.now() - this.at < 90000; },
+  async go() {
+    if (this.busy()) return;
+    this.at = Date.now(); render();
+    try { const r = await fetch('ctl/xiaomi', { method: 'POST', credentials: 'include' }); if (!r.ok) throw new Error(r.status); }
+    catch (e) { this.at = 0; render(); toast('Could Not Restart · Try Again'); return; }
+    Dbg.log('xiaomi restart asked'); toast('猫砂盆 Restarting · Picture Back In About 1 Min');
+    setTimeout(() => { if (S.modal === 'settings') render(); }, 91000);
+  }
+};
 const F360 = {
   want: null, now: null, at: 0,
   CAMS: ['upstairs_furbo', 'bedroom_furbo'],
@@ -5831,6 +5845,8 @@ function modalSettings() {
     '<div class="srow" style="justify-content:flex-end"><button class="btn solid" data-act="savesettings">Save</button></div>') +
     (Data.source === 'frigate' && F360.want ? row('Upstairs & Bedroom Furbo', seg('furbo360', F360.want, [['app', 'Our App'], ['furbo', 'Furbo App']])) +
       (F360.now !== F360.want ? '<div class="wtnote" style="margin:-4px 2px 8px">Switching · Within 1 Min</div>' : '') : '') +
+    /* 4.10.9: restart the xiaomi bridge (猫砂盆's only way in) from the phone; the mini PC does it within a minute */
+    (Data.source === 'frigate' ? row('猫砂盆', XR.busy() ? '<span class="wtnote" style="margin:0">Restarting · Within 1 Min</span>' : '<button class="btn" data-act="xrestart">Restart</button>') : '') +
     '</div></div></div>';
 }
 let toastTimer;
@@ -6060,6 +6076,7 @@ const ACT = {
   markstyle(d) { S.markStyle = d.v; store.set('markStyle', d.v); render(); },
   cover(d) { S.cover = d.v; store.set('cover', d.v); render(); },
   furbo360(d) { if (d.v !== F360.want) F360.set(d.v); },
+  xrestart() { XR.go(); },
   look(d) { S.look = d.v; store.set('look', d.v); render(); },
   colspref(d) { if (d.v === 'list') { S.layout = 'list'; store.set('layout', 'list'); render(); return; } S.colsPref = d.v; store.set('colsPref', d.v); if (S.layout !== 'grid') { S.layout = 'grid'; store.set('layout', 'grid'); } render(); },
   more() { S.more = !S.more; render(); },

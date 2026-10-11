@@ -433,6 +433,19 @@ def main():
         furbo360()
     except Exception as x:
         log('furbo 360 switch error: ' + repr(x)[:150])
+    # Settings → 猫砂盆 Restart (her request, 2026-10-11): clipwait writes the time of the ask; restart only the xiaomi
+    # container once per ask (asks older than 5 min are dropped). Not counted in the automatic 3-a-day limit.
+    try:
+        ask = int(open(os.path.join(D, 'furbo-ctl', 'xiaomi-restart')).read().strip() or 0)
+    except Exception:
+        ask = 0
+    if ask > st.get('xiaomi_asked', 0):
+        st['xiaomi_asked'] = ask; json.dump(st, open(STATE, 'w'))   # saved first: never twice
+        if time.time() - ask < 300:
+            log('restart xiaomi: asked in the app')
+            r = subprocess.run(['docker', 'restart', 'xiaomi'], capture_output=True, text=True, timeout=120)
+            log('restart xiaomi done' if r.returncode == 0 else 'restart xiaomi failed: ' + (r.stderr or '').strip()[:150])
+            st['xiaomi_runs'] = 0
     now_ca = datetime.now(TZ) if TZ else datetime.now()
     if now_ca.hour == DAILY_HOUR and now_ca.minute < 10 and time.time() - st.get('last_daily', 0) > 20 * 3600:
         st['last_daily'] = st['last_restart'] = time.time(); json.dump(st, open(STATE, 'w'))   # saved first: never twice

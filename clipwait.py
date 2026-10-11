@@ -348,6 +348,14 @@ class H(BaseHTTPRequestHandler):
                 self.ctl_reply(400, {'error': str(x)[:100]}); return
             print('litter', q.get('op'), len(q.get('ids') or []), flush=True)
             self.ctl_reply(200, d); return
+        # Settings → 猫砂盆 Restart (4.10.9): the time of the ask; frigate-watchdog.py restarts the xiaomi container
+        if self.path.split('?')[0] == '/ctl/xiaomi':
+            try:
+                os.makedirs('/ctl', exist_ok=True); open('/ctl/xiaomi-restart.tmp', 'w').write(str(int(time.time()))); os.replace('/ctl/xiaomi-restart.tmp', '/ctl/xiaomi-restart')
+            except OSError as x:
+                self.ctl_reply(500, {'error': str(x)[:100]}); return
+            print('xiaomi restart asked', flush=True)
+            self.ctl_reply(200, {'ok': 1}); return
         if self.path.split('?')[0] != '/ctl/furbo360':
             self.send_error(404); return
         try:
