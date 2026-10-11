@@ -4779,7 +4779,8 @@ function viewFocus() {
   }
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
   const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk ftm" id="ftm">' + dtHdr(shownT(c.id, c.id)) + '</div><div style="flex:1"></div><span id="ffix" class="ffixw">' + focusFix(c.id) + '</span>' +
-    (frig && cs.enabled ? '<button class="dk ctl" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="" aria-label="Turn Camera Off">' + I.power + '</button>' : '') +
+    /* 5.1.11 (her choice, phone and computer): Review at the moment shown, in place of Turn Camera Off (that stays on Home) */
+    (frig ? '<button class="dk" data-act="focusreview" data-id="' + c.id + '" aria-label="All Cameras At This Time">' + I.review + '</button>' : '') +
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
     '</div><div class="pillk fnmbr' + rcnA(c.id) + '>' + esc(c.name) + '</div>';   /* top row: back, the picture's time, buttons; the camera name sits in the picture's bottom-left corner (Loading shows bottom-right), the object tag just above it */
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
@@ -6616,6 +6617,14 @@ const ACT = {
     if (!S.demo && !/^https?:\/\/.+/.test(S.server)) { toast('Enter the Frigate address, for example http://192.168.1.50:5000'); return; }
     store.set('server', S.server); store.set('demo', S.demo); S.modal = null;
     await Data.load(); S.camTime = camTimeObj(); S.expanded = null; render(); toast(Data.source === 'demo' ? 'Showing demo data' : 'Connected to Frigate');
+  },
+  /* 5.1.11: camera view → Review with every camera at the moment shown here (Live stays Live), this camera first */
+  focusreview(d) {
+    const id = d.id, t = camT(id);
+    S.focus = null; S.full = false; S.fclip = null;
+    S.rv.t = t; S.playing = t != null; S.rv.feat = id; S.rv.autoFeat = null; S.rv.lp = t == null ? null : { id, a: t - 3000, b: t + 8000 };
+    Dbg.log('camera view to review', id, t == null ? 'live' : hms(t));
+    S.view = 'review'; S.modal = null; S.more = false; render(); window.scrollTo(0, 0);
   },
   unfocus() { const id = S.focus && S.focus.cam, live = id && camT(id) == null; S.focus = null; S.full = false; S.fclip = null; render(); if (live) Snap.refreshOne(id); },
   /* camera view download: start = the second being watched (Live: the last 30 s); end defaults to 30 s later and
