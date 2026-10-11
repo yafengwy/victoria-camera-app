@@ -1477,6 +1477,7 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .ltact.fx{border-color:var(--strong);color:var(--strong)}.ltact.fx[aria-pressed="true"]{background:var(--strong);color:var(--strong-fg)}
 .ltnot.ltfix{border-color:var(--strong)}.ltnot.ltfix .ltnott{color:var(--head-fg)}.ltnot.ltfix .box{border-color:var(--strong)}.ltnot.ltfix .check[aria-checked="true"] .box{background:var(--strong);color:var(--strong-fg)}
 .ltfximg{width:100%;max-height:200px;object-fit:contain;border-radius:10px;background:#000;margin:4px 0}
+.ltfxnudge{display:flex;align-items:center;gap:6px}.ltfxnudge span{flex:1;text-align:center;font-size:12px;color:var(--sub)}.ltfxnudge .chip{font-weight:500}
 .ltfxobj{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}.ltfxobj .chip{font-weight:500}.ltfxobj .chip[aria-pressed="true"]{background:var(--strong);color:var(--strong-fg);box-shadow:none}
 .ltdelb{flex:none;width:36px;height:36px;color:var(--sub)}
 .ltdelb[aria-pressed="true"]{color:#E5534B}
@@ -3535,6 +3536,9 @@ function modalLitter() {
          Frigate+ gets that frame (she draws the box on the Frigate+ site) and the stretch is marked here */
       (S.ltFix && S.ltFix.id === g.id ? '<div class="ltnot ltfix"><div class="ltnott">看到了什么 · ' + hms(S.ltFix.t) + '</div>' +
         '<img class="ltfximg" src="' + Frigate.base() + '/api/' + g.cam + '/recordings/' + (S.ltFix.t / 1000).toFixed(1) + '/snapshot.jpg?height=240" alt="">' +
+        /* 5.3.2: this picture is made by Frigate from the recording, exactly like the one Frigate+ gets; when it isn't the
+           frame she paused on, she moves it here until it is */
+        '<div class="ltfxnudge"><button class="chip sm" data-act="ltfixnudge" data-v="-1000">−1 秒</button><button class="chip sm" data-act="ltfixnudge" data-v="-300">−0.3</button><span>发的就是这张</span><button class="chip sm" data-act="ltfixnudge" data-v="300">+0.3</button><button class="chip sm" data-act="ltfixnudge" data-v="1000">+1 秒</button></div>' +
         '<div class="ltfxobj">' + ltFixObjs().map(o => '<button class="chip sm" data-act="ltfixlab" data-v="' + esc(o) + '" aria-pressed="' + (S.ltFix.lab === o) + '">' + esc(objName(o)) + '</button>').join('') +
         '<button class="chip sm" data-act="ltfixlab" data-v="" aria-pressed="' + (S.ltFix.lab === '') + '">只是 Motion</button></div>' +
         (S.ltFix.lab ? '<button class="check" role="checkbox" aria-checked="' + (S.ltFix.plus !== false) + '" data-act="ltfixplus"><span class="box">' + (S.ltFix.plus !== false ? I.check : '') + '</span>把这一帧发给 Frigate+（框在 Frigate+ 网站上画）</button>' : '') +
@@ -6200,8 +6204,13 @@ const ACT = {
     const g = Litter.find(S.ltSel); if (!g) return;
     const v = document.querySelector('.ltvid video.evv'), t = v && v.currentTime > 0 ? vodReal(v, v.currentTime) : g.t + 2000;
     if (v && !v.paused) { v._up = true; v.pause(); ltPpIcon(); }   /* the frame she saw stays on screen */
-    S.ltFix = { id: g.id, t: Math.round(t), lab: null, plus: true }; S.ltNotOpen = null; S.ltDelOne = null; Dbg.log('motion fix frame', g.cam, hms(t)); render();
+    S.ltFix = { id: g.id, t: Math.round(t), lab: null, plus: true }; S.ltNotOpen = null; S.ltDelOne = null;
+    /* 5.3.2 measuring her "the picture isn't the paused frame": the player's length against the recorded pieces it
+       should hold (a longer player means it starts earlier than the clock assumes) */
+    const segSum = v && v._segs ? v._segs.reduce((n, x) => n + (x.b - x.a) / 1000, 0) : null;
+    Dbg.log('motion fix frame', g.cam, hms(t), 'video ' + (v && isFinite(v.duration) ? v.duration.toFixed(1) : '?') + 's', 'pieces ' + (segSum == null ? '?' : segSum.toFixed(1)) + 's', 'at ' + (v ? v.currentTime.toFixed(1) : '?')); render();
   },
+  ltfixnudge(d) { if (!S.ltFix) return; S.ltFix.t += +d.v; S.ltFix.nudge = (S.ltFix.nudge || 0) + +d.v; render(); },
   ltfixlab(d) { if (!S.ltFix) return; S.ltFix.lab = d.v; render(); },
   ltfixplus() { if (!S.ltFix) return; S.ltFix.plus = S.ltFix.plus === false; render(); },
   async ltfixgo() {
@@ -6214,7 +6223,7 @@ const ACT = {
       catch (x) { ok = false; Dbg.log('motion fix frigate+ failed', x && x.message); }
     }
     try { if (F.lab) await Litter.post('mark', [g.id], F.lab + '|' + Math.ceil(g.end / 1000)); else await Litter.post('unmark', [g.id]); } catch (x) { ok = false; }
-    Dbg.log('motion fix', g.cam, hms(g.t), F.lab || 'just motion', sent ? 'frigate+ sent' : 'no frigate+');
+    Dbg.log('motion fix', g.cam, hms(g.t), F.lab || 'just motion', sent ? 'frigate+ sent' : 'no frigate+', 'frame ' + hms(F.t), 'moved ' + ((F.nudge || 0) / 1000).toFixed(1) + 's');
     Litter.busy = false; S.ltFix = null;
     toast((F.lab ? '已标成 ' + objName(F.lab) + (isAnimal(F.lab) ? ' · 放进了「全部」' : '') : '已改回 Motion') + (sent ? ' · 已发给 Frigate+' : '') + (ok ? '' : ' · 有一部分没成功')); render();
   },
