@@ -912,7 +912,9 @@ input,select,textarea{font-size:16px}
 .tj{cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;text-decoration-thickness:1px}
 .skip5{position:absolute;top:50%;z-index:4;width:44px;height:44px;margin-top:-22px;border:0;border-radius:50%;background:rgba(18,22,24,.55);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
 /* 5.1.4: ±10 s outside ±5 s (Alerts and 如厕记录) */
-.skip5.b10{left:10px}.skip5.b{left:62px}.skip5.f{right:62px}.skip5.f10{right:10px}.skip5:active{background:rgba(18,22,24,.8)}
+.skip5.b10{left:10px}.skip5.b{left:62px}.skip5.f{right:62px}.skip5.f10{right:10px}
+/* 5.2.2: iPhone's own player draws its ±10 in the middle, over ours: there only ±5, at the edges as before */
+html.ios .skip5.b10,html.ios .skip5.f10{display:none}html.ios .skip5.b{left:10px}html.ios .skip5.f{right:10px}.skip5:active{background:rgba(18,22,24,.8)}
 .evclk{position:absolute;left:8px;top:8px;z-index:3;padding:2px 7px;border-radius:5px;background:rgba(18,22,24,.66);color:#fff;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap;pointer-events:none}
 .evmedia img,.evmedia video{width:100%;height:100%;object-fit:cover;display:block}
 .evmedia .evnm{position:absolute;left:4px;bottom:4px;z-index:3;height:26px;padding:0 9px;border-radius:13px;font-size:12px;font-weight:700;white-space:nowrap;max-width:calc(100% - 8px);overflow:hidden;text-overflow:ellipsis;display:block;line-height:26px;pointer-events:none}
@@ -1526,6 +1528,7 @@ const DEMO_IMG = /*MOCK_IMAGES*/{};
 
 /* ===== Small helpers ===== */
 const MIN = 60000, HOUR = 3600000, DAY = 86400000, WIN = 30 * MIN;
+const KEEP_DAYS = 30, KEEP = KEEP_DAYS * DAY;   /* 5.2.2: how far back the app reaches (Frigate keeps alerts 30 days) */
 const store = {
   get(k, d) { try { const v = localStorage.getItem('homecams.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem('homecams.' + k, JSON.stringify(v)); } catch (e) {} }
@@ -1541,6 +1544,7 @@ const now = () => Date.now();
 
 /* iPhone / iPad (iPadOS says Macintosh, but has touch) */
 const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+if (IOS) document.documentElement.classList.add('ios');   /* 5.2.2: CSS for what the iPhone's own player already draws */
 const I = {
   back10c: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 7.5A8 8 0 1 1 4 12"/><path d="M5.2 3.6l.3 3.9 3.9-.3"/><text x="12.4" y="15.6" font-size="7" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none" font-family="inherit">10</text></svg>',
   fwd10c: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18.5 7.5A8 8 0 1 0 20 12"/><path d="M18.8 3.6l-.3 3.9-3.9-.3"/><text x="11.6" y="15.6" font-size="7" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none" font-family="inherit">10</text></svg>',
@@ -1748,7 +1752,8 @@ const Frigate = {
     const t0 = Date.now();
     /* the week's alerts and the people's names are asked for right away, in parallel with the camera list; the
        cameras show as soon as the list is in, the alerts join when they arrive (Data.evReady) */
-    const subsP = People.loadSubs(), revP = this.get('/api/review?limit=2000&after=' + Math.floor((now() - 7 * DAY) / 1000));
+    this.from = now() - 7 * DAY;
+    const subsP = People.loadSubs(), revP = this.get('/api/review?limit=2000&after=' + Math.floor(this.from / 1000));
     Data.evReady = Promise.all([subsP, revP]).then(([, rows]) => { Data.events = this.mapReviews(rows); Dbg.log('start alerts ready', Data.events.length, (Date.now() - t0) + 'ms'); })
       .catch(e => Dbg.log('start alerts failed', e && e.message));
     const cfg = await this.get('/api/config');
@@ -1797,6 +1802,26 @@ const Frigate = {
     Data.cams.forEach(c => { if (c.id === 'nest_doorbell') c.ar = 0.75; });
     /* cameras whose detect size isn't in Frigate's config (the Doorbell): read the picture shape from a snapshot */
     Data.cams.filter(c => !c.ar).forEach(c => { const im = new Image(); im.onload = () => { if (c.ar || !im.naturalWidth) return; c.ar = im.naturalWidth / im.naturalHeight; Dbg.log('picture shape', c.id, c.ar.toFixed(3)); if (isTall(c) && app.innerHTML) render(); }; im.src = c.img; });
+  },
+  /* 5.2.2 (her choice): the app reaches back 30 days (Frigate keeps alerts 30 days, other recordings 20). The start
+     still reads only the last 7 days; an older day is read the first time something shows it (Alerts day, Review or a
+     camera's timeline moved there): everything from that day up to what is already here, merged into the list */
+  from: 0, backBusy: false,
+  async back(t) {
+    if (Data.source !== 'frigate' || !this.from || t >= this.from || this.backBusy) return;
+    const a = Math.max(dayStart(t), dayStart(now()) - (KEEP_DAYS - 1) * DAY); if (a >= this.from) return;
+    this.backBusy = true; const t0 = Date.now();
+    try {
+      const fresh = this.mapReviews(await this.get('/api/review?limit=5000&after=' + Math.floor(a / 1000) + '&before=' + Math.floor(this.from / 1000)));
+      const have = new Set(Data.events.map(e => e.id)); fresh.forEach(e => { if (!have.has(e.id)) Data.events.push(e); });
+      Data.events.sort((x, y) => y.t - x.t); this.from = a;
+      Dbg.log('older alerts', fresh.length, 'from', ymdhms(a), (Date.now() - t0) + 'ms');
+    } catch (e) { Dbg.log('older alerts failed', e && e.message); }
+    this.backBusy = false;
+    if (S.modal) return;
+    if (S.view === 'events' && !S.evPlay) render();
+    else if (S.view === 'review') { drawRvTrack(true); paintReview(); }
+    else if (S.view === 'home' && S.expanded && !S.dragging) refreshTrack();
   },
   async reviews(after) { return this.mapReviews(await this.get('/api/review?limit=2000&after=' + after)); },
   mapReviews(rows) {
@@ -3674,7 +3699,7 @@ function openLink() {
     Dbg.log('notification link window', cams.join(','), hms(a), hms(b));
     S.focus = null; S.full = false; S.modal = null; S.view = 'events'; S.evPlay = null;
     S.evWin = { cams, a, b: b || a + 20 * MIN, n: q.get('n') || cams.map(c => Data.cam(c).name).join(' · ') };
-    S.evDay = Math.max(0, Math.min(6, Math.round((dayStart(now()) - dayStart(a)) / DAY)));
+    S.evDay = Math.max(0, Math.min(KEEP_DAYS - 1, Math.round((dayStart(now()) - dayStart(a)) / DAY)));
     render(); window.scrollTo(0, 0); Frigate.refresh(); return;
   }
   if (!id || !Data.cam(id)) return;
@@ -4367,6 +4392,7 @@ function thumbTo(t) {
   row.scrollTo({ left: Math.max(0, b.offsetLeft - row.offsetLeft - (row.clientWidth - b.offsetWidth) / 2), behavior: 'smooth' });
 }
 function refreshTrack() {
+  if (S.expanded && Frigate.from && S.winEnd - S.win < Frigate.from) Frigate.back(S.winEnd - S.win);   /* 5.2.2 */
   const tr = document.getElementById('track'); if (!tr || !S.expanded) return;
   const start = S.winEnd - S.win;
   tr.querySelectorAll('.seg,.segi,.clipm').forEach(n => n.remove());
@@ -4433,18 +4459,20 @@ function viewEvents() {
   const f = S.filt, today = dayStart(now());
   const visible = Data.events.filter(passes);
   const days = [];
-  for (let i = 0; i < 7; i++) { const d0 = today - i * DAY; days.push({ i, d0, n: visible.filter(e => e.t >= d0 && e.t < d0 + DAY).length }); }
-  const d0 = days[S.evDay].d0;
+  /* 5.2.2: 30 days; a day not read yet shows no count until it is opened */
+  for (let i = 0; i < KEEP_DAYS; i++) { const d0 = today - i * DAY; days.push({ i, d0, n: d0 + DAY <= Frigate.from && Data.source === 'frigate' ? null : visible.filter(e => e.t >= d0 && e.t < d0 + DAY).length }); }
+  if (S.evDay >= KEEP_DAYS) S.evDay = 0;
+  const d0 = days[S.evDay].d0; if (!S.evWin && d0 < Frigate.from) Frigate.back(d0);
   if (S.evWin && S.view !== 'events') S.evWin = null;
   /* 4.10.7 her rule: an animal notification opens here with only its cameras and its 20 minutes (Show All goes back) */
   const W = S.evWin;
   const list = W ? Data.events.filter(e => W.cams.includes(e.cam) && e.t >= W.a && e.t <= W.b) : visible.filter(e => e.t >= d0 && e.t < d0 + DAY); Arrive.want(list); Arrive.recheck(list);
   const EONE = !COVER && rvOneRow();   /* computer: one row like Review — Reset, Cameras, Objects, Boxes on the left */
   let h = EONE ? '<div class="evtop"><div class="evbar one">' + evBarOne(visible.length) + '</div>' : '<div class="evtop"><div class="evbar"><span style="flex:1">Alerts</span>' + (COVER ? evStrip() : '') + (Data.source === 'frigate' ? '<button class="ic bxbtn2" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '<button class="ic" style="color:var(--head-fg)" data-act="go" data-v="home" aria-label="Close">' + I.x + '</button></div>';
-  if (!COVER && !EONE) h += '<button class="fbtn" data-act="filters" aria-expanded="' + S.filtersOpen + '"><span>Filters</span><span class="fcount">' + visible.length + ' In 7 Days</span><span style="color:var(--sub);display:flex">' + (S.filtersOpen ? I.up : I.down) + '</span></button>';
+  if (!COVER && !EONE) h += '<button class="fbtn" data-act="filters" aria-expanded="' + S.filtersOpen + '"><span>Filters</span><span class="fcount">' + visible.length + ' In ' + Math.max(7, Math.round((now() - Frigate.from) / DAY)) + ' Days</span><span style="color:var(--sub);display:flex">' + (S.filtersOpen ? I.up : I.down) + '</span></button>';
   if (!COVER && !EONE && S.filtersOpen) h += filterPanel();
   if ((COVER || EONE) && S.evPop) h += evDropdown();
-  h += '<div class="days">' + days.map(d => '<button class="day" data-act="day" data-v="' + d.i + '" aria-pressed="' + (!W && S.evDay === d.i) + '">' + dayLabel(d.d0) + '<b>' + d.n + '</b></button>').join('') + '</div>' +
+  h += '<div class="days">' + days.map(d => '<button class="day" data-act="day" data-v="' + d.i + '" aria-pressed="' + (!W && S.evDay === d.i) + '">' + dayLabel(d.d0) + '<b>' + (d.n == null ? '·' : d.n) + '</b></button>').join('') + '</div>' +
     (W ? '<div class="evwin"><span><b>' + esc(W.n) + '</b> · ' + hm(W.a) + ' – ' + hm(W.b) + ' · ' + list.length + (list.length === 1 ? ' Alert' : ' Alerts') + '</span><button class="btn" data-act="evwinx">Show All</button></div>' : '') + '</div>';
   for (const k in EVK) delete EVK[k];
   const cards = [];
@@ -5134,7 +5162,7 @@ function paintFocus() {
 }
 
 /* ===== Review: all cameras on one time rail ===== */
-const RPX = 3, RTOP = 22, RSPAN = 7 * DAY;
+const RPX = 3, RTOP = 22, RSPAN = KEEP;
 function rvCams() {
   const sel = S.rv.sel;
   return Data.cams.filter(c => sel == null ? true : sel.includes(c.id));
@@ -5150,6 +5178,9 @@ function rvCols() { if (S.rv.cols) return S.rv.cols; const w = window.innerWidth
 let rvEnd = 0;
 /* Bottom timeline zoom: the visible width shows S.rv.span (1 min … 48 h, continuous); pinch or ctrl+scroll to change it. */
 const RVMIN = MIN, RVMAX = 2 * DAY;
+/* 5.2.2: 30 days of track at 1 minute per screen is too long for a browser page on a wide screen (over ~30 million
+   pixels): the closest zoom is held just above that */
+function rvMinSpan() { const w = (document.getElementById('rvsc') || {}).clientWidth || window.innerWidth; return Math.max(RVMIN, Math.ceil(RSPAN / MIN * Math.max(w, window.innerHeight) / 25e6) * MIN); }
 let rvBk = new Map(), rvHasCams = true, rvDrawn = null;
 /* The alert a camera is in at time t (Live = now), following the Review page's own Interesting/Uninteresting and object choice */
 /* how close (in time) the line must be to an alert to count as on it: about 10 px of timeline, at least 1 s.
@@ -5483,6 +5514,8 @@ function ico(e, p) { const L = p ? p.label : e.label; return /^car$/i.test(L) ||
 const OBJ_ICON = new Proxy({}, { get: (_, k) => objIcon(k) });
 function drawRvTrack(force) {
   const tr = document.getElementById('rvtrack'); if (!tr) return;
+  if (S.rv.span < rvMinSpan()) S.rv.span = rvMinSpan();
+  { const c0 = S.rv.t == null ? now() : S.rv.t; if (Frigate.from && c0 - 4 * S.rv.span < Frigate.from) Frigate.back(c0 - 4 * S.rv.span); }   /* 5.2.2 */
   const px = rvPx(), TW = rvTW(), span = S.rv.span, c = S.rv.t == null ? rvEnd : S.rv.t;
   if (!force && rvDrawn && c - span >= rvDrawn.lo && c + span <= rvDrawn.hi) return;
   const lo = Math.max(rvEnd - RSPAN, c - 4 * span), hi = Math.min(rvEnd, c + 4 * span);
@@ -5537,7 +5570,7 @@ function drawRvTrack(force) {
 let rvRaf = 0, rvTapLast = { id: null, at: 0 };
 const rvzLabel = w => RVV ? (w < HOUR ? Math.round(w / MIN) + 'm' : Math.round(w / HOUR) + 'h') : winLabel(w);
 function rvZoom(span) {
-  span = snapLen(clamp(span, RVMIN, RVMAX)); if (span === S.rv.span) return;
+  span = snapLen(clamp(span, rvMinSpan(), RVMAX)); if (span === S.rv.span) return;
   const t = S.rv.t; S.rv.span = span; store.set('rvspan', span);
   S.rvLock = true; drawRvTrack(true); rvScrollTo(t); requestAnimationFrame(() => { S.rvLock = false; });
   const zl = document.getElementById('rvzl'); if (zl) zl.textContent = rvzLabel(span);
@@ -6415,7 +6448,7 @@ const ACT = {
      Review's own alert list */
   evreview(d) {
     const e = evE(d.v); if (!e) return; const p = evP(d.v, S.filt) || { t: e.t };
-    const at = p.t - 3000; if (at < now() - RSPAN) { toast('Review Goes Back 7 Days Only'); return; }
+    const at = p.t - 3000; if (at < now() - RSPAN) { toast('Review Goes Back 30 Days Only'); return; }
     if (S.evPlay) { const m = document.getElementById('evm-' + S.evPlay); relIn(m); evStop(); }
     S.rv.t = at; S.playing = true; S.rv.feat = e.cam; S.rv.autoFeat = null; S.rv.lp = { id: e.cam, a: Math.min(p.t, e.t) - 3000, b: (e.end || p.t) + 8000 };
     Dbg.log('alert to review', e.cam, hms(p.t));
@@ -6548,7 +6581,7 @@ const ACT = {
     const b = e && e.target && e.target.closest && e.target.closest('[data-act]'), inp = document.getElementById('dtpick');
     /* computer: open the picker of the hidden date box that sits right on this button, so it drops down under it */
     const ov = b && b.parentElement && b.parentElement.querySelector('.dtover');
-    if (ov && ov.showPicker) { const k = ov.dataset.dt; ov.max = dtIso(now()); ov.min = dtIso(now() - 7 * DAY); ov.value = dtIso(dtCur(k) == null ? now() : dtCur(k)); try { ov.showPicker(); return; } catch (x) { } }
+    if (ov && ov.showPicker) { const k = ov.dataset.dt; ov.max = dtIso(now()); ov.min = dtIso(now() - KEEP); ov.value = dtIso(dtCur(k) == null ? now() : dtCur(k)); try { ov.showPicker(); return; } catch (x) { } }
     if (b && inp) { const r = b.getBoundingClientRect(); Object.assign(inp.style, { position: 'fixed', left: r.left + 'px', top: (r.bottom - 1) + 'px', width: r.width + 'px', height: '1px' }); }
     openDateTime(dtCur(d.v === 'rv' ? 'rv' : 'home'), dtGo(d.v === 'rv' ? 'rv' : 'home')); },
   momore() { MotionList.n += 50; render(); },
@@ -6586,7 +6619,7 @@ const ACT = {
   evpop(d) { S.evPop = S.evPop === d.v ? null : d.v; render(); },
   evpclose() { S.evPop = null; render(); },
   day(d) { S.evDay = +d.v; S.evWin = null; render(); window.scrollTo(0, 0); },
-  evwinx() { const a = S.evWin && S.evWin.a; S.evWin = null; if (a) S.evDay = Math.max(0, Math.min(6, Math.round((dayStart(now()) - dayStart(a)) / DAY))); render(); window.scrollTo(0, 0); },
+  evwinx() { const a = S.evWin && S.evWin.a; S.evWin = null; if (a) S.evDay = Math.max(0, Math.min(KEEP_DAYS - 1, Math.round((dayStart(now()) - dayStart(a)) / DAY))); render(); window.scrollTo(0, 0); },
   hour(d) {
     const el = document.getElementById('hr-' + d.v);
     const cnt = +(el && el.dataset.n || 0);
@@ -6844,12 +6877,12 @@ const dtParse = val => { const [dd, tt] = val.split('T'); const [y, m, day] = dd
 function dtOver(btn, kind) {
   return '<span class="dtwrap">' + btn + '<input class="dtover" type="datetime-local" step="60" data-dt="' + kind + '" aria-label="Pick Date And Time"></span>';
 }
-document.addEventListener('focusin', ev => { const t = ev.target; if (!t.dataset || !t.dataset.dt) return; t.max = dtIso(now()); t.min = dtIso(now() - 7 * DAY); t.value = dtIso(dtCur(t.dataset.dt) == null ? now() : dtCur(t.dataset.dt)); });
+document.addEventListener('focusin', ev => { const t = ev.target; if (!t.dataset || !t.dataset.dt) return; t.max = dtIso(now()); t.min = dtIso(now() - KEEP); t.value = dtIso(dtCur(t.dataset.dt) == null ? now() : dtCur(t.dataset.dt)); });
 document.addEventListener('change', ev => { const t = ev.target; if (!t.dataset || !t.dataset.dt || !t.value) return; dtGo(t.dataset.dt)(dtParse(t.value)); });
 function openDateTime(cur, cb) {
   const inp = document.getElementById('dtpick');
   const iso = t => { const d = new Date(t); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()); };
-  inp.max = iso(now()); inp.min = iso(now() - 7 * DAY); inp.value = iso(cur == null ? now() : cur);
+  inp.max = iso(now()); inp.min = iso(now() - KEEP); inp.value = iso(cur == null ? now() : cur);
   inp.onchange = () => { if (!inp.value) return; const [dd, tt] = inp.value.split('T'); const [y, m, day] = dd.split('-').map(Number); const [hh, mm] = tt.split(':').map(Number); cb(Math.min(now(), new Date(y, m - 1, day, hh, mm, 0, 0).getTime())); };
   try { inp.showPicker(); } catch (e) { inp.focus(); inp.click(); }
 }
@@ -7231,7 +7264,7 @@ function edgeTick() {
   if (!edgeTick.since) edgeTick.since = performance.now();
   edgeTick.used = true;
   const held = (performance.now() - edgeTick.since) / 1000, boost = Math.min(3, 1 + held / 1.5);
-  S.winEnd = clamp(S.winEnd + edgeDir * S.win / 42 * boost, now() - 7 * DAY, now());
+  S.winEnd = clamp(S.winEnd + edgeDir * S.win / 42 * boost, now() - KEEP, now());
   const t = S.winEnd - S.win + S.pos * S.win;
   S.camTime[S.expanded] = t >= now() - 1500 ? null : t;
   refreshTrack(); paintPanel();
@@ -7311,7 +7344,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   if (Data.source === 'frigate') { Motion.connect(); await new Promise(ok => { const t1 = Date.now(), w = setInterval(() => { if (Motion.up || Date.now() - t1 > 1500) { clearInterval(w); ok(); } }, 50); }); }
   try { if (sessionStorage.getItem('vhwatch') === '1') { S.wsel = store.get('wsel', []); S.wlay = store.get('wlay', 'grid'); if (watchIds().length) S.watch = true; } } catch (e) {}
   let back = null; try { back = JSON.parse(sessionStorage.getItem('vhpage') || 'null'); } catch (e) {}
-  if (back && ['events', 'review', 'people'].includes(back.v)) { S.view = back.v; if (back.v === 'events') S.evDay = Math.max(0, Math.min(6, +back.d || 0)); }
+  if (back && ['events', 'review', 'people'].includes(back.v)) { S.view = back.v; if (back.v === 'events') S.evDay = Math.max(0, Math.min(KEEP_DAYS - 1, +back.d || 0)); }
   pageReady = true;
   render(); Dbg.log('start first screen', (Date.now() - t0) + 'ms', 'motion ' + (Motion.up ? 'up' : 'not yet'), back && back.v !== 'home' ? 'back to ' + back.v : '');
   if (PHONE_LIVE()) setTimeout(() => Live.sweepStart('start'), 300);
