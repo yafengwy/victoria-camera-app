@@ -2400,7 +2400,7 @@ const Heat = {
       c = this.cache[k] = Object.assign(c || { rows: [] }, { busy: true, at: nowS });
       Frigate.get('/api/' + encodeURIComponent(cam) + '/recordings?after=' + b + '&before=' + (b + 600))
         .then(r => { c.rows = Array.isArray(r) ? r : []; if (!c.logged) { c.logged = 1; Dbg.log('motion grid', cam, c.rows.length + ' pieces', c.rows.filter(x => x.motion_heatmap).length + ' with motion'); } })
-        .catch(() => {}).then(() => { c.busy = false; });
+        .catch(x => { Dbg.log('motion grid failed', cam, x && x.message); }).then(() => { c.busy = false; });
     }
     return c.rows.find(r => r.start_time <= ts && ts < r.end_time) || null;
   }
@@ -6132,7 +6132,7 @@ const ACT = {
   layoutset(d) { S.layout = d.v; store.set('layout', S.layout); S.more = false; render(); },
   soon() { toast('Coming Soon'); },
   filtreset() { S.filt.objs = {}; S.filt.off = {}; S.filt.camTick = false; S.filt.zones = {}; S.filt.int = true; S.filt.unint = false; S.filt.motion = false; MotionList.n = 50; saveFilt(); render(); toast('Filters Reset'); },
-  boxes() { Box.set(!Box.on); document.querySelectorAll('[data-act="boxes"]').forEach(b => b.setAttribute('aria-pressed', String(Box.on))); toast(Box.on ? 'Object Boxes On' : 'Object Boxes Off'); },
+  boxes() { Box.set(!Box.on); Dbg.log('boxes', Box.on ? 'on' : 'off', S.view); document.querySelectorAll('[data-act="boxes"]').forEach(b => b.setAttribute('aria-pressed', String(Box.on))); toast(Box.on ? 'Object Boxes On' : 'Object Boxes Off'); },
   snzopen() {
     S.more = false; S.snzPick = {}; if (Snz.active()) (Snz.st.cams.includes('all') ? Data.cams.map(c => c.id) : Snz.st.cams).forEach(id => { S.snzPick[id] = true; });
     S.snzDur = S.snzDur || '1'; S.modal = 'snooze'; render(); if (Snz.missing) toast('Snooze Is Not Set Up In Home Assistant Yet');
