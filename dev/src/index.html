@@ -1465,12 +1465,22 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .ltph{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:7px;background:var(--card);box-shadow:0 0 0 3px var(--strong);pointer-events:none}
 .ltvid .evclk{font-size:12px}
 .ltnorec{position:absolute;left:8px;bottom:8px;z-index:3;padding:3px 8px;border-radius:6px;background:rgba(18,22,24,.72);color:#fff;font-size:12px;font-weight:700}
-.ltmeta b{display:block;font-size:18px;font-weight:800;color:var(--head-fg)}
-.ltmeta span{font-size:13px;color:var(--sub);font-weight:600}
+.ltmrow{display:flex;align-items:center;gap:8px}
+.ltmrow .ltmeta{flex:1;min-width:0}
+.ltmeta b{display:block;font-size:18px;font-weight:500;color:var(--head-fg)}
+.ltmeta span{font-size:13px;color:var(--sub);font-weight:400}
+.ltact{flex:none;height:32px;padding:0 13px;border-radius:16px;border:1.5px solid #E5534B;color:#E5534B;background:none;font-size:14px;font-weight:500}
+.ltact[aria-pressed="true"]{background:#E5534B;color:#fff}
+.ltdelb{flex:none;width:36px;height:36px;color:var(--sub)}
+.ltdelb[aria-pressed="true"]{color:#E5534B}
+.ltcf{display:flex;gap:8px;margin-top:6px}.ltcf .btn{flex:1;font-weight:500}
+.ltd .check{font-weight:400}
+.ltd .ltwho .chip{font-weight:500}
+.ltd .lbl{font-weight:500}
 .ltd .lbl{margin-top:4px}
 .ltsplit{width:100%}
 .ltnot{margin-top:6px;border:1.5px solid #E5534B;border-radius:16px;padding:10px 12px 12px;display:flex;flex-direction:column;gap:2px}
-.ltnott{font-size:15px;font-weight:800;color:#E5534B}
+.ltnott{font-size:15px;font-weight:500;color:#E5534B}
 .ltnot .box{border-color:#E5534B}
 .ltnot .check[aria-checked="true"] .box{background:#E5534B;color:#fff}
 .ltgo{width:100%;margin-top:6px}
@@ -1481,7 +1491,8 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 [data-app-theme="noir"] .ltth{border-radius:4px}
 [data-app-theme="noir"] .lthrow{border-radius:6px;background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
 [data-app-theme="noir"] .lthrow>i{border-radius:4px}
-[data-app-theme="noir"] .lthrow b,[data-app-theme="noir"] .ltmeta b{font-family:var(--serif);font-size:19px;font-weight:600}
+[data-app-theme="noir"] .lthrow b,[data-app-theme="noir"] .ltmeta b{font-family:var(--serif);font-size:19px;font-weight:500}
+[data-app-theme="noir"] .ltact,[data-app-theme="noir"] .ltcf .btn{border-radius:4px}
 [data-app-theme="noir"] .ltcam,[data-app-theme="noir"] .ltseg,[data-app-theme="noir"] .ltbot u{border-radius:2px}
 [data-app-theme="noir"] .ltwho .chip{border-radius:4px}
 [data-app-theme="noir"] .ltwho .chip[aria-pressed="true"]{background:var(--strong);color:var(--strong-fg)}
@@ -3467,18 +3478,20 @@ function modalLitter() {
         ? '<video src="' + Frigate.base() + '/api/review/' + encodeURIComponent(g.ps[0].id) + '/preview?format=mp4" autoplay muted loop playsinline></video><div class="ltnorec">Frigate 没有这段的录像 · 只有预览</div>'
         : '<video class="evv" data-hls="' + vod + '" data-cam="' + g.cam + '" data-vs="' + vs + '" data-ve="' + ve + '" data-at="' + Math.floor(g.t / 1000) + '" autoplay muted controls playsinline style="opacity:0"></video><div class="evclk" hidden></div>') +
       '<button class="skip5 b10" data-act="evskip" data-v="-10" aria-label="Back 10 Seconds">' + I.back10c + '</button><button class="skip5 b" data-act="evskip" data-v="-5" aria-label="Back 5 Seconds">' + I.back5 + '</button><button class="skip5 f" data-act="evskip" data-v="5" aria-label="Forward 5 Seconds">' + I.fwd5 + '</button><button class="skip5 f10" data-act="evskip" data-v="10" aria-label="Forward 10 Seconds">' + I.fwd10c + '</button></div>' + bar +
-      '<div class="ltmeta"><b>' + (g.ps.length > 1 ? hm(g.t) + ' – ' + hm(g.end) : hms(g.t)) + '</b><span>' + Litter.camName(g.cam) + (g.ps.some(p => p.spot) ? ' · Poop Spot' : '') + (g.motion ? ' · Motion' : '') + (g.out ? ' · 已从全部移出' : '') + ' · ' + Litter.dayName(g.t) + (g.ps.length > 1 ? ' · ' + g.ps.length + ' 段' : '') + ' · ' + Litter.dur(g) + '</span></div>' +
+      /* 5.2.4 her redesign: lighter text; 不是猫 and 删除 are small buttons beside the time, each opening its own
+         confirm only when tapped (a name tap can't land on a ready 确认 any more) */
+      '<div class="ltmrow"><div class="ltmeta"><b>' + (g.ps.length > 1 ? hm(g.t) + ' – ' + hm(g.end) : hms(g.t)) + '</b><span>' + Litter.camName(g.cam) + (g.ps.some(p => p.spot) ? ' · Poop Spot' : '') + (g.motion ? ' · Motion' : '') + (g.out ? ' · 已从全部移出' : '') + ' · ' + Litter.dayName(g.t) + (g.ps.length > 1 ? ' · ' + g.ps.length + ' 段' : '') + ' · ' + Litter.dur(g) + '</span></div>' +
+      (g.motion ? '' : '<button class="ltact" data-act="ltnotopen" aria-pressed="' + (S.ltNotOpen === g.id) + '">不是猫</button>') +
+      '<button class="ic ltdelb" data-act="ltdeloneask" aria-label="删除" aria-pressed="' + (S.ltDelOne === g.id) + '">' + I.trash + '</button></div>' +
+      (S.ltNotOpen === g.id ? '<div class="ltnot"><div class="ltnott">不是猫</div>' +
+        '<button class="check" role="checkbox" aria-checked="' + plus + '" data-act="ltplus"><span class="box">' + (plus ? I.check : '') + '</span>发给 Frigate+：不是猫 / 不是狗</button>' +
+        '<button class="check" role="checkbox" aria-checked="' + rmv + '" data-act="ltrm"><span class="box">' + (rmv ? I.check : '') + '</span>从「全部」里移出（猫砂盆 / Closet 里还在）</button>' +
+        '<div class="ltcf"><button class="btn" data-act="ltnotopen">取消</button><button class="btn solid pfred" data-act="ltnot"' + (busy || !(plus || rmv) ? ' disabled' : '') + '>' + (busy ? '保存中…' : '确认') + '</button></div></div>' : '') +
+      (S.ltDelOne === g.id ? '<div class="ltnot"><div class="ltnott">从 Frigate 删除' + (g.ps.length > 1 ? '这 ' + g.ps.length + ' 段' : '') + '？视频和图片都会删掉，不能恢复</div>' +
+        '<div class="ltcf"><button class="btn" data-act="ltdelonex">取消</button><button class="btn solid pfred" data-act="ltdelone"' + (busy ? ' disabled' : '') + '>' + (busy ? '删除中…' : '删除') + '</button></div></div>' : '') +
       (g.motion ? '' : '<div class="lbl">是谁' + (g.ps.length > 1 ? '（改了 ' + g.ps.length + ' 段一起改）' : '') + '</div><div class="ltwho">' +
       Litter.names().map(n => '<button class="chip" data-act="ltname" data-v="' + esc(n) + '" aria-pressed="' + (g.name === n) + '"' + (busy ? ' disabled' : '') + '>' + esc(n) + '</button>').join('') + '</div>' +
-      (g.ps.length > 1 ? '<button class="btn ltsplit" data-act="ltsplit"' + (busy ? ' disabled' : '') + '>拆开</button>' : '') +
-      '<div class="ltnot"><div class="ltnott">不是猫</div>' +
-      '<button class="check" role="checkbox" aria-checked="' + plus + '" data-act="ltplus"><span class="box">' + (plus ? I.check : '') + '</span>发给 Frigate+：不是猫 / 不是狗</button>' +
-      '<button class="check" role="checkbox" aria-checked="' + rmv + '" data-act="ltrm"><span class="box">' + (rmv ? I.check : '') + '</span>从「全部」里移出（猫砂盆 / Closet 里还在）</button>' +
-      '<button class="btn solid pfred ltgo" data-act="ltnot"' + (busy || !(plus || rmv) ? ' disabled' : '') + '>' + (busy ? '保存中…' : '确认') + '</button></div>') +
-      /* 5.2.3: 删除 = delete in Frigate, on every page */
-      (S.ltDelOne === g.id
-        ? '<div class="ltnot"><div class="ltnott">从 Frigate 删除' + (g.ps.length > 1 ? '这 ' + g.ps.length + ' 段' : '') + '？视频和图片都会删掉，不能恢复</div><div class="ltwho"><button class="chip" data-act="ltdelonex">取消</button><button class="chip pfred" data-act="ltdelone"' + (busy ? ' disabled' : '') + '>' + (busy ? '删除中…' : '删除') + '</button></div></div>'
-        : '<button class="btn ltgo" data-act="ltdeloneask"' + (busy ? ' disabled' : '') + '>删除（从 Frigate 删掉）</button>'), 'ltback');
+      (g.ps.length > 1 ? '<button class="btn ltsplit" data-act="ltsplit"' + (busy ? ' disabled' : '') + '>拆开</button>' : '')), 'ltback');
   }
   const cam = S.ltCam || 'all', gs = all.filter(g => cam === 'all' || g.cam === cam), sel = S.ltPick;
   let body = '';
@@ -6104,7 +6117,7 @@ const ACT = {
   ltmore() { S.ltN = (S.ltN || 60) + 60; render(); },
   ltsel(d) {
     if (S.ltPick) { S.ltPick = Object.assign({}, S.ltPick, { [d.id]: !S.ltPick[d.id] }); render(); return; }
-    bigKeep(); S.ltSel = d.id; S.ltPlus = true; S.ltRm = true; S.ltNoRec = null; render(); Litter.check(d.id); requestAnimationFrame(() => { const n = document.querySelector('.scrim .dialog'); if (n) n.scrollTop = 0; });
+    bigKeep(); S.ltSel = d.id; S.ltPlus = true; S.ltRm = true; S.ltNoRec = null; S.ltNotOpen = null; S.ltDelOne = null; render(); Litter.check(d.id); requestAnimationFrame(() => { const n = document.querySelector('.scrim .dialog'); if (n) n.scrollTop = 0; });
   },
   ltlong(d) { if (S.modal !== 'litter' || S.ltSel) return; S.ltDelAsk = false; S.ltPick = Object.assign({}, S.ltPick || {}, { [d.id]: true }); try { navigator.vibrate && navigator.vibrate(15); } catch (x) {} render(); },
   ltpickno() { S.ltPick = null; S.ltDelAsk = false; render(); },
@@ -6119,7 +6132,8 @@ const ACT = {
     Litter.busy = false; S.ltPick = null; S.ltDelAsk = false;
     toast(ok === ps.length ? '已从 Frigate 删除 ' + gs.length + ' 条' : '删除了 ' + ok + ' / ' + ps.length + ' 段 · 有一部分没成功'); render();
   },
-  ltdeloneask() { S.ltDelOne = S.ltSel; render(); },
+  ltdeloneask() { S.ltDelOne = S.ltDelOne === S.ltSel ? null : S.ltSel; S.ltNotOpen = null; render(); },
+  ltnotopen() { S.ltNotOpen = S.ltNotOpen === S.ltSel ? null : S.ltSel; S.ltDelOne = null; render(); },
   ltdelonex() { S.ltDelOne = null; render(); },
   async ltdelone() {
     const g = Litter.find(S.ltSel); if (!g || Litter.busy) return;
