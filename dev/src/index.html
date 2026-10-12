@@ -375,6 +375,7 @@ img.rf{opacity:0}
 .livepill[hidden]{display:none}
 .fsteps{position:absolute;left:50%;transform:translateX(-50%);bottom:max(10px, calc(env(safe-area-inset-bottom,0px) - 14px));z-index:5;display:flex;align-items:center;gap:12px}
 .fsteps .livepill{position:static;transform:none}
+.fsteps .fstep.f5{display:none}
 .fstep.fpp{min-width:52px;width:52px;padding:0;display:flex;align-items:center;justify-content:center}.fstep.fpp[hidden]{display:none}.fstep.fpp svg{width:22px;height:22px}
 .fstep{height:52px;min-width:64px;padding:0 12px;border-radius:26px;background:rgba(36,42,52,.94);color:#fff;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;box-shadow:0 6px 16px rgba(0,0,0,.35)}
 .fstep[disabled]{opacity:.35}
@@ -400,6 +401,7 @@ img.rf{opacity:0}
   .focus .pullhint{display:none}
   /* 5.3.9 (her choice): −10s / pause / Live / +10s under the picture, in the middle of the picture's side */
   .focus>.fsteps{left:calc((100% - var(--fw)) / 2);gap:5px;bottom:14px}
+  .focus>.fsteps .fstep.f5{display:inline-block}
   .focus .fsteps .livepill{height:44px;padding:0 12px;font-size:14px;gap:5px}
   .focus .fsteps .fstep{height:44px;min-width:46px;padding:0 8px;font-size:13px}
   .focus .fsteps .fstep.fpp{min-width:40px;width:40px;padding:0}
@@ -3901,11 +3903,23 @@ function fullButtons() {
     o.forEach((x, i) => { if (n[i] && x.innerHTML !== n[i].innerHTML) x.replaceWith(n[i]); });
   });
 }
+/* 5.3.10 (her choice): on the wide camera view the −10s … +10s bar sits in the middle of the space under the picture */
+function placeSteps() {
+  const f = document.querySelector('.focus>.fsteps'), v = document.querySelector('.focus>.fvid');
+  if (!f || !v) return;
+  const wide = getComputedStyle(document.querySelector('.focus')).display === 'grid';
+  if (!wide) { if (f.style.top) { f.style.top = ''; f.style.bottom = ''; } return; }
+  const vb = v.getBoundingClientRect().bottom, fh = f.offsetHeight || 44, H = window.innerHeight;
+  const top = Math.round(Math.max(vb + 6, (vb + H) / 2 - fh / 2));
+  if (f.style.top !== top + 'px') { f.style.top = top + 'px'; f.style.bottom = 'auto'; }
+  if (!v._ro && window.ResizeObserver) { v._ro = new ResizeObserver(() => placeSteps()); v._ro.observe(v); }
+}
+window.addEventListener('resize', () => placeSteps());
 function render() {
   TapLog.draws++;
   if (fullLight()) { const _t1 = performance.now(); try { fullButtons(); paintFocus(); Playback.sync(); } catch (e) { Dbg.log('script error', 'full light', String(e && e.message || e)); } const ms = Math.round(performance.now() - _t1); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', 'full'); return; }
   const _t0 = performance.now();
-  try { render0(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
+  try { render0(); placeSteps(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
 }
 function render0() {
   if (S.filt.motion && S.moCtx && moCtx() !== S.moCtx) { S.filt.motion = false; S.moCtx = null; }
@@ -4988,9 +5002,12 @@ function viewFocus() {
     '<button class="dk' + (S.flist ? ' on' : '') + '" data-act="flist" aria-label="' + (S.flist ? 'Show Timeline' : 'Show Alert List') + '">' + (S.flist ? I.tline : I.bellO) + '</button></div>') +
     '<div class="fscroll"><div class="pullhint"></div>' + body + '</div>' +
     '<div class="fsteps"><button class="fstep" data-act="fstep" data-v="-10" aria-label="Back 10 Seconds">−10s</button>' +
+    /* 5.3.10 (her choice): −5s / +5s too where there is room (computer / landscape camera view) */
+    '<button class="fstep f5" data-act="fstep" data-v="-5" aria-label="Back 5 Seconds">−5s</button>' +
     /* 4.3.8: pause / play in the camera view too (only while a recording is shown; Live has nothing to pause) */
     '<button class="fstep fpp" id="fpp" data-act="playpause" aria-label="' + (S.playing ? 'Pause' : 'Play') + '"' + (t == null ? ' hidden' : '') + '>' + (S.playing ? I.pause : I.play) + '</button>' +
     '<button class="livepill" id="livepill" data-act="flive"' + (t == null ? ' hidden' : '') + '>' + I.liveup + 'Live</button>' +
+    '<button class="fstep f5" id="fstepf5" data-act="fstep" data-v="5" aria-label="Forward 5 Seconds"' + (t == null ? ' disabled' : '') + '>+5s</button>' +
     '<button class="fstep" id="fstepf" data-act="fstep" data-v="10" aria-label="Forward 10 Seconds"' + (t == null ? ' disabled' : '') + '>+10s</button></div></div>';
   if (S.full) h += viewFull(c, t, f);
   return h;
@@ -5323,7 +5340,7 @@ function paintFocus() {
   set('ftag', n => setTag(n, f));
   set('livepill', n => { n.hidden = t == null; });
   set('fpp', n => { n.hidden = t == null; const k = S.playing ? 'Pause' : 'Play'; if (n.getAttribute('aria-label') !== k) { n.setAttribute('aria-label', k); n.innerHTML = S.playing ? I.pause : I.play; } });
-  set('fstepf', n => { n.disabled = t == null; }); set('fullstepf', n => { n.disabled = t == null; });
+  set('fstepf', n => { n.disabled = t == null; }); set('fstepf5', n => { n.disabled = t == null; }); set('fullstepf', n => { n.disabled = t == null; });
 }
 
 /* ===== Review: all cameras on one time rail ===== */
