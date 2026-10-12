@@ -393,12 +393,13 @@ img.rf{opacity:0}
    tall as the screen on the left, the same native-scrolling timeline as the upright phone on the right */
 @media (min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px){
   .focus{--fw:clamp(270px,24vw,300px);display:grid;grid-template-columns:minmax(0,1fr) var(--fw);grid-template-rows:68px minmax(0,1fr)}
-  .focus>.fvid{grid-column:1;grid-row:1/3;align-self:center;justify-self:center;max-width:none;width:min(calc(100% - 32px),calc((100vh - env(safe-area-inset-top,0px) - 32px) * 16 / 9));margin:0 16px;border-radius:14px;overflow:hidden}
-  .focus>.fvid.tall{width:min(calc(100% - 32px),calc((100vh - env(safe-area-inset-top,0px) - 32px) * var(--ar)))}
+  .focus>.fvid{grid-column:1;grid-row:1/3;align-self:center;justify-self:center;max-width:none;width:min(calc(100% - 32px),calc((100vh - env(safe-area-inset-top,0px) - 96px) * 16 / 9));margin:0 16px 64px;border-radius:14px;overflow:hidden}
+  .focus>.fvid.tall{width:min(calc(100% - 32px),calc((100vh - env(safe-area-inset-top,0px) - 96px) * var(--ar)))}
   .focus>.fctl{grid-column:2;grid-row:1;max-width:none;border-left:1px solid var(--dark-line)}
   .focus>.fscroll{grid-column:2;grid-row:2;max-width:none;border-left:1px solid var(--dark-line)}
   .focus .pullhint{display:none}
-  .focus>.fsteps{left:calc(100% - var(--fw) / 2);gap:5px}
+  /* 5.3.9 (her choice): −10s / pause / Live / +10s under the picture, in the middle of the picture's side */
+  .focus>.fsteps{left:calc((100% - var(--fw)) / 2);gap:5px;bottom:14px}
   .focus .fsteps .livepill{height:44px;padding:0 12px;font-size:14px;gap:5px}
   .focus .fsteps .fstep{height:44px;min-width:46px;padding:0 8px;font-size:13px}
   .focus .fsteps .fstep.fpp{min-width:40px;width:40px;padding:0}
@@ -2611,7 +2612,9 @@ const Playback = {
            first could take ~8 s there (it loads little until it is told to play). */
         const vt = this.vtime(p, camT(id) == null ? t : camT(id));
         const f0 = performance.now(); fetch(url, { credentials: 'include' }).then(r => r.text().then(x => Dbg.log('server answered', id, r.status, Math.round(performance.now() - f0) + 'ms', (x.match(/#EXTINF/g) || []).length + ' parts'))).catch(e => Dbg.log('server error', id, String(e)));
-        v.src = url; if (vt != null) v.currentTime = vt; p.v.play().then(() => Dbg.log('play ok', id)).catch(e => Dbg.log('play refused', id, e && e.name));
+        /* 5.3.9: past the last recorded second there is nothing to play: don't start the video (it played the window's
+           start instead, over and over) */
+        v.src = url; if (vt != null) v.currentTime = vt; if (vt != null) p.v.play().then(() => Dbg.log('play ok', id)).catch(e => Dbg.log('play refused', id, e && e.name)); else Dbg.log('nothing recorded after', id, hms(camT(id) == null ? t : camT(id)));
         /* 4.3.5: Doorbell 12:51 sat at 'ready 1' for 6 s on the iPhone: after 4 s without a picture, log what the player has and nudge it once */
         setTimeout(() => { if (gone() || p.v.readyState >= 3 || camT(id) == null) return; const bf = p.v.buffered, br = bf.length ? bf.start(0).toFixed(1) + '-' + bf.end(bf.length - 1).toFixed(1) : 'none';
           Dbg.log('native slow', id, 'ready ' + p.v.readyState, 'net ' + p.v.networkState, 'buffered ' + br, 'at ' + p.v.currentTime.toFixed(1)); try { p.v.currentTime = p.v.currentTime + 0.05; } catch (e) {} p.v.play().catch(() => {}); }, 4000);
@@ -2623,12 +2626,12 @@ const Playback = {
         v.disableRemotePlayback = true;   /* ManagedMediaSource on iPhone needs this (no AirPlay of recordings) */
         hlsLog(p.h, H, 'video ' + id);
         this.guard(v, p.h, () => { p.h = null; this.load(id, t); }, 'video ' + id);
-        p.h.loadSource(url); p.h.attachMedia(v); v.play().catch(() => {});
+        p.h.loadSource(url); p.h.attachMedia(v); if (vt0 != null) v.play().catch(() => {}); else { p.h.stopLoad(); Dbg.log('nothing recorded after', id, hms(camT(id) == null ? t : camT(id))); }
         await new Promise(ok => { const f = () => { v.removeEventListener('loadedmetadata', f); ok(); }; v.addEventListener('loadedmetadata', f); setTimeout(ok, 4000); });
         if (gone()) return;
         const vt = this.vtime(p, camT(id) == null ? t : camT(id)); if (vt != null && Math.abs(v.currentTime - vt) > 1) v.currentTime = vt;
         /* a stray pause while hls.js was setting up left the video sitting ready but never playing: start it again */
-        if (v.paused && S.playing && this.cams()[id]) { Dbg.log('kick play', id); v.play().catch(e => Dbg.log('play refused', id, e && e.name)); }
+        if (v.paused && S.playing && this.cams()[id] && vt != null) { Dbg.log('kick play', id); v.play().catch(e => Dbg.log('play refused', id, e && e.name)); }
       }
     } catch (e) { Dbg.log('load error', id, String(e && e.message || e)); if (gone()) return; p.win = { a, b, segs: [], at: performance.now(), err: 1 }; }   /* err: Frigate didn't answer — ask again soon, whatever the time */
     p.loading = false;
@@ -2664,7 +2667,9 @@ const Playback = {
         if (S.expanded === id && S.view === 'home') { const tt = camT(id); if (tt != null && tt > S.winEnd) S.winEnd = Math.min(now(), tt + S.win / 2); if (tt != null) S.pos = (tt - (S.winEnd - S.win)) / S.win; paintPanel(); }
         if (S.focus && S.focus.cam === id) paintFocus();
       });
-      v.addEventListener('ended', () => { const t = camT(id); if (t != null) { p.win = null; } });
+      /* 5.3.9: the end of a recorded piece loads the next one only when the shown time was following this video;
+         otherwise the same piece was loaded again every ~15 s (Garage2 10-12 15:37: 12 MB each time, the computer slow) */
+      v.addEventListener('ended', () => { const t = camT(id); if (t != null && S.camTime[id] === p.expect) { p.win = null; } else Dbg.log('ended, not reloading', id, t != null ? hms(t) : 'live'); });
     }
     return p;
   },
@@ -7211,6 +7216,13 @@ document.addEventListener('click', e => {
     tgt = e.target; tgt.addEventListener('touchmove', move, { passive: true }); tgt.addEventListener('touchend', end, { passive: true }); tgt.addEventListener('touchcancel', cancel, { passive: true });
   }, { passive: true });
 })();
+/* 5.3.9 (her choice): on the computer, in the camera view and full screen: ← / → back / forward 10 s, Space pause / play */
+document.addEventListener('keydown', e => {
+  if (!S.focus || S.modal || e.ctrlKey || e.metaKey || e.altKey) return;
+  const tg = e.target; if (tg && (tg.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName))) return;
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); if (e.key === 'ArrowRight' && camT(S.focus.cam) == null) return; ACT.fstep({ v: e.key === 'ArrowLeft' ? '-10' : '10' }); }
+  else if (e.key === ' ' || e.code === 'Space') { e.preventDefault(); if (camT(S.focus.cam) != null) ACT.playpause(); }
+});
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && (S.modal || S.focus)) { if (S.modal) S.modal = null; else if (S.full) S.full = false; else S.focus = null; render(); } });
 
 /* ===== Gestures: scrub track, focus timeline, pull down for full screen ===== */
