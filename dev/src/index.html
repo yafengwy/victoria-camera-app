@@ -1876,7 +1876,10 @@ const Frigate = {
       /* delivery logos Frigate+ found on a car (sub labels, or listed as objects) and people's names (face recognition,
          or a name given in this app) are shown after the object: "Car · UPS", "Person · Victoria" */
       let subs = [...new Set([...sl, ...objs].map(x => x.toLowerCase()).filter(isLogo))];
-      const names = [...sl.filter(x => !isLogo(x.toLowerCase()) && x.toLowerCase() !== 'unknown'), ...dets.map(d => People.sub[d]).filter(Boolean)].map(niceName);
+      /* 5.4.3: an alert keeps every cat name the Cats model ever said (Upstairs Furbo 10-12 16:09:57: the alert says 团团,
+         its one cat is now 胖胖); when the app knows each detection's name now, the cat names come from the detections */
+      const pets = new Set([...CatFix.names, '胖胖', '团团']), known = dets.length > 0 && dets.every(d => People.lab[d]);
+      const names = [...sl.filter(x => !isLogo(x.toLowerCase()) && x.toLowerCase() !== 'unknown' && !(known && pets.has(x))), ...dets.map(d => People.sub[d]).filter(Boolean)].map(niceName);
       /* a car given its own name here (say Weee) overrides a company the model guessed (FedEx): the name is the truth */
       if (/^car$/i.test(label) && names.length) subs = [];
       const who = [...new Set([...subs.map(coName), ...names])].join(' · ');
@@ -6513,6 +6516,8 @@ const ACT = {
     const pickv = S.fixPick, teachv = S.fixTeach !== false && !!CatFix.model, r = await CatFix.save(k, pickv, S.fixTeach !== false, S.fixPlus !== false); S.fixBusy = false;
     if (!r.ok && r.msg) { toast(r.msg); render(); return; }
     whoOf(e); fixPets(e); if (e.gone) Data.events = Data.events.filter(x => x !== e);
+    /* 5.4.3: the same cat can be in two alerts (Frigate made 16:08:52 and 16:09:57 from one detection): fix both */
+    (Data.events || []).forEach(x => { if (x !== e && (x.dets || []).some(d => (e.dets || []).includes(d))) { whoOf(x); fixPets(x); } });
     S.modal = null; render();
     if (pickv === '0') e.who = String(e.who || '').split(' · ').filter(x => x && !CatFix.names.includes(x) && !['胖胖', '团团'].includes(x)).join(' · ');
     toast((pickv === '0' ? 'Marked Not Ours' : pickv[0] !== '-' ? 'Saved As ' + niceName(pickv) : pickv === '-animal' ? 'Marked Not Animal' : 'Marked Not ' + objName(pickv.slice(1))) + (r.sent ? ' · Sent To Frigate+' : '') + (r.taught ? ' · Train Model To Learn' : teachv && r.miss && !r.sent ? ' · No Saved Picture For The Cats Model' : '') + (r.nc && r.nc.length && !r.taught ? ' · The Cats Model Skips ' + r.nc.map(objName).join(', ') : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
