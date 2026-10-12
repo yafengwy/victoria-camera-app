@@ -4470,6 +4470,14 @@ const Arrive = {
   fix(e) {
     if (!e.dets || !e.dets.length) return e;
     const xs = e.dets.map(d => this.det[d]).filter(Boolean); if (!xs.length) return e;
+    /* 5.3.11: Frigate's alert keeps every cat name it ever gave (the Cats model changed its mind 团团 → 胖胖), so the
+       title said "团团 And 胖胖" for one cat and tapping 团团 found nothing. Once every detection is known, the cat
+       names are the ones the detections carry now */
+    if (xs.length === e.dets.length) {
+      const pets = new Set([...CatFix.names, '胖胖', '团团']), now = [...new Set(xs.filter(x => !x.fp).map(x => x.sub).filter(n => n && pets.has(n)))];
+      const w = String(e.who || '').split(' · ').filter(Boolean), w2 = [...w.filter(n => !pets.has(n) || now.includes(n)), ...now.filter(n => !w.includes(n))];
+      if (w2.join(' · ') !== w.join(' · ')) { Dbg.log('cat names now', e.cam, hms(e.t), w.join(',') + ' → ' + w2.join(',')); e.who = w2.join(' · '); }
+    }
     const good = new Set(xs.filter(x => !x.fp).map(x => x.l)), drop = new Set(xs.filter(x => x.fp && !good.has(x.l)).map(x => x.l));
     const cars = xs.filter(x => x.l === 'car' && !x.fp), carNames = cars.map(x => x.sub).filter(n => n && !isLogo(n) && n.toLowerCase() !== 'unknown');
     if ((e.subs || []).length && (carNames.length || [...drop].some(isLogo))) e.subs.forEach(l => drop.add(l));
