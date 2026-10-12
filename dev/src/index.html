@@ -2646,7 +2646,17 @@ const Playback = {
       p = this.st[id] = { v, win: null, loading: false, on: false, ext: 0, lastSet: null };
       ['loadstart', 'loadedmetadata', 'canplay', 'playing', 'waiting', 'stalled', 'pause', 'seeked'].forEach(k => v.addEventListener(k, () => (p.win || p.loading) && Dbg.log('video', id, k, 'at ' + v.currentTime.toFixed(1), 'ready ' + v.readyState)));
       v.addEventListener('canplay', () => { if (v.paused && !p.loading && !p.prep && p.win && S.playing && this.cams()[id]) setTimeout(() => { if (v.paused && !p.prep) this.sync(); }, 300); });
-      v.addEventListener('error', () => Dbg.log('video', id, 'error', v.error ? v.error.code + ' ' + (v.error.message || '') : ''));
+      v.addEventListener('error', () => {
+        Dbg.log('video', id, 'error', v.error ? v.error.code + ' ' + (v.error.message || '') : '');
+        /* 5.4.2: a bad frame in the recording (Doorbell 10-12 16:24: "Failed to send video packet for decoding", where its
+           picture size switches 384x512 / 960x1280) stopped the computer's player for good. Code 3 = could not decode:
+           let hls.js rebuild the decoder once; a second one within 5 s skips 2 s past the bad spot */
+        if (!v.error || v.error.code !== 3 || !p.h || camT(id) == null) return;
+        const n = performance.now();
+        if (n - (p.decFix || 0) > 5000) { p.decFix = n; Dbg.log('decode error, decoder rebuilt', id, hms(camT(id))); try { p.h.recoverMediaError(); v.play().catch(() => {}); } catch (x) {} return; }
+        p.decFix = 0; const t = camT(id) + 2000; Dbg.log('decode error again, skip 2 s', id, hms(t));
+        try { p.h.destroy(); } catch (x) {} p.h = null; p.win = null; S.camTime[id] = t; this.sync();
+      });
       v.addEventListener('timeupdate', () => {
         if (!p.on || !p.win || S.dragging || v.paused || p.prep) return;
         /* a new spot is loading: the old video still plays for a moment, and its position must not pull the time back */

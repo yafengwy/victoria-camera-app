@@ -2484,7 +2484,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.4.1 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.4.2 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -2646,7 +2646,17 @@ const Playback = {
       p = this.st[id] = { v, win: null, loading: false, on: false, ext: 0, lastSet: null };
       ['loadstart', 'loadedmetadata', 'canplay', 'playing', 'waiting', 'stalled', 'pause', 'seeked'].forEach(k => v.addEventListener(k, () => (p.win || p.loading) && Dbg.log('video', id, k, 'at ' + v.currentTime.toFixed(1), 'ready ' + v.readyState)));
       v.addEventListener('canplay', () => { if (v.paused && !p.loading && !p.prep && p.win && S.playing && this.cams()[id]) setTimeout(() => { if (v.paused && !p.prep) this.sync(); }, 300); });
-      v.addEventListener('error', () => Dbg.log('video', id, 'error', v.error ? v.error.code + ' ' + (v.error.message || '') : ''));
+      v.addEventListener('error', () => {
+        Dbg.log('video', id, 'error', v.error ? v.error.code + ' ' + (v.error.message || '') : '');
+        /* 5.4.2: a bad frame in the recording (Doorbell 10-12 16:24: "Failed to send video packet for decoding", where its
+           picture size switches 384x512 / 960x1280) stopped the computer's player for good. Code 3 = could not decode:
+           let hls.js rebuild the decoder once; a second one within 5 s skips 2 s past the bad spot */
+        if (!v.error || v.error.code !== 3 || !p.h || camT(id) == null) return;
+        const n = performance.now();
+        if (n - (p.decFix || 0) > 5000) { p.decFix = n; Dbg.log('decode error, decoder rebuilt', id, hms(camT(id))); try { p.h.recoverMediaError(); v.play().catch(() => {}); } catch (x) {} return; }
+        p.decFix = 0; const t = camT(id) + 2000; Dbg.log('decode error again, skip 2 s', id, hms(t));
+        try { p.h.destroy(); } catch (x) {} p.h = null; p.win = null; S.camTime[id] = t; this.sync();
+      });
       v.addEventListener('timeupdate', () => {
         if (!p.on || !p.win || S.dragging || v.paused || p.prep) return;
         /* a new spot is loading: the old video still plays for a moment, and its position must not pull the time back */
@@ -6109,7 +6119,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.4.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.4.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6366,7 +6376,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.4.1');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.4.2');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6383,7 +6393,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.4.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.4.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7653,7 +7663,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.4.1';
+    const BUILD = '5.4.2';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
