@@ -1051,6 +1051,9 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
 /* ---- v44 (5.4.4): Duo cover screen, iPhone Duo design sizes: strip 84 wide, top 169 belongs to the iPhone (camera, clock,
    Wi-Fi), icons 48 below it with 8 gaps, 24 at the bottom; page buttons at the top under the clock, layout / settings at the bottom ---- */
 :root[data-cover] .rail{justify-content:flex-start}
+/* 5.4.6 Back To Top (every theme: card / line / head-fg tokens) */
+.totop{position:fixed;z-index:58;width:44px;height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;background:var(--card);color:var(--head-fg);border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.totop[hidden]{display:none}
 /* 5.4.5: Duo cover screen opened in a browser: phone layout with the right 84 kept free (camera, clock) */
 :root[data-duoweb] .app{padding-right:84px}
 :root[data-duoweb] .rvdock{right:84px}
@@ -3940,11 +3943,53 @@ function placeSteps() {
   if (!v._ro && window.ResizeObserver) { v._ro = new ResizeObserver(() => placeSteps()); v._ro.observe(v); }
 }
 window.addEventListener('resize', () => placeSteps());
+/* 5.4.6 her request: Back To Top. After scrolling down more than two screens on a long page (Cameras, Alerts, or a
+   scrolling window such as 如厕记录 / 认猫 / People), a round ↑ button shows at the bottom right; one tap scrolls back to the top.
+   It keeps clear of the Alerts hour column, the Duo cover strip and the Duo browser column. Works inside Home Assistant too
+   (the iPhone's tap-the-top only reaches the outer page there, and never a window that scrolls inside the page). */
+const ToTop = {
+  el: null, s: null, raf: 0,
+  scroller() {
+    const d = [...document.querySelectorAll('.scrim .dialog')].pop();
+    if (d) return d.scrollHeight > d.clientHeight + 4 ? d : null;
+    if (S.watch || S.focus || document.querySelector('.full,.watchv,.focus')) return null;
+    return S.view === 'home' || S.view === 'events' ? window : null;
+  },
+  check() {
+    if (this.raf) return;
+    this.raf = requestAnimationFrame(() => { this.raf = 0; try { this.place(); } catch (e) {} });
+  },
+  place() {
+    const s = this.scroller(); this.s = s;
+    const y = s === window ? window.scrollY : s ? s.scrollTop : 0, vh = s === window ? window.innerHeight : s ? s.clientHeight : 1;
+    const show = !!s && y > vh * 2;
+    if (!this.el) {
+      if (!show) return;
+      const b = document.createElement('button'); b.className = 'totop'; b.setAttribute('aria-label', 'Back To Top'); b.innerHTML = I.up;
+      b.addEventListener('click', e => { e.stopPropagation(); const t = this.s; if (t) t.scrollTo({ top: 0, behavior: 'smooth' }); });
+      document.body.appendChild(b); this.el = b;
+    }
+    this.el.hidden = !show; if (!show) return;
+    let right = 16, bottom = 16 + (safeArea().b || 0);
+    if (s === window) {
+      let edge = window.innerWidth;
+      const hr = document.querySelector('.hours'); if (hr) { const r = hr.getBoundingClientRect(); if (r.width && r.left > window.innerWidth / 2) edge = Math.min(edge, r.left - 2); }
+      const st = document.querySelector('.rail,.evbar'); if (COVER && st) { const r = st.getBoundingClientRect(); if (r.width && r.left > window.innerWidth / 2) edge = Math.min(edge, r.left); }
+      if (document.documentElement.hasAttribute('data-duoweb')) edge = Math.min(edge, window.innerWidth - 84);
+      right = window.innerWidth - edge + 12;
+    } else {
+      const r = s.getBoundingClientRect(); right = window.innerWidth - r.right + 14; bottom = Math.max(14, window.innerHeight - r.bottom + 14);
+    }
+    this.el.style.right = right + 'px'; this.el.style.bottom = bottom + 'px';
+  }
+};
+document.addEventListener('scroll', () => ToTop.check(), { capture: true, passive: true });
+window.addEventListener('resize', () => ToTop.check());
 function render() {
   TapLog.draws++;
   if (fullLight()) { const _t1 = performance.now(); try { fullButtons(); paintFocus(); Playback.sync(); } catch (e) { Dbg.log('script error', 'full light', String(e && e.message || e)); } const ms = Math.round(performance.now() - _t1); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', 'full'); return; }
   const _t0 = performance.now();
-  try { render0(); placeSteps(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
+  try { render0(); placeSteps(); ToTop.check(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
 }
 function render0() {
   if (S.filt.motion && S.moCtx && moCtx() !== S.moCtx) { S.filt.motion = false; S.moCtx = null; }
