@@ -1051,6 +1051,12 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
 /* ---- v44 (5.4.4): Duo cover screen, iPhone Duo design sizes: strip 84 wide, top 169 belongs to the iPhone (camera, clock,
    Wi-Fi), icons 48 below it with 8 gaps, 24 at the bottom; page buttons at the top under the clock, layout / settings at the bottom ---- */
 :root[data-cover] .rail{justify-content:flex-start}
+/* 5.4.5: Duo cover screen opened in a browser: phone layout with the right 84 kept free (camera, clock) */
+:root[data-duoweb] .app{padding-right:84px}
+:root[data-duoweb] .rvdock{right:84px}
+:root[data-duoweb] .scrim{padding-right:104px}
+:root[data-duoweb] .focus{border-right:84px solid var(--dark-bg)}
+:root[data-duoweb] .full,:root[data-duoweb] .watchv{border-right:84px solid #000}
 .pillk{color:#fff}
 .hico{position:absolute;width:15px;height:15px;pointer-events:none;display:flex}
 .hico svg{width:15px;height:15px}
@@ -3853,6 +3859,10 @@ function detectCover() {
   const auto = standalone && h > w && w < 600 && (sa.r >= 20 || (iPhone && w / h >= 0.64 && w >= 420));
   COVER = S.cover === 'on' ? true : S.cover === 'off' ? false : auto;
   if (COVER) document.documentElement.setAttribute('data-cover', ''); else document.documentElement.removeAttribute('data-cover');
+  /* Duo cover screen in a browser (or the notification's browser): phone layout, but if the page still gets the full
+     width, keep the right 84 (camera, clock, browser bar) free so nothing sits under them */
+  const duoWeb = !COVER && S.cover !== 'off' && !standalone && iPhone && h > w && w < 600 && w >= 420 && w / h >= 0.64;
+  if (duoWeb) document.documentElement.setAttribute('data-duoweb', ''); else document.documentElement.removeAttribute('data-duoweb');
   return { w, h, sa, auto };
 }
 /* Phone back button / swipe-back steps out one level (menu → full screen → camera view → other page → home)
