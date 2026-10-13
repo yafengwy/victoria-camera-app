@@ -719,18 +719,18 @@ img.rf{opacity:0}
 
 /* ---- v16: iPhone Duo cover screen: content left, icon strip on the right next to the camera/clock ---- */
 .sprobe{position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
-:root[data-cover]{--strip:calc(54px + env(safe-area-inset-right,0px))}
+:root[data-cover]{--strip:max(84px,env(safe-area-inset-right,0px))}
 :root[data-cover] .app{padding-left:0;padding-right:var(--strip)}
 :root[data-cover] .top{display:none}
-:root[data-cover] .rail{display:flex;position:fixed;left:auto;right:0;top:0;bottom:0;width:var(--strip);z-index:35;background:var(--card);border-left:1px solid var(--line);border-right:0;flex-direction:column;align-items:center;gap:4px;padding:var(--striptop,96px) env(safe-area-inset-right,0px) calc(10px + env(safe-area-inset-bottom,0px)) 0}
-:root[data-cover] .rail .ic{width:42px;height:42px}
+:root[data-cover] .rail{display:flex;position:fixed;left:auto;right:0;top:0;bottom:0;width:var(--strip);z-index:35;background:var(--card);border-left:1px solid var(--line);border-right:0;flex-direction:column;align-items:center;gap:8px;padding:169px 0 max(24px,env(safe-area-inset-bottom,0px)) 0;box-sizing:border-box}
+:root[data-cover] .rail .ic{width:48px;height:48px;border-radius:24px}
 :root[data-cover] .rail .ic[aria-current="page"]{background:var(--chip)}
 :root[data-cover] .rail .rlogo{display:none}
 :root[data-cover]:not([data-view="home"]) .rail{display:none}
 /* cover screen, Review and Alerts: the page's own buttons move into the side strip (back / close at the top) */
 :root[data-cover] .rvtop{border-bottom:0}
 :root[data-cover] .rvtop,:root[data-cover] .evtop{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transform:none!important;filter:none!important}
-:root[data-cover] .rvtop .rvbar,:root[data-cover] .evtop .evbar{position:fixed;top:0;bottom:0;right:0;left:auto;height:auto;width:var(--strip);flex-direction:column;justify-content:flex-end;align-items:center;gap:6px;padding:max(8px,env(safe-area-inset-top,0px)) 0 calc(10px + env(safe-area-inset-bottom,0px));background:var(--card);border-left:1px solid var(--line);z-index:36;box-sizing:border-box}
+:root[data-cover] .rvtop .rvbar,:root[data-cover] .evtop .evbar{position:fixed;top:0;bottom:0;right:0;left:auto;height:auto;width:var(--strip);flex-direction:column;justify-content:flex-end;align-items:center;gap:8px;padding:169px 0 max(24px,env(safe-area-inset-bottom,0px));background:var(--card);border-left:1px solid var(--line);z-index:36;box-sizing:border-box}
 :root[data-cover] .rvtop .rvbar .rvtitle,:root[data-cover] .evtop .evbar > span{display:none}
 :root[data-cover] .rvtop .rvbar > [data-act="go"],:root[data-cover] .evtop .evbar > [data-act="go"]{order:-1;margin-bottom:auto}
 :root[data-cover] .rvtop .rvbar .rvib,:root[data-cover] .evtop .evbar .rvib{margin:0}
@@ -1048,9 +1048,9 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
   .rvctl{left:50%}
   .rvdock.v .rvctl{right:calc(104px + (100vw - 104px) / 2)}
 }
-/* ---- v44: Duo cover screen: the top of the side strip belongs to the iPhone (camera, clock, Wi-Fi); all icons sit at the bottom ---- */
-:root[data-cover] .rail{justify-content:flex-end;padding-top:0}
-:root[data-cover] .rail > div[style="flex:1"]{display:none}
+/* ---- v44 (5.4.4): Duo cover screen, iPhone Duo design sizes: strip 84 wide, top 169 belongs to the iPhone (camera, clock,
+   Wi-Fi), icons 48 below it with 8 gaps, 24 at the bottom; page buttons at the top under the clock, layout / settings at the bottom ---- */
+:root[data-cover] .rail{justify-content:flex-start}
 .pillk{color:#fff}
 .hico{position:absolute;width:15px;height:15px;pointer-events:none;display:flex}
 .hico svg{width:15px;height:15px}
@@ -3836,7 +3836,7 @@ function applyLook() {
 }
 if (darkMQ && darkMQ.addEventListener) darkMQ.addEventListener('change', () => applyLook());
 document.addEventListener('change', e => { if (e.target && e.target.id === 'snzat' && e.target.value) { S.snzAt = e.target.value; render(); } });
-/* iPhone Duo cover screen: upright, under 600 wide, and either iOS reports a right-side safe area
+/* iPhone Duo cover screen: opened from the home screen icon, upright, under 600 wide, and either iOS reports a right-side safe area
    (the strip with the camera and clock) or, on an iPhone, the squat cover-screen shape (~466x678, ratio >= 0.64). */
 let COVER = false;
 function safeArea() {
@@ -3848,7 +3848,9 @@ function safeArea() {
 function detectCover() {
   const w = window.innerWidth, h = window.innerHeight, sa = safeArea();
   const iPhone = /iPhone/.test(navigator.userAgent);
-  const auto = h > w && w < 600 && (sa.r >= 20 || (iPhone && w / h >= 0.64 && w >= 420));
+  /* only when opened from the home screen icon: in Safari / a browser the right strip is the browser's own toolbar, so the phone layout is used */
+  const standalone = navigator.standalone === true || !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  const auto = standalone && h > w && w < 600 && (sa.r >= 20 || (iPhone && w / h >= 0.64 && w >= 420));
   COVER = S.cover === 'on' ? true : S.cover === 'off' ? false : auto;
   if (COVER) document.documentElement.setAttribute('data-cover', ''); else document.documentElement.removeAttribute('data-cover');
   return { w, h, sa, auto };
