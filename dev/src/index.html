@@ -4752,11 +4752,11 @@ function viewEvents() {
       h += '<article class="evcard big' + (sel.interesting || sel.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + (sel.motion ? '<i class="modot"></i>Motion' : '<i class="lico">' + objIcon(ico(sel, sp)) + '</i>' + ttlHtml(sk, sc0.g ? labGroup(sc0.g) : labAll(sel, sp, f))) + ' At ' + hms(sp.t) + '</b></div>' +
         (isPet(sel, sk) ? '<button class="whob" data-act="fixopen" data-v="' + esc(sk) + '">Fix</button>' : (coOf(sel) && Data.source === 'frigate' && !sel.motion) || hasPkg(sel) ? '<button class="whob" data-act="cofixopen" data-v="' + esc(sk) + '">Fix</button>' : '') +
         (hasPerson(sel) && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(sel.id) + '">' + (sel.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
-        (Data.source === 'frigate' ? EvSnd.btn() : '') +
         /* 5.1.10 (her choice): Review at this moment instead of Open Camera (a double tap on the picture already opens it) */
         '<button class="ic" aria-label="All Cameras At This Time" data-act="evreview" data-v="' + esc(sk) + '">' + I.review + '</button>' +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(sk) + '">' + I.dl + '</button>' +
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(sk) + '">' + I.trash + '</button>' : '') +
+        (Data.source === 'frigate' ? EvSnd.btn() : '') +   /* 5.4.8 her order: Fix · Review · Download · Delete · Mute · Play */
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(sk) + '">' + (S.evPlay === sk && !evPaused(sk) ? I.pause : I.playO) + '</button></div>' +
         '<div class="evmedia' + (sel.cam === 'nest_doorbell' ? ' door' : '') + ctlOn('ev~' + sk) + '" id="evm-' + esc(sk) + '" data-act="evtap" data-v="' + esc(sk) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(sel, sp)) + ' At ' + hms(sp.t) + ' Full Screen">' + evMedia(sel, sk) + '</div></article>';
     } else h += '<div class="empty">No alerts on this day with the current filters.</div>';
@@ -4778,10 +4778,10 @@ function viewEvents() {
       h += '<article class="evcard' + (e.interesting || e.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + icn + (e.motion ? esc(ttl) : ttlHtml(k, ttl)) + ' At ' + hms(p.t) + '</b></div>' +
         (isPet(e, k) ? '<button class="whob" data-act="fixopen" data-v="' + esc(k) + '">Fix</button>' : (coOf(e) && Data.source === 'frigate' && !e.motion) || hasPkg(e) ? '<button class="whob" data-act="cofixopen" data-v="' + esc(k) + '">Fix</button>' : '') +
         (hasPerson(e) && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
-        (Data.source === 'frigate' ? EvSnd.btn() : '') +
         '<button class="ic" aria-label="All Cameras At This Time" data-act="evreview" data-v="' + esc(k) + '">' + I.review + '</button>' +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(k) + '">' + I.dl + '</button>' +
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(k) + '">' + I.trash + '</button>' : '') +
+        (Data.source === 'frigate' ? EvSnd.btn() : '') +   /* 5.4.8 her order: Fix · Review · Download · Delete · Mute · Play */
         '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(k) + '">' + (S.evPlay === k && !evPaused(k) ? I.pause : I.playO) + '</button>' +
 '</div>' +
         '<div class="evmedia' + (e.cam === 'nest_doorbell' ? ' door' : '') + ctlOn('ev~' + k) + '" id="evm-' + esc(k) + '" data-act="evtap" data-v="' + esc(k) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(e, p)) + ' At ' + hms(p.t) + ' Full Screen">' + evMedia(e, k) + '</div></article>';
