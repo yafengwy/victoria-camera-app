@@ -2501,7 +2501,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.4.9 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.4.10 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -3442,9 +3442,9 @@ const Litter = {
        as a visit (没认出 until she joins it to a named one by hand); motion is never joined automatically */
     const marks = this.st.marks || {}, mk = id => { const v = marks[id]; return v ? String(v).split('|') : null; };
     let mos = [];
-    if (tab === 'litter_box') mos = Object.values(this.mo).flatMap(x => x.segs).map(m => { const k = mk(m.id); m.mark = k ? k[0] : ''; m.inAll = !!(k && isAnimal(k[0])); return m; });
+    if (tab === 'litter_box') mos = Object.values(this.mo).flatMap(x => x.segs).map(m => { const k = mk(m.id); m.mark = k ? k[0] : ''; m.who = k && isAnimal(k[0]) ? k[2] || '' : ''; m.inAll = !!(k && isAnimal(k[0])); return m; });
     else if (tab === 'all') mos = Object.keys(marks).filter(id => id.startsWith('mo-litter_box-') && isAnimal(mk(id)[0]) && !rm.has(id)).map(id => {
-      const s0 = +id.split('-').pop(), e0 = +(mk(id)[1] || s0 + 30), m = MotionList.ev('litter_box', s0 * 1000, e0 * 1000); m.id = id; m.mark = mk(id)[0]; m.inAll = true; m.moLt = true; return m; });
+      const s0 = +id.split('-').pop(), e0 = +(mk(id)[1] || s0 + 30), m = MotionList.ev('litter_box', s0 * 1000, e0 * 1000); m.id = id; m.mark = mk(id)[0]; m.who = mk(id)[2] || ''; m.inAll = true; m.moLt = true; return m; });
     const rows = this.rows.filter(pass).concat(mos).sort((a, b) => a.t - b.t), byId = new Map(rows.map(e => [e.id, e]));
     (this.st.merge || []).forEach(ids => { const ps = ids.map(i => byId.get(i)).filter(e => e && !used.has(e.id)); if (!ps.length) return; ps.forEach(e => used.add(e.id)); gs.push({ ps, hand: true }); });
     const last = {};
@@ -3559,7 +3559,7 @@ function ltThumb(g, sel) {
     '<img src="' + g.img + '" alt="" loading="lazy">' +
     '<b class="ltcam ' + (g.cam === 'closet' ? 'cl' : 'lb') + '">' + Litter.camName(g.cam) + '</b>' +
     (sel ? '<i class="ltck">' + (on ? I.check : '') + '</i>' : g.ps.length > 1 ? '<i class="ltseg">' + g.ps.length + ' 段</i>' : '') +
-    '<span class="ltbot"><b>' + hm(g.t) + '</b><em>' + Litter.dur(g) + '</em><u class="' + ((g.name && !g.out) || g.mark ? '' : 'q') + '">' + esc(g.motion ? (g.mark ? objName(g.mark) : 'Motion') : g.out ? '不是猫' : g.name || '没认出') + '</u></span></button>';
+    '<span class="ltbot"><b>' + hm(g.t) + '</b><em>' + Litter.dur(g) + '</em><u class="' + ((g.name && !g.out) || g.mark ? '' : 'q') + '">' + esc(g.motion ? (g.mark ? g.name || objName(g.mark) : 'Motion') : g.out ? '不是猫' : g.name || '没认出') + '</u></span></button>';
 }
 function modalLitter() {
   const shell = (title, body, back) => '<div class="scrim" data-act="close" role="presentation"><div class="dialog ltd" role="dialog" aria-label="' + title + '" data-stop="1">' +
@@ -3588,7 +3588,7 @@ function modalLitter() {
       '<button class="skip5 pp" data-act="ltpp" aria-label="Pause">' + I.pause + '</button></div>' + bar +
       /* 5.2.4 her redesign: lighter text; 不是猫 and 删除 are small buttons beside the time, each opening its own
          confirm only when tapped (a name tap can't land on a ready 确认 any more) */
-      '<div class="ltmrow"><div class="ltmeta"><b>' + (g.ps.length > 1 ? hm(g.t) + ' – ' + hm(g.end) : hms(g.t)) + '</b><span>' + Litter.camName(g.cam) + (g.ps.some(p => p.spot) ? ' · Poop Spot' : '') + (g.motion ? ' · Motion' : '') + (g.out ? ' · 已从全部移出' : '') + ' · ' + Litter.dayName(g.t) + (g.ps.length > 1 ? ' · ' + g.ps.length + ' 段' : '') + ' · ' + Litter.dur(g) + '</span></div>' +
+      '<div class="ltmrow"><div class="ltmeta"><b>' + (g.ps.length > 1 ? hm(g.t) + ' – ' + hm(g.end) : hms(g.t)) + '</b><span>' + Litter.camName(g.cam) + (g.ps.some(p => p.spot) ? ' · Poop Spot' : '') + (g.motion ? (g.mark ? ' · Motion · 标成 ' + objName(g.mark) : ' · Motion') : '') + (g.out ? ' · 已从全部移出' : '') + ' · ' + Litter.dayName(g.t) + (g.ps.length > 1 ? ' · ' + g.ps.length + ' 段' : '') + ' · ' + Litter.dur(g) + '</span></div>' +
       (g.motion ? '<button class="ltact fx" data-act="ltfixopen" aria-pressed="' + !!(S.ltFix && S.ltFix.id === g.id) + '">Fix</button>' : '<button class="ltact" data-act="ltnotopen" aria-pressed="' + (S.ltNotOpen === g.id) + '">不是猫</button>') +
       '<button class="ic ltdelb" data-act="ltdeloneask" aria-label="删除" aria-pressed="' + (S.ltDelOne === g.id) + '">' + I.trash + '</button></div>' +
       (S.ltNotOpen === g.id ? '<div class="ltnot"><div class="ltnott">不是猫</div>' +
@@ -3608,7 +3608,7 @@ function modalLitter() {
         '<div class="ltcf"><button class="btn" data-act="ltfixopen">取消</button><button class="btn solid" data-act="ltfixgo"' + (busy || S.ltFix.lab == null ? ' disabled' : '') + '>' + (busy ? '保存中…' : '确认') + '</button></div></div>' : '') +
       (S.ltDelOne === g.id ? '<div class="ltnot"><div class="ltnott">从 Frigate 删除' + (g.ps.length > 1 ? '这 ' + g.ps.length + ' 段' : '') + '？视频和图片都会删掉，不能恢复</div>' +
         '<div class="ltcf"><button class="btn" data-act="ltdelonex">取消</button><button class="btn solid pfred" data-act="ltdelone"' + (busy ? ' disabled' : '') + '>' + (busy ? '删除中…' : '删除') + '</button></div></div>' : '') +
-      (g.motion ? '' : '<div class="lbl">是谁' + (g.ps.length > 1 ? '（改了 ' + g.ps.length + ' 段一起改）' : '') + '</div><div class="ltwho">' +
+      (g.motion && !isAnimal(g.mark) ? '' : '<div class="lbl">是谁' + (g.ps.length > 1 ? '（改了 ' + g.ps.length + ' 段一起改）' : '') + '</div><div class="ltwho">' +
       Litter.names().map(n => '<button class="chip" data-act="ltname" data-v="' + esc(n) + '" aria-pressed="' + (g.name === n) + '"' + (busy ? ' disabled' : '') + '>' + esc(n) + '</button>').join('') + '</div>' +
       (g.ps.length > 1 ? '<button class="btn ltsplit" data-act="ltsplit"' + (busy ? ' disabled' : '') + '>拆开</button>' : '')), 'ltback');
   }
@@ -6196,7 +6196,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.4.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.4.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6380,7 +6380,7 @@ const ACT = {
         let j = {}; try { j = await r.json(); } catch (x) {} sent = r.ok && j.success !== false; if (!sent) { ok = false; Dbg.log('motion fix frigate+ failed', r.status, j.message || ''); } }
       catch (x) { ok = false; Dbg.log('motion fix frigate+ failed', x && x.message); }
     }
-    try { if (F.lab) await Litter.post('mark', [g.id], F.lab + '|' + Math.ceil(g.end / 1000)); else await Litter.post('unmark', [g.id]); } catch (x) { ok = false; }
+    try { if (F.lab) await Litter.post('mark', [g.id], F.lab + '|' + Math.ceil(g.end / 1000) + (F.lab === g.mark && g.name ? '|' + g.name : '')); else await Litter.post('unmark', [g.id]); } catch (x) { ok = false; }
     Dbg.log('motion fix', g.cam, hms(g.t), F.lab || 'just motion', sent ? 'frigate+ sent' : 'no frigate+', 'frame ' + hms(F.t), 'moved ' + ((F.nudge || 0) / 1000).toFixed(1) + 's');
     Litter.busy = false; S.ltFix = null;
     toast((F.lab ? '已标成 ' + objName(F.lab) + (isAnimal(F.lab) ? ' · 放进了「全部」' : '') : '已改回 Motion') + (sent ? ' · 已发给 Frigate+' : '') + (ok ? '' : ' · 有一部分没成功')); render();
@@ -6425,7 +6425,9 @@ const ACT = {
     const g = Litter.find(S.ltSel); if (!g || Litter.busy) return;
     Litter.busy = true; render(); let ok = true, taught = 0;
     for (const p of g.ps) {
-      if (p.motion) continue;   /* 5.2.7: a marked motion stretch has nothing in Frigate to name */
+      /* 5.4.10 her request: a motion stretch she marked as an animal takes the name too; it is kept with her mark
+         ("cat|end|胖胖"), as Frigate has nothing to name and no box to teach the Cats model */
+      if (p.motion) { if (isAnimal(p.mark)) { try { await Litter.post('mark', [p.id], p.mark + '|' + Math.ceil(p.end / 1000) + '|' + d.v); } catch (x) { ok = false; } } continue; }
       const k = 'lt~' + p.id; EVK[k] = { e: p };
       try { const r = await CatFix.save(k, d.v, true, true); if (!r.ok) ok = false; taught += r.taught || 0; } catch (x) { ok = false; }
       whoOf(p); const de = Data.events.find(x => x.id === p.id); if (de && de !== p) whoOf(de);
@@ -6453,7 +6455,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.4.9');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.4.10');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6470,7 +6472,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.4.9\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.4.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7742,7 +7744,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.4.9';
+    const BUILD = '5.4.10';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
