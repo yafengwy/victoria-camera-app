@@ -3670,7 +3670,7 @@ function modalSnooze() {
   return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm snzd" role="dialog" aria-label="Snooze Notifications" data-stop="1">' +
     '<div class="dhead">Snooze Notifications<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
     '<div class="lbl" style="margin-top:0">Cameras</div><div class="chips">' +
-    groups.map(g => '<button class="chip sm" data-act="snzgroup" data-v="' + esc(g) + '" aria-pressed="' + allIn(g) + '">All ' + esc(g) + '</button>').join('') +
+    groups.map(g => '<button class="chip sm" data-act="snzgroup" data-v="' + esc(g) + '" aria-pressed="' + allIn(g) + '">All ' + esc(g) + '</button>').join('') + '</div><div class="chips">' +   /* 5.4.11 her rule: All Outside / All Inside on their own row */
     Data.cams.map(c => '<button class="chip sm" data-act="snzcam" data-v="' + c.id + '" aria-pressed="' + !!pick[c.id] + '">' + esc(c.name) + '</button>').join('') + '</div>' +
     '<div class="lbl">For</div><div class="snzdur">' +
     [['1', '1 Hour', ''], ['2', '2 Hours', ''], ['at', 'Until…', dur === 'at' ? S.snzAt : 'Pick Time'], ['c', 'Until Clear', 'Quiet 10 Min']].map(o => '<button data-act="snzdur" data-v="' + o[0] + '" aria-pressed="' + (dur === o[0]) + '">' + o[1] + (o[2] ? '<small>' + o[2] + '</small>' : '') + '</button>').join('') + '</div>' +
