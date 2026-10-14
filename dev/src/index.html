@@ -1460,6 +1460,7 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .lthrow small{font-size:12px;color:var(--sub);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lthrow>svg{flex:none;width:18px;height:18px;color:var(--sub)}
 .ltd{max-width:560px}
+.dialog.ltd,.dialog.snzd:not(.pfbigd):is([aria-label="People"],[aria-label="Cats"]){max-height:min(78vh,var(--lth,68vh))}
 .ltd .dhead{position:sticky;top:0;z-index:2;gap:4px}
 .ltd .ltttl{flex:1}
 .ltd .dbody{gap:8px;padding:10px 12px 14px}
@@ -3987,13 +3988,25 @@ const ToTop = {
     this.el.style.right = right + 'px'; this.el.style.bottom = bottom + 'px';
   }
 };
+/* 5.4.9 her request: 如厕记录 shows about three and a half rows of pictures, so there is always room outside the window to
+   tap and close it (at most 78% of the screen height on short phones); 认猫 and People (same kind of long picture window) get the same height. --lth = space above the first
+   picture (measured on 如厕记录 when open, else 150) + 3.5 rows of 如厕记录 pictures at this screen width. */
+let LtTop = 150;
+function listFit() {
+  const d = document.querySelector('.dialog.ltd'), t = d && d.querySelector('.ltgrid .ltth');
+  if (d && t && d.scrollTop === 0) { const v = t.getBoundingClientRect().top - d.getBoundingClientRect().top; if (v > 60 && v < 400) LtTop = Math.round(v); }
+  const dw = Math.min(window.innerWidth - 24, 560), cw = dw - 24, cols = Math.max(1, Math.floor((cw + 8) / 158)), th = (cw - (cols - 1) * 8) / cols * 0.75;
+  const h = Math.round(LtTop + 3.5 * (th + 8));
+  if (listFit.h !== h) { listFit.h = h; document.documentElement.style.setProperty('--lth', h + 'px'); }
+}
+window.addEventListener('resize', () => listFit());
 document.addEventListener('scroll', () => ToTop.check(), { capture: true, passive: true });
 window.addEventListener('resize', () => ToTop.check());
 function render() {
   TapLog.draws++;
   if (fullLight()) { const _t1 = performance.now(); try { fullButtons(); paintFocus(); Playback.sync(); } catch (e) { Dbg.log('script error', 'full light', String(e && e.message || e)); } const ms = Math.round(performance.now() - _t1); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', 'full'); return; }
   const _t0 = performance.now();
-  try { render0(); placeSteps(); ToTop.check(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
+  try { render0(); placeSteps(); ToTop.check(); listFit(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
 }
 function render0() {
   if (S.filt.motion && S.moCtx && moCtx() !== S.moCtx) { S.filt.motion = false; S.moCtx = null; }
