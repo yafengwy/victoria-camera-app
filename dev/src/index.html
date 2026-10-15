@@ -5037,7 +5037,7 @@ function fSetPad(sc, p) {
 function fSetScroll(sc, v) { v = Math.max(0, Math.round(v + fPad())); if (sc.scrollTop === v) return; S.focus.progTop = v; sc.scrollTop = v; }
 /* 4.6.5: Live puts the blue line a little below the top (4.6.6: 10% of the list), "now" on it, the list at its top */
 function fGoLive(sc) { const ly = Math.max(FTOP, Math.round(sc.clientHeight * 0.10)); S.focus.lineY = ly; fSetPad(sc, ly - FTOP); S.focus.progTop = 0; sc.scrollTop = 0; fPaintLine(); }
-function fShow(t) { const sc = document.getElementById('fsc'); if (!sc) return; const y = fLineY(t), top = sc.scrollTop - fPad(); if (y < top + 10 || y > top + sc.clientHeight - 40) fSetScroll(sc, y - 120); fPaintLine(); }
+function fShow(t) { fPaintLine(); }   /* 5.5.7: the list brings t to the fixed line */
 /* The blue line sits where the playing time is. Swiping the list moves the timeline under the line (scrubs);
    tapping an alert or an empty spot moves the line there instead of moving the list. */
 /* the finger is on (or just left) a camera-view timeline: the playing video must not move the time or the list then,
@@ -5045,14 +5045,24 @@ function fShow(t) { const sc = document.getElementById('fsc'); if (!sc) return; 
 function fUserAgo() { let m = Infinity; ['fsc', 'ftsc'].forEach(i => { const n = document.getElementById(i); if (n) m = Math.min(m, n._touch ? 0 : Date.now() - (n._scrolled || 0)); }); return m; }
 function fScrubbing() { return ['fsc', 'ftsc'].some(i => { const n = document.getElementById(i); return n && (n._touch || Date.now() - (n._scrolled || 0) < 700); }); }
 function fPaintLine() {
+  /* 5.5.7 her rule (like Google Home): the blue line stays put, 10% down the list (where Live puts it). The list moves
+     under it: playing scrolls the list so the playing time is on the line, a swipe scrubs, a tap brings that time to
+     the line. The list's top is Live. */
   const sc = document.getElementById('fsc'), ln = document.getElementById('fpline'); if (!sc || !ln || !S.focus) return;
-  const t = camT(S.focus.cam);
-  const top = () => Math.max(0, sc.scrollTop) - fPad();   /* 4.6.4: the iPhone's bounce past the top (negative) counts as the top */
-  let y = t == null ? Math.max(FTOP, FTOP - top()) : fLineY(t) - top();   /* Live: the line rides on "now" while the list is pulled into the room above */
-  if (t != null && (y < 0 || y > sc.clientHeight - 10) && !fScrubbing()) { fSetScroll(sc, fLineY(t) - Math.min(120, sc.clientHeight / 3)); y = fLineY(t) - top(); }
-  if (!isFinite(y)) { if (!fPaintLine.bad) { fPaintLine.bad = 1; Dbg.log('bad line', S.focus.cam, 't ' + t, 'top ' + sc.scrollTop, 'pad ' + fPad(), 'end ' + focusEnd()); } y = FTOP; }
-  S.focus.lineY = y; ln.style.top = y + 'px';
-  if (!fScrubbing() && !sc._ptr) { const want = Math.max(0, Math.round(y - FTOP)); if (Math.abs(want - fPad()) > 8 || (!want && fPad())) fSetPad(sc, want); }
+  const t = camT(S.focus.cam), LY = Math.max(FTOP, Math.round(sc.clientHeight * 0.10)), busy = fScrubbing() || sc._ptr || sc._touch;
+  if (!busy && fPad() !== LY - FTOP) fSetPad(sc, LY - FTOP);
+  S.focus.lineY = LY; if (ln.style.top !== LY + 'px') ln.style.top = LY + 'px';
+  if (!busy) { const want = t == null ? 0 : Math.max(0, Math.round(fLineY(t) - FTOP)); if (isFinite(want) && Math.abs(sc.scrollTop - want) > 1) { S.focus.progTop = want; sc.scrollTop = want; } }
+}
+/* 5.5.7: a swipe repaints the picture and times at most once a frame and every 120 ms (each scroll event used to
+   redraw everything and ask Frigate for a new picture), plus once when the finger stops */
+function fScrubPaint() {
+  if (fScrubPaint.raf) return;
+  fScrubPaint.raf = requestAnimationFrame(() => {
+    fScrubPaint.raf = 0; const p = performance.now(); clearTimeout(fScrubPaint.tm);
+    if (p - (fScrubPaint.at || 0) < 120) { fScrubPaint.tm = setTimeout(fScrubPaint, 130); return; }
+    fScrubPaint.at = p; paintFocus();
+  });
 }
 /* Camera view alert list: one row per object, like the Alerts page — the Weee car, the package, the person each get
    their own row at the second they showed up, not one row from the first second of the whole alert. Interesting only
@@ -5127,7 +5137,7 @@ function viewFocus() {
         rows += '<button class="fev" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + evImg(e, ep) + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e, ep)) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span></button>';
       }
     });
-    body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px;margin-top:' + fPad() + 'px"><div class="frail">' + railState(c.id, end, span) + '</div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + FTOP + 'px"></div>';
+    body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px;margin-top:' + fPad() + 'px"><div class="frail">' + railState(c.id, end, span) + '</div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + (S.focus.lineY || FTOP) + 'px"></div>';
   }
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
   const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk ftm" id="ftm">' + dtHdr(shownT(c.id, c.id)) + '</div><div style="flex:1"></div><span id="ffix" class="ffixw">' + focusFix(c.id) + '</span>' +
@@ -7611,7 +7621,7 @@ function wire() {
       /* 4.6.4: the list's top is Live. Pulled to the top (or bounced past it) = Live, so the bounce can't carry the
          time back into the past ("jumped down a bit" and stayed short of now) */
       S.camTime[S.focus.cam] = (!S.focus.dayEnd && (y < FTOP + 2 || sc.scrollTop <= 0)) ? null : focusEnd() - (y - FTOP) / FPX * MIN;
-      paintFocus();
+      fScrubPaint();
       clearTimeout(sc._padT); sc._padT = setTimeout(() => { if (S.focus && !sc._touch && !sc._ptr) fPaintLine(); }, 800);
       /* 4.6.4: no more settling back after Live: the line stays where it is, with now on it */
     }, { passive: true });
