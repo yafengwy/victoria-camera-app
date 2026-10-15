@@ -4308,7 +4308,9 @@ function shownT(id, src) {
     if (e._tmAt) return e._tmAt;
   }
   const img = document.getElementById(src === id && S.focus && S.focus.cam === id ? 'fimg' : 'img-' + id), m = img && /[?&]ts=(\d+)/.exec(img.getAttribute('src') || '');
-  return m ? +m[1] * 10000 : now();
+  /* 5.5.6: picture URLs carry ts in 10-second steps (Data.frame) or in ms (Snap); ms × 10000 was an impossible date → "NaN:NaN:NaN" on Off cards */
+  const pv = m ? +m[1] : 0, tt = pv > 1e12 ? pv : pv > 1e9 ? pv * 1000 : pv * 10000;
+  return pv && isFinite(tt) && tt <= now() + 60000 ? tt : now();
 }
 /* today: time only; another day: date and time */
 const dtShort = t => dayStart(t) === dayStart(now()) ? hms(t) : fmtDT(t);
