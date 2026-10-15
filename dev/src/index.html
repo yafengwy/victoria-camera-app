@@ -6156,7 +6156,14 @@ RZ.wire();
 function paintReview() {
   RZ.apply(); RVid.mount();
   const t = S.rv.t, ht = S.hov && S.hov.id === 'rv' ? S.hov.t : undefined;
-  rvCams().slice().sort((a, b) => (b.id === S.rv.feat) - (a.id === S.rv.feat)).forEach(c => {   /* the big picture is asked for first */
+  /* 5.5.8: Review sent a picture request for every tile at once (each one is a video decode on the mini PC, 4K on
+     some cameras), and kept adding new ones every 3 s even when the old ones had not come back. Her log: the big
+     video's first part took 8.3 s and a plain recordings list took 6.8 s. Now at most 2 picture requests are out at a
+     time (1 while the big video is still starting); the other tiles wait their turn. */
+  let fly = document.querySelectorAll('.rvcam img[data-busy="1"]').length, waiting = false;
+  const vStarting = rvLay() !== 'grid' && S.rv.feat && RVid.cam === S.rv.feat && !RVid.ok && performance.now() - RVid.t0 < 8000, cap = vStarting ? 1 : 2;
+  const asked = c => { const i = document.querySelector('#rv-' + c.id + ' img'); return i ? +i.dataset.at || 0 : 0; };
+  rvCams().slice().sort((a, b) => ((b.id === S.rv.feat) - (a.id === S.rv.feat)) || (asked(a) - asked(b))).forEach(c => {   /* the big picture is asked for first, then the tile that waited longest (5.5.8) */
     const f = Data.frame(c, t), box = document.getElementById('rv-' + c.id); if (!box) return;
     const fi = ht !== undefined ? Data.frame(c, ht) : f;
     /* one picture request per camera at a time, newest wins: setting src on every drag step cancelled the
@@ -6172,13 +6179,17 @@ function paintReview() {
            tiles are scrolled away. Scrolling brings them in (paintReview runs on scroll). */
         const r = box.getBoundingClientRect(); if (r.bottom < -40 || r.top > innerHeight + 40) { rvMark(box, c, ht !== undefined ? ht : t); return; }
         if (big && ht === undefined && RVid.on(c.id)) { rvMark(box, c, t); return; }   /* 4.2.7 the video shows it: no picture asked */
+        if (big && ht === undefined && vStarting && (img.naturalWidth || img.dataset.busy === '1')) { rvMark(box, c, t); return; }   /* 5.5.8 its video is starting: keep the picture, leave the mini PC to the video */
         if (ht === undefined && tt != null && rvMovingNow()) {
           const ev = rvAt(c, tt);
           if (ev && ev.img && img.getAttribute('src') !== ev.img && img.dataset.busy !== '1') { img.dataset.thumb = '1'; img.dataset.ld = ''; img.dataset.nrt = ''; img.src = ev.img; }
           rvMark(box, c, tt); return;
         }
         if (S.playing && ht === undefined && !big && img.naturalWidth && nowMs - (+img.dataset.at || 0) < 3000) { /* save Frigate's work: small pictures refresh every 3 s while playing */ }
+        else if (!big && img.dataset.busy === '1' && S.playing) { waiting = true; }   /* 5.5.8: still waiting for its last picture: no second one queued behind it */
+        else if (img.dataset.busy !== '1' && fly >= cap && !(big && !img.naturalWidth)) { waiting = true; }   /* 5.5.8: its turn comes next */
         else {
+          if (img.dataset.busy !== '1') fly++;
           img.dataset.at = nowMs; img.dataset.nrt = '';
           /* an alert here but nothing (or No Recording) showing yet: put the alert's own small picture up at once — it is
              stored, so it arrives fast — while the exact frame for that second is fetched behind it */
@@ -6192,6 +6203,7 @@ function paintReview() {
     } else if (img.getAttribute('src') !== fi.img) img.src = fi.img;
     rvMark(box, c, ht !== undefined ? ht : t);
   });
+  if (waiting) { clearTimeout(paintReview.wt); paintReview.wt = setTimeout(() => { if (S.view === 'review') paintReview(); }, 500); }
   const b = document.getElementById('rvbub'); if (b) b.textContent = ht !== undefined ? hms(ht) : t == null ? 'Live' : hms(t);
   rvLayout(ht !== undefined ? ht : t);
   rvHint();
