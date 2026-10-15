@@ -737,7 +737,7 @@ img.rf{opacity:0}
 :root[data-cover] .rvtop .rvbar .rvib[aria-pressed="false"],:root[data-cover] .rvtop .rvbar .rvib:not([aria-pressed]){background:none;box-shadow:none}   /* 5.5.3 plain icons like the rest of the strip */
 :root[data-cover] .evtop .evbar .bxbtn2{width:34px;height:30px}
 /* popover beside the strip, pointing at its button */
-.rvdd.pop{position:fixed;top:auto!important;left:auto!important;right:calc(var(--strip) + 12px)!important;width:min(300px,calc(100vw - var(--strip) - 24px));overflow:visible;padding:0;border-radius:14px}
+.rvdd.pop{position:fixed;top:auto!important;left:8px!important;right:calc(var(--strip) + 12px)!important;width:auto!important;max-width:none!important;overflow:visible;padding:0;border-radius:14px}
 .rvdd.pop{display:flex;flex-direction:column}
 .rvdd.pop::after{content:"";position:absolute;right:-8px;bottom:var(--arr,20px);width:16px;height:16px;background:inherit;border-right:1px solid var(--line);border-top:1px solid var(--line);transform:rotate(45deg);border-radius:0 3px 0 0}
 .rvdd.pop .popin{overflow-y:auto;padding:6px 4px 8px;min-height:0;flex:1 1 auto;border-radius:14px}
@@ -1056,6 +1056,14 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
 /* ---- v44 (5.4.4): Duo cover screen, iPhone Duo design sizes: strip 84 wide, top 169 belongs to the iPhone (camera, clock,
    Wi-Fi), icons 48 below it with 8 gaps, 24 at the bottom; page buttons at the top under the clock, layout / settings at the bottom ---- */
 :root[data-cover] .rail{justify-content:flex-start}
+/* 5.5.4 her rules for the cover strip, the same on Review and Alerts: plain icons with no background, half the old
+   spacing (36 px rows, no gap), one icon size; a pressed button shows by its icon colour; popovers wrap their rows */
+:root[data-cover] .rvtop .rvbar,:root[data-cover] .evtop .evbar{gap:0!important}
+:root[data-cover] .rvtop .rvbar button.ic,:root[data-cover] .rvtop .rvbar .rvib,:root[data-cover] .evtop .evbar button.ic,:root[data-cover] .evtop .evbar .rvib{width:44px!important;min-width:44px!important;height:36px!important;min-height:0!important;padding:0!important;background:none!important;box-shadow:none!important;border:0!important;border-radius:10px;color:var(--icon)!important}
+:root[data-cover] .rvtop .rvbar button svg,:root[data-cover] .evtop .evbar button svg{width:22px!important;height:22px!important}
+:root[data-cover] .rvtop .rvbar button[aria-pressed="true"],:root[data-cover] .evtop .evbar button[aria-pressed="true"]{color:var(--hot)!important}
+:root[data-cover] .rvtop .rvbar > [data-act="go"],:root[data-cover] .evtop .evbar > [data-act="go"]{color:var(--head-fg)!important}
+.rvdd.pop .rvsevrow,:root[data-cover] .rvdd .rvsevrow{flex-wrap:wrap}
 /* 5.4.6 Back To Top (every theme: card / line / head-fg tokens) */
 .totop{position:fixed;z-index:58;width:44px;height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;background:var(--card);color:var(--head-fg);border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.18)}
 .totop[hidden]{display:none}
@@ -4733,7 +4741,7 @@ function viewEvents() {
   const W = S.evWin;
   const list = W ? Data.events.filter(e => W.cams.includes(e.cam) && e.t >= W.a && e.t <= W.b) : visible.filter(e => e.t >= d0 && e.t < d0 + DAY); Arrive.want(list); Arrive.recheck(list);
   const EONE = !COVER && rvOneRow();   /* computer: one row like Review — Reset, Cameras, Objects, Boxes on the left */
-  let h = EONE ? '<div class="evtop"><div class="evbar one">' + evBarOne(visible.length) + '</div>' : '<div class="evtop"><div class="evbar"><span style="flex:1">Alerts</span>' + (COVER ? evStrip() : '') + (Data.source === 'frigate' ? '<button class="ic bxbtn2" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '<button class="ic" style="color:var(--head-fg)" data-act="go" data-v="home" aria-label="Close">' + I.x + '</button></div>';
+  let h = EONE ? '<div class="evtop"><div class="evbar one">' + evBarOne(visible.length) + '</div>' : '<div class="evtop"><div class="evbar"><span style="flex:1">Alerts</span>' + (COVER ? evStrip() : '') + (Data.source === 'frigate' ? '<button class="ic bxbtn2" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '<button class="ic" style="color:var(--head-fg)" data-act="go" data-v="home" aria-label="' + (COVER ? 'Back' : 'Close') + '">' + (COVER ? I.back : I.x) + '</button></div>';   /* 5.5.4: cover strip uses the same back arrow as Review */
   if (!COVER && !EONE) h += '<button class="fbtn" data-act="filters" aria-expanded="' + S.filtersOpen + '"><span>Filters</span><span class="fcount">' + visible.length + ' In ' + Math.max(7, Math.round((now() - Frigate.from) / DAY)) + ' Days</span><span style="color:var(--sub);display:flex">' + (S.filtersOpen ? I.up : I.down) + '</span></button>';
   if (!COVER && !EONE && S.filtersOpen) h += filterPanel();
   if ((COVER || EONE) && S.evPop) h += evDropdown();
@@ -4884,8 +4892,11 @@ function popPlace() {
     return;
   }
   const r = btn.getBoundingClientRect(), cy = r.top + r.height / 2, H = window.innerHeight, sa = safeArea();
-  const bot = Math.min(H - sa.b - 8, cy + 44), top = sa.t + 8;
-  dd.classList.add('pop');
+  /* 5.5.4 her rule: as wide as the screen left of the strip and as tall as it needs (up to the whole screen), not
+     squeezed above the button; it still ends low enough for the arrow to point at the button */
+  dd.classList.add('pop'); dd.style.maxHeight = 'none'; dd.style.bottom = '0px';
+  const top = sa.t + 8, need = Math.min(dd.scrollHeight, H - sa.b - 8 - top);
+  const bot = Math.min(H - sa.b - 8, Math.max(cy + 44, top + need));
   dd.style.bottom = (H - bot) + 'px'; dd.style.maxHeight = (bot - top) + 'px';
   dd.style.setProperty('--arr', Math.max(10, bot - cy - 9) + 'px');
 }
