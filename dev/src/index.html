@@ -732,7 +732,7 @@ img.rf{opacity:0}
 :root[data-cover] .rvtop,:root[data-cover] .evtop{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;transform:none!important;filter:none!important}
 :root[data-cover] .rvtop .rvbar,:root[data-cover] .evtop .evbar{position:fixed;top:0;bottom:0;right:0;left:auto;height:auto;width:var(--strip);flex-direction:column;justify-content:flex-end;align-items:center;gap:8px;padding:169px 0 max(24px,env(safe-area-inset-bottom,0px));background:var(--card);border-left:1px solid var(--line);z-index:36;box-sizing:border-box}
 :root[data-cover] .rvtop .rvbar .rvtitle,:root[data-cover] .evtop .evbar > span{display:none}
-:root[data-cover] .rvtop .rvbar > [data-act="go"],:root[data-cover] .evtop .evbar > [data-act="go"]{order:-1;margin-bottom:auto}
+:root[data-cover] .rvtop .rvbar > [data-act="go"],:root[data-cover] .evtop .evbar > [data-act="go"]{order:-1;margin-bottom:22px}   /* 5.5.2 her rule: back / close sits just above the other buttons, a gap apart (not at the top under the clock) */
 :root[data-cover] .rvtop .rvbar .rvib,:root[data-cover] .evtop .evbar .rvib{margin:0}
 :root[data-cover] .evtop .evbar .bxbtn2{width:34px;height:30px}
 /* popover beside the strip, pointing at its button */
@@ -4871,11 +4871,13 @@ function popPlace() {
   const dd = document.querySelector('.rvdd'); if (!dd) return;
   const a = dd.dataset.anchor || (S.rv.pick ? 'rvpick' : S.rv.fopen ? 'rvfopen' : S.rv.colsOpen ? 'rvcolsopen' : '');
   const [act, v] = a.split(':'), btn = document.querySelector('[data-act="' + act + '"]' + (v ? '[data-v="' + v + '"]' : '')); if (!btn) return;
-  if (!COVER) {
+  if (!COVER || btn.closest('.rvchips')) {   /* 5.5.2: cover-screen buttons in the top row open under themselves */
     dd.classList.remove('pop'); dd.style.cssText = '';
     const p = dd.offsetParent; if (!p) return;
+    const edge = COVER ? (document.querySelector('.rvbar') || document.body).getBoundingClientRect().left || window.innerWidth : window.innerWidth;   /* cover: stay left of the side strip */
+    if (COVER) dd.style.maxWidth = (edge - 16) + 'px';
     const pr = p.getBoundingClientRect(), r = btn.getBoundingClientRect(), w = dd.offsetWidth;
-    const left = Math.max(8, Math.min(r.left - pr.left, window.innerWidth - pr.left - w - 8));
+    const left = Math.max(8, Math.min(r.left - pr.left, edge - pr.left - w - 8));
     dd.style.left = left + 'px'; dd.style.right = 'auto'; dd.style.top = (r.bottom - pr.top + 6) + 'px';
     return;
   }
@@ -5536,6 +5538,15 @@ function rvBarOne(st) {
     '<button class="chip sm" data-act="rvcolsopen" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvLay() === 'big' ? 'Big' : rvCols()) + '</button></span></div>';
 }
 function rvCompact() { return window.innerHeight < 640 || window.innerWidth < 420; }
+/* 5.5.2 her design, Duo cover screen Review top row: Cameras (All / Outside Only / Inside Only / pick, in its dropdown),
+   then Objects (moved up from the side strip), then Boxes */
+function rvCoverRow(st) {
+  const sel = S.rv.sel, camLab = st === 'all' ? 'All Cameras' : st !== 'custom' ? st + ' Only' : sel.length + (sel.length === 1 ? ' Camera' : ' Cameras');
+  const dd = on => (on ? I.up : I.down).replace(/22/g, '14');
+  return '<button class="chip sm rvf" data-act="rvpick" aria-pressed="' + (st !== 'all' || S.rv.pick) + '" aria-label="Cameras"><span>' + esc(camLab) + '</span>' + dd(S.rv.pick) + '</button>' +
+    '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + dd(S.rv.fopen) + '</button>' +
+    (Data.source === 'frigate' ? '<button class="chip sm bxchip" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '');
+}
 function rvBarCompact(st) {
   const ib = (act, on, label, icon, extra) => '<button class="chip sm rvib" data-act="' + act + '" aria-pressed="' + on + '" aria-label="' + label + '" title="' + label + '">' + icon + (extra || '') + '</button>';
   const n = S.rv.sel == null ? '' : '<span class="rvibn">' + S.rv.sel.length + '</span>';
@@ -5905,10 +5916,10 @@ function viewReview() {
   const ONE = !RVC && rvOneRow();
   let h = RVC ? rvBarCompact(st) : ONE ? rvBarOne(st) : '<div class="rvtop" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
     '<button class="chip sm rvib" data-act="rvreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
-    '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + (S.rv.fopen ? I.up : I.down).replace(/22/g, '14') + '</button>' +
+    (COVER ? '' : '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + (S.rv.fopen ? I.up : I.down).replace(/22/g, '14') + '</button>') +
     '<button class="chip sm" data-act="rvcolsopen" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvLay() === 'big' ? 'Big' : rvLay() === 'top' ? 'Top' : rvCols()) + '</button>' +
     '<button class="ic' + (S.rv.list ? ' on' : '') + '" data-act="rvlist" aria-pressed="' + !!S.rv.list + '" aria-label="' + (S.rv.list ? 'Show Timeline' : 'Show Alert List') + '">' + (S.rv.list ? I.tline : I.bellO) + '</button>' +
-    dtOver('<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button>', 'rv') + '</div>' + (ONE ? '' : '<div class="rvchips">' + camRow + '</div>');
+    dtOver('<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button>', 'rv') + '</div>' + (ONE ? '' : '<div class="rvchips">' + (COVER ? rvCoverRow(st) : camRow) + '</div>');
   if (S.rv.fopen || S.rv.pick || S.rv.colsOpen) h += rvDropdown();
   const nc = rvCols();
   const L = rvLay();
