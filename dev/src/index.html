@@ -734,6 +734,7 @@ img.rf{opacity:0}
 :root[data-cover] .rvtop .rvbar .rvtitle,:root[data-cover] .evtop .evbar > span{display:none}
 :root[data-cover] .rvtop .rvbar > [data-act="go"],:root[data-cover] .evtop .evbar > [data-act="go"]{order:-1;margin-bottom:22px}   /* 5.5.2 her rule: back / close sits just above the other buttons, a gap apart (not at the top under the clock) */
 :root[data-cover] .rvtop .rvbar .rvib,:root[data-cover] .evtop .evbar .rvib{margin:0}
+:root[data-cover] .rvtop .rvbar .rvib[aria-pressed="false"],:root[data-cover] .rvtop .rvbar .rvib:not([aria-pressed]){background:none;box-shadow:none}   /* 5.5.3 plain icons like the rest of the strip */
 :root[data-cover] .evtop .evbar .bxbtn2{width:34px;height:30px}
 /* popover beside the strip, pointing at its button */
 .rvdd.pop{position:fixed;top:auto!important;left:auto!important;right:calc(var(--strip) + 12px)!important;width:min(300px,calc(100vw - var(--strip) - 24px));overflow:visible;padding:0;border-radius:14px}
@@ -3864,7 +3865,8 @@ function detectCover() {
   const iPhone = /iPhone/.test(navigator.userAgent);
   /* only when opened from the home screen icon: in Safari / a browser the right strip is the browser's own toolbar, so the phone layout is used */
   const standalone = navigator.standalone === true || !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches);
-  const auto = standalone && h > w && w < 600 && (sa.r >= 20 || (iPhone && w / h >= 0.64 && w >= 420));
+  /* 5.5.3 her rule: iPhone Duo only — never Samsung Fold / Flip or any other phone (they need the iPhone in the user agent) */
+  const auto = standalone && iPhone && h > w && w < 600 && (sa.r >= 20 || (w / h >= 0.64 && w >= 420));
   COVER = S.cover === 'on' ? true : S.cover === 'off' ? false : auto;
   if (COVER) document.documentElement.setAttribute('data-cover', ''); else document.documentElement.removeAttribute('data-cover');
   /* Duo cover screen in a browser (or the notification's browser): phone layout, but if the page still gets the full
@@ -5917,7 +5919,8 @@ function viewReview() {
   let h = RVC ? rvBarCompact(st) : ONE ? rvBarOne(st) : '<div class="rvtop" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
     '<button class="chip sm rvib" data-act="rvreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
     (COVER ? '' : '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + (S.rv.fopen ? I.up : I.down).replace(/22/g, '14') + '</button>') +
-    '<button class="chip sm" data-act="rvcolsopen" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvLay() === 'big' ? 'Big' : rvLay() === 'top' ? 'Top' : rvCols()) + '</button>' +
+    (COVER ? '<button class="ic" data-act="rvcolsopen" aria-pressed="' + !!S.rv.colsOpen + '" aria-label="Layout">' + I.grid4 + '</button>'   /* 5.5.3 her rule: icons only in the cover strip */
+      : '<button class="chip sm" data-act="rvcolsopen" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvLay() === 'big' ? 'Big' : rvLay() === 'top' ? 'Top' : rvCols()) + '</button>') +
     '<button class="ic' + (S.rv.list ? ' on' : '') + '" data-act="rvlist" aria-pressed="' + !!S.rv.list + '" aria-label="' + (S.rv.list ? 'Show Timeline' : 'Show Alert List') + '">' + (S.rv.list ? I.tline : I.bellO) + '</button>' +
     dtOver('<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button>', 'rv') + '</div>' + (ONE ? '' : '<div class="rvchips">' + (COVER ? rvCoverRow(st) : camRow) + '</div>');
   if (S.rv.fopen || S.rv.pick || S.rv.colsOpen) h += rvDropdown();
