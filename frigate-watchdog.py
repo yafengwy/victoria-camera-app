@@ -162,6 +162,35 @@ def furbo360():
         pass
 
 
+def camstate(cfg, stats):
+    # 2026-10-15 her design: the app's camera timelines show when a camera was turned off (Camera Mode / by hand) and
+    # when it was offline (on, but Frigate got no picture). One sample a minute; same-state minutes join into
+    # [start, end, 'off'|'down'] per camera in app/camstate.json (30 days kept). No sample while Frigate restarts.
+    path = os.path.join(D, 'app', 'camstate.json')
+    try:
+        d = json.load(open(path))
+    except Exception:
+        d = {}
+    now = int(time.time()); rel = released()
+    for cam, c in (cfg.get('cameras') or {}).items():
+        if c.get('enabled', True) is False or cam in rel:
+            k = 'off'
+        elif ((stats.get('cameras') or {}).get(cam) or {}).get('camera_fps', 0) < 1:
+            k = 'down'
+        else:
+            continue
+        segs = d.setdefault(cam, [])
+        if segs and segs[-1][2] == k and now - segs[-1][1] <= 150:
+            segs[-1][1] = now
+        else:
+            segs.append([now - 60, now, k])
+    for cam in list(d):
+        d[cam] = [x for x in d[cam] if x[1] > now - 31 * 86400]
+        if not d[cam]: del d[cam]
+    tmp = path + '.tmp'
+    json.dump(d, open(tmp, 'w'), separators=(',', ':')); os.replace(tmp, path)
+
+
 def down_alerts(dead, st, t10):
     # returns lines for the Mini PC Log: cameras down now (since when) and the last alerts sent
     now = time.time(); dn = st.setdefault('down', {}); sent = st.setdefault('down_sent', {}); hist = st.setdefault('down_log', [])
@@ -476,6 +505,11 @@ def main():
         st['dead_runs'] = st['dead_runs'] + 1 if len(dead) >= 5 else 0
     except Exception:
         st['api_runs'] += 1
+    if stats is not None:
+        try:
+            camstate(cfg, stats)
+        except Exception as x:
+            log('camstate error: ' + repr(x)[:150])
 
     g = gpu_errors()
     st['gpu_runs'] = st['gpu_runs'] + 1 if g >= 60 else 0

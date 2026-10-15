@@ -260,7 +260,14 @@ img.rf{opacity:0}
 .fscroll{flex:1;min-height:0;position:relative;width:100%;max-width:900px;margin:0 auto}
 .fsc{position:absolute;inset:0;overflow-y:auto;overscroll-behavior:contain}
 .fline{position:absolute;left:0;right:0;top:24px;height:2px;margin-top:-1px;background:var(--dark-accent);pointer-events:none;z-index:2}
-.frail{position:absolute;top:0;bottom:0;left:62px;width:2px;background:var(--dark-line)}
+.frail{position:absolute;top:0;bottom:0;left:60px;width:6px;background:none}   /* 5.5.5: the rail is drawn from its state pieces */
+.fst{position:absolute;left:0;right:0;border-radius:3px;pointer-events:none}
+.fst.on{background:rgba(255,255,255,.16)}
+.fst.down{left:2px;right:2px;border-radius:1px;background:repeating-linear-gradient(to bottom,rgba(224,160,58,.7) 0 3px,transparent 3px 7px)}
+.fstl{position:absolute;left:14px;font-size:11px;font-weight:600;line-height:14px;white-space:nowrap;color:rgba(255,255,255,.55);pointer-events:none}
+.fstl.down{color:rgba(224,160,58,.9)}
+.fst.f{left:auto;right:12px;width:4px}
+.fst.f.down{right:13px;width:2px}
 .fhr{position:absolute;left:12px;font-size:12px;font-weight:700;color:var(--dark-sub);font-variant-numeric:tabular-nums}
 .fhr.fday0{color:var(--dark-fg,#fff);white-space:nowrap;z-index:1}
 .fev{position:absolute;left:54px;right:12px;height:60px;display:flex;align-items:center;gap:12px;text-align:left}
@@ -415,7 +422,7 @@ img.rf{opacity:0}
   .focus .fctl .fclipal~.fbk{margin-left:0}
   .focus .fcmk em{display:inline}
   .focus .fhr{left:8px}
-  .focus .frail{left:66px}
+  .focus .frail{left:64px}
   .focus .fmark.ico.dim{left:58px}
   .focus .fmark.ico:not(.dim){left:56px}
   .focus .fmark.ico{margin-left:calc(var(--ln,0) * -24px)}
@@ -1944,7 +1951,8 @@ const Frigate = {
     if (t == null) return { img: this.base() + '/api/' + cam.id + '/latest.webp?height=480&ts=' + Math.floor(now() / 10000), tag: '', busy: false };
     const ev0 = Data.events.find(e => e.cam === cam.id && t >= e.t - 2000 && t <= (e.end || e.t) + 2000 && passes(e));
     /* Frigate has nothing recorded then: don't ask it for a picture (each miss costs a request and ~1 s) */
-    if (RecMap.has(cam.id, t) === false && !alertTry(cam.id, ev0)) return { img: NOREC, tag: '', hot: false, busy: false };
+    if (CamState.at(cam.id, t) === 'off' && !ev0) return { img: OFFIMG, tag: '', hot: false, busy: false };   /* 5.5.5: turned off then, nothing to ask Frigate */
+    if (RecMap.has(cam.id, t) === false && !alertTry(cam.id, ev0)) return { img: nrImg(cam.id, t), tag: '', hot: false, busy: false };
     const sec = RecMap.snap(cam.id, t);
     const ev = Data.events.find(e => e.cam === cam.id && t >= e.t - 2000 && t <= (e.end || e.t) + 2000 && passes(e));
     return { img: this.base() + '/api/' + cam.id + '/recordings/' + sec + '/snapshot.jpg?height=480', tag: ev ? ev.label : '', name: ev ? tagName(ev) : '', hot: ev ? ev.interesting : false, busy: !!ev };   /* 3.6.4: a known name (胖胖, James, FedEx) on the picture's tag */
@@ -2330,23 +2338,49 @@ function recFail(n, src) {
   if (recResult[base]) { delete recResult[base]; if ((recTries[base] = (recTries[base] || 0) + 1) > 2) { recResult[base] = LOADFAIL; n.setAttribute('src', LOADFAIL); return; } }
   if (recBusy[base]) return; recBusy[base] = 1;
   const cam = m[1], sec = +m[2], key = cam + ':' + Math.floor(sec);
-  const apply = v => { recResult[base] = v; delete recBusy[base]; document.querySelectorAll('img').forEach(i => { const s2 = i.getAttribute('src') || ''; if (s2 === base || s2.startsWith(base + '&retry=')) i.setAttribute('src', v); }); if (v === NOREC && S.view === 'review') paintReview(); };
+  const apply = v => { recResult[base] = v; delete recBusy[base]; document.querySelectorAll('img').forEach(i => { const s2 = i.getAttribute('src') || ''; if (s2 === base || s2.startsWith(base + '&retry=')) i.setAttribute('src', v); }); if (isNR(v) && S.view === 'review') paintReview(); };
   (async () => {
     /* first ask whether this second was recorded at all (one cheap question); a gap needs no retry */
     const ask = recAsk[key] || (recAsk[key] = Promise.race([new Promise(ok => setTimeout(() => ok(true), 6000)), Frigate.get('/api/' + cam + '/recordings?after=' + (sec - 2) + '&before=' + (sec + 2)).then(r => r.length > 0).catch(() => true)]));
-    if (!(await ask)) { Dbg.log('picture failed', cam, hms(sec * 1000), 'no recording'); (recMiss[cam] = recMiss[cam] || []).push(sec * 1000); apply(NOREC); return; }
+    if (!(await ask)) { Dbg.log('picture failed', cam, hms(sec * 1000), 'no recording'); (recMiss[cam] = recMiss[cam] || []).push(sec * 1000); apply(nrImg(cam, sec * 1000)); return; }
     for (let i = 1; i <= 1; i++) {          /* one retry: each miss costs Frigate a decode */
       await new Promise(ok => setTimeout(ok, 1200 * i));
       const t0 = performance.now(), ac = new AbortController(), to = setTimeout(() => ac.abort(), 6000);   /* a server that never answers must not leave the picture blank */
       try { const r = await fetch(base + '&retry=' + i, { credentials: 'include', signal: ac.signal }); clearTimeout(to); Dbg.log('picture retry', cam, hms(sec * 1000), r.status, Math.round(performance.now() - t0) + 'ms'); if (r.ok) { apply(base + '&retry=' + i); return; } } catch (e) { clearTimeout(to); Dbg.log('picture retry', cam, hms(sec * 1000), 'no answer', Math.round(performance.now() - t0) + 'ms'); }
     }
     const p = recAsk[key] || (recAsk[key] = Promise.race([new Promise(ok => setTimeout(() => ok(true), 6000)), Frigate.get('/api/' + cam + '/recordings?after=' + (sec - 2) + '&before=' + (sec + 2)).then(r => r.length > 0).catch(() => true)]));
-    const has = await p; Dbg.log('picture failed', cam, hms(sec * 1000), has ? 'recorded' : 'no recording'); if (!has) (recMiss[cam] = recMiss[cam] || []).push(sec * 1000); apply(has ? LOADFAIL : NOREC);
+    const has = await p; Dbg.log('picture failed', cam, hms(sec * 1000), has ? 'recorded' : 'no recording'); if (!has) (recMiss[cam] = recMiss[cam] || []).push(sec * 1000); apply(has ? LOADFAIL : nrImg(cam, sec * 1000));
   })();
 }
 const LOADFAIL = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><rect width="640" height="360" fill="#1B1F23"/><text x="320" y="172" fill="#AEB6BE" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="26" font-weight="700" text-anchor="middle">Picture Did Not Load</text><text x="320" y="210" fill="#7C858E" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="18" text-anchor="middle">Recorded · Tap To Play</text></svg>');
 /* Frigate only keeps video while something moves, so a camera can have nothing at a past moment */
 const NOREC = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><rect width="640" height="360" fill="#59616A"/><text x="320" y="172" fill="#F1F3F5" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="26" font-weight="700" text-anchor="middle">No Recording At This Time</text><text x="320" y="210" fill="#D3D8DD" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="18" text-anchor="middle">Nothing Moved Here Then</text></svg>');
+/* 5.5.5 her design (like Google Home): a camera that was turned off / offline at that moment says so on the picture */
+const OFFIMG = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><rect width="640" height="360" fill="#1E2128"/><text x="320" y="190" fill="#E8EAEE" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="28" font-weight="700" text-anchor="middle">Camera Was Turned Off</text></svg>');
+const DOWNIMG = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 360"><rect width="640" height="360" fill="#1E2128"/><text x="320" y="190" fill="#E8EAEE" font-family="-apple-system,Helvetica,Arial,sans-serif" font-size="28" font-weight="700" text-anchor="middle">Camera Was Offline</text></svg>');
+const isNR = src => src === NOREC || src === OFFIMG || src === DOWNIMG;
+const nrImg = (cam, t) => { const k = CamState.at(cam, t); return k === 'off' ? OFFIMG : k === 'down' ? DOWNIMG : NOREC; };
+/* When each camera was turned off (Camera Mode / by hand) or offline (on, but no picture). The mini PC watchdog samples
+   every minute into camstate.json: {cam: [[start s, end s, 'off'|'down'], ...]}. Pieces under 2 minutes are ignored.
+   Before the first sample (2026-10-15) nothing is known, so the timeline shows the camera as on. */
+const CamState = {
+  d: {}, at0: 0,
+  load(force) {
+    if (!force && Date.now() - this.at0 < 60000) return; this.at0 = Date.now();
+    fetch('camstate.json?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.json() : null).then(j => { if (j && typeof j === 'object') { const was = JSON.stringify(this.d); this.d = j; if (JSON.stringify(j) !== was && S.focus) { try { render(); } catch (x) {} } } }).catch(() => {});
+  },
+  segs(cam) { return (this.d[cam] || []).filter(x => x[1] - x[0] >= 120).map(x => [x[0] * 1000, x[1] * 1000 + 30000, x[2]]); },
+  at(cam, t) { if (t == null) return ''; const g = this.segs(cam).find(x => t >= x[0] && t <= x[1]); return g ? g[2] : ''; },
+  /* [a, b] split into on / off / down pieces */
+  parts(cam, a, b) {
+    const out = []; let cur = a;
+    this.segs(cam).filter(x => x[1] > a && x[0] < b).sort((x, y) => x[0] - y[0]).forEach(x => {
+      const s0 = Math.max(a, x[0]), e0 = Math.min(b, x[1]); if (s0 > cur) out.push([cur, s0, 'on']); if (e0 > Math.max(cur, s0)) out.push([Math.max(cur, s0), e0, x[2]]); cur = Math.max(cur, e0);
+    });
+    if (cur < b) out.push([cur, b, 'on']); return out;
+  },
+  label: x => (x[2] === 'off' ? 'Turned Off' : 'Offline') + ' · ' + hm(x[0]) + ' – ' + (x[1] >= Date.now() - 90000 ? 'Now' : hm(x[1]))
+};
 /* Recorded playback in Frigate mode. Instead of one snapshot per second (slow: Frigate decodes a frame per request),
    the open camera plays the real recording as HLS video from Frigate's /vod. Only motion is recorded, so the video
    skips gaps; the segment list maps video time back to clock time. While the user drags or scrolls, the picture is a
@@ -2510,7 +2544,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.5.4 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.5.5 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -5091,7 +5125,7 @@ function viewFocus() {
         rows += '<button class="fev" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + evImg(e, ep) + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e, ep)) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span></button>';
       }
     });
-    body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px;margin-top:' + fPad() + 'px"><div class="frail"></div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + FTOP + 'px"></div>';
+    body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px;margin-top:' + fPad() + 'px"><div class="frail">' + railState(c.id, end, span) + '</div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + FTOP + 'px"></div>';
   }
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
   const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk ftm" id="ftm">' + dtHdr(shownT(c.id, c.id)) + '</div><div style="flex:1"></div><span id="ffix" class="ffixw">' + focusFix(c.id) + '</span>' +
@@ -5121,6 +5155,17 @@ function viewFocus() {
     '<button class="fstep" id="fstepf" data-act="fstep" data-v="10" aria-label="Forward 10 Seconds"' + (t == null ? ' disabled' : '') + '>+10s</button></div></div>';
   if (S.full) h += viewFull(c, t, f);
   return h;
+}
+/* 5.5.5 her design: camera view rail = the camera's state. On = grey bar; turned off = no bar (with "Turned Off ·
+   13:10 – 14:20"); offline = thin dotted amber line (with "Offline · ..."). Alert icons stay on top, unchanged. */
+function railState(cam, end, span) {
+  CamState.load();
+  const b = Math.min(end, now()), Y = t => FTOP + (end - t) / MIN * FPX;
+  return CamState.parts(cam, end - span, b).map(x => {
+    const top = Y(x[1]), h = Math.max(1, (x[1] - x[0]) / MIN * FPX);
+    return (x[2] === 'off' ? '' : '<div class="fst ' + x[2] + '" style="top:' + top.toFixed(1) + 'px;height:' + h.toFixed(1) + 'px"></div>') +
+      (x[2] !== 'on' && h >= 16 ? '<div class="fstl ' + x[2] + '" style="top:' + (top + 2).toFixed(1) + 'px">' + CamState.label(x) + '</div>' : '');
+  }).join('');
 }
 /* ===== Full screen: just the picture; tap to show controls (timeline, bell, play, Live), they hide again after 4 s ===== */
 let FFPX = store.get('fpx', 4);                   /* px per minute on the full-screen timeline; pinch to change */
@@ -5192,6 +5237,8 @@ function fTrack(c, band) {
     tr += '<div class="ftk" style="top:' + Y(k).toFixed(1) + 'px;width:' + (isMaj ? 10 : 5) + 'px"></div>';
     if (isMaj) tr += '<div class="flb" style="top:' + Y(k).toFixed(1) + 'px">' + (new Date(k).getHours() === 0 && new Date(k).getMinutes() === 0 ? dayLabel(k) : hm(k)) + '</div>';
   }
+  CamState.load();
+  CamState.parts(c.id, Math.max(end - FSPAN, kA), Math.min(end, kB, now())).forEach(x => { if (x[2] !== 'off') tr += '<div class="fst f ' + x[2] + '" style="top:' + Y(x[1]).toFixed(1) + 'px;height:' + Math.max(1, Y(x[0]) - Y(x[1])).toFixed(1) + 'px"></div>'; });   /* 5.5.5 camera state under the alerts */
   let lastIc = -1e9; const icons = [];
   const fevs = camEvents(c.id).filter(e => e.t <= end && (e.end || e.t) > end - FSPAN && Y(e.t) >= ya - 40 && Y(Math.max(e.end || e.t, e.t + 5000)) <= yb + 40); Arrive.want(fevs);
   const fpk = new Map(fevs.map(e => [e, pick(e, S.filt)]));
@@ -5599,7 +5646,7 @@ const RV_LAYS = { big: 'Big', top: 'Alerts On Top', grid: 'Grid' };
    Each group keeps the usual camera order. */
 function rvNoPic(c, t) {
   const n = document.getElementById('rv-' + c.id), img = n && n.querySelector('img');
-  return (!!img && img.getAttribute('src') === NOREC) || (Data.source === 'frigate' && t != null && RecMap.has(c.id, t) === false && !alertTry(c.id, rvAt(c, t)));
+  return (!!img && isNR(img.getAttribute('src'))) || (Data.source === 'frigate' && t != null && RecMap.has(c.id, t) === false && !alertTry(c.id, rvAt(c, t)));
 }
 function rvHits(cams, t) {
   return cams.map(c => ({ c, e: rvAt(c, t), np: rvNoPic(c, t) })).filter(x => x.e)
@@ -5623,7 +5670,7 @@ function rvLayout(t) {
     cams.forEach((c, i) => {
       const n = document.getElementById('rv-' + c.id); if (!n) return;
       n.classList.remove('feat'); n.style.order = c.id === lp ? -100 : rvRank(c, t, all, i);
-      const img = n.querySelector('img'); n.classList.toggle('nr', !!img && img.getAttribute('src') === NOREC);
+      const img = n.querySelector('img'); n.classList.toggle('nr', !!img && isNR(img.getAttribute('src')));
     });
     return;
   }
@@ -5638,7 +5685,7 @@ function rvLayout(t) {
       n.classList.toggle('feat', k >= 0);
       n.style.order = k >= 0 ? -100 + k : rvRank(c, t, rest, i);
       n.style.gridColumn = k >= 0 ? (top.length === 1 ? (narrow ? '1 / span 24' : '4 / span 18') : 'span ' + span) : (narrow ? 'span 12' : 'span 6');
-      const img = n.querySelector('img'); n.classList.toggle('nr', !!img && img.getAttribute('src') === NOREC);
+      const img = n.querySelector('img'); n.classList.toggle('nr', !!img && isNR(img.getAttribute('src')));
     });
     return;
   }
@@ -5667,7 +5714,7 @@ function rvLayout(t) {
     const f = c.id === S.rv.feat;
     n.classList.toggle('feat', f);
     n.style.order = f ? -100 : rvRank(c, t, side, i);
-    const img = n.querySelector('img'); n.classList.toggle('nr', !!img && img.getAttribute('src') === NOREC);
+    const img = n.querySelector('img'); n.classList.toggle('nr', !!img && isNR(img.getAttribute('src')));
   });
 }
 function rvVert() { return window.innerWidth > window.innerHeight * 1.1 && window.innerWidth >= 560; }
@@ -6128,7 +6175,7 @@ function paintReview() {
           setImg(img, fi.img);
         }
       }
-      else if (img.getAttribute('src') === NOREC) rvNoRec(img, c, tt);
+      else if (isNR(img.getAttribute('src'))) rvNoRec(img, c, tt);
       else if (!img.naturalWidth) img.dataset.ld = '1';     /* still finding out */
     } else if (img.getAttribute('src') !== fi.img) img.src = fi.img;
     rvMark(box, c, ht !== undefined ? ht : t);
@@ -6143,7 +6190,7 @@ function paintReview() {
 function rvNoRec(img, c, t) {
   const ev = t != null && rvAt(c, t);
   if (ev && ev.img) { img.dataset.nrt = '1'; if (img.getAttribute('src') !== ev.img) img.src = ev.img; else rvTm(img); return; }
-  img.dataset.nrt = ''; if (img.getAttribute('src') !== NOREC) img.src = NOREC; rvTm(img);
+  img.dataset.nrt = ''; const nr = nrImg(c.id, t); if (img.getAttribute('src') !== nr) img.src = nr; rvTm(img);
 }
 /* A camera with an alert at the chosen time may be scrolled out of sight: a small pill above the timeline names it,
    and tapping it brings that camera into view */
@@ -6221,7 +6268,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.5.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.5.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6480,7 +6527,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.5.4');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.5.5');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6497,7 +6544,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.5.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.5.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7769,7 +7816,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.5.4';
+    const BUILD = '5.5.5';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
