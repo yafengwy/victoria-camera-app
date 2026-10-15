@@ -20,13 +20,13 @@ D = os.path.expanduser('~/frigate')
 STATE = os.path.join(D, '.watchdog.json')
 LOG = os.path.join(D, 'watchdog-log.txt')
 API = 'http://127.0.0.1:5000/api'
-# Camera down alerts: a camera Frigate keeps trying (and failing) to read, with no picture for 10 minutes, sends one
+# Camera down alerts: a camera Frigate keeps trying (and failing) to read, with no picture for 20 minutes, sends one
 # phone notification through Home Assistant (automation "Camera No Picture", webhook trigger, local network only);
 # again at most every 3 hours while it stays down. Cameras switched off on purpose give no Frigate log lines, so they
 # never count. 2026-10-05: Closet had broken pictures for over an hour (Wi-Fi) and nobody knew.
 HOOK = 'http://192.168.1.252:8123/api/webhook/vh-camera-down-6a53d96d5efbd590'
-DOWN_MIN, DOWN_EVERY = 600, 3 * 3600
-QUIET = {'nest_master_bedroom'}
+DOWN_MIN, DOWN_EVERY = 1200, 3 * 3600   # 2026-10-15 her choice: 20 minutes, every camera (Master Bedroom no longer left out); HA sends it silently
+QUIET = set()
 # Daily fresh start at 4:00 California time (her choice): the Furbo and Xiaomi bridges, then Frigate, so stuck camera
 # sessions and decoders start clean once a day. All cameras pause about 2 minutes.
 DAILY_HOUR = 4   # turned off in Google Home on purpose; take it out of here when it is back on
