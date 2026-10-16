@@ -263,3 +263,7 @@ Read this first when picking the app up in a new conversation. No secrets live i
 - Her request: in Watch Cameras, pinch zooms into the spot under the fingers (phone) / under the pointer (trackpad pinch = ctrl+wheel on a computer).
 - New `WZ` (next to mkZoom): per-camera zoom {s, nx, ny} (offset as a share of the tile, so it survives Watch alone / back); CSS `.wt.zoomed > :not(.hit):not(.ctm):not(.wbd):not(.cnm)` transforms; transform-origin set per layer (prep) like mkZoom. Zoomed: one finger / mouse drag / two-finger scroll pans. Pinch out below 1.03 = whole picture. `wtap` / `wmain` ignore a tap within 450 ms of a pinch or drag. Wired after render when `S.watch`.
 - t79: computer ctrl+wheel 10 ticks → 6×, spot under pointer 0.250/0.005 → 0.249/0.005; phone CDP pinch → 5×, spot 0.700/0.600 → 0.700/0.599; other tile untouched. No mini PC load.
+
+## 5.5.13 — Motion cards said "No Recording" though Frigate had it
+- Her Living Room Motion cards 22:52 and 23:02 showed No Recording. Frigate data: motion steps (30 s) at 22:52:00 / 23:02:00, recording pieces start 22:52:25 and, around 23:02, only 23:01:55–23:02:01 and 23:02:05–23:02:11. The card tried pictures at +2/+12/+22 s only, all in gaps.
+- `MotionList.ev`: fallback chain +2, 6, 12, 18, 22, 28, 40, 55, 85, 115 s (within the piece; misses are quick 404s, no decode). t81 (pieces from +25 s): old 2,12,22 → No Recording; now finds +28.

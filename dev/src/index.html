@@ -5927,7 +5927,11 @@ const MotionList = {
     /* the 30 s motion step can begin before the first kept recording piece (only pieces with motion are kept), so a
        picture that fails is tried 10 s and 20 s later before giving up (Right Yard Back showed Picture Did Not Load) */
     const snap = x => base + '/api/' + cam + '/recordings/' + x + '/snapshot.jpg?height=240';
-    Frigate.fb[snap(s0 + 2)] = snap(s0 + 12); Frigate.fb[snap(s0 + 12)] = snap(s0 + 22);
+    /* 5.5.13: Frigate keeps a recording piece only where something moved, and the 30 s motion step can start well before
+       the first piece (Living Room 22:52 step, first piece 22:52:25; 23:02 step, pieces only at 23:01:55 and 23:02:05):
+       all three tries (+2, +12, +22 s) missed and the card said No Recording. Now it keeps trying every 10 s, then
+       every 30 s, across the whole piece (at most 10 tries; a miss is only a quick "no recording" answer, no decode). */
+    { const offs = [2, 6, 12, 18, 22, 28, 40, 55, 85, 115].filter(o => s0 + o < s1); for (let i = 0; i + 1 < offs.length; i++) Frigate.fb[snap(s0 + offs[i])] = snap(s0 + offs[i + 1]); }
     return { id: 'mo-' + cam + '-' + s0, motion: true, cam, t, end: en, label: 'Motion', objs: [], dets: [], who: '', logo: '', sev: 'motion', subs: [], interesting: false, zones: [],
       img: snap(s0 + 2),
       vs: s0 - 5, ve: s1 + 5, vod: base + '/vod/' + cam + '/start/' + (s0 - 5) + '/end/' + (s1 + 5) + '/index.m3u8',
