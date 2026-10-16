@@ -592,6 +592,8 @@ img.rf{opacity:0}
 .wt{position:relative;background:#111;overflow:hidden;min-height:0}
 .wt img,.wt .lvh,.wt .lvc,.wt .lvc video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain!important}
 .wt .hit{position:absolute;inset:0;z-index:2;background:transparent;border:0}
+.wt.zoomed > :not(.hit):not(.ctm):not(.wbd):not(.cnm){transform:translate(var(--zx,0px),var(--zy,0px)) scale(var(--zs,1))}
+.wt .hit{touch-action:pan-y}
 .wt .ctm,.wt .wbd,.wt .cnm{z-index:3}
 .wbd{position:absolute;top:6px;right:6px;height:24px;padding:0 9px;border-radius:12px;background:rgba(18,22,24,.72);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;gap:5px;pointer-events:none}
 .wx{position:absolute;z-index:5;left:calc(10px + env(safe-area-inset-left,0px));top:calc(8px + env(safe-area-inset-top,0px));width:40px;height:40px;border-radius:20px;background:rgba(40,44,52,.85);color:#fff;display:flex;align-items:center;justify-content:center;border:0}
@@ -5411,6 +5413,65 @@ const FZ = mkZoom({
   side: e => !!(e.target.closest && e.target.closest('.fside')),
   can: () => !!document.getElementById('fullv') && (!S.fui || !(window.matchMedia && matchMedia('(pointer:coarse)').matches))   /* 4.9.6 her rule: on phones the full screen picture zooms only while the timeline is hidden (a zoomed picture stays zoomed when the timeline is shown); computers always */
 });
+/* 5.5.12 her request: Watch Cameras: pinch a picture to zoom into the spot under the fingers (phone), or under the
+   pointer with a trackpad pinch (computer). While zoomed, one finger / a mouse drag / two-finger scroll moves around;
+   pinch back out for the whole picture. Each camera keeps its own zoom, kept as a share of its picture, so it stays
+   when she taps to watch it alone and back. Only the phone or computer does this: nothing extra for the mini PC. */
+const WZ = {
+  z: {}, moved: 0,
+  keep: n => ['hit', 'ctm', 'wbd', 'cnm'].some(k => n.classList.contains(k)),
+  st(id) { return this.z[id] || (this.z[id] = { s: 1, nx: 0, ny: 0 }); },
+  of(t) { return this.st(t.id.slice(3)); },
+  prep(t) { for (const n of t.children) { if (this.keep(n)) continue; const o = (-n.offsetLeft) + 'px ' + (-n.offsetTop) + 'px'; if (n.style.transformOrigin !== o) n.style.transformOrigin = o; } },
+  paint(t) { const z = this.of(t); t.style.setProperty('--zs', z.s); t.style.setProperty('--zx', (z.nx * t.clientWidth).toFixed(1) + 'px'); t.style.setProperty('--zy', (z.ny * t.clientHeight).toFixed(1) + 'px'); t.classList.toggle('zoomed', z.s > 1.01); },
+  frame(t) { if (t._raf) return; t._raf = requestAnimationFrame(() => { t._raf = 0; this.paint(t); }); },
+  fit(z) { z.nx = Math.min(0, Math.max(1 - z.s, z.nx)); z.ny = Math.min(0, Math.max(1 - z.s, z.ny)); },
+  done(z) { if (z.s < 1.03) { z.s = 1; z.nx = 0; z.ny = 0; } },
+  /* (u, v): the spot as a share of the tile; it stays under the fingers / pointer */
+  zoomAt(t, u, v, s) { const z = this.of(t), cu = (u - z.nx) / z.s, cv = (v - z.ny) / z.s; z.s = clamp(s, 1, 6); z.nx = u - cu * z.s; z.ny = v - cv * z.s; this.fit(z); this.moved = Date.now(); this.frame(t); },
+  pan(t, dx, dy) { const z = this.of(t); if (z.s <= 1.01) return false; z.nx += dx / (t.clientWidth || 1); z.ny += dy / (t.clientHeight || 1); this.fit(z); this.moved = Date.now(); this.frame(t); return true; },
+  wire() {
+    const v = document.querySelector('.watchv'); if (!v) return;
+    v.querySelectorAll('.wt').forEach(t => { this.prep(t); this.paint(t); });
+    if (v._wz) return; v._wz = true;
+    const tileOf = e => e.target && e.target.closest ? e.target.closest('.wt') : null;
+    const share = (t, x, y) => { const r = t.getBoundingClientRect(); return [(x - r.left) / (r.width || 1), (y - r.top) / (r.height || 1)]; };
+    const mid = T => [(T[0].clientX + T[1].clientX) / 2, (T[0].clientY + T[1].clientY) / 2], dist = T => Math.hypot(T[0].clientX - T[1].clientX, T[0].clientY - T[1].clientY) || 1;
+    let g = null;
+    const panFrom = (t, p) => ({ t, pinch: false, x: p.clientX, y: p.clientY, moved: false });
+    v.addEventListener('touchstart', e => {
+      const t = tileOf(e), T = e.touches; if (!t) { g = null; return; }
+      if (T.length === 2) { e.preventDefault(); this.prep(t); const z = this.of(t), m = share(t, ...mid(T)); g = { t, pinch: true, d0: dist(T), s0: z.s, cu: (m[0] - z.nx) / z.s, cv: (m[1] - z.ny) / z.s }; }
+      else if (T.length === 1 && this.of(t).s > 1.01) g = panFrom(t, T[0]);
+      else g = null;
+    }, { passive: false });
+    v.addEventListener('touchmove', e => {
+      if (!g) return; const T = e.touches, t = g.t;
+      if (g.pinch && T.length === 2) { e.preventDefault(); const z = this.of(t), m = share(t, ...mid(T)); z.s = clamp(g.s0 * dist(T) / g.d0, 1, 6); z.nx = m[0] - g.cu * z.s; z.ny = m[1] - g.cv * z.s; this.fit(z); this.moved = Date.now(); this.frame(t); }
+      else if (!g.pinch && T.length === 1) { const dx = T[0].clientX - g.x, dy = T[0].clientY - g.y; if (!g.moved && Math.hypot(dx, dy) < 6) return; e.preventDefault(); g.moved = true; g.x = T[0].clientX; g.y = T[0].clientY; this.pan(t, dx, dy); }
+    }, { passive: false });
+    v.addEventListener('touchend', e => {
+      if (!g) return; const t = g.t;
+      if (g.pinch && e.touches.length === 1) { const z = this.of(t); this.done(z); this.paint(t); g = z.s > 1.01 ? Object.assign(panFrom(t, e.touches[0]), { moved: true }) : null; return; }
+      if (e.touches.length) return; const z = this.of(t); this.done(z); this.paint(t); if (g.moved || g.pinch) this.moved = Date.now(); g = null;
+    }, { passive: true });
+    v.addEventListener('touchcancel', () => { g = null; }, { passive: true });
+    /* computer: a trackpad pinch arrives as ctrl + scroll; plain two-finger scrolling moves a zoomed picture */
+    let wt = 0;
+    v.addEventListener('wheel', e => {
+      const t = tileOf(e); if (!t) return;
+      if (e.ctrlKey) { e.preventDefault(); this.prep(t); const z = this.of(t), p = share(t, e.clientX, e.clientY); this.zoomAt(t, p[0], p[1], z.s * Math.exp(-e.deltaY * 0.01)); }
+      else if (this.of(t).s > 1.01) { e.preventDefault(); this.pan(t, -e.deltaX, -e.deltaY); }
+      else return;
+      clearTimeout(wt); wt = setTimeout(() => { const z = this.of(t); this.done(z); this.paint(t); }, 200);
+    }, { passive: false });
+    /* computer: drag a zoomed picture with the mouse */
+    let d = null;
+    v.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') return; const t = tileOf(e); d = t && this.of(t).s > 1.01 ? { t, x: e.clientX, y: e.clientY, moved: false } : null; });
+    window.addEventListener('pointermove', e => { if (!d || e.pointerType !== 'mouse') return; const dx = e.clientX - d.x, dy = e.clientY - d.y; if (!d.moved && Math.hypot(dx, dy) < 4) return; d.moved = true; d.x = e.clientX; d.y = e.clientY; this.pan(d.t, dx, dy); });
+    window.addEventListener('pointerup', () => { if (d && d.moved) this.moved = Date.now(); d = null; });
+  }
+};
 /* 4.8.8: the computer's camera view (picture on the left, timeline on the right) zooms its picture the same way; the
    timeline never moves. On a phone held upright (timeline under the picture) the camera view does not zoom. */
 const FZF = mkZoom({
@@ -6743,8 +6804,8 @@ const ACT = {
   wclear() { S.wsel = []; store.set('wsel', []); render(); },
   wgo() { if (!watchIds().length) return; S.modal = null; S.focus = null; S.watch = true; S.wbig = null; try { sessionStorage.setItem('vhwatch', '1'); } catch (e) {} render(); window.scrollTo(0, 0); },
   wclose() { S.watch = false; S.wbig = null; try { sessionStorage.removeItem('vhwatch'); } catch (e) {} render(); },
-  wtap(d) { S.wbig = S.wbig ? null : d.id; render(); },
-  wmain(d) { S.wmain = d.id; render(); },
+  wtap(d) { if (Date.now() - WZ.moved < 450) return; S.wbig = S.wbig ? null : d.id; render(); },   /* 5.5.12: the end of a pinch or drag is not a tap */
+  wmain(d) { if (Date.now() - WZ.moved < 450) return; S.wmain = d.id; render(); },
   wlay(d) { S.wlay = d.v; store.set('wlay', d.v); render(); },
   ppopen() { S.more = false; S.pfSel = null; S.pfN = 120; S.pfSort = 'low'; S.modal = 'people'; render(); People.loadFaces().then(() => { if (S.modal === 'people') render(); }); },
   pfsel(d) { const open = !S.pfSel; if (open) bigKeep(); S.pfSel = S.pfSel === d.v ? null : d.v; render(); if (!S.pfSel) bigBack(); else requestAnimationFrame(() => { const n = document.querySelector('.scrim .dialog'); if (n) n.scrollTop = 0; }); },
@@ -7563,6 +7624,7 @@ function wire() {
   swipe(document.querySelector('#fullv .fvw'), dy => dy < -60 && FZ.s <= 1.01 && Date.now() - FZ.moved > 400 && Date.now() - (FZ.multi || 0) > 800, () => { ACT.unfull(); });   /* 4.8.8: a pinch is never taken as the swipe that leaves full screen */
   if (S.full) wireFull();
   else if (S.focus) { FZF.wire(); FBack.fill(); }
+  if (S.watch) WZ.wire();
   if (S.expanded && document.getElementById('track')) refreshTrack();
   if (!document.getElementById('hovtip') || S.hov) { S.hov = null; const ht = document.getElementById('hovtip'); if (ht) ht.hidden = true; }
   const trk = document.getElementById('track');

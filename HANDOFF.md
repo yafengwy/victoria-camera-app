@@ -258,3 +258,8 @@ Read this first when picking the app up in a new conversation. No secrets live i
 
 ## 5.5.11 — computer full screen shows the whole picture
 - Her report: full screen on the computer cut off the picture's edges. The landscape "fill the screen" rule (cover, for a phone held sideways with the buttons hidden) also hit computers. All four of those rules (.vfit size rule + img/.pbv/.lvc object-fit) now need `(pointer:coarse)`. t78: computer 1920×839 → picture 214…1706 × 0…839 (whole); phone 844×390 sideways still fills (unchanged).
+
+## 5.5.12 — Watch Cameras: pinch to zoom each picture
+- Her request: in Watch Cameras, pinch zooms into the spot under the fingers (phone) / under the pointer (trackpad pinch = ctrl+wheel on a computer).
+- New `WZ` (next to mkZoom): per-camera zoom {s, nx, ny} (offset as a share of the tile, so it survives Watch alone / back); CSS `.wt.zoomed > :not(.hit):not(.ctm):not(.wbd):not(.cnm)` transforms; transform-origin set per layer (prep) like mkZoom. Zoomed: one finger / mouse drag / two-finger scroll pans. Pinch out below 1.03 = whole picture. `wtap` / `wmain` ignore a tap within 450 ms of a pinch or drag. Wired after render when `S.watch`.
+- t79: computer ctrl+wheel 10 ticks → 6×, spot under pointer 0.250/0.005 → 0.249/0.005; phone CDP pinch → 5×, spot 0.700/0.600 → 0.700/0.599; other tile untouched. No mini PC load.
