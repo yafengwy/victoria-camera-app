@@ -108,7 +108,7 @@ img.rf{opacity:0}
   left:calc((100cqw - max(100cqw, 100cqh * var(--R,1.7778))) * var(--px,.5))!important;top:calc((100cqh - max(100cqh, 100cqw / var(--R,1.7778))) * var(--py,.5))!important}
 .vfit.vcon > img,.vfit.vcon video{width:min(100cqw, 100cqh * var(--R,1.7778))!important;height:min(100cqh, 100cqw / var(--R,1.7778))!important;
   left:calc((100cqw - min(100cqw, 100cqh * var(--R,1.7778))) / 2)!important;top:calc((100cqh - min(100cqh, 100cqw / var(--R,1.7778))) / 2)!important}
-/* 5.5.11: cut to fill the screen only on a phone held sideways; a computer shows the whole picture */
+/* 5.6.1: cut to fill the screen only on a phone held sideways; a computer shows the whole picture */
 @media (orientation:landscape) and (pointer:coarse){.full:not(.ui) .fvw.vfit > img,.full:not(.ui) .fvw.vfit video{width:max(100cqw, 100cqh * var(--R,1.7778))!important;height:max(100cqh, 100cqw / var(--R,1.7778))!important;
   left:calc((100cqw - max(100cqw, 100cqh * var(--R,1.7778))) / 2)!important;top:calc((100cqh - max(100cqh, 100cqw / var(--R,1.7778))) / 2)!important}}
 /* 5.1.8: Doorbell alert clips: the true upright 3:4 picture in the middle of the card (its video is flagged 4:3) */
@@ -305,7 +305,7 @@ img.rf{opacity:0}
 .full.rot .fside{flex-basis:calc(92px + 22px + env(safe-area-inset-bottom,0px));padding-right:calc(22px + env(safe-area-inset-bottom,0px))}
 .full.rot .fside.wide{flex-basis:calc(150px + 22px + env(safe-area-inset-bottom,0px))}
 .full.rot{inset:auto;top:0;left:var(--vpw,100vw);width:var(--vph,100vh);height:var(--vpw,100vw);transform-origin:0 0;transform:rotate(90deg)}
-/* 5.5.11: filling the screen (edges cut off) is for a phone held sideways only; a computer shows the whole picture */
+/* 5.6.1: filling the screen (edges cut off) is for a phone held sideways only; a computer shows the whole picture */
 @media (orientation:landscape) and (pointer:coarse){.full:not(.ui) .fvw img{object-fit:cover}}
 .full .fov{top:calc(12px + env(safe-area-inset-top,0px))}
 .full .fbot{position:absolute;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom,0px));text-align:center;font-size:12px;font-weight:600;color:#B8C0C7}
@@ -2304,6 +2304,8 @@ window.addEventListener('unhandledrejection', ev => { try { const r = ev && ev.r
 document.addEventListener('error', ev => {
   const n = ev.target; if (!n || !n.getAttribute) return;
   const a = n.tagName === 'IMG' ? 'src' : n.tagName === 'VIDEO' ? 'poster' : null; if (!a) return;
+  /* 5.6.6: the camera view's alert list said nothing about its pictures (her Front Door Motion cards stayed empty) */
+  if (n.closest && n.closest('#flist')) { const m = /\/api\/([a-z0-9_]+)\/recordings\/([\d.]+)\//.exec(n.getAttribute(a) || ''); if (m) Dbg.log('list picture miss', m[1], hms(+m[2] * 1000), Frigate.fb[n.getAttribute(a)] ? 'trying next' : 'last try'); }
   const fb = Frigate.fb[n.getAttribute(a)]; if (fb) { n.setAttribute(a, fb); return; }
   if (a === 'src') { if (/\/recordings\/[\d.]+\/snapshot/.test(n.getAttribute('src') || '')) n.classList.add('rf'); recFail(n, n.getAttribute('src') || ''); }
 }, true);
@@ -2550,7 +2552,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.6.5 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.6.6 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -3665,7 +3667,7 @@ function modalLitter() {
   let body = '';
   if (sel) {
     const ids = Object.keys(sel).filter(k => sel[k]), cams = new Set(all.filter(g => sel[g.id]).map(g => g.cam));
-    /* 5.5.14: the picked ones are all Motion / not named yet: one question, which cat, then they are joined */
+    /* 5.6.4: the picked ones are all Motion / not named yet: one question, which cat, then they are joined */
     if (S.ltMergeAsk && !S.ltDelAsk) body += '<div class="ltpickbar ltdelask"><span>这几条是谁？</span>' + Litter.names().map(n => '<button class="btn solid" data-act="ltmerge" data-v="' + esc(n) + '"' + (Litter.busy ? ' disabled' : '') + '>' + esc(n) + '</button>').join('') + '<button class="btn" data-act="ltmergeno">取消</button></div>';
     else body += S.ltDelAsk && ids.length
       ? '<div class="ltpickbar ltdelask"><span>从 Frigate 删除 ' + ids.length + ' 条？视频和图片都会删掉，不能恢复</span><button class="btn" data-act="ltdelno">取消</button><button class="btn pfred" data-act="ltdel"' + (Litter.busy ? ' disabled' : '') + '>' + (Litter.busy ? '删除中…' : '删除') + '</button></div>'
@@ -4102,6 +4104,8 @@ function render0() {
   oldV.forEach(v => { if (!usedV.has(v)) relVideo(v); });
   for (const id in keep) { const n = document.getElementById(id); if (n) { n.scrollLeft = keep[id][0]; n.scrollTop = keep[id][1]; } }
   { const fl = document.getElementById('flist'); if (fl) fListDay(fl); }
+  { const fl = document.getElementById('flist'); if (fl && !fl._chk) { fl._chk = 1; setTimeout(() => { if (!fl.isConnected) return; const im = [...fl.querySelectorAll('img')], vis = im.filter(i => { const r = i.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; }), wait = vis.filter(i => !i.complete), bad = vis.filter(i => i.complete && !i.naturalWidth);
+    Dbg.log('list pictures after 10 s', 'shown ' + (vis.length - wait.length - bad.length) + ' of ' + vis.length, 'still loading ' + wait.length, 'failed ' + bad.length, (wait[0] || bad[0] ? ((wait[0] || bad[0]).getAttribute('src') || '').replace(/^.*\/api\//, '').slice(0, 60) : '')); }, 10000); } }   /* 5.6.6 */
   document.querySelectorAll(LISTS).forEach((n, i) => { if (lk[i]) n.scrollTop = lk[i]; });
   MORE.forEach((q, j) => document.querySelectorAll(q).forEach((n, i) => { const v = mk[j][i]; if (v) { if (v[0]) n.scrollLeft = v[0]; if (v[1]) n.scrollTop = v[1]; } }));
   if (sameV && !window.__ptr && wy >= 0 && Math.abs(window.scrollY - wy) > 1) window.scrollTo(0, wy);
@@ -4171,7 +4175,7 @@ function viewWatch() {
     const cam = Data.cam(id), f = Data.frame(cam, null), sr = src(id);
     return '<div class="wt vfit vcon' + (id === 'nest_doorbell' ? ' door' : '') + '" id="wt-' + id + '" data-src="' + esc(sr) + '"' + ' style="--war:' + trueAr(cam).toFixed(4) + ';--R:' + trueAr(cam).toFixed(4) + '"><img id="img-' + id + '" src="' + f.img + '" alt="' + esc(cam.name) + '">' + Live.holder(sr, false) +
       '<button class="hit" data-act="' + (big && id !== ids[0] ? 'wmain' : 'wtap') + '" data-id="' + id + '" aria-label="' + (S.wbig ? 'Back To All' : big && id !== ids[0] ? 'Make ' + esc(cam.name) + ' Big' : 'Watch ' + esc(cam.name) + ' Alone') + '"></button>' +
-      '<div class="ctm" id="wtm-' + id + '">' + hms(shownT(id, sr)) + '</div><div class="wbd" id="wbd-' + id + '">' + stillInner(id) + '</div><div class="cnm' + rcnA(id) + '>' + esc(cam.name) + '</div></div>';   /* 5.5.15 her request: the name reconnects, as on Home */
+      '<div class="ctm" id="wtm-' + id + '">' + hms(shownT(id, sr)) + '</div><div class="wbd" id="wbd-' + id + '">' + stillInner(id) + '</div><div class="cnm' + rcnA(id) + '>' + esc(cam.name) + '</div></div>';   /* 5.6.5 her request: the name reconnects, as on Home */
   };
   return '<div class="watchv' + (land ? ' land' : ' port') + (big ? ' big' : '') + '" style="--wc:' + c + ';--wr:' + r + '"><div class="wgrid">' + ids.map(tile).join('') + '</div>' +
     (canBig ? '<div class="wlay"><button data-act="wlay" data-v="grid" aria-pressed="' + !big + '">' + I.rows + 'Grid</button><button data-act="wlay" data-v="big" aria-pressed="' + big + '">' + I.grid4 + 'Big</button></div>' : '') +
@@ -5415,7 +5419,7 @@ const FZ = mkZoom({
   side: e => !!(e.target.closest && e.target.closest('.fside')),
   can: () => !!document.getElementById('fullv') && (!S.fui || !(window.matchMedia && matchMedia('(pointer:coarse)').matches))   /* 4.9.6 her rule: on phones the full screen picture zooms only while the timeline is hidden (a zoomed picture stays zoomed when the timeline is shown); computers always */
 });
-/* 5.5.12 her request: Watch Cameras: pinch a picture to zoom into the spot under the fingers (phone), or under the
+/* 5.6.2 her request: Watch Cameras: pinch a picture to zoom into the spot under the fingers (phone), or under the
    pointer with a trackpad pinch (computer). While zoomed, one finger / a mouse drag / two-finger scroll moves around;
    pinch back out for the whole picture. Each camera keeps its own zoom, kept as a share of its picture, so it stays
    when she taps to watch it alone and back. Only the phone or computer does this: nothing extra for the mini PC. */
@@ -5929,7 +5933,7 @@ const MotionList = {
     /* the 30 s motion step can begin before the first kept recording piece (only pieces with motion are kept), so a
        picture that fails is tried 10 s and 20 s later before giving up (Right Yard Back showed Picture Did Not Load) */
     const snap = x => base + '/api/' + cam + '/recordings/' + x + '/snapshot.jpg?height=240';
-    /* 5.5.13: Frigate keeps a recording piece only where something moved, and the 30 s motion step can start well before
+    /* 5.6.3: Frigate keeps a recording piece only where something moved, and the 30 s motion step can start well before
        the first piece (Living Room 22:52 step, first piece 22:52:25; 23:02 step, pieces only at 23:01:55 and 23:02:05):
        all three tries (+2, +12, +22 s) missed and the card said No Recording. Now it keeps trying every 10 s, then
        every 30 s, across the whole piece (at most 10 tries; a miss is only a quick "no recording" answer, no decode). */
@@ -6363,7 +6367,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.6.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.6.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6571,7 +6575,7 @@ const ACT = {
   ltplus() { S.ltPlus = S.ltPlus === false; render(); },
   ltrm() { S.ltRm = S.ltRm === false; render(); },
   ltmergeno() { S.ltMergeAsk = false; render(); },
-  /* 5.5.14 her request: Motion joins a visit by hand without being marked one by one: the Motion pieces take the name
+  /* 5.6.4 her request: Motion joins a visit by hand without being marked one by one: the Motion pieces take the name
      of the named visit she picked with them (all unnamed: she is asked once which cat). Nothing is joined by itself. */
   async ltmerge(d) {
     const gs = Litter.groups().filter(g => S.ltPick && S.ltPick[g.id]); if (gs.length < 2 || Litter.busy) return;
@@ -6630,7 +6634,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.6.5');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.6.6');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6647,7 +6651,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.6.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.6.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -6818,7 +6822,7 @@ const ACT = {
   wclear() { S.wsel = []; store.set('wsel', []); render(); },
   wgo() { if (!watchIds().length) return; S.modal = null; S.focus = null; S.watch = true; S.wbig = null; try { sessionStorage.setItem('vhwatch', '1'); } catch (e) {} render(); window.scrollTo(0, 0); },
   wclose() { S.watch = false; S.wbig = null; try { sessionStorage.removeItem('vhwatch'); } catch (e) {} render(); },
-  wtap(d) { if (Date.now() - WZ.moved < 450) return; S.wbig = S.wbig ? null : d.id; render(); },   /* 5.5.12: the end of a pinch or drag is not a tap */
+  wtap(d) { if (Date.now() - WZ.moved < 450) return; S.wbig = S.wbig ? null : d.id; render(); },   /* 5.6.2: the end of a pinch or drag is not a tap */
   wmain(d) { if (Date.now() - WZ.moved < 450) return; S.wmain = d.id; render(); },
   wlay(d) { S.wlay = d.v; store.set('wlay', d.v); render(); },
   ppopen() { S.more = false; S.pfSel = null; S.pfN = 120; S.pfSort = 'low'; S.modal = 'people'; render(); People.loadFaces().then(() => { if (S.modal === 'people') render(); }); },
@@ -7924,7 +7928,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.6.5';
+    const BUILD = '5.6.6';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
