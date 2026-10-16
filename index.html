@@ -2550,7 +2550,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.6.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.6.4 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -3665,7 +3665,9 @@ function modalLitter() {
   let body = '';
   if (sel) {
     const ids = Object.keys(sel).filter(k => sel[k]), cams = new Set(all.filter(g => sel[g.id]).map(g => g.cam));
-    body += S.ltDelAsk && ids.length
+    /* 5.5.14: the picked ones are all Motion / not named yet: one question, which cat, then they are joined */
+    if (S.ltMergeAsk && !S.ltDelAsk) body += '<div class="ltpickbar ltdelask"><span>这几条是谁？</span>' + Litter.names().map(n => '<button class="btn solid" data-act="ltmerge" data-v="' + esc(n) + '"' + (Litter.busy ? ' disabled' : '') + '>' + esc(n) + '</button>').join('') + '<button class="btn" data-act="ltmergeno">取消</button></div>';
+    else body += S.ltDelAsk && ids.length
       ? '<div class="ltpickbar ltdelask"><span>从 Frigate 删除 ' + ids.length + ' 条？视频和图片都会删掉，不能恢复</span><button class="btn" data-act="ltdelno">取消</button><button class="btn pfred" data-act="ltdel"' + (Litter.busy ? ' disabled' : '') + '>' + (Litter.busy ? '删除中…' : '删除') + '</button></div>'
       : '<div class="ltpickbar"><span>已选 ' + ids.length + ' 条' + (cams.size > 1 ? ' · 只能合并同一个摄像头的' : '') + '</span><button class="btn" data-act="ltpickno">取消</button><button class="btn pfred" data-act="ltdelask"' + (!ids.length || Litter.busy ? ' disabled' : '') + '>删除</button><button class="btn solid" data-act="ltmerge"' + (ids.length < 2 || cams.size > 1 || Litter.busy ? ' disabled' : '') + '>合并</button></div>';
   } else body += '<div class="ltchips">' + [['all', '全部'], ['litter_box', '猫砂盆'], ['closet', 'Closet']].map(c => '<button class="chip" data-act="ltcam" data-v="' + c[0] + '" aria-pressed="' + (cam === c[0]) + '">' + c[1] + '</button>').join('') + '</div>';
@@ -6361,7 +6363,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.6.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.6.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6499,8 +6501,8 @@ const ACT = {
     bigKeep(); S.ltSel = d.id; S.ltPlus = true; S.ltRm = true; S.ltNoRec = null; S.ltNotOpen = null; S.ltDelOne = null; S.ltFix = null; render(); Litter.check(d.id); requestAnimationFrame(() => { const n = document.querySelector('.scrim .dialog'); if (n) n.scrollTop = 0; });
   },
   ltlong(d) { if (S.modal !== 'litter' || S.ltSel) return; S.ltDelAsk = false; S.ltPick = Object.assign({}, S.ltPick || {}, { [d.id]: true }); try { navigator.vibrate && navigator.vibrate(15); } catch (x) {} render(); },
-  ltpickno() { S.ltPick = null; S.ltDelAsk = false; render(); },
-  ltdelask() { S.ltDelAsk = true; render(); },
+  ltpickno() { S.ltPick = null; S.ltDelAsk = false; S.ltMergeAsk = false; render(); },
+  ltdelask() { S.ltDelAsk = true; S.ltMergeAsk = false; render(); },
   ltdelno() { S.ltDelAsk = false; render(); },
   /* 4.10.1 her rule: 删除 in the pick bar = for every picked visit, Frigate+ gets its snapshot as "no cat / no dog here"
      (false positive; she draws the boxes herself in Frigate+ later) and the visit leaves the log */
@@ -6568,12 +6570,20 @@ const ACT = {
   },
   ltplus() { S.ltPlus = S.ltPlus === false; render(); },
   ltrm() { S.ltRm = S.ltRm === false; render(); },
-  async ltmerge() {
+  ltmergeno() { S.ltMergeAsk = false; render(); },
+  /* 5.5.14 her request: Motion joins a visit by hand without being marked one by one: the Motion pieces take the name
+     of the named visit she picked with them (all unnamed: she is asked once which cat). Nothing is joined by itself. */
+  async ltmerge(d) {
     const gs = Litter.groups().filter(g => S.ltPick && S.ltPick[g.id]); if (gs.length < 2 || Litter.busy) return;
     if (new Set(gs.map(g => g.cam)).size > 1) { toast('只能合并同一个摄像头的'); return; }
-    if (gs.some(g => g.ps.some(p => p.motion && !p.mark))) { toast('Motion 要先用 Fix 标成猫才能合并'); return; }
-    Litter.busy = true; render();
-    try { await Litter.post('merge', gs.flatMap(g => g.ps.map(p => p.id))); S.ltPick = null; toast('已合并 · ' + gs.reduce((n, g) => n + g.ps.length, 0) + ' 段'); }
+    const cnt = {}; gs.forEach(g => { if (g.name) cnt[g.name] = (cnt[g.name] || 0) + g.ps.length; });
+    const name = (d && d.v) || Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || '';
+    const mo = gs.flatMap(g => g.ps).filter(p => p.motion && !(isAnimal(p.mark) && p.who));
+    if (mo.length && !name) { S.ltMergeAsk = true; render(); return; }
+    S.ltMergeAsk = false; Litter.busy = true; render();
+    try {
+      for (const p of mo) await Litter.post('mark', [p.id], (isAnimal(p.mark) ? p.mark : 'cat') + '|' + Math.ceil(p.end / 1000) + '|' + name);
+      await Litter.post('merge', gs.flatMap(g => g.ps.map(p => p.id))); S.ltPick = null; toast('已合并 · ' + gs.reduce((n, g) => n + g.ps.length, 0) + ' 段' + (mo.length ? ' · ' + name : '')); }
     catch (x) { toast('合并没成功 · ' + (x && x.message)); }
     Litter.busy = false; render();
   },
@@ -6620,7 +6630,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.6.3');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.6.4');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6637,7 +6647,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.6.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.6.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7914,7 +7924,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.6.3';
+    const BUILD = '5.6.4';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

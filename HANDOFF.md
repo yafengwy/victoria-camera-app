@@ -267,3 +267,7 @@ Read this first when picking the app up in a new conversation. No secrets live i
 ## 5.5.13 — Motion cards said "No Recording" though Frigate had it
 - Her Living Room Motion cards 22:52 and 23:02 showed No Recording. Frigate data: motion steps (30 s) at 22:52:00 / 23:02:00, recording pieces start 22:52:25 and, around 23:02, only 23:01:55–23:02:01 and 23:02:05–23:02:11. The card tried pictures at +2/+12/+22 s only, all in gaps.
 - `MotionList.ev`: fallback chain +2, 6, 12, 18, 22, 28, 40, 55, 85, 115 s (within the piece; misses are quick 404s, no decode). t81 (pieces from +25 s): old 2,12,22 → No Recording; now finds +28.
+
+## 5.5.14 — 如厕记录: Motion joins a visit by hand without marking each one
+- Her request: merging used to refuse ("Motion 要先用 Fix 标成猫才能合并"). Now long-press, pick Motion pieces with a named visit, 合并: each unnamed Motion piece is marked `cat|end|<name>` (the picked visit's name, most pieces wins) and then all are merged. All picked unnamed: one row asks 这几条是谁？(names from `Litter.names()`), then the same. Nothing joins by itself (her rule).
+- t82: 2 Motion + 胖胖 → marks both 胖胖 + merge; summary 胖胖 ×1 (not counted twice). Only Motion → ask row 胖胖/团团/取消 → 团团 ×1.

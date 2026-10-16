@@ -3665,7 +3665,9 @@ function modalLitter() {
   let body = '';
   if (sel) {
     const ids = Object.keys(sel).filter(k => sel[k]), cams = new Set(all.filter(g => sel[g.id]).map(g => g.cam));
-    body += S.ltDelAsk && ids.length
+    /* 5.5.14: the picked ones are all Motion / not named yet: one question, which cat, then they are joined */
+    if (S.ltMergeAsk && !S.ltDelAsk) body += '<div class="ltpickbar ltdelask"><span>这几条是谁？</span>' + Litter.names().map(n => '<button class="btn solid" data-act="ltmerge" data-v="' + esc(n) + '"' + (Litter.busy ? ' disabled' : '') + '>' + esc(n) + '</button>').join('') + '<button class="btn" data-act="ltmergeno">取消</button></div>';
+    else body += S.ltDelAsk && ids.length
       ? '<div class="ltpickbar ltdelask"><span>从 Frigate 删除 ' + ids.length + ' 条？视频和图片都会删掉，不能恢复</span><button class="btn" data-act="ltdelno">取消</button><button class="btn pfred" data-act="ltdel"' + (Litter.busy ? ' disabled' : '') + '>' + (Litter.busy ? '删除中…' : '删除') + '</button></div>'
       : '<div class="ltpickbar"><span>已选 ' + ids.length + ' 条' + (cams.size > 1 ? ' · 只能合并同一个摄像头的' : '') + '</span><button class="btn" data-act="ltpickno">取消</button><button class="btn pfred" data-act="ltdelask"' + (!ids.length || Litter.busy ? ' disabled' : '') + '>删除</button><button class="btn solid" data-act="ltmerge"' + (ids.length < 2 || cams.size > 1 || Litter.busy ? ' disabled' : '') + '>合并</button></div>';
   } else body += '<div class="ltchips">' + [['all', '全部'], ['litter_box', '猫砂盆'], ['closet', 'Closet']].map(c => '<button class="chip" data-act="ltcam" data-v="' + c[0] + '" aria-pressed="' + (cam === c[0]) + '">' + c[1] + '</button>').join('') + '</div>';
@@ -6499,8 +6501,8 @@ const ACT = {
     bigKeep(); S.ltSel = d.id; S.ltPlus = true; S.ltRm = true; S.ltNoRec = null; S.ltNotOpen = null; S.ltDelOne = null; S.ltFix = null; render(); Litter.check(d.id); requestAnimationFrame(() => { const n = document.querySelector('.scrim .dialog'); if (n) n.scrollTop = 0; });
   },
   ltlong(d) { if (S.modal !== 'litter' || S.ltSel) return; S.ltDelAsk = false; S.ltPick = Object.assign({}, S.ltPick || {}, { [d.id]: true }); try { navigator.vibrate && navigator.vibrate(15); } catch (x) {} render(); },
-  ltpickno() { S.ltPick = null; S.ltDelAsk = false; render(); },
-  ltdelask() { S.ltDelAsk = true; render(); },
+  ltpickno() { S.ltPick = null; S.ltDelAsk = false; S.ltMergeAsk = false; render(); },
+  ltdelask() { S.ltDelAsk = true; S.ltMergeAsk = false; render(); },
   ltdelno() { S.ltDelAsk = false; render(); },
   /* 4.10.1 her rule: 删除 in the pick bar = for every picked visit, Frigate+ gets its snapshot as "no cat / no dog here"
      (false positive; she draws the boxes herself in Frigate+ later) and the visit leaves the log */
@@ -6568,12 +6570,20 @@ const ACT = {
   },
   ltplus() { S.ltPlus = S.ltPlus === false; render(); },
   ltrm() { S.ltRm = S.ltRm === false; render(); },
-  async ltmerge() {
+  ltmergeno() { S.ltMergeAsk = false; render(); },
+  /* 5.5.14 her request: Motion joins a visit by hand without being marked one by one: the Motion pieces take the name
+     of the named visit she picked with them (all unnamed: she is asked once which cat). Nothing is joined by itself. */
+  async ltmerge(d) {
     const gs = Litter.groups().filter(g => S.ltPick && S.ltPick[g.id]); if (gs.length < 2 || Litter.busy) return;
     if (new Set(gs.map(g => g.cam)).size > 1) { toast('只能合并同一个摄像头的'); return; }
-    if (gs.some(g => g.ps.some(p => p.motion && !p.mark))) { toast('Motion 要先用 Fix 标成猫才能合并'); return; }
-    Litter.busy = true; render();
-    try { await Litter.post('merge', gs.flatMap(g => g.ps.map(p => p.id))); S.ltPick = null; toast('已合并 · ' + gs.reduce((n, g) => n + g.ps.length, 0) + ' 段'); }
+    const cnt = {}; gs.forEach(g => { if (g.name) cnt[g.name] = (cnt[g.name] || 0) + g.ps.length; });
+    const name = (d && d.v) || Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || '';
+    const mo = gs.flatMap(g => g.ps).filter(p => p.motion && !(isAnimal(p.mark) && p.who));
+    if (mo.length && !name) { S.ltMergeAsk = true; render(); return; }
+    S.ltMergeAsk = false; Litter.busy = true; render();
+    try {
+      for (const p of mo) await Litter.post('mark', [p.id], (isAnimal(p.mark) ? p.mark : 'cat') + '|' + Math.ceil(p.end / 1000) + '|' + name);
+      await Litter.post('merge', gs.flatMap(g => g.ps.map(p => p.id))); S.ltPick = null; toast('已合并 · ' + gs.reduce((n, g) => n + g.ps.length, 0) + ' 段' + (mo.length ? ' · ' + name : '')); }
     catch (x) { toast('合并没成功 · ' + (x && x.message)); }
     Litter.busy = false; render();
   },
