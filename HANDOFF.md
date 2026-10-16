@@ -271,3 +271,6 @@ Read this first when picking the app up in a new conversation. No secrets live i
 ## 5.5.14 — 如厕记录: Motion joins a visit by hand without marking each one
 - Her request: merging used to refuse ("Motion 要先用 Fix 标成猫才能合并"). Now long-press, pick Motion pieces with a named visit, 合并: each unnamed Motion piece is marked `cat|end|<name>` (the picked visit's name, most pieces wins) and then all are merged. All picked unnamed: one row asks 这几条是谁？(names from `Litter.names()`), then the same. Nothing joins by itself (her rule).
 - t82: 2 Motion + 胖胖 → marks both 胖胖 + merge; summary 胖胖 ×1 (not counted twice). Only Motion → ask row 胖胖/团团/取消 → 团团 ×1.
+
+## 5.5.15 — Watch Cameras: tap the name to reconnect
+- Her request: in Watch Cameras the name (bottom left) reconnects that camera (same `rcnA` / `reconn` as Home cards: toast "Reconnecting <name>"); anywhere else on the picture still opens it alone. t83 checks both.

@@ -4171,7 +4171,7 @@ function viewWatch() {
     const cam = Data.cam(id), f = Data.frame(cam, null), sr = src(id);
     return '<div class="wt vfit vcon' + (id === 'nest_doorbell' ? ' door' : '') + '" id="wt-' + id + '" data-src="' + esc(sr) + '"' + ' style="--war:' + trueAr(cam).toFixed(4) + ';--R:' + trueAr(cam).toFixed(4) + '"><img id="img-' + id + '" src="' + f.img + '" alt="' + esc(cam.name) + '">' + Live.holder(sr, false) +
       '<button class="hit" data-act="' + (big && id !== ids[0] ? 'wmain' : 'wtap') + '" data-id="' + id + '" aria-label="' + (S.wbig ? 'Back To All' : big && id !== ids[0] ? 'Make ' + esc(cam.name) + ' Big' : 'Watch ' + esc(cam.name) + ' Alone') + '"></button>' +
-      '<div class="ctm" id="wtm-' + id + '">' + hms(shownT(id, sr)) + '</div><div class="wbd" id="wbd-' + id + '">' + stillInner(id) + '</div><div class="cnm">' + esc(cam.name) + '</div></div>';
+      '<div class="ctm" id="wtm-' + id + '">' + hms(shownT(id, sr)) + '</div><div class="wbd" id="wbd-' + id + '">' + stillInner(id) + '</div><div class="cnm' + rcnA(id) + '>' + esc(cam.name) + '</div></div>';   /* 5.5.15 her request: the name reconnects, as on Home */
   };
   return '<div class="watchv' + (land ? ' land' : ' port') + (big ? ' big' : '') + '" style="--wc:' + c + ';--wr:' + r + '"><div class="wgrid">' + ids.map(tile).join('') + '</div>' +
     (canBig ? '<div class="wlay"><button data-act="wlay" data-v="grid" aria-pressed="' + !big + '">' + I.rows + 'Grid</button><button data-act="wlay" data-v="big" aria-pressed="' + big + '">' + I.grid4 + 'Big</button></div>' : '') +
