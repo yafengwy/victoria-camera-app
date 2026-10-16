@@ -255,3 +255,6 @@ Read this first when picking the app up in a new conversation. No secrets live i
 
 ## 5.5.10 — computer: double-click the camera picture = full screen
 - Her report: no way into full screen on the computer (the only ways were swiping down on the Today row or turning a phone sideways). Now a mouse double-click on the camera view picture opens full screen; Esc comes back. `pointer:fine` only, so phones are unchanged; a zoomed picture's double-click still only zooms out. t77 checks it.
+
+## 5.5.11 — computer full screen shows the whole picture
+- Her report: full screen on the computer cut off the picture's edges. The landscape "fill the screen" rule (cover, for a phone held sideways with the buttons hidden) also hit computers. All four of those rules (.vfit size rule + img/.pbv/.lvc object-fit) now need `(pointer:coarse)`. t78: computer 1920×839 → picture 214…1706 × 0…839 (whole); phone 844×390 sideways still fills (unchanged).

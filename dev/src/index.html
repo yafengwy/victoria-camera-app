@@ -108,7 +108,8 @@ img.rf{opacity:0}
   left:calc((100cqw - max(100cqw, 100cqh * var(--R,1.7778))) * var(--px,.5))!important;top:calc((100cqh - max(100cqh, 100cqw / var(--R,1.7778))) * var(--py,.5))!important}
 .vfit.vcon > img,.vfit.vcon video{width:min(100cqw, 100cqh * var(--R,1.7778))!important;height:min(100cqh, 100cqw / var(--R,1.7778))!important;
   left:calc((100cqw - min(100cqw, 100cqh * var(--R,1.7778))) / 2)!important;top:calc((100cqh - min(100cqh, 100cqw / var(--R,1.7778))) / 2)!important}
-@media (orientation:landscape){.full:not(.ui) .fvw.vfit > img,.full:not(.ui) .fvw.vfit video{width:max(100cqw, 100cqh * var(--R,1.7778))!important;height:max(100cqh, 100cqw / var(--R,1.7778))!important;
+/* 5.5.11: cut to fill the screen only on a phone held sideways; a computer shows the whole picture */
+@media (orientation:landscape) and (pointer:coarse){.full:not(.ui) .fvw.vfit > img,.full:not(.ui) .fvw.vfit video{width:max(100cqw, 100cqh * var(--R,1.7778))!important;height:max(100cqh, 100cqw / var(--R,1.7778))!important;
   left:calc((100cqw - max(100cqw, 100cqh * var(--R,1.7778))) / 2)!important;top:calc((100cqh - max(100cqh, 100cqw / var(--R,1.7778))) / 2)!important}}
 /* 5.1.8: Doorbell alert clips: the true upright 3:4 picture in the middle of the card (its video is flagged 4:3) */
 .evmedia.door img,.evmedia.door video.evv{position:absolute;inset:0;margin:auto;width:auto!important;height:100%!important;max-width:100%;aspect-ratio:3/4;object-fit:fill!important}
@@ -304,7 +305,8 @@ img.rf{opacity:0}
 .full.rot .fside{flex-basis:calc(92px + 22px + env(safe-area-inset-bottom,0px));padding-right:calc(22px + env(safe-area-inset-bottom,0px))}
 .full.rot .fside.wide{flex-basis:calc(150px + 22px + env(safe-area-inset-bottom,0px))}
 .full.rot{inset:auto;top:0;left:var(--vpw,100vw);width:var(--vph,100vh);height:var(--vpw,100vw);transform-origin:0 0;transform:rotate(90deg)}
-@media (orientation:landscape){.full:not(.ui) .fvw img{object-fit:cover}}
+/* 5.5.11: filling the screen (edges cut off) is for a phone held sideways only; a computer shows the whole picture */
+@media (orientation:landscape) and (pointer:coarse){.full:not(.ui) .fvw img{object-fit:cover}}
 .full .fov{top:calc(12px + env(safe-area-inset-top,0px))}
 .full .fbot{position:absolute;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom,0px));text-align:center;font-size:12px;font-weight:600;color:#B8C0C7}
 .hidden-date{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px}
@@ -1269,11 +1271,11 @@ video::-webkit-media-controls-start-playback-button{display:none!important;-webk
 video::-webkit-media-controls{display:none!important}   /* not display:none: iPhone will not play (or even load) a video it cannot see */
 .pbv{display:block;width:100%;height:100%;object-fit:cover;background:transparent}
 .fvw .pbv{object-fit:contain}
-@media (orientation:landscape){.full:not(.ui) .fvw .pbv{object-fit:cover}}
+@media (orientation:landscape) and (pointer:coarse){.full:not(.ui) .fvw .pbv{object-fit:cover}}
 .tag[hidden]{display:none!important}
 .lvc,.lvc video{display:block;width:100%;height:100%;object-fit:cover;background:transparent}
 .fvw .lvc video{object-fit:contain}
-@media (orientation:landscape){.full:not(.ui) .fvw .lvc video{object-fit:cover}}
+@media (orientation:landscape) and (pointer:coarse){.full:not(.ui) .fvw .lvc video{object-fit:cover}}
 
 /* ---- v60: short screens (small windows, Duo cover): the hour rail scrolls; Review header and dock are tighter ---- */
 .hours{overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;touch-action:pan-y}
