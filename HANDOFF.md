@@ -252,3 +252,6 @@ Read this first when picking the app up in a new conversation. No secrets live i
 ## 5.5.9 — computer camera view: 4:3 cameras covered −10s / Live / +10s
 - Her screenshot (Treat Feeder, computer): no −10s/−5s/Live/+5s/+10s. Cause: the wide camera view sized the picture as 16:9 (`(100vh-96px)*16/9`) while a 4:3 camera sets `aspect-ratio:1.333` inline, so it came out taller than the screen (t76 at 1920×839: picture −108…883, buttons at 889–933, off screen).
 - Width now `(100vh-96px) * min(var(--R), 16/9)`. t76: 4:3 at 1920×839 → picture 16…759, buttons 777–821; 16:9 unchanged.
+
+## 5.5.10 — computer: double-click the camera picture = full screen
+- Her report: no way into full screen on the computer (the only ways were swiping down on the Today row or turning a phone sideways). Now a mouse double-click on the camera view picture opens full screen; Esc comes back. `pointer:fine` only, so phones are unchanged; a zoomed picture's double-click still only zooms out. t77 checks it.

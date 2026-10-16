@@ -7554,6 +7554,10 @@ function wire() {
     el.addEventListener('pointerup', () => { y0 = null; }); el.addEventListener('pointercancel', () => { y0 = null; });
   };
   swipe(document.getElementById('fctl'), dy => dy > 45, () => { ACT.full(); });
+  /* 5.5.10 her request: on a computer, double-click the picture to go full screen (Esc comes back). A mouse only: on a
+     phone a double tap there stays as it was. A zoomed picture's double-click still just zooms back out. */
+  { const fv = document.querySelector('.focus>.fvid'); if (fv && !S.full && matchMedia('(pointer:fine)').matches) fv.addEventListener('dblclick', e => {
+    if (FZF.s > 1.01 || Date.now() - (FZF.moved || 0) < 400 || e.target.closest('button')) return; e.preventDefault(); ACT.full(); }); }
   swipe(document.querySelector('#fullv .fvw'), dy => dy < -60 && FZ.s <= 1.01 && Date.now() - FZ.moved > 400 && Date.now() - (FZ.multi || 0) > 800, () => { ACT.unfull(); });   /* 4.8.8: a pinch is never taken as the swipe that leaves full screen */
   if (S.full) wireFull();
   else if (S.focus) { FZF.wire(); FBack.fill(); }
