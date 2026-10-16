@@ -401,7 +401,9 @@ img.rf{opacity:0}
    tall as the screen on the left, the same native-scrolling timeline as the upright phone on the right */
 @media (min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px){
   .focus{--fw:clamp(270px,24vw,300px);display:grid;grid-template-columns:minmax(0,1fr) var(--fw);grid-template-rows:68px minmax(0,1fr)}
-  .focus>.fvid{grid-column:1;grid-row:1/3;align-self:center;justify-self:center;max-width:none;width:min(calc(100% - 32px),calc((100vh - env(safe-area-inset-top,0px) - 96px) * 16 / 9));margin:0 16px 64px;border-radius:14px;overflow:hidden}
+  /* 5.5.9: the width follows the camera's own shape (--R): a 4:3 camera (Treat Feeder) was sized as 16:9, so it came
+     out taller than the screen and covered −10s / Live / +10s */
+  .focus>.fvid{grid-column:1;grid-row:1/3;align-self:center;justify-self:center;max-width:none;width:min(calc(100% - 32px),calc((100vh - env(safe-area-inset-top,0px) - 96px) * min(var(--R,1.7778),1.7778)));margin:0 16px 64px;border-radius:14px;overflow:hidden}
   .focus>.fvid.tall{width:min(calc(100% - 32px),calc((100vh - env(safe-area-inset-top,0px) - 96px) * var(--ar)))}
   .focus>.fctl{grid-column:2;grid-row:1;max-width:none;border-left:1px solid var(--dark-line)}
   .focus>.fscroll{grid-column:2;grid-row:2;max-width:none;border-left:1px solid var(--dark-line)}
