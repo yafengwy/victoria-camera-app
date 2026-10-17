@@ -2554,7 +2554,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.6.8 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.6.9 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -6420,7 +6420,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.6.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.6.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6504,15 +6504,22 @@ function askStamp() {
     b.querySelectorAll('.sbq .sv').forEach(x => { x.onclick = () => done(x.dataset.s === '1'); });
   });
 }
+/* cameras that record H.265 (the Xiaomi 猫砂盆; the Dahua cameras were switched to H.264 on 10-05). Only these go
+   through /plain/: it holds the whole clip in the mini PC's memory, so big H.264 clips are not sent through it */
+const HEVC_CAMS = ['litter_box'];
 async function saveClip(url, name, durS, cam, aS, bS) {
   if (Data.source !== 'frigate') { toast('Downloads Work Once The App Runs On The Mini PC'); return; }
   if (SaveBar.busy) return; SaveBar.busy = true;
+  const cam0 = cam;
   if (cam) { const st = await askStamp(); Dbg.log('save choice', st == null ? 'cancel' : st ? 'stamp' : 'plain', name); if (st == null) { SaveBar.busy = false; return; } if (!st) cam = null; }
   SaveBar.ac = new AbortController();
   const d = durS || 30;
   try {
     let blob = null;
     if (cam) { try { blob = await fetchWithBar(stampUrl(cam, aS, bS), 'Adding Date And Time', 0, 4000 + d * 500); } catch (e) { if (e && e.name === 'AbortError') throw e; Dbg.log('stamped download failed, plain video', cam, e && e.message); } }
+    /* 5.6.9: the plain video goes through the mini PC's /plain/, which only re-labels H.265 "hev1" as "hvc1" (and redoes
+       8 kHz sound) so Apple Photos accepts it (the 猫砂盆 clip was refused); the picture itself is not re-encoded */
+    if (!blob && cam0 && aS && bS && HEVC_CAMS.includes(cam0)) { try { blob = await fetchWithBar(Frigate.base() + '/plain/' + cam0 + '/' + aS + '/' + bS + '/clip.mp4', 'Preparing Video', 0, 1500 + d * 40); } catch (e) { if (e && e.name === 'AbortError') throw e; Dbg.log('plain download failed, Frigate clip', cam0, e && e.message); } }
     deliver(blob || await fetchWithBar(url, 'Preparing Video', 0, 1500 + d * 40), name);
   }
   catch (e) { const ab = e && e.name === 'AbortError'; SaveBar.end(); if (!ab) toast('Could Not Get The Video'); }
@@ -6687,7 +6694,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.6.8');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.6.9');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6704,7 +6711,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.6.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.6.9\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7982,7 +7989,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.6.8';
+    const BUILD = '5.6.9';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

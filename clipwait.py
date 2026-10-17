@@ -14,6 +14,8 @@ PATH = re.compile(r'^/wait/([a-z0-9_]+)/([0-9]+)/([0-9]+)/(clip\.mp4|clip\.gif|s
 # Downloads from the app: the same seconds with the date and time burned into the top-left corner.
 # /stamp/<camera>/<start>/<end>/<utc offset in seconds>/clip.mp4
 STAMP = re.compile(r'^/stamp/([a-z0-9_]+)/([0-9]+)/([0-9]+)/(-?[0-9]+)/clip\.mp4$')
+# 2026-10-16: /plain/<camera>/<start>/<end>/clip.mp4 = Frigate's own clip, only re-labelled so Apple Photos takes it
+PLAIN = re.compile(r'^/plain/([a-z0-9_]+)/([0-9]+)/([0-9]+)/clip\.mp4$')
 
 def covered(cam, s, e):
     try:
@@ -211,6 +213,28 @@ def stamped(cam, s, e, off, full=False):
         encode(['-i', a], stamp_vf(s + off, w), out, full)
         return open(out, 'rb').read()
 
+def plain(cam, s, e):
+    # The plain download stays the original picture (no re-encode). Apple Photos refuses H.265 labelled "hev1" (the
+    # Xiaomi 猫砂盆 clip, 10-16: "Unknown error"); "hvc1" is the same video under the label Apple reads. Very low
+    # sample-rate sound (8 kHz from the Xiaomi) is redone as normal AAC. Anything else is passed through untouched.
+    with tempfile.TemporaryDirectory() as d:
+        a, out = os.path.join(d, 'in.mp4'), os.path.join(d, 'out.mp4')
+        with urllib.request.urlopen(f'{FRIGATE}/api/{cam}/start/{s}/end/{e}/clip.mp4', timeout=120) as r:
+            open(a, 'wb').write(r.read())
+        info = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'stream=codec_type,codec_name,codec_tag_string,sample_rate', '-of', 'json', a],
+                              capture_output=True, text=True, timeout=20).stdout
+        st = json.loads(info or '{}').get('streams', [])
+        v = next((x for x in st if x.get('codec_type') == 'video'), {})
+        au = next((x for x in st if x.get('codec_type') == 'audio'), None)
+        hev = v.get('codec_name') == 'hevc' and v.get('codec_tag_string') != 'hvc1'
+        low = au is not None and int(au.get('sample_rate') or 0) < 16000
+        if not hev and not low:
+            return open(a, 'rb').read()
+        args = ['ffmpeg', '-v', 'error', '-i', a, '-map', '0:v:0', '-map', '0:a?', '-c:v', 'copy'] + (['-tag:v', 'hvc1'] if hev else [])
+        args += (['-c:a', 'aac', '-ar', '44100'] if low else ['-c:a', 'copy']) + ['-movflags', '+faststart', '-y', out]
+        subprocess.run(args, check=True, timeout=300)
+        return open(out, 'rb').read()
+
 def make(path, cam, s, e, kind):
     t0 = time.time()
     ok = False
@@ -397,6 +421,19 @@ class H(BaseHTTPRequestHandler):
                 self.wfile.write(body)
             except Exception as x:
                 print('stamp failed', self.path, x)
+                self.send_error(502)
+            return
+        pl = PLAIN.match(self.path.split('?')[0])
+        if pl:
+            try:
+                body = plain(pl.group(1), int(pl.group(2)), int(pl.group(3)))
+                self.send_response(200)
+                self.send_header('Content-Type', 'video/mp4')
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            except Exception as x:
+                print('plain failed', self.path, x)
                 self.send_error(502)
             return
         m = PATH.match(self.path.split('?')[0])

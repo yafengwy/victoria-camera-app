@@ -290,3 +290,8 @@ Read this first when picking the app up in a new conversation. No secrets live i
 
 ## 5.6.8 — a named parked car no longer wipes a FedEx van in the same detection
 - Front Door 10-16 16:07 detection: objects car + fedex, 4 detections, one a parked car she had fixed as a company (CoFix, People.co) / named. `coFix` (and the name rule in the review parser and `whoOf`) cleared the whole alert's logo, so the FedEx card was under no filter. New `allCarsNamed(dets, ok)`: the logo is dropped only when every car detection is named/fixed; otherwise the name is just added ("FedEx · Weee"). t87 checks both cases.
+
+## 5.6.9 — 猫砂盆 downloads open in Apple Photos
+- Her 猫砂盆 plain download (2026-10-16 22:27:59, 547 KB) was refused by macOS Photos ("Unknown error"). ffprobe: HEVC Main 640x360 tagged `hev1`, AAC 8 kHz mono. Apple reads H.265 only as `hvc1`.
+- clipwait.py: new `/plain/<cam>/<s>/<e>/clip.mp4` = Frigate's clip; if HEVC not tagged hvc1 → `-c:v copy -tag:v hvc1`; if sound < 16 kHz → AAC 44.1 kHz; else returned untouched. app-nginx.conf: `location /plain/` → clipwait. App: plain downloads of `HEVC_CAMS = ['litter_box']` go through /plain/ (falls back to Frigate's clip on error); others unchanged (clipwait holds the clip in memory, so big H.264 clips stay direct). Stamped downloads were already H.264 (avc1). t88.
+- Remux of her file checked locally: hevc/hvc1 + aac 44.1 kHz, same 43.4 s.
