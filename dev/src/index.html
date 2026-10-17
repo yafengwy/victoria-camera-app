@@ -3382,9 +3382,10 @@ const CatPics = {
   url: (f) => Frigate.base() + '/clips/' + encodeURIComponent(CatFix.model) + '/train/' + encodeURIComponent(f),
   async load() {
     if (!CatFix.model) return;
-    const m = encodeURIComponent(CatFix.model);
+    const m = encodeURIComponent(CatFix.model), t0 = performance.now();
     try { const r = await Frigate.get('/api/classification/' + m + '/train?_=' + Date.now()); this.train = (Array.isArray(r) ? r : (r && r.files) || []).map(f => typeof f === 'string' ? f : f.filename || f.name).filter(Boolean); } catch (e) { this.train = []; }
     try { const r = await Frigate.get('/api/classification/' + m + '/dataset?_=' + Date.now()); this.ds = (r && r.categories) || {}; } catch (e) { this.ds = {}; }
+    Dbg.log('cats load', Math.round(performance.now() - t0) + 'ms', 'to file ' + (this.train || []).length, 'filed ' + Object.values(this.ds).reduce((n, x) => n + (x || []).length, 0));
     const n = Object.keys(this.ds).filter(x => x.toLowerCase() !== 'none'); if (n.length) { const pref = ['胖胖', '团团']; CatFix.names = n.sort((a, b) => ((pref.indexOf(a) + 1) || 99) - ((pref.indexOf(b) + 1) || 99) || a.localeCompare(b)); }   /* the names come with the page, not only after a Fix */
   },
   /* "<event id>-<time>-<guess>-<score>.webp" (the event id has dashes too) */
@@ -3392,7 +3393,9 @@ const CatPics = {
     return (this.train || []).map(f => { const p = f.replace(/\.webp$/i, '').split('-'); const score = +p.pop(), guess = p.pop(), ts = +p.pop(); return { f, ts, guess, score }; })
       .sort((a, b) => b.ts - a.ts);
   },
-  drop(ids) { const s = new Set(ids); this.train = (this.train || []).filter(f => !s.has(f)); }
+  drop(ids) { const s = new Set(ids); this.train = (this.train || []).filter(f => !s.has(f)); },
+  /* 5.6.10: after filing, the lists are asked again only once she pauses (8 s), in the background */
+  later() { clearTimeout(this.lt); this.lt = setTimeout(async () => { if (this.busy) return this.later(); await this.load(); if (S.modal === 'cats' && !this.busy) render(); }, 8000); },
 };
 /* 4.9.11 her rule: the big picture is Frigate's whole snapshot of that moment (with the box around the cat / face),
    not the small cut-out the model saved; if there is no snapshot, the cut-out is shown instead */
@@ -6905,8 +6908,12 @@ const ACT = {
     let ok = 0, bad = '';
     for (const f of ids) { const r = await People.post('/api/classification/' + encodeURIComponent(CatFix.model) + '/dataset/categorize', { category: d.v, training_file: f }); if (r.ok) ok++; else bad = r.msg; }
     CatPics.busy = false; Dbg.log('cats file', d.v, ok + '/' + ids.length, bad);
+    /* 5.6.10: her 23:42 log: every filing waited for both lists to be read again from Frigate (every picture to file and
+       every filed one) and then redrew everything; the buttons were off meanwhile, so her next taps did nothing. Now the
+       filed pictures move here at once and the lists are read again in the background when she pauses. */
     CatPics.filed += ok; CatPics.drop(ids); S.ctSel = {};
-    await CatPics.load(); render(); toast(ok === ids.length ? 'Filed ' + ok + ' · Tap Train Model When Done' : 'Filed ' + ok + ' Of ' + ids.length + (bad ? ' · ' + bad : ''));
+    if (ok) { const c = CatPics.ds[d.v] = CatPics.ds[d.v] || []; ids.forEach(f => { if (!c.includes(f)) c.unshift(f); }); }   /* added at the front: the name's picture (its last file) stays the one Frigate has */
+    CatPics.later(); render(); toast(ok === ids.length ? 'Filed ' + ok + ' · Tap Train Model When Done' : 'Filed ' + ok + ' Of ' + ids.length + (bad ? ' · ' + bad : ''));
   },
   async ctdel() {
     const ids = Object.keys(S.ctSel || {}).filter(k => S.ctSel[k]); if (!ids.length || CatPics.busy) return;
