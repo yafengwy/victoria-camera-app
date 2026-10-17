@@ -2552,7 +2552,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.6.6 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.6.7 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -5899,6 +5899,52 @@ function evEnd(k) { const c = EVK[k], e = evE(k); return c && c.g ? c.g.en : (e 
    Steps less than 1 min apart join into one card (at most 10 min each); any part covered by an alert of that camera
    (2 s before to 8 s after) is cut out, so nothing shows twice. Pictures are a frame from the recording at the start,
    loaded only when scrolled to; the video loads only when played. The newest 50 show first, Load More adds 50. */
+/* 5.6.7: Motion card pictures. A card's <img> starts as a dark placeholder carrying the card's key; MoPic swaps in the
+   real picture: it asks Frigate which recording pieces exist in that stretch (a database question, no video work),
+   picks a second inside one, fetches that one picture, and keeps it in memory, so a re-drawn list shows it at once
+   with no new request. At most 2 pictures are being made at a time, only for cards on (or near) the screen. */
+const MoPic = {
+  PH: 'data:image/gif;base64,R0lGODlhAQABAIAAACEmLAAAACwAAAAAAQABAAACAkQBADs=',
+  k: {}, got: {}, q: [], busy: 0,
+  reg(id, cam, s0, s1) { if (!this.k[id]) this.k[id] = { cam, s0, s1 }; },
+  src(id) { return this.got[id] || this.PH + '#' + id; },
+  key(n) { const v = n.getAttribute(n.tagName === 'VIDEO' ? 'poster' : 'src') || ''; return v.startsWith(this.PH + '#') ? v.slice(this.PH.length + 1) : null; },
+  scan() {
+    if (Data.source !== 'frigate') return;
+    const H = innerHeight;
+    document.querySelectorAll('img[src^="data:image/gif;base64,R0lGOD"],video[poster^="data:image/gif;base64,R0lGOD"]').forEach(n => {
+      const id = this.key(n); if (!id) return;
+      if (this.got[id]) { this.put(id); return; }
+      const r = n.getBoundingClientRect(); if (!r.width || r.bottom < -H * 0.5 || r.top > H * 1.5) return;
+      if (!this.q.includes(id) && this.k[id] && !this.k[id].ask) this.q.push(id);
+    });
+    this.next();
+  },
+  put(id) { const v = this.got[id]; if (!v) return; document.querySelectorAll('img,video[poster]').forEach(n => { if (this.key(n) === id) n.setAttribute(n.tagName === 'VIDEO' ? 'poster' : 'src', v); }); },
+  async next() {
+    while (this.busy < 2 && this.q.length) {
+      const id = this.q.shift(), k = this.k[id]; if (!k || k.ask) continue; k.ask = 1; this.busy++;
+      (async () => {
+        const t0 = performance.now(); let url = null, sec = null;
+        try {
+          const rows = await Frigate.get('/api/' + k.cam + '/recordings?after=' + (k.s0 - 2) + '&before=' + (k.s1 + 2));
+          const p = (rows || []).filter(r => r.end_time > k.s0 && r.start_time < k.s1).sort((a, b) => a.start_time - b.start_time)[0];
+          if (p) { sec = Math.min(Math.max(p.start_time, k.s0) + 2, p.end_time - 0.5); sec = +sec.toFixed(1);
+            const r = await fetch(Frigate.base() + '/api/' + k.cam + '/recordings/' + sec + '/snapshot.jpg?height=240', { credentials: 'include' });
+            if (r.ok) url = URL.createObjectURL(await r.blob()); }
+        } catch (e) {}
+        const ms = Math.round(performance.now() - t0);
+        if (url) Dbg.log('motion picture', k.cam, hms(sec * 1000), ms + 'ms');
+        else Dbg.log('motion picture none', k.cam, hms(k.s0 * 1000), sec == null ? 'no recording' : 'did not load', ms + 'ms');
+        this.got[id] = url || nrImg(k.cam, k.s0 * 1000);
+        const ids = Object.keys(this.got); if (ids.length > 300) ids.slice(0, ids.length - 300).forEach(x => { if (/^blob:/.test(this.got[x])) URL.revokeObjectURL(this.got[x]); delete this.got[x]; if (this.k[x]) this.k[x].ask = 0; });
+        this.put(id); this.busy--; this.next();
+      })();
+    }
+  }
+};
+document.addEventListener('scroll', () => { clearTimeout(MoPic.st); MoPic.st = setTimeout(() => MoPic.scan(), 250); }, { passive: true, capture: true });
+setInterval(() => { if (!document.hidden) MoPic.scan(); }, 1000);   /* cards re-drawn outside render() (an alert card going back to its picture) */
 const MotionList = {
   days: {}, busy: {}, n: 50,
   key(d0) { return String(d0); },
@@ -5933,13 +5979,12 @@ const MotionList = {
     /* the 30 s motion step can begin before the first kept recording piece (only pieces with motion are kept), so a
        picture that fails is tried 10 s and 20 s later before giving up (Right Yard Back showed Picture Did Not Load) */
     const snap = x => base + '/api/' + cam + '/recordings/' + x + '/snapshot.jpg?height=240';
-    /* 5.6.3: Frigate keeps a recording piece only where something moved, and the 30 s motion step can start well before
-       the first piece (Living Room 22:52 step, first piece 22:52:25; 23:02 step, pieces only at 23:01:55 and 23:02:05):
-       all three tries (+2, +12, +22 s) missed and the card said No Recording. Now it keeps trying every 10 s, then
-       every 30 s, across the whole piece (at most 10 tries; a miss is only a quick "no recording" answer, no decode). */
-    { const offs = [2, 6, 12, 18, 22, 28, 40, 55, 85, 115].filter(o => s0 + o < s1); for (let i = 0; i + 1 < offs.length; i++) Frigate.fb[snap(s0 + offs[i])] = snap(s0 + offs[i + 1]); }
+    /* 5.6.7: the picture is fetched by MoPic (one cheap "which pieces were recorded" question, then one picture at a
+       second that was really recorded, two cards at a time, kept for re-draws). 5.6.3 tried up to 10 seconds per card,
+       all cards at once, and asked again on every re-draw: her logs showed Frigate not answering for 8 s and more. */
+    MoPic.reg('mo-' + cam + '-' + s0, cam, s0, s1);
     return { id: 'mo-' + cam + '-' + s0, motion: true, cam, t, end: en, label: 'Motion', objs: [], dets: [], who: '', logo: '', sev: 'motion', subs: [], interesting: false, zones: [],
-      img: snap(s0 + 2),
+      img: MoPic.src('mo-' + cam + '-' + s0),
       vs: s0 - 5, ve: s1 + 5, vod: base + '/vod/' + cam + '/start/' + (s0 - 5) + '/end/' + (s1 + 5) + '/index.m3u8',
       clip: base + '/api/' + cam + '/start/' + (s0 - 1) + '/end/' + (s1 + 2) + '/clip.mp4' };
   }
@@ -6367,7 +6412,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.6.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.6.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6634,7 +6679,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.6.6');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.6.7');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6651,7 +6696,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.6.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.6.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7643,6 +7688,7 @@ function wire() {
   if (S.full) wireFull();
   else if (S.focus) { FZF.wire(); FBack.fill(); }
   if (S.watch) WZ.wire();
+  setTimeout(() => MoPic.scan(), 0);   /* 5.6.7 */
   if (S.expanded && document.getElementById('track')) refreshTrack();
   if (!document.getElementById('hovtip') || S.hov) { S.hov = null; const ht = document.getElementById('hovtip'); if (ht) ht.hidden = true; }
   const trk = document.getElementById('track');
@@ -7928,7 +7974,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.6.6';
+    const BUILD = '5.6.7';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

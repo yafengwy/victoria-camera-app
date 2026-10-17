@@ -278,3 +278,8 @@ Read this first when picking the app up in a new conversation. No secrets live i
 
 ## 5.6.6 — camera view list: picture log (Front Door Motion cards empty on her iPhone)
 - Her Playback Log had no "picture failed" for those cards, so they never errored (pending or never asked). The same list works in the mock (Chromium). Added logs only: `list picture miss <cam> <time> trying next/last try`, and 10 s after the list opens `list pictures after 10 s shown X of Y · still loading N · failed N · <first src>`. Next: read her log.
+
+## 5.6.7 — Motion card pictures: one picture each, 2 at a time, kept (Frigate stopped answering)
+- Her logs (iPhone 16:13, Android 20:17): `/api/front_door/recordings` "no answer in 8 s" many times, other cameras' refresh gave up after 25 s, the version check got no answer; the camera-view list's Motion cards fired many picture tries at once (5.6.3's 10-step chain per card) and asked again on every re-draw. After the list's pictures finished, the same requests answered in ~250 ms.
+- New `MoPic`: a Motion card's img/poster starts as a dark 1×1 placeholder with `#<card id>`; MoPic asks `/api/<cam>/recordings?after&before` (database only), picks a second inside the first recorded piece (+2 s), fetches one snapshot (height 240), keeps it as a blob URL (≤300). At most 2 at a time, only cards on/near the screen; scans after render, on scroll and every 1 s. No recording → nrImg. Logs `motion picture <cam> <time> <ms>` / `motion picture none …`. The 5.6.3 fallback chain is gone.
+- t85: 8 cards → 8 snapshot requests, max 2 at once, 0 new requests after 2 re-renders. t81: gap case picks +27 s (piece starts +25).
