@@ -1917,7 +1917,9 @@ const Frigate = {
       const pets = new Set([...CatFix.names, '胖胖', '团团']), known = dets.length > 0 && dets.every(d => People.lab[d]);
       const names = [...sl.filter(x => !isLogo(x.toLowerCase()) && x.toLowerCase() !== 'unknown' && !(known && pets.has(x))), ...dets.map(d => People.sub[d]).filter(Boolean)].map(niceName);
       /* a car given its own name here (say Weee) overrides a company the model guessed (FedEx): the name is the truth */
-      if (/^car$/i.test(label) && names.length) subs = [];
+      /* 5.6.8: only when every car in it has a name. Front Door 10-16 16:07: a passing FedEx van and a parked car she had
+         named were one detection; the parked car's name wiped FedEx, so the van showed under no filter at all */
+      if (/^car$/i.test(label) && names.length && allCarsNamed(dets, d => People.sub[d])) subs = [];
       const who = [...new Set([...subs.map(coName), ...names])].join(' · ');
       return {
         id: r.id, cam: r.camera, t: r.start_time * 1000, end: (r.end_time || r.start_time) * 1000, label, objs: allObjs, dets, who, logo: subs[0] || '',
@@ -3076,6 +3078,9 @@ const CoFix = {
 function coFix(e) {
   const co = (e.dets || []).map(d => People.co[d]).find(Boolean); if (!co) return e;
   const names = String(e.who || '').split(' · ').filter(x => x && !CoFix.isCo(x) && !isLogo(x) && x !== 'Car');
+  /* 5.6.8: a parked car she fixed (Mark As Car, or a name like Weee) and a FedEx van passing in the same alert: the
+     van keeps its logo; the fixed car's name is only added */
+  if (!isLogo(co) && (e.subs || []).length && !allCarsNamed(e.dets, d => People.co[d] || People.sub[d])) { if (co !== 'Car') e.who = [...new Set([...String(e.who || '').split(' · ').filter(Boolean), co])].join(' · '); return e; }
   if (co === 'Car') { e.subs = []; e.logo = ''; e.who = names.join(' · '); e.co = ''; e.interesting = e.sev === 'alert'; return e; }   /* Just A Car */
   if (isLogo(co)) { e.subs = [co.toLowerCase()]; e.logo = co.toLowerCase(); e.who = [coName(co), ...names].join(' · '); }
   else { e.subs = []; e.logo = ''; e.who = [co, ...names].join(' · '); }
@@ -3184,9 +3189,12 @@ const CatFix = {
 };
 const hasPerson = e => !e.motion && (e.label === 'Person' || (e.objs || []).some(o => /^person$/i.test(o)));
 function isPet(e, k) { const c = k && EVK[k]; const ls = c && c.g ? c.g.ps.map(x => x.label) : (e.objs && e.objs.length ? e.objs : [e.label]); return !e.motion && Data.source === 'frigate' && !!CatFix.model && ls.some(isAnimal); }
+/* 5.6.8: a car's own name (or Mark As Car) beats a company logo only when every car in the alert has one: a named
+   parked car must not wipe the FedEx van that drove past in the same alert */
+function allCarsNamed(dets, ok) { const cars = (dets || []).filter(d => !People.lab[d] || People.lab[d] === 'car'); return !cars.length || cars.every(ok); }
 function whoOf(e) {   /* recompute the names shown on one alert after a change here */
   const names = e.dets.map(d => People.sub[d]).filter(Boolean).map(niceName);
-  if (/^car$/i.test(e.label) && names.length) { e.logo = ''; e.subs = []; }   /* its own name beats a guessed company */
+  if (/^car$/i.test(e.label) && names.length && allCarsNamed(e.dets, d => People.sub[d])) { e.logo = ''; e.subs = []; }   /* its own name beats a guessed company */
   e.who = [...new Set([...(e.logo ? [coName(e.logo)] : []), ...names])].join(' · ');
 }
 const Wait = {
