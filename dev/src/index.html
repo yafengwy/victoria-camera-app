@@ -4105,7 +4105,7 @@ function render() {
   TapLog.draws++;
   if (fullLight()) { const _t1 = performance.now(); try { fullButtons(); paintFocus(); Playback.sync(); } catch (e) { Dbg.log('script error', 'full light', String(e && e.message || e)); } const ms = Math.round(performance.now() - _t1); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', 'full'); return; }
   const _t0 = performance.now();
-  try { render0(); placeSteps(); ToTop.check(); listFit(); EvFold.run(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
+  try { render0(); placeSteps(); ToTop.check(); listFit(); EvFold.run(); Arrive.carriers(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
 }
 function render0() {
   if (S.filt.motion && S.moCtx && moCtx() !== S.moCtx) { S.filt.motion = false; S.moCtx = null; }
@@ -4626,7 +4626,7 @@ const Arrive = {
   want(evs, all) {
     if (Data.source !== 'frigate' || !evs.length) return;
     evs.forEach(e => {
-      if ((!e.interesting && !all) || !e.dets || (e.dets.length < 2 && (e.objs || []).length < 2)) return;
+      if ((!e.interesting && !all) || !e.dets || (e.dets.length < 2 && (e.objs || []).length < 2 && !(e.subs || []).length)) return;
       e.dets.slice(0, 8).forEach(d => { if (!this.det[d] && !this.asked[d]) { this.asked[d] = 1; this.q.push(d); } });
     });
     this.pump();
@@ -4668,6 +4668,11 @@ const Arrive = {
       const w = String(e.who || '').split(' · ').filter(Boolean), w2 = [...w.filter(n => !pets.has(n) || now.includes(n)), ...now.filter(n => !w.includes(n))];
       if (w2.join(' · ') !== w.join(' · ')) { Dbg.log('cat names now', e.cam, hms(e.t), w.join(',') + ' → ' + w2.join(',')); e.who = w2.join(' · '); }
     }
+    /* 5.7.4: Frigate's alert can leave an object out of its list (Front Door 10-17 18:31: objects car + amazon, but one
+       of its detections is a person with the Amazon label), so the alert hid under Person. Every real object a
+       detection has is counted for the filters. */
+    { const have = new Set((e.objs || []).map(o => String(o).toLowerCase())), add = [...new Set(xs.filter(x => !x.fp && x.l && !isAttr(x.l) && !have.has(x.l)).map(x => x.l))];
+      if (add.length) { e.objs = (e.objs || []).concat(add.map(l => l.replace(/^\w/, m => m.toUpperCase()))); Dbg.log('alert objects added', e.cam, hms(e.t), add.join(',')); } }
     const good = new Set(xs.filter(x => !x.fp).map(x => x.l)), drop = new Set(xs.filter(x => x.fp && !good.has(x.l)).map(x => x.l));
     const cars = xs.filter(x => x.l === 'car' && !x.fp), carNames = cars.map(x => x.sub).filter(n => n && !isLogo(n) && n.toLowerCase() !== 'unknown');
     if ((e.subs || []).length && (carNames.length || [...drop].some(isLogo))) e.subs.forEach(l => drop.add(l));
@@ -4679,6 +4684,12 @@ const Arrive = {
     e.who = [...new Set([...e.subs.map(coName), ...names])].join(' · ');
     e.interesting = e.sev === 'alert' || Wait.hit(e.t, e.subs) || coCam(e.cam, e.subs);
     return e;
+  },
+  /* 5.7.4: alerts with a delivery company whose objects may be incomplete are looked at even when the current filter
+     hides them (otherwise a hidden Amazon person could never show up under Person); each detection asked once */
+  carriers() {
+    if (Data.source !== 'frigate' || this.cv === Data.events) return; this.cv = Data.events;
+    this.want(Data.events.filter(e => (e.subs || []).length && (e.dets || []).length && !(e.objs || []).some(o => /^person$/i.test(o))), true);
   },
   recheck(evs) {
     if (Data.source !== 'frigate') return;
