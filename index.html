@@ -2562,7 +2562,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.7.2 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.7.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -5966,21 +5966,34 @@ const MoPic = {
     });
     this.next();
   },
+  /* 5.7.3: her log — each motion picture took 0.8–1.6 s, two at a time, and every card first asked Frigate for its own
+     list of recorded pieces. Now one list per camera per hour is asked once and shared by all that hour's cards
+     (the current hour is asked again after a minute); then only the picture itself is fetched. */
+  rc: {},
+  rec(cam, s0, s1) {
+    const h0 = Math.floor(s0 / 3600) * 3600, h1 = Math.floor(s1 / 3600) * 3600, hs = h0 === h1 ? [h0] : [h0, h1];
+    return Promise.all(hs.map(h => {
+      const key = cam + '|' + h, c = this.rc[key], live = h + 3600 > Date.now() / 1000;
+      if (c && !(live && Date.now() - c.at > 60000)) return c.p;
+      const pr = Frigate.get('/api/' + cam + '/recordings?after=' + (h - 2) + '&before=' + (h + 3602)).then(r => r || []).catch(() => { delete this.rc[key]; return []; });
+      this.rc[key] = { at: Date.now(), p: pr }; return pr;
+    })).then(a => [].concat(...a));
+  },
   put(id) { const v = this.got[id]; if (!v) return; document.querySelectorAll('img,video[poster]').forEach(n => { if (this.key(n) === id) n.setAttribute(n.tagName === 'VIDEO' ? 'poster' : 'src', v); }); },
   async next() {
     while (this.busy < 2 && this.q.length) {
       const id = this.q.shift(), k = this.k[id]; if (!k || k.ask) continue; k.ask = 1; this.busy++;
       (async () => {
-        const t0 = performance.now(); let url = null, sec = null;
+        const t0 = performance.now(); let url = null, sec = null, t1 = t0;
         try {
-          const rows = await Frigate.get('/api/' + k.cam + '/recordings?after=' + (k.s0 - 2) + '&before=' + (k.s1 + 2));
+          const rows = await this.rec(k.cam, k.s0, k.s1); t1 = performance.now();
           const p = (rows || []).filter(r => r.end_time > k.s0 && r.start_time < k.s1).sort((a, b) => a.start_time - b.start_time)[0];
           if (p) { sec = Math.min(Math.max(p.start_time, k.s0) + 2, p.end_time - 0.5); sec = +sec.toFixed(1);
             const r = await fetch(Frigate.base() + '/api/' + k.cam + '/recordings/' + sec + '/snapshot.jpg?height=240', { credentials: 'include' });
             if (r.ok) url = URL.createObjectURL(await r.blob()); }
         } catch (e) {}
         const ms = Math.round(performance.now() - t0);
-        if (url) Dbg.log('motion picture', k.cam, hms(sec * 1000), ms + 'ms');
+        if (url) Dbg.log('motion picture', k.cam, hms(sec * 1000), ms + 'ms', 'list ' + Math.round(t1 - t0) + 'ms');
         else Dbg.log('motion picture none', k.cam, hms(k.s0 * 1000), sec == null ? 'no recording' : 'did not load', ms + 'ms');
         this.got[id] = url || nrImg(k.cam, k.s0 * 1000);
         const ids = Object.keys(this.got); if (ids.length > 300) ids.slice(0, ids.length - 300).forEach(x => { if (/^blob:/.test(this.got[x])) URL.revokeObjectURL(this.got[x]); delete this.got[x]; if (this.k[x]) this.k[x].ask = 0; });
@@ -6459,7 +6472,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.7.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.7.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6733,7 +6746,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.7.2');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.7.3');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6750,7 +6763,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.7.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.7.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -8032,7 +8045,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.7.2';
+    const BUILD = '5.7.3';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

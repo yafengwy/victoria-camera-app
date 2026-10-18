@@ -322,3 +322,9 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 - Card bars (list cards and the big card) now put Fix / Who? / Review / Download / Delete / Mute in `<span class="evx">`; Play stays outside. `EvFold.run()` (after render, every 1 s for cards re-drawn outside render, on resize/fonts) measures each bar with the buttons shown; if the title would be cut, the bar gets `.fold`: only a small "‹" and Play show. Each bar is measured once until its width or title changes.
 - Swipe the bar left → `.open` (buttons show, title may be cut while open); swipe right or 6 s later → folded again. Only one bar open at a time. Computer: hovering a folded bar shows the buttons.
 - t91: 330 px folds, swipe left opens, right closes, closes itself after 6 s; 393 / 600 px never fold. Regression set + t90 pass.
+
+## 5.7.3 — Motion card pictures: one recordings list per camera-hour
+- Her 21:06 log (computer, Motion on): each "motion picture" 0.8–1.6 s, two at a time; every card first asked /api/<cam>/recordings for its own few seconds, then the snapshot.
+- `MoPic.rec(cam, s0, s1)` asks /recordings once per camera per clock hour (current hour re-asked after 60 s) and shares it; the log now shows "list N ms" so the split is measurable. Still 2 pictures at a time (no extra mini PC load; fewer database queries).
+- t92: 10 cards in 3 hours → 3 list requests (was 10), 10 pictures. Regression ok.
+- 10-17 evening findings: Amazon 18:32:20 was saved on Front Door (person, sub label amazon, 0.96, front_porch); the doorbell recorded 0 s in every window checked (18:28–19:49) — doorbell feed down again after the 16:00 restart. Far people across the street: Front Door caught several at 0.07–0.14% of frame (0.60–0.79) 19:02–19:03; 19:24–19:29 and 19:42–19:49 nothing saved though motion recorded. Driveway detects on 704×480 with min_initialized 5 (Front Door 1200×536, 2).
