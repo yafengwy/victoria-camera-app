@@ -316,3 +316,9 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 - Review two-row bar (420–899 px wide): the Objects chip moved from the top row (it sat above the camera chips) to the end of the camera chip row: All Cameras · Outside Only · Inside Only · Choose · Objects. Opens under itself.
 - Already in order and unchanged: Review one-row (computer), Review compact icons, Review cover row, Alerts one-row (computer), Alerts cover strip.
 - t90: phone Alerts cam x12 / obj x182; tablet Review Objects after Choose, not in the top bar; computer Review and Alerts cam left of obj. Regression t38 t40 t42 t53 t61 t66 t67 t70 pass.
+
+## 5.7.2 — Alert cards: buttons fold away when the title would be cut off
+- Her screenshot (phone, HA pop-up ~330 px): "Person At 1…" was cut by Who? · Review · Download · Delete · Mute · Play.
+- Card bars (list cards and the big card) now put Fix / Who? / Review / Download / Delete / Mute in `<span class="evx">`; Play stays outside. `EvFold.run()` (after render, every 1 s for cards re-drawn outside render, on resize/fonts) measures each bar with the buttons shown; if the title would be cut, the bar gets `.fold`: only a small "‹" and Play show. Each bar is measured once until its width or title changes.
+- Swipe the bar left → `.open` (buttons show, title may be cut while open); swipe right or 6 s later → folded again. Only one bar open at a time. Computer: hovering a folded bar shows the buttons.
+- t91: 330 px folds, swipe left opens, right closes, closes itself after 6 s; 393 / 600 px never fold. Regression set + t90 pass.

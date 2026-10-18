@@ -1584,6 +1584,13 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .evh .whob:active{background:var(--track)}
 .evcard .evh .ic,.evh .ic{width:23px}
 .evcard .evh{padding-right:6px}
+/* 5.7.2 her design: when the title (… At 19:05:12) would be cut off, Fix / Who? / Review / Download / Delete / Mute
+   tuck away behind the Play button; swipe the bar left to show them, right (or wait) to tuck them back */
+.evh .evx{display:flex;align-items:center;flex-shrink:0}
+.evh.fold:not(.open) .evx{display:none}
+.evh.fold:not(.open) .ic[data-act="evplay"]{position:relative;width:34px}
+.evh.fold:not(.open) .ic[data-act="evplay"]::before{content:'';position:absolute;left:3px;top:50%;width:6px;height:6px;margin-top:-3px;border-left:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);opacity:.45}
+@media (hover:hover) and (pointer:fine){.evh.fold:hover .evx{display:flex}}
 .evwin{display:flex;align-items:center;gap:10px;margin:6px 12px 2px;padding:8px 8px 8px 12px;border-radius:14px;background:var(--chip);color:var(--head-fg);font-size:13px;font-weight:700}
 .evwin span{flex:1;min-width:0}
 .evwin b{font-weight:800}
@@ -2555,7 +2562,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.7.1 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.7.2 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4066,13 +4073,39 @@ function listFit() {
   if (listFit.h !== h) { listFit.h = h; document.documentElement.style.setProperty('--lth', h + 'px'); }
 }
 window.addEventListener('resize', () => listFit());
+/* 5.7.2: alert card bars — fold the buttons when the title would be cut off (measured with them shown) */
+const EvFold = {
+  run(force) {
+    document.querySelectorAll('.evcard .evh').forEach(h => {
+      const t = h.querySelector('.evt'); if (!t || !h.querySelector('.evx')) return;
+      const w = h.clientWidth, key = w + '|' + t.textContent; if (!force && h._fk === key) return; h._fk = key;   /* each bar measured once until its width or title changes */
+      const was = h.classList.contains('fold'); h.classList.remove('fold');
+      const cut = t.scrollWidth > t.clientWidth + 1;
+      if (cut) h.classList.add('fold'); else h.classList.remove('open');
+      if (cut !== was && !EvFold.logged) { EvFold.logged = 1; Dbg.log('alert bar fold', cut, t.scrollWidth, t.clientWidth); }
+    });
+  },
+  open(h) { document.querySelectorAll('.evh.open').forEach(o => { if (o !== h) o.classList.remove('open'); }); h.classList.add('open'); clearTimeout(this.tm); this.tm = setTimeout(() => h.classList.remove('open'), 6000); },
+  close(h) { h.classList.remove('open'); clearTimeout(this.tm); }
+};
+window.addEventListener('resize', () => { clearTimeout(EvFold.rt); EvFold.rt = setTimeout(() => EvFold.run(true), 150); });
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => EvFold.run(true));
+(function () {
+  let g = null;
+  document.addEventListener('touchstart', e => { const h = e.touches.length === 1 && e.target.closest && e.target.closest('.evh.fold'); g = h ? { h, x: e.touches[0].clientX, y: e.touches[0].clientY } : null; }, { passive: true });
+  document.addEventListener('touchend', e => {
+    if (!g) return; const t = e.changedTouches[0], dx = t.clientX - g.x, dy = t.clientY - g.y, h = g.h; g = null;
+    if (Math.abs(dx) < 30 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    if (dx < 0) EvFold.open(h); else EvFold.close(h);
+  }, { passive: true });
+})();
 document.addEventListener('scroll', () => ToTop.check(), { capture: true, passive: true });
 window.addEventListener('resize', () => ToTop.check());
 function render() {
   TapLog.draws++;
   if (fullLight()) { const _t1 = performance.now(); try { fullButtons(); paintFocus(); Playback.sync(); } catch (e) { Dbg.log('script error', 'full light', String(e && e.message || e)); } const ms = Math.round(performance.now() - _t1); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', 'full'); return; }
   const _t0 = performance.now();
-  try { render0(); placeSteps(); ToTop.check(); listFit(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
+  try { render0(); placeSteps(); ToTop.check(); listFit(); EvFold.run(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
 }
 function render0() {
   if (S.filt.motion && S.moCtx && moCtx() !== S.moCtx) { S.filt.motion = false; S.moCtx = null; }
@@ -4832,7 +4865,7 @@ function viewEvents() {
     h += '<div class="evwrap wide"><div class="evplayer" id="evplayer">';
     if (sel) {
       const sc = Data.cam(sel.cam), sp = evP(sk, f);
-      h += '<article class="evcard big' + (sel.interesting || sel.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + (sel.motion ? '<i class="modot"></i>Motion' : '<i class="lico">' + objIcon(ico(sel, sp)) + '</i>' + ttlHtml(sk, sc0.g ? labGroup(sc0.g) : labAll(sel, sp, f))) + ' At ' + hms(sp.t) + '</b></div>' +
+      h += '<article class="evcard big' + (sel.interesting || sel.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + (sel.motion ? '<i class="modot"></i>Motion' : '<i class="lico">' + objIcon(ico(sel, sp)) + '</i>' + ttlHtml(sk, sc0.g ? labGroup(sc0.g) : labAll(sel, sp, f))) + ' At ' + hms(sp.t) + '</b></div><span class="evx">' +
         (isPet(sel, sk) ? '<button class="whob" data-act="fixopen" data-v="' + esc(sk) + '">Fix</button>' : (coOf(sel) && Data.source === 'frigate' && !sel.motion) || hasPkg(sel) ? '<button class="whob" data-act="cofixopen" data-v="' + esc(sk) + '">Fix</button>' : '') +
         (hasPerson(sel) && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(sel.id) + '">' + (sel.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         /* 5.1.10 (her choice): Review at this moment instead of Open Camera (a double tap on the picture already opens it) */
@@ -4840,7 +4873,7 @@ function viewEvents() {
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(sk) + '">' + I.dl + '</button>' +
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(sk) + '">' + I.trash + '</button>' : '') +
         (Data.source === 'frigate' ? EvSnd.btn() : '') +   /* 5.4.8 her order: Fix · Review · Download · Delete · Mute · Play */
-        '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(sk) + '">' + (S.evPlay === sk && !evPaused(sk) ? I.pause : I.playO) + '</button></div>' +
+        '</span><button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(sk) + '">' + (S.evPlay === sk && !evPaused(sk) ? I.pause : I.playO) + '</button></div>' +
         '<div class="evmedia' + (sel.cam === 'nest_doorbell' ? ' door' : '') + ctlOn('ev~' + sk) + '" id="evm-' + esc(sk) + '" data-act="evtap" data-v="' + esc(sk) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(sel, sp)) + ' At ' + hms(sp.t) + ' Full Screen">' + evMedia(sel, sk) + '</div></article>';
     } else h += '<div class="empty">No alerts on this day with the current filters.</div>';
     h += '</div><div class="evlist">';
@@ -4858,14 +4891,14 @@ function viewEvents() {
           '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(k) + '">' + I.dl + '</button></article>';
         return;
       }
-      h += '<article class="evcard' + (e.interesting || e.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + icn + (e.motion ? esc(ttl) : ttlHtml(k, ttl)) + ' At ' + hms(p.t) + '</b></div>' +
+      h += '<article class="evcard' + (e.interesting || e.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + icn + (e.motion ? esc(ttl) : ttlHtml(k, ttl)) + ' At ' + hms(p.t) + '</b></div><span class="evx">' +
         (isPet(e, k) ? '<button class="whob" data-act="fixopen" data-v="' + esc(k) + '">Fix</button>' : (coOf(e) && Data.source === 'frigate' && !e.motion) || hasPkg(e) ? '<button class="whob" data-act="cofixopen" data-v="' + esc(k) + '">Fix</button>' : '') +
         (hasPerson(e) && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="All Cameras At This Time" data-act="evreview" data-v="' + esc(k) + '">' + I.review + '</button>' +
         '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(k) + '">' + I.dl + '</button>' +
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(k) + '">' + I.trash + '</button>' : '') +
         (Data.source === 'frigate' ? EvSnd.btn() : '') +   /* 5.4.8 her order: Fix · Review · Download · Delete · Mute · Play */
-        '<button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(k) + '">' + (S.evPlay === k && !evPaused(k) ? I.pause : I.playO) + '</button>' +
+        '</span><button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(k) + '">' + (S.evPlay === k && !evPaused(k) ? I.pause : I.playO) + '</button>' +
 '</div>' +
         '<div class="evmedia' + (e.cam === 'nest_doorbell' ? ' door' : '') + ctlOn('ev~' + k) + '" id="evm-' + esc(k) + '" data-act="evtap" data-v="' + esc(k) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(e, p)) + ' At ' + hms(p.t) + ' Full Screen">' + evMedia(e, k) + '</div></article>';
     });
@@ -5957,7 +5990,7 @@ const MoPic = {
   }
 };
 document.addEventListener('scroll', () => { clearTimeout(MoPic.st); MoPic.st = setTimeout(() => MoPic.scan(), 250); }, { passive: true, capture: true });
-setInterval(() => { if (!document.hidden) MoPic.scan(); }, 1000);   /* cards re-drawn outside render() (an alert card going back to its picture) */
+setInterval(() => { if (!document.hidden) { MoPic.scan(); EvFold.run(); } }, 1000);   /* cards re-drawn outside render() (an alert card going back to its picture) */
 const MotionList = {
   days: {}, busy: {}, n: 50,
   key(d0) { return String(d0); },
@@ -6426,7 +6459,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.7.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.7.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6700,7 +6733,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.7.1');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.7.2');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6717,7 +6750,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.7.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.7.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7999,7 +8032,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.7.1';
+    const BUILD = '5.7.2';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
