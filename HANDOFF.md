@@ -385,3 +385,9 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 - Added as "Or Just · Send To Frigate+" (value '^plus') in all three dialogs: Who? (person), Fix (cats), Fix (companies/packages). Teach checkboxes hide when it is picked.
 - plusOnly(k, e): one detection (evP's d, else first det), POST /api/events/<id>/plus {include_annotation:1}; Once.plus rule kept; People.sent prevents repeats ("Already Sent To Frigate+"); Frigate's refusal reason is shown in the toast.
 - Test t105.
+
+## 5.8.4 (2026-10-18) Settings → Frigate+ → Pick Person Pictures
+- Why: Frigate+ support said her training set had ~20 person pictures among ~95% cats; aim ~80. She already added ~20 (far/near middle), so this picks 40.
+- Her rules: Front Door + Driveway only; all tracked persons (alerts and detections) last 30 days via /api/events?labels=person&has_snapshot=1; 70% box centre in the outer 20% (left/right half each), 30% elsewhere (middle last); day/night half each (sun elevation > -3° at 33.68,-117.8); far (box area < 0.6%) first; spread over days; none within 10 min on the same camera; skips false_positive, plus_id, already sent.
+- Page: summary, view chips, grid of snapshots (bbox=1), tap to leave out, Send N (one by one POST /plus include_annotation), result + refusal reason. Settings button (she preferred Settings over the … menu since it is rarely used).
+- Tests t106 (picks 14/14/12, 20 day, skips fp/plus, 39 sent with 1 refused), t106s (4 themes).
