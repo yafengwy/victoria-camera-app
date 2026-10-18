@@ -1846,7 +1846,11 @@ const Frigate = {
     const page = async (after, before, n) => { const rows = await this.get('/api/review?limit=2000&after=' + after + (before ? '&before=' + before : ''));
       if (rows.length >= 2000 && n < 10) { const old = Math.floor(Math.min(...rows.map(r => r.start_time))); const ids = new Set(rows.map(r => r.id)); return rows.concat((await page(after, old + 1, n + 1)).filter(r => !ids.has(r.id))); } return rows; };
     const subsP = People.loadSubs(), revP = page(Math.floor(this.from / 1000), 0, 0);
-    Data.evReady = Promise.all([subsP, revP]).then(([, rows]) => { Data.events = this.mapReviews(rows); Dbg.log('start alerts ready', Data.events.length, (Date.now() - t0) + 'ms'); })
+    Data.evReady = Promise.all([subsP, revP]).then(([, rows]) => {
+      /* 5.8.1: older days read before the week arrived (her log 00:05:13: "older alerts 2344 from 10/07", then
+         "start alerts ready" replaced the list, so Oct 8–10 showed 0 and were never read again) are kept */
+      const fresh = this.mapReviews(rows), ids = new Set(fresh.map(e => e.id)), kept = (Data.events || []).filter(e => !ids.has(e.id) && !/^recent-/.test(e.id));
+      Data.events = fresh.concat(kept).sort((x, y) => y.t - x.t); Dbg.log('start alerts ready', fresh.length, 'kept older', kept.length, (Date.now() - t0) + 'ms'); })
       .catch(e => Dbg.log('start alerts failed', e && e.message));
     const cfg = await this.get('/api/config');
     Dbg.log('start config ready', (Date.now() - t0) + 'ms');
@@ -1904,6 +1908,7 @@ const Frigate = {
     const a = Math.max(dayStart(t), dayStart(now()) - (KEEP_DAYS - 1) * DAY); if (a >= this.from) return;
     this.backBusy = true; const t0 = Date.now();
     try {
+      if (Data.evReady) await Data.evReady.catch(() => {});   /* 5.8.1: the week first, then older days */
       let rows = await this.get('/api/review?limit=5000&after=' + Math.floor(a / 1000) + '&before=' + Math.floor(this.from / 1000));
       if (rows.length >= 5000) { const old = Math.floor(Math.min(...rows.map(r => r.start_time))); const ids = new Set(rows.map(r => r.id)); rows = rows.concat((await this.get('/api/review?limit=5000&after=' + Math.floor(a / 1000) + '&before=' + (old + 1))).filter(r => !ids.has(r.id))); }
       const fresh = this.mapReviews(rows);

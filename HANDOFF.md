@@ -367,3 +367,7 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 
 ## 5.7.10 — Day numbers count Motion when Motion is ticked
 - Her screenshot: Oct 8 showed 0 while its list was full of Motion cards. With Motion ticked, a day's number is alerts + that day's motion pieces (cameras switched off in the filter excluded); a day whose motion is not read yet shows "·" when it has no alerts. t102: today shows 10 (10 motion pieces, 0 alerts).
+
+## 5.8.1 — Older days were wiped by the week's alerts arriving later
+- Frigate has 10-04…10-10 review items (115–236 alerts, 330–548 detections a day); 10-04…10-06 recordings were deleted by the emergency cleanup (oldest recording day 10-07), the review rows stay.
+- Her log 00:05: "older alerts 2344 from 10/07" (Alerts page reopened on an older day) came 170 ms before "start alerts ready 2920", which replaced Data.events; Frigate.from had already moved to 10-07, so Oct 8–10 showed 0 and were never read again. Now the start merges (keeps alerts it did not read; log "kept older N") and `back()` waits for Data.evReady first. t103: week answer delayed 2.5 s, opened on day 9 → days 8 and 9 have their alerts.
