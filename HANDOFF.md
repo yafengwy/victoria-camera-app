@@ -361,3 +361,6 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 
 ## 5.7.8 — Alerts day row stops at the oldest recorded day
 - Her rule: not always 30 day chips; only back to the oldest day that still has recordings. `RecFirst.load()` asks every camera's /recordings/summary (3 at a time, once an hour) and keeps the oldest day; until known the row shows 7 days; a day jumped to (an old alert) always shows. t100: oldest 9 days back → 10 chips.
+
+## 5.7.9 — Day row never hides a day that has something
+- Her worry (10-11/10-12 looked empty but were not): RecFirst now asks /recordings/summary with her time zone; if any camera does not answer, the oldest day is "unknown" and all 30 days stay (retry in 5 min); the oldest alert already in the app also counts; before the answer all 30 days show. t100: 10 chips; t101 (one camera fails): 30 chips.

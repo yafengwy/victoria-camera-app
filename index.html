@@ -2575,7 +2575,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.7.8 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.7.9 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4858,7 +4858,7 @@ function viewEvents() {
   /* 5.2.2: 30 days; a day not read yet shows no count until it is opened */
   /* 5.7.8 her rule: the day row goes back only to the oldest day that still has recordings (not always 30 days) */
   RecFirst.load(); if (S.evDay >= KEEP_DAYS) S.evDay = 0;
-  const lastI = Math.max(S.evDay, Data.source !== 'frigate' ? KEEP_DAYS - 1 : RecFirst.d0 == null ? 6 : Math.max(0, Math.min(KEEP_DAYS - 1, Math.round((today - RecFirst.d0) / DAY))));   /* a day jumped to (an old alert) always shows */
+  const lastI = Math.max(S.evDay, Data.source !== 'frigate' ? KEEP_DAYS - 1 : RecFirst.d0 == null ? KEEP_DAYS - 1 : Math.max(0, Math.min(KEEP_DAYS - 1, Math.round((today - RecFirst.d0) / DAY))));   /* a day jumped to (an old alert) always shows */
   for (let i = 0; i <= lastI; i++) { const d0 = today - i * DAY; days.push({ i, d0, n: d0 + DAY <= Frigate.from && Data.source === 'frigate' ? null : visible.filter(e => e.t >= d0 && e.t < d0 + DAY).length }); }
   const d0 = days[S.evDay].d0; if (!S.evWin && d0 < Frigate.from) Frigate.back(d0);
   if (S.evWin && S.view !== 'events') S.evWin = null;
@@ -5083,11 +5083,15 @@ const RecFirst = {
   d0: null, at: 0, busy: false,
   async load() {
     if (Data.source !== 'frigate' || this.busy || Date.now() - this.at < HOUR || !Data.cams.length) return; this.busy = true; this.at = Date.now();
-    let first = null, i = 0; const cams = Data.cams.map(c => c.id);
+    /* never hide a day that has something: days are asked in her time zone, any camera that does not answer means
+       "unknown" (all 30 days stay), and a day with an alert already in the app always counts */
+    let first = null, i = 0, failed = 0; const cams = Data.cams.map(c => c.id), tz = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles');
     const one = async () => { while (i < cams.length) { const id = cams[i++];
-      try { const d = ((await Frigate.get('/api/' + id + '/recordings/summary')) || []).map(r => r.day).filter(Boolean).sort()[0]; if (d && (!first || d < first)) first = d; } catch (e) {} } };
+      try { const d = ((await Frigate.get('/api/' + id + '/recordings/summary?timezone=' + tz)) || []).map(r => r.day).filter(Boolean).sort()[0]; if (d && (!first || d < first)) first = d; } catch (e) { failed++; } } };
     await Promise.all([one(), one(), one()]); this.busy = false;
-    if (!first) return; const [y, m, dd] = first.split('-').map(Number), d0 = new Date(y, m - 1, dd).getTime();
+    if (failed) { Dbg.log('oldest recording day unknown', failed, 'cameras did not answer'); this.at = Date.now() - HOUR + 5 * MIN; return; }
+    if (!first) return; const [y, m, dd] = first.split('-').map(Number);
+    const ev = (Data.events || []).filter(e => !e.motion).reduce((x, e) => Math.min(x, e.t), Infinity), d0 = Math.min(new Date(y, m - 1, dd).getTime(), dayStart(ev));
     if (d0 !== this.d0) { this.d0 = d0; Dbg.log('oldest recording day', first); if (S.view === 'events' && !S.modal && !S.evPlay) render(); }
   }
 };
@@ -6517,7 +6521,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.7.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.7.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6791,7 +6795,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.7.8');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.7.9');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6808,7 +6812,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.7.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.7.9\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -8090,7 +8094,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.7.8';
+    const BUILD = '5.7.9';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
