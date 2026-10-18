@@ -1742,7 +1742,10 @@ function objGroupChips(f, act) {
 /* object names on screen: "garbage_truck" → "Garbage Truck" (the value itself stays as Frigate writes it) */
 const objName = o => String(o).replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase());
 /* an alert counts for an object filter by its object, or by the delivery company on that car */
-const objHit = (f, e) => objOn(f, e.label) || (!!e.objs && e.objs.some(o => objOn(f, o))) || (!!e.logo && objOn(f, coName(e.logo)));
+/* 5.7.5 her rule: a moving bicycle or motorcycle always has someone riding it, so it also counts for Person */
+const RIDDEN = /^(bicycle|motorcycle)$/i;
+const objHit = (f, e) => objOn(f, e.label) || (!!e.objs && e.objs.some(o => objOn(f, o))) || (!!e.logo && objOn(f, coName(e.logo))) ||
+  ((RIDDEN.test(e.label) || (e.objs || []).some(o => RIDDEN.test(o))) && OBJS().some(o => /^person$/i.test(o) && objOn(f, o)));
 function OBJS() {
   const set = new Set(Data.source === 'frigate' && Data.objs && Data.objs.length ? Data.objs : OBJECTS);
   if (Data.source === 'frigate' && Data.logos) WAIT_CO.forEach(c => set.add(c[1]));   /* delivery companies, picked on their own */
@@ -2562,7 +2565,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.7.4 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.7.5 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4638,7 +4641,9 @@ const Arrive = {
     while (this.busy < 3 && this.q.length) {
       const d = this.q.shift(); this.busy++;
       Frigate.get('/api/events/' + encodeURIComponent(d)).then(r => { if (r) { this.det[d] = this.row(r); this.got++; } }).catch(() => {})
-        .finally(() => { this.busy--; this.pump(); if (!this.q.length && !this.busy && this.got) { this.got = 0; Data.events.forEach(e => this.fix(e)); this.redraw(); } });
+        .finally(() => { this.busy--; this.pump(); if (!this.q.length && !this.busy && this.got) { this.got = 0; this.grew = 0; Data.events.forEach(e => this.fix(e)); this.redraw();
+          /* an alert that turned out to hold a person (or another object) now matches more filters: show it (5.7.5) */
+          if (this.grew && S.view === 'events' && !S.modal && !S.evPlay && !S.filtersOpen) render(); } });
     }
   },
   row(r) { const sb = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label; return { id: r.id, l: String(r.label || '').toLowerCase(), t: r.start_time * 1000, en: r.end_time ? r.end_time * 1000 : null, sub: sb ? String(sb) : '', fp: !!r.false_positive, z: r.zones || [] }; },
@@ -4672,7 +4677,7 @@ const Arrive = {
        of its detections is a person with the Amazon label), so the alert hid under Person. Every real object a
        detection has is counted for the filters. */
     { const have = new Set((e.objs || []).map(o => String(o).toLowerCase())), add = [...new Set(xs.filter(x => !x.fp && x.l && !isAttr(x.l) && !have.has(x.l)).map(x => x.l))];
-      if (add.length) { e.objs = (e.objs || []).concat(add.map(l => l.replace(/^\w/, m => m.toUpperCase()))); Dbg.log('alert objects added', e.cam, hms(e.t), add.join(',')); } }
+      if (add.length) { e.objs = (e.objs || []).concat(add.map(l => l.replace(/^\w/, m => m.toUpperCase()))); Dbg.log('alert objects added', e.cam, hms(e.t), add.join(',')); this.grew = 1; } }
     const good = new Set(xs.filter(x => !x.fp).map(x => x.l)), drop = new Set(xs.filter(x => x.fp && !good.has(x.l)).map(x => x.l));
     const cars = xs.filter(x => x.l === 'car' && !x.fp), carNames = cars.map(x => x.sub).filter(n => n && !isLogo(n) && n.toLowerCase() !== 'unknown');
     if ((e.subs || []).length && (carNames.length || [...drop].some(isLogo))) e.subs.forEach(l => drop.add(l));
@@ -6483,7 +6488,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.7.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.7.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6757,7 +6762,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.7.4');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.7.5');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6774,7 +6779,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.7.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.7.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -8056,7 +8061,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.7.4';
+    const BUILD = '5.7.5';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

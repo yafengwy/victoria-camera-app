@@ -1742,7 +1742,10 @@ function objGroupChips(f, act) {
 /* object names on screen: "garbage_truck" → "Garbage Truck" (the value itself stays as Frigate writes it) */
 const objName = o => String(o).replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase());
 /* an alert counts for an object filter by its object, or by the delivery company on that car */
-const objHit = (f, e) => objOn(f, e.label) || (!!e.objs && e.objs.some(o => objOn(f, o))) || (!!e.logo && objOn(f, coName(e.logo)));
+/* 5.7.5 her rule: a moving bicycle or motorcycle always has someone riding it, so it also counts for Person */
+const RIDDEN = /^(bicycle|motorcycle)$/i;
+const objHit = (f, e) => objOn(f, e.label) || (!!e.objs && e.objs.some(o => objOn(f, o))) || (!!e.logo && objOn(f, coName(e.logo))) ||
+  ((RIDDEN.test(e.label) || (e.objs || []).some(o => RIDDEN.test(o))) && OBJS().some(o => /^person$/i.test(o) && objOn(f, o)));
 function OBJS() {
   const set = new Set(Data.source === 'frigate' && Data.objs && Data.objs.length ? Data.objs : OBJECTS);
   if (Data.source === 'frigate' && Data.logos) WAIT_CO.forEach(c => set.add(c[1]));   /* delivery companies, picked on their own */
@@ -4638,7 +4641,9 @@ const Arrive = {
     while (this.busy < 3 && this.q.length) {
       const d = this.q.shift(); this.busy++;
       Frigate.get('/api/events/' + encodeURIComponent(d)).then(r => { if (r) { this.det[d] = this.row(r); this.got++; } }).catch(() => {})
-        .finally(() => { this.busy--; this.pump(); if (!this.q.length && !this.busy && this.got) { this.got = 0; Data.events.forEach(e => this.fix(e)); this.redraw(); } });
+        .finally(() => { this.busy--; this.pump(); if (!this.q.length && !this.busy && this.got) { this.got = 0; this.grew = 0; Data.events.forEach(e => this.fix(e)); this.redraw();
+          /* an alert that turned out to hold a person (or another object) now matches more filters: show it (5.7.5) */
+          if (this.grew && S.view === 'events' && !S.modal && !S.evPlay && !S.filtersOpen) render(); } });
     }
   },
   row(r) { const sb = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label; return { id: r.id, l: String(r.label || '').toLowerCase(), t: r.start_time * 1000, en: r.end_time ? r.end_time * 1000 : null, sub: sb ? String(sb) : '', fp: !!r.false_positive, z: r.zones || [] }; },
@@ -4672,7 +4677,7 @@ const Arrive = {
        of its detections is a person with the Amazon label), so the alert hid under Person. Every real object a
        detection has is counted for the filters. */
     { const have = new Set((e.objs || []).map(o => String(o).toLowerCase())), add = [...new Set(xs.filter(x => !x.fp && x.l && !isAttr(x.l) && !have.has(x.l)).map(x => x.l))];
-      if (add.length) { e.objs = (e.objs || []).concat(add.map(l => l.replace(/^\w/, m => m.toUpperCase()))); Dbg.log('alert objects added', e.cam, hms(e.t), add.join(',')); } }
+      if (add.length) { e.objs = (e.objs || []).concat(add.map(l => l.replace(/^\w/, m => m.toUpperCase()))); Dbg.log('alert objects added', e.cam, hms(e.t), add.join(',')); this.grew = 1; } }
     const good = new Set(xs.filter(x => !x.fp).map(x => x.l)), drop = new Set(xs.filter(x => x.fp && !good.has(x.l)).map(x => x.l));
     const cars = xs.filter(x => x.l === 'car' && !x.fp), carNames = cars.map(x => x.sub).filter(n => n && !isLogo(n) && n.toLowerCase() !== 'unknown');
     if ((e.subs || []).length && (carNames.length || [...drop].some(isLogo))) e.subs.forEach(l => drop.add(l));
