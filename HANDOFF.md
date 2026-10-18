@@ -340,3 +340,8 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 - Her rule: a moving bicycle or motorcycle always has a rider → `objHit` counts Bicycle / Motorcycle alerts under Person (only when Person is picked). No mini PC load (app-side filter).
 - t95 / t96 (no manual render): Person-only shows Car+Amazon-person alert, an Amazon-only alert, and a Bicycle alert; a plain car stays out.
 - She set Driveway Detect FPS to 3 (Front Door matters most). Load 10-17 21:29: load average 8.4 on 12 threads; detector (OpenVINO) 23 ms; Front Door ffmpeg 5.5 % (sub stream); ffmpeg processes software-decode (hwaccel_args []).
+
+## 5.7.6 — Person shows every delivery alert with a person, at once
+- She still did not see the 18:31 Amazon alert under Person on 5.7.5 (bicycles fine). Possible cause visible in code: `Arrive.pump` waits while any video is loading (the computer's Alerts page auto-plays the selected alert), so the detection answers can be held back; now logged once as "alert objects wait: a video is loading".
+- `objHit`: with Person picked, an alert with a delivery company shows while its detections are unknown, and stays if any detection is a person; a delivery car with no person drops out once known. t97: before answers both Amazon and UPS-van alerts show; after, only the Amazon one with a person. t96 still ok.
+- Driveway: she set Minimum initialization frames 3, Detect FPS back to 5. Front Door main stream is 3632×1632 @20 fps (sub 1200×536).
