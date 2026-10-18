@@ -404,3 +404,6 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 - Carriers = car/person events whose sub_label (or label) is a delivery company; query asks labels car,person then filters.
 - Picks remembered (homecams.ppsel; first time Front Door + Driveway, Person). Frigate is read again only when the page opens or a list closes with a change.
 - Settings button renamed Pick Pictures. Test t108p (t106/t107p were for 5.8.4/5.8.5 and are superseded).
+
+## 5.8.7 (2026-10-18) Pictures For Frigate+: Select
+- "Already Sent Ones Skipped" removed; in its place one word, Select: boxed = all ticked; tap = none; tap again = all. Test t109p.

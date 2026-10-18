@@ -870,6 +870,7 @@ input,select,textarea{font-size:16px}
 .ppi{display:flex;align-items:center;gap:9px;width:100%;background:none;border:0;color:var(--text);font:inherit;font-size:13px;padding:7px 12px;text-align:left}
 .ppi .box{width:16px;height:16px;border:1.5px solid var(--sub);border-radius:4px;display:flex;align-items:center;justify-content:center}.ppi[aria-pressed="true"] .box{background:var(--strong);border-color:var(--strong);color:var(--strong-fg)}.ppi .box svg{width:12px;height:12px}
 .ppdone{width:100%;margin:0 0 10px;font-size:13px;padding:7px;min-height:0}
+.ppall{font:inherit;font-size:12px;font-weight:600;color:var(--text);background:none;border:1px solid transparent;border-radius:6px;padding:0 6px;margin-left:2px}.ppall[aria-pressed="true"]{border-color:var(--strong);color:var(--strong)}
 .ppsum{font-size:12px;color:var(--sub);margin:0 2px 8px;line-height:1.5}.ppsum b{color:var(--text);font-weight:600}
 .ppchips{display:flex;gap:5px;flex-wrap:wrap;margin:0 0 10px}.ppchips .chip.sm{font-size:12px;font-weight:500;padding:3px 9px;min-height:0;height:auto;line-height:1.5}
 .ppgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;padding-bottom:6px}
@@ -3121,7 +3122,7 @@ function modalPPlus() {
   if (!P.picked.length) return h + 'Nothing Left To Send In The Last 30 Days.</div></div></div></div>';
   const ps = P.picked, cnt = f => ps.filter(f).length, D = cnt(c => c.day);
   const areaN = P.AREAS.slice(0, 4).map(a => [a[1], cnt(c => c.side === a[0])]).filter(x => x[1]);
-  h += '<b>' + ps.length + ' Picked</b> · Last 30 Days · ' + areaN.map(x => x[0] + ' <b>' + x[1] + '</b>').join(' · ') + ' · Day <b>' + D + '</b> · Night <b>' + (ps.length - D) + '</b> · Already Sent Ones Skipped</div>';
+  h += '<b>' + ps.length + ' Picked</b> · Last 30 Days · ' + areaN.map(x => x[0] + ' <b>' + x[1] + '</b>').join(' · ') + ' · Day <b>' + D + '</b> · Night <b>' + (ps.length - D) + '</b> <button class="ppall" data-act="ppall" aria-pressed="' + ps.every(c => !P.off[c.id]) + '">Select</button></div>';
   const side = c => (P.AREAS.find(a => a[0] === c.side) || [0, ''])[1];
   h += '<div class="ppgrid">' + ps.map(c => '<button class="ppc' + (P.off[c.id] ? ' off' : '') + '" data-act="pptog" data-v="' + esc(c.id) + '" aria-pressed="' + !P.off[c.id] + '">' +
     '<img src="' + Frigate.base() + '/api/events/' + encodeURIComponent(c.id) + '/snapshot.jpg?bbox=1&timestamp=0&height=270" alt="" loading="lazy"><span class="ppk">' + (c.sent ? '↑' : '✓') + '</span>' +
@@ -7285,6 +7286,8 @@ const ACT = {
   ppdd(d) { const was = S.ppOpen; if (was === d.v) { S.ppOpen = null; if (S.ppDirty) { S.ppDirty = false; PPlus.save(); PPlus.load(); return; } render(); return; }
     S.ppOpen = d.v; if (was && S.ppDirty) { S.ppDirty = false; PPlus.save(); PPlus.load(); return; } render(); },
   pppick(d) { const sl = PPlus.sel(), k = d.k, v = d.v; if (v === '') sl[k] = []; else { const i = sl[k].indexOf(v); if (i < 0) sl[k].push(v); else sl[k].splice(i, 1); } S.ppDirty = true; render(); },
+  /* 5.8.7 her design: one word, Select — boxed = all picked; tap = none picked; tap again = all */
+  ppall() { if (PPlus.sending) return; const all = PPlus.picked.every(c => !PPlus.off[c.id]); PPlus.off = {}; if (all) PPlus.picked.forEach(c => { PPlus.off[c.id] = true; }); render(); },
   pptog(d) { if (PPlus.sending) return; PPlus.off[d.v] = !PPlus.off[d.v]; render(); },
   ppsend() { PPlus.send(); },
   toast(d) { toast(d.v); },
