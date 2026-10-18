@@ -864,16 +864,17 @@ input,select,textarea{font-size:16px}
 .whob{flex:none;border:0;background:var(--track);color:var(--head-fg);font:inherit;font-size:12px;font-weight:800;padding:5px 10px;border-radius:999px;margin-right:2px}
 .whoimg{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:10px;background:#000}
 .whoimg.crop{aspect-ratio:auto;max-height:46vh;object-fit:contain}
-.ppsum{background:var(--card);border-radius:12px;padding:10px 12px;line-height:1.6;margin-bottom:8px}
-.ppbar{height:8px;border-radius:4px;background:var(--track);display:flex;overflow:hidden;margin:4px 0}.ppbar i{display:block;height:100%}
-.ppchips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}
-.ppgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;padding-bottom:8px}
-.ppc{display:block;width:100%;padding:0;border:0;background:var(--card);color:var(--text);border-radius:10px;overflow:hidden;text-align:left;position:relative;font:inherit}
-.ppc.off{opacity:.4}.ppc img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--track)}
-.ppc .ppk{position:absolute;right:6px;top:6px;width:22px;height:22px;border-radius:50%;background:var(--strong);color:var(--strong-fg);border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-size:13px}
+.ppsum{font-size:12px;color:var(--sub);margin:0 2px 8px;line-height:1.5}.ppsum b{color:var(--text);font-weight:600}
+.ppchips{display:flex;gap:5px;flex-wrap:wrap;margin:0 0 10px}.ppchips .chip.sm{font-size:12px;font-weight:500;padding:3px 9px;min-height:0;height:auto;line-height:1.5}
+.ppgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;padding-bottom:6px}
+.ppc{display:block;width:100%;padding:0;border:0;background:var(--card);color:var(--text);border-radius:8px;overflow:hidden;text-align:left;position:relative;font:inherit}
+.ppc.off{opacity:.35}.ppc img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--track)}
+.ppc .ppk{position:absolute;right:5px;top:5px;width:18px;height:18px;border-radius:50%;background:var(--strong);color:var(--strong-fg);border:1.5px solid #fff;display:flex;align-items:center;justify-content:center;font-size:10px}
 .ppc.off .ppk{background:#fff8;color:transparent}
-.ppc .ppt{padding:6px 8px;font-size:12px;line-height:1.5}.ppg{display:inline-block;background:var(--chip);border-radius:8px;padding:0 6px;font-size:11px;margin-right:3px}.ppg.n{background:#2B3A55;color:#fff}
-.ppfoot{position:sticky;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 0 4px;margin:0 -2px;z-index:2}
+.ppc .ppt{padding:4px 7px 6px;font-size:11px;line-height:1.45;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ppc .ppt b{color:var(--text);font-weight:600}
+.ppg{display:inline-block;background:var(--chip);border-radius:6px;padding:0 5px;font-size:10px;margin-right:3px}.ppg.n{background:#2B3A55;color:#fff}
+.ppfoot{position:sticky;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:8px 0 2px;margin:0 -2px;z-index:2}.ppfoot .btn{font-size:14px;padding:9px;min-height:0}
+.ppfoot .wtnote{font-size:11px;margin:5px 0 0;text-align:center}
 :root[data-app-theme="glass"] .ppfoot{background:#fff}:root[data-dark][data-app-theme="glass"] .ppfoot{background:#161C26}
 .pfgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(74px,1fr));gap:6px}
 .pf{display:flex;flex-direction:column;align-items:stretch;gap:2px;padding:3px;border:2px solid transparent;border-radius:12px;background:var(--track);color:var(--head-fg);font:inherit;text-align:center}
@@ -2594,7 +2595,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.8.4 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.8.5 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -3018,14 +3019,14 @@ async function plusOnly(k, e) {
   S.fixBusy = false; S.modal = null; render(); toast(msg);
 }
 /* ===== 5.8.4 Pick Person Pictures (Settings → Frigate+). Frigate+ support (2026-10-18): her model had only ~20 person
-   pictures among ~95% cats, so fine-tuning weakened person; aim for ~80. She had ~40, so this picks 40 more.
+   pictures among ~95% cats, so fine-tuning weakened person; aim for ~80. She had ~40; 5.8.5 her choice: pick 100, and the chip she taps (Left Edge, Night …) is what gets sent, All = all.
    Her rules: Front Door and Driveway only; alerts and detections alike (every person Frigate tracked, last 30 days);
    70% at the far left / far right of the picture (box centre in the outer 20%), 30% elsewhere (the middle last, she
    already sent middle ones); day and night about half each; far (small) people first; spread over days, one per
    person, none within 10 min of another on the same camera; already sent / marked wrong are skipped. One look, tap to
    leave out, one Send. Load: one /api/events query and 40 small snapshots. */
 const PPlus = {
-  N: 40, CAMS: ['front_door', 'driveway'], rows: null, picked: [], off: {}, sending: false, done: 0, ok: 0, bad: 0, err: '',
+  N: 100, CAMS: ['front_door', 'driveway'], rows: null, picked: [], off: {}, sending: false, done: 0, ok: 0, bad: 0, err: '',
   /* sun height at the house (Irvine area): day = sun above 3° below the horizon, about when the cameras switch to night view */
   day(ms) {
     const r = Math.PI / 180, d = ms / 864e5 - 10957.5, g = (357.529 + 0.98560028 * d) * r, q = 280.459 + 0.98564736 * d;
@@ -3067,9 +3068,10 @@ const PPlus = {
     if (out.length < N) take(this.rows, N - out.length);
     this.picked = out.sort((a, b) => b.t - a.t);
   },
+  inView(c) { const v = S.ppView || 'all'; return v === 'all' || c.side === v || (v === 'day' && c.day) || (v === 'night' && !c.day); },
   async send() {
-    if (this.sending) return; const list = this.picked.filter(c => !this.off[c.id]); if (!list.length) return;
-    this.sending = true; this.done = this.ok = this.bad = 0; this.err = ''; render(); Dbg.log('person pictures send', list.length);
+    if (this.sending) return; const list = this.picked.filter(c => !this.off[c.id] && !c.sent && this.inView(c)); if (!list.length) return;
+    this.sending = true; this.total = list.length; this.done = this.ok = this.bad = 0; this.err = ''; render(); Dbg.log('person pictures send', list.length);
     People.sent = People.sent || {};
     for (const c of list) {
       const r = await People.post('/api/events/' + encodeURIComponent(c.id) + '/plus', { include_annotation: 1 });
@@ -3087,19 +3089,17 @@ function modalPPlus() {
   if (P.rows == null) return h + '<div class="wtnote" style="margin:0">Looking Through 30 Days Of Front Door And Driveway…</div></div></div></div>';
   if (P.err && !P.picked.length) return h + '<div class="wtnote" style="margin:0">' + esc(P.err) + '</div></div></div></div>';
   if (!P.picked.length) return h + '<div class="wtnote" style="margin:0">No Person Pictures Left To Send In The Last 30 Days.</div></div></div></div>';
-  const ps = P.picked, cnt = f => ps.filter(f).length, L = cnt(c => c.side === 'L'), R = cnt(c => c.side === 'R'), O = cnt(c => c.side === 'O'), D = cnt(c => c.day), on = ps.filter(c => !P.off[c.id]).length;
-  h += '<div class="ppsum"><b>Picked ' + ps.length + '</b> From Front Door And Driveway · Last 30 Days' +
-    '<div class="ppbar"><i style="width:' + (100 * (L + R) / ps.length) + '%;background:var(--strong)"></i><i style="width:' + (100 * O / ps.length) + '%;background:var(--chip)"></i></div>' +
-    'Left And Right Edges <b>' + (L + R) + '</b> (' + Math.round(100 * (L + R) / ps.length) + '%) · Other Areas <b>' + O + '</b> (' + Math.round(100 * O / ps.length) + '%)<br>Day <b>' + D + '</b> · Night <b>' + (ps.length - D) + '</b> · Already Sent Ones Skipped</div>';
+  const ps = P.picked, cnt = f => ps.filter(f).length, L = cnt(c => c.side === 'L'), R = cnt(c => c.side === 'R'), O = cnt(c => c.side === 'O'), D = cnt(c => c.day);
+  h += '<div class="ppsum"><b>' + ps.length + ' Picked</b> · Front Door And Driveway · Last 30 Days<br>Edges <b>' + (L + R) + '</b> · Other <b>' + O + '</b> · Day <b>' + D + '</b> · Night <b>' + (ps.length - D) + '</b> · Already Sent Ones Skipped</div>';
   const V = [['all', 'All', ps.length], ['L', 'Left Edge', L], ['R', 'Right Edge', R], ['O', 'Other', O], ['day', 'Day', D], ['night', 'Night', ps.length - D]];
   h += '<div class="ppchips">' + V.map(x => '<button class="chip sm" data-act="ppview" data-v="' + x[0] + '" aria-pressed="' + (v === x[0]) + '">' + x[1] + ' ' + x[2] + '</button>').join('') + '</div>';
-  const show = ps.filter(c => v === 'all' || c.side === v || (v === 'day' && c.day) || (v === 'night' && !c.day));
+  const show = ps.filter(c => P.inView(c)), on = show.filter(c => !P.off[c.id] && !c.sent).length;
   const side = c => c.side === 'L' ? 'Left Edge' : c.side === 'R' ? 'Right Edge' : c.mid ? 'Middle' : 'Other';
   h += '<div class="ppgrid">' + show.map(c => '<button class="ppc' + (P.off[c.id] ? ' off' : '') + '" data-act="pptog" data-v="' + esc(c.id) + '" aria-pressed="' + !P.off[c.id] + '">' +
     '<img src="' + Frigate.base() + '/api/events/' + encodeURIComponent(c.id) + '/snapshot.jpg?bbox=1&timestamp=0&height=270" alt="" loading="lazy"><span class="ppk">' + (c.sent ? '↑' : '✓') + '</span>' +
     '<div class="ppt"><b>' + esc((Data.cam(c.cam) || { name: c.cam }).name) + '</b> · ' + dayLabel(c.t) + ' ' + hm(c.t) + '<br><span class="ppg">' + side(c) + (c.far ? ' · Far' : '') + '</span><span class="ppg' + (c.day ? '' : ' n') + '">' + (c.day ? 'Day' : 'Night') + '</span></div></button>').join('') + '</div>';
-  h += '<div class="ppfoot"><button class="btn solid snzgo" data-act="ppsend"' + (P.sending || !on || P.done ? ' disabled' : '') + '>' + (P.sending ? 'Sending ' + P.done + ' / ' + on + '…' : P.done ? 'Sent ' + P.ok + (P.bad ? ' · ' + P.bad + ' Refused' : '') : 'Send ' + on + ' To Frigate+') + '</button>' +
-    '<div class="wtnote" style="margin:6px 0 0;text-align:center">' + (P.done && !P.sending ? 'Now Verify Them On The Frigate+ Website' + (P.bad ? ' · Refused: ' + esc(String(P.err).replace(/^\w/, m => m.toUpperCase())) : '') : 'Tap A Picture To Leave It Out · Then Verify Them On The Frigate+ Website') + '</div></div>';
+  h += '<div class="ppfoot"><button class="btn solid snzgo" data-act="ppsend"' + (P.sending || !on ? ' disabled' : '') + '>' + (P.sending ? 'Sending ' + P.done + ' / ' + P.total + '…' : on ? 'Send ' + on + ' To Frigate+' : P.done ? 'Sent ' + P.ok + (P.bad ? ' · ' + P.bad + ' Refused' : '') : 'Nothing To Send') + '</button>' +
+    '<div class="wtnote" style="margin:6px 0 0;text-align:center">' + (P.done && !P.sending && !on ? 'Now Verify Them On The Frigate+ Website' + (P.bad ? ' · Refused: ' + esc(String(P.err).replace(/^\w/, m => m.toUpperCase())) : '') : (v === 'all' ? 'Sends All Ticked' : 'Sends Only ' + V.find(x => x[0] === v)[1] + ' · All Sends Everything') + ' · Tap A Picture To Leave It Out') + '</div></div>';
   return h + '</div></div></div>';
 }
 const People = {
@@ -6679,7 +6679,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.8.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.8.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6955,7 +6955,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.8.4');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.8.5');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6972,7 +6972,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.8.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.8.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -8262,7 +8262,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.8.4';
+    const BUILD = '5.8.5';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

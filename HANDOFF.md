@@ -391,3 +391,9 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 - Her rules: Front Door + Driveway only; all tracked persons (alerts and detections) last 30 days via /api/events?labels=person&has_snapshot=1; 70% box centre in the outer 20% (left/right half each), 30% elsewhere (middle last); day/night half each (sun elevation > -3° at 33.68,-117.8); far (box area < 0.6%) first; spread over days; none within 10 min on the same camera; skips false_positive, plus_id, already sent.
 - Page: summary, view chips, grid of snapshots (bbox=1), tap to leave out, Send N (one by one POST /plus include_annotation), result + refusal reason. Settings button (she preferred Settings over the … menu since it is rarely used).
 - Tests t106 (picks 14/14/12, 20 day, skips fp/plus, 39 sent with 1 refused), t106s (4 themes).
+
+## 5.8.5 (2026-10-18) Person Pictures page: her feedback
+- "太丑了 字太大": summary is two small grey lines (12px), smaller chips, 11px card text, smaller footer button.
+- The chip she taps decides what is sent (Left Edge → only those); All = everything. Sent ones get ↑ and are not resent; she can send another section after.
+- 100 pictures (35 left, 35 right, 30 other). Every open re-reads Frigate (already sent ones drop out).
+- Test t107p.
