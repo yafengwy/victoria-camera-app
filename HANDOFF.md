@@ -407,3 +407,6 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 
 ## 5.8.7 (2026-10-18) Pictures For Frigate+: Select
 - "Already Sent Ones Skipped" removed; in its place one word, Select: boxed = all ticked; tap = none; tap again = all. Test t109p.
+
+## 5.8.8 (2026-10-18) Select button
+- Her feedback: hard to tap, wanted it at the far right and standing out. Now its own button at the right of the summary (34px tall), bold 14px in the strong colour; box when all are picked.

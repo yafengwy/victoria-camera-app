@@ -870,7 +870,9 @@ input,select,textarea{font-size:16px}
 .ppi{display:flex;align-items:center;gap:9px;width:100%;background:none;border:0;color:var(--text);font:inherit;font-size:13px;padding:7px 12px;text-align:left}
 .ppi .box{width:16px;height:16px;border:1.5px solid var(--sub);border-radius:4px;display:flex;align-items:center;justify-content:center}.ppi[aria-pressed="true"] .box{background:var(--strong);border-color:var(--strong);color:var(--strong-fg)}.ppi .box svg{width:12px;height:12px}
 .ppdone{width:100%;margin:0 0 10px;font-size:13px;padding:7px;min-height:0}
-.ppall{font:inherit;font-size:12px;font-weight:600;color:var(--text);background:none;border:1px solid transparent;border-radius:6px;padding:0 6px;margin-left:2px}.ppall[aria-pressed="true"]{border-color:var(--strong);color:var(--strong)}
+/* 5.8.8: Select sits at the right on its own (a bigger tap area, not inside a line of text), bold in the strong colour */
+.ppall{flex:none;align-self:flex-end;font:inherit;font-size:14px;font-weight:700;color:var(--strong);background:none;border:1.5px solid transparent;border-radius:8px;padding:5px 10px;min-height:34px}.ppall[aria-pressed="true"]{border-color:var(--strong)}
+.ppsum{display:flex;gap:8px;align-items:flex-end}.ppst{flex:1;min-width:0}
 .ppsum{font-size:12px;color:var(--sub);margin:0 2px 8px;line-height:1.5}.ppsum b{color:var(--text);font-weight:600}
 .ppchips{display:flex;gap:5px;flex-wrap:wrap;margin:0 0 10px}.ppchips .chip.sm{font-size:12px;font-weight:500;padding:3px 9px;min-height:0;height:auto;line-height:1.5}
 .ppgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;padding-bottom:6px}
@@ -3116,13 +3118,13 @@ function modalPPlus() {
     h += '<div class="pplist">' + list.map(([v, t]) => ck(open, v, t, v === '' ? !sl[open].length : sl[open].includes(v))).join('') + '</div><button class="btn solid ppdone" data-act="ppdd" data-v="' + open + '">Done</button>';
   }
   const nm = (k, all) => sl[k].length ? sl[k].map(v => k === 'cams' ? (Data.cam(v) || { name: v }).name : k === 'areas' ? (P.AREAS.find(a => a[0] === v) || [0, v])[1] : v === 'g:carriers' ? 'All Carriers' : v === 'g:animals' ? 'All Animals' : objName(v)).join(', ') : all;
-  h += '<div class="ppsum">' + esc(nm('cams', 'All Cameras')) + ' · ' + esc(nm('areas', 'All Areas')) + ' · ' + esc(nm('objs', 'All Objects')) + '<br>';
-  if (P.rows == null) return h + 'Looking Through The Last 30 Days…</div></div></div></div>';
-  if (P.err && !P.picked.length) return h + esc(P.err) + '</div></div></div></div>';
-  if (!P.picked.length) return h + 'Nothing Left To Send In The Last 30 Days.</div></div></div></div>';
+  h += '<div class="ppsum"><div class="ppst">' + esc(nm('cams', 'All Cameras')) + ' · ' + esc(nm('areas', 'All Areas')) + ' · ' + esc(nm('objs', 'All Objects')) + '<br>';
+  if (P.rows == null) return h + 'Looking Through The Last 30 Days…</div></div></div></div></div>';
+  if (P.err && !P.picked.length) return h + esc(P.err) + '</div></div></div></div></div>';
+  if (!P.picked.length) return h + 'Nothing Left To Send In The Last 30 Days.</div></div></div></div></div>';
   const ps = P.picked, cnt = f => ps.filter(f).length, D = cnt(c => c.day);
   const areaN = P.AREAS.slice(0, 4).map(a => [a[1], cnt(c => c.side === a[0])]).filter(x => x[1]);
-  h += '<b>' + ps.length + ' Picked</b> · Last 30 Days · ' + areaN.map(x => x[0] + ' <b>' + x[1] + '</b>').join(' · ') + ' · Day <b>' + D + '</b> · Night <b>' + (ps.length - D) + '</b> <button class="ppall" data-act="ppall" aria-pressed="' + ps.every(c => !P.off[c.id]) + '">Select</button></div>';
+  h += '<b>' + ps.length + ' Picked</b> · Last 30 Days · ' + areaN.map(x => x[0] + ' <b>' + x[1] + '</b>').join(' · ') + ' · Day <b>' + D + '</b> · Night <b>' + (ps.length - D) + '</b></div><button class="ppall" data-act="ppall" aria-pressed="' + ps.every(c => !P.off[c.id]) + '" aria-label="Select All">Select</button></div>';
   const side = c => (P.AREAS.find(a => a[0] === c.side) || [0, ''])[1];
   h += '<div class="ppgrid">' + ps.map(c => '<button class="ppc' + (P.off[c.id] ? ' off' : '') + '" data-act="pptog" data-v="' + esc(c.id) + '" aria-pressed="' + !P.off[c.id] + '">' +
     '<img src="' + Frigate.base() + '/api/events/' + encodeURIComponent(c.id) + '/snapshot.jpg?bbox=1&timestamp=0&height=270" alt="" loading="lazy"><span class="ppk">' + (c.sent ? '↑' : '✓') + '</span>' +
