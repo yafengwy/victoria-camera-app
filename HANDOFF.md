@@ -364,3 +364,6 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 
 ## 5.7.9 — Day row never hides a day that has something
 - Her worry (10-11/10-12 looked empty but were not): RecFirst now asks /recordings/summary with her time zone; if any camera does not answer, the oldest day is "unknown" and all 30 days stay (retry in 5 min); the oldest alert already in the app also counts; before the answer all 30 days show. t100: 10 chips; t101 (one camera fails): 30 chips.
+
+## 5.7.10 — Day numbers count Motion when Motion is ticked
+- Her screenshot: Oct 8 showed 0 while its list was full of Motion cards. With Motion ticked, a day's number is alerts + that day's motion pieces (cameras switched off in the filter excluded); a day whose motion is not read yet shows "·" when it has no alerts. t102: today shows 10 (10 motion pieces, 0 alerts).
