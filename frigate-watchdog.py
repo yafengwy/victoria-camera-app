@@ -461,20 +461,21 @@ def health(dead, st, stats):
 WARM_FILE = os.path.join(D, '.doorbell-warm')
 WARM_PY = (
     "import json,time,urllib.request as u\n"
-    "t0=time.time(); ok=False; got=0\n"
+    "t0=time.time(); ok=False; got=0; t1=t2=None; n=0\n"
     "try:\n"
     " r=u.urlopen('http://127.0.0.1:1984/api/stream.mp4?src=nest_doorbell&video',timeout=150)\n"
-    " last=0\n"
+    " th=round(time.time()-t0,1); last=0\n"
     " while time.time()-t0<240:\n"
-    "  b=r.read(65536)\n"
+    "  b=r.read1(65536) if hasattr(r,'read1') else r.read(4096)\n"
     "  if not b: break\n"
-    "  got+=len(b)\n"
+    "  got+=len(b); n+=1; t2=round(time.time()-t0,1)\n"
+    "  if t1 is None: t1=t2\n"
     "  if time.time()-last>5:\n"
     "   last=time.time()\n"
     "   f=json.load(u.urlopen('http://127.0.0.1:5000/api/stats',timeout=5))['cameras']['nest_doorbell'].get('camera_fps') or 0\n"
     "   if f>=1: ok=True; break\n"
     "except Exception as x: print('err',repr(x)[:80])\n"
-    "print('ok' if ok else 'no', round(time.time()-t0), got)\n")
+    "print('ok' if ok else 'no', 'total %ds' % (time.time()-t0), 'bytes', got, 'reads', n, 'first data at', t1, 's, last data at', t2, 's')\n")
 
 
 def doorbell_warm(cfg, stats):
