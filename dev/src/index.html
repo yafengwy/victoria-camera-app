@@ -2322,7 +2322,8 @@ document.addEventListener('input', ev => {
 });
 document.addEventListener('focusin', ev => {
   const t = ev.target; if (!t.dataset || !t.dataset.objq || !t.dataset.open) return;
-  const box = document.getElementById(t.dataset.objq); if (box && box.hidden) { box.hidden = false; S[t.dataset.open] = true; const b = t.parentNode.querySelector('.objqdd'); if (b) { b.innerHTML = I.up; b.setAttribute('aria-expanded', 'true'); } }
+  const box = document.getElementById(t.dataset.objq); if (box && box.hidden) { box.hidden = false; S[t.dataset.open] = true;
+    if (t.dataset.objq === 'objl2' && S.ddCam) { S.ddCam = false; const cl = document.getElementById('caml2'); if (cl) cl.remove(); const cb = document.querySelector('[data-act="ddcam"]'); if (cb) { cb.setAttribute('aria-expanded', 'false'); const sv = cb.querySelector('svg'); if (sv) sv.outerHTML = I.down; } }   /* one list open at a time */ const b = t.parentNode.querySelector('.objqdd'); if (b) { b.innerHTML = I.up; b.setAttribute('aria-expanded', 'true'); } }
 });
 /* never show the browser's broken-picture "?" while a picture is being retried */
 document.addEventListener('load', ev => { const n = ev.target; if (n && n.tagName === 'IMG') { n.classList.remove('rf'); if (n.dataset.ld) n.dataset.ld = ''; rvTm(n); } }, true);
@@ -4966,15 +4967,16 @@ function filterPanel() {
   const objSum = allObj ? 'Any Object' : objsOn.length ? objsOn.map(objName).join(', ') : 'No Objects';
   const grpOn = [...new Set(Data.cams.map(c => c.group))].find(g => { const gc = Data.cams.filter(c => c.group === g); return gc.length === camsOn.length && gc.every(c => camsOn.includes(c)); });
   const camSum = camsOn.length === Data.cams.length ? 'All Cameras' : grpOn ? grpOn + ' Only' : camsOn.length ? camsOn.length + (camsOn.length === 1 ? ' Camera' : ' Cameras') : 'No Cameras';
+  /* 5.6.11 her rule (every page): Cameras always left of / above Objects */
   let h = '<div class="fpanel2"><div class="frow">' +
-    '<div class="dd2 objqbox2"><input class="objq" type="text" data-objq="objl2" data-open="ddObj" placeholder="' + esc(objSum) + '" autocomplete="off" autocorrect="off" spellcheck="false"><button class="objqdd" data-act="ddobj" aria-label="Show Objects" aria-expanded="' + S.ddObj + '">' + (S.ddObj ? I.up : I.down) + '</button></div>' +
     '<button class="dd2" data-act="ddcam" aria-expanded="' + S.ddCam + '"><span>' + esc(camSum) + '</span>' + (S.ddCam ? I.up : I.down) + '</button>' +
+    '<div class="dd2 objqbox2"><input class="objq" type="text" data-objq="objl2" data-open="ddObj" placeholder="' + esc(objSum) + '" autocomplete="off" autocorrect="off" spellcheck="false"><button class="objqdd" data-act="ddobj" aria-label="Show Objects" aria-expanded="' + S.ddObj + '">' + (S.ddObj ? I.up : I.down) + '</button></div>' +
     '<button class="ddreset" data-act="filtreset" aria-label="Reset Filters">' + I.reset + '</button></div>';
-  h += '<div class="ddl" id="objl2"' + (S.ddObj ? '' : ' hidden') + '>' + objChips(f, 'obj', 'objgrp', 'anyobj') + '</div>';
   if (S.ddCam) {
     const st = camsOn.length === Data.cams.length ? 'all' : grpOn || 'custom';
-    h += '<div class="ddl">' + camChips(id => !f.off[id], st, 'allcams', 'camf', 'data-id') + '</div>';
+    h += '<div class="ddl" id="caml2">' + camChips(id => !f.off[id], st, 'allcams', 'camf', 'data-id') + '</div>';
   }
+  h += '<div class="ddl" id="objl2"' + (S.ddObj ? '' : ' hidden') + '>' + objChips(f, 'obj', 'objgrp', 'anyobj') + '</div>';
   h += '<div class="frow"><button class="mrow tight" data-act="chk" data-v="int">' + mini(f.int) + 'Interesting</button>' +
     '<button class="mrow tight" data-act="chk" data-v="unint">' + mini(f.unint) + 'Uninteresting</button>' +
     (Data.source === 'frigate' ? '<button class="mrow tight" data-act="chk" data-v="motion">' + mini(!!f.motion) + '<i class="modot"></i>Motion</button>' : '') + '</div></div>';
@@ -6115,11 +6117,12 @@ function viewReview() {
   const camRow = (Data.source === 'frigate' ? '<button class="chip sm bxchip" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
     '<button class="chip sm" data-act="rvgroup" data-v="all" aria-pressed="' + (st === 'all') + '">All Cameras</button>' +
     groups.map(g => '<button class="chip sm" data-act="rvgroup" data-v="' + esc(g) + '" aria-pressed="' + (st === g) + '">' + esc(g) + ' Only</button>').join('') +
-    '<button class="chip sm" data-act="rvpick" aria-pressed="' + (st === 'custom' || S.rv.pick) + '">Choose' + (S.rv.pick ? I.up : I.down).replace(/22/g, '14') + '</button>';
+    '<button class="chip sm" data-act="rvpick" aria-pressed="' + (st === 'custom' || S.rv.pick) + '">Choose' + (S.rv.pick ? I.up : I.down).replace(/22/g, '14') + '</button>' +
+    /* 5.6.11 her rule: Objects after (right of) the camera chips, never above them */
+    '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + (S.rv.fopen ? I.up : I.down).replace(/22/g, '14') + '</button>';
   const ONE = !RVC && rvOneRow();
   let h = RVC ? rvBarCompact(st) : ONE ? rvBarOne(st) : '<div class="rvtop" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
     '<button class="chip sm rvib" data-act="rvreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
-    (COVER ? '' : '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + (S.rv.fopen ? I.up : I.down).replace(/22/g, '14') + '</button>') +
     (COVER ? '<button class="ic" data-act="rvcolsopen" aria-pressed="' + !!S.rv.colsOpen + '" aria-label="Layout">' + I.grid4 + '</button>'   /* 5.5.3 her rule: icons only in the cover strip */
       : '<button class="chip sm" data-act="rvcolsopen" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvLay() === 'big' ? 'Big' : rvLay() === 'top' ? 'Top' : rvCols()) + '</button>') +
     '<button class="ic' + (S.rv.list ? ' on' : '') + '" data-act="rvlist" aria-pressed="' + !!S.rv.list + '" aria-label="' + (S.rv.list ? 'Show Timeline' : 'Show Alert List') + '">' + (S.rv.list ? I.tline : I.bellO) + '</button>' +
