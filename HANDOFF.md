@@ -397,3 +397,10 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 - The chip she taps decides what is sent (Left Edge → only those); All = everything. Sent ones get ↑ and are not resent; she can send another section after.
 - 100 pictures (35 left, 35 right, 30 other). Every open re-reads Frigate (already sent ones drop out).
 - Test t107p.
+
+## 5.8.6 (2026-10-18) Pictures For Frigate+ (general)
+- Her design: one row Cameras · Areas · Objects (multi-pick lists, nothing = all); Objects like the Alerts filter plus All Carriers / All Animals; always 100 pictures.
+- Areas: Left Edge / Right Edge (outer 20%), Middle (35–65%), Other, Day, Night. The 100 split evenly over picked areas × day/night; far first; spread over days; 10-min spacing; skips sent / wrong.
+- Carriers = car/person events whose sub_label (or label) is a delivery company; query asks labels car,person then filters.
+- Picks remembered (homecams.ppsel; first time Front Door + Driveway, Person). Frigate is read again only when the page opens or a list closes with a change.
+- Settings button renamed Pick Pictures. Test t108p (t106/t107p were for 5.8.4/5.8.5 and are superseded).

@@ -864,6 +864,12 @@ input,select,textarea{font-size:16px}
 .whob{flex:none;border:0;background:var(--track);color:var(--head-fg);font:inherit;font-size:12px;font-weight:800;padding:5px 10px;border-radius:999px;margin-right:2px}
 .whoimg{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:10px;background:#000}
 .whoimg.crop{aspect-ratio:auto;max-height:46vh;object-fit:contain}
+.ppfr{display:flex;gap:6px;margin:0 0 8px}.ppdd{flex:1;display:flex;align-items:center;justify-content:center;gap:4px;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:6px 4px;font:inherit;font-size:13px;font-weight:600}
+.ppdd[aria-expanded="true"]{border-color:var(--strong);box-shadow:0 0 0 1px var(--strong)}.ppdd i{font-style:normal;font-size:10px;font-weight:600;background:var(--chip);border-radius:8px;padding:0 5px}.ppdd svg{width:14px;height:14px}
+.pplist{background:var(--card);border:1px solid var(--line);border-radius:10px;max-height:46vh;overflow:auto;padding:4px 0;margin-bottom:6px}
+.ppi{display:flex;align-items:center;gap:9px;width:100%;background:none;border:0;color:var(--text);font:inherit;font-size:13px;padding:7px 12px;text-align:left}
+.ppi .box{width:16px;height:16px;border:1.5px solid var(--sub);border-radius:4px;display:flex;align-items:center;justify-content:center}.ppi[aria-pressed="true"] .box{background:var(--strong);border-color:var(--strong);color:var(--strong-fg)}.ppi .box svg{width:12px;height:12px}
+.ppdone{width:100%;margin:0 0 10px;font-size:13px;padding:7px;min-height:0}
 .ppsum{font-size:12px;color:var(--sub);margin:0 2px 8px;line-height:1.5}.ppsum b{color:var(--text);font-weight:600}
 .ppchips{display:flex;gap:5px;flex-wrap:wrap;margin:0 0 10px}.ppchips .chip.sm{font-size:12px;font-weight:500;padding:3px 9px;min-height:0;height:auto;line-height:1.5}
 .ppgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;padding-bottom:6px}
@@ -871,7 +877,7 @@ input,select,textarea{font-size:16px}
 .ppc.off{opacity:.35}.ppc img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--track)}
 .ppc .ppk{position:absolute;right:5px;top:5px;width:18px;height:18px;border-radius:50%;background:var(--strong);color:var(--strong-fg);border:1.5px solid #fff;display:flex;align-items:center;justify-content:center;font-size:10px}
 .ppc.off .ppk{background:#fff8;color:transparent}
-.ppc .ppt{padding:4px 7px 6px;font-size:11px;line-height:1.45;color:var(--sub);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.ppc .ppt b{color:var(--text);font-weight:600}
+.ppc .ppt{padding:4px 7px 6px;font-size:11px;line-height:1.5;color:var(--sub)}.ppc .ppg{margin-top:2px}.ppc .ppt b{color:var(--text);font-weight:600}
 .ppg{display:inline-block;background:var(--chip);border-radius:6px;padding:0 5px;font-size:10px;margin-right:3px}.ppg.n{background:#2B3A55;color:#fff}
 .ppfoot{position:sticky;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:8px 0 2px;margin:0 -2px;z-index:2}.ppfoot .btn{font-size:14px;padding:9px;min-height:0}
 .ppfoot .wtnote{font-size:11px;margin:5px 0 0;text-align:center}
@@ -2595,7 +2601,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.8.5 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.8.6 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -3018,16 +3024,20 @@ async function plusOnly(k, e) {
   Dbg.log('send to frigate+ only', e.id, d, msg);
   S.fixBusy = false; S.modal = null; render(); toast(msg);
 }
-/* ===== 5.8.4 Pick Person Pictures (Settings → Frigate+). Frigate+ support (2026-10-18): her model had only ~20 person
-   pictures among ~95% cats, so fine-tuning weakened person; aim for ~80. She had ~40; 5.8.5 her choice: pick 100, and the chip she taps (Left Edge, Night …) is what gets sent, All = all.
-   Her rules: Front Door and Driveway only; alerts and detections alike (every person Frigate tracked, last 30 days);
-   70% at the far left / far right of the picture (box centre in the outer 20%), 30% elsewhere (the middle last, she
-   already sent middle ones); day and night about half each; far (small) people first; spread over days, one per
-   person, none within 10 min of another on the same camera; already sent / marked wrong are skipped. One look, tap to
-   leave out, one Send. Load: one /api/events query and 40 small snapshots. */
+/* ===== Pictures For Frigate+ (Settings → Frigate+). 5.8.4 started as person pictures only (Frigate+ support: her model
+   had ~20 person pictures among ~95% cats, aim ~80). 5.8.6 her design: three multi-pick lists in one row — Cameras,
+   Areas, Objects (Objects like the Alerts filter, with All Carriers / All Animals) — and always 100 pictures.
+   Areas: Left Edge / Right Edge (box centre in the outer 20%), Middle (centre 35–65%), Other (the rest), Day, Night
+   (sun above 3° below the horizon at the house). Nothing picked in a list = all of it. The 100 are shared evenly
+   between the picked areas and between day and night (unless only one is picked); far (small) ones first; spread
+   over days; one per tracked object; none within 10 min of another on the same camera; already sent / marked wrong
+   are skipped. Sends one by one, only what is ticked. Load: one /api/events query (last 30 days, the picked cameras
+   and objects) and 100 small snapshots, only when the page opens or a list closes with a change. */
 const PPlus = {
-  N: 100, CAMS: ['front_door', 'driveway'], rows: null, picked: [], off: {}, sending: false, done: 0, ok: 0, bad: 0, err: '',
-  /* sun height at the house (Irvine area): day = sun above 3° below the horizon, about when the cameras switch to night view */
+  N: 100, rows: null, picked: [], off: {}, sending: false, done: 0, ok: 0, bad: 0, total: 0, err: '', seq: 0,
+  AREAS: [['L', 'Left Edge'], ['R', 'Right Edge'], ['M', 'Middle'], ['O', 'Other'], ['day', 'Day'], ['night', 'Night']],
+  sel() { if (!S.pp) S.pp = store.get('ppsel', { cams: ['front_door', 'driveway'], objs: ['Person'], areas: [] }); return S.pp; },
+  save() { store.set('ppsel', this.sel()); },
   day(ms) {
     const r = Math.PI / 180, d = ms / 864e5 - 10957.5, g = (357.529 + 0.98560028 * d) * r, q = 280.459 + 0.98564736 * d;
     const L = (q + 1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * r, e = (23.439 - 3.6e-7 * d) * r;
@@ -3035,71 +3045,90 @@ const PPlus = {
     const lst = ((18.697374558 + 24.06570982441908 * d) % 24) * 15 - 117.8, ha = (lst - ra) * r, lat = 33.68 * r;
     return Math.asin(Math.sin(lat) * Math.sin(dec) + Math.cos(lat) * Math.cos(dec) * Math.cos(ha)) / r > -3;
   },
+  logoKey(o) { const c = WAIT_CO.find(c => c[1] === o || c[0] === String(o).toLowerCase()); return c ? c[0] : ''; },
+  /* the Frigate labels to ask for (carriers ride on a car or a person as its sub label) */
+  labels() {
+    const o = this.sel().objs; if (!o.length) return null; const set = new Set();
+    o.forEach(x => { if (x === 'g:carriers' || this.logoKey(x)) { set.add('car'); set.add('person'); } else if (x === 'g:animals') ANIMALS.forEach(a => set.add(a)); else set.add(String(x).toLowerCase()); });
+    return [...set];
+  },
+  hit(c) {
+    const o = this.sel().objs; if (!o.length) return true;
+    return o.some(x => x === 'g:carriers' ? !!c.logo : x === 'g:animals' ? ANIMALS.includes(c.lab) : this.logoKey(x) ? c.logo === this.logoKey(x) : c.lab === String(x).toLowerCase());
+  },
   async load() {
-    this.rows = null; this.picked = []; this.off = {}; this.done = this.ok = this.bad = 0; this.err = ''; const t0 = Date.now();
+    const my = ++this.seq; this.rows = null; this.picked = []; this.off = {}; this.done = this.ok = this.bad = 0; this.err = ''; render(); const t0 = Date.now();
+    const sl = this.sel(), cams = sl.cams.length ? sl.cams : Data.cams.map(c => c.id), labs = this.labels();
     try {
-      const after = Math.floor((now() - 30 * DAY) / 1000);
-      const rows = await Frigate.get('/api/events?cameras=' + this.CAMS.join(',') + '&labels=person&has_snapshot=1&include_thumbnails=0&limit=5000&after=' + after);
+      const rows = await Frigate.get('/api/events?cameras=' + encodeURIComponent(cams.join(',')) + (labs ? '&labels=' + encodeURIComponent(labs.join(',')) : '') + '&has_snapshot=1&include_thumbnails=0&limit=5000&after=' + Math.floor((now() - 30 * DAY) / 1000));
+      if (my !== this.seq) return;
       this.rows = rows.filter(r => r && !r.false_positive && !r.plus_id && !(People.sent || {})[r.id] && r.data && Array.isArray(r.data.box) && r.data.box.length === 4).map(r => {
-        const [x, y, w, h] = r.data.box, cx = x + w / 2, t = r.start_time * 1000;
-        return { id: r.id, cam: r.camera, t, side: cx < 0.2 ? 'L' : cx > 0.8 ? 'R' : 'O', mid: Math.abs(cx - 0.5) < 0.15, far: w * h < 0.006, day: this.day(t) };
-      });
+        const [x, , w, h] = r.data.box, cx = x + w / 2, t = r.start_time * 1000, sub = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label, lab = String(r.label || '').toLowerCase();
+        const logo = isLogo(sub) ? String(sub).toLowerCase() : isLogo(lab) ? lab : '';
+        return { id: r.id, cam: r.camera, t, lab, logo, side: cx < 0.2 ? 'L' : cx > 0.8 ? 'R' : Math.abs(cx - 0.5) <= 0.15 ? 'M' : 'O', far: w * h < 0.006, day: this.day(t) };
+      }).filter(c => this.hit(c));
       this.pick();
-      Dbg.log('person pictures', rows.length, 'found', this.rows.length, 'usable', this.picked.length, 'picked', (Date.now() - t0) + 'ms');
-    } catch (e) { this.rows = []; this.err = 'Could Not Read Frigate · ' + ((e && e.message) || 'Error'); Dbg.log('person pictures failed', e && e.message); }
+      Dbg.log('frigate+ pictures', cams.length + ' cameras', labs ? labs.join(',') : 'all objects', sl.areas.join(',') || 'all areas', rows.length, 'found', this.rows.length, 'usable', this.picked.length, 'picked', (Date.now() - t0) + 'ms');
+    } catch (e) { if (my !== this.seq) return; this.rows = []; this.err = 'Could Not Read Frigate · ' + ((e && e.message) || 'Error'); Dbg.log('frigate+ pictures failed', e && e.message); }
     if (S.modal === 'pplus') render();
   },
   pick() {
     const out = [], used = new Set(), near = c => out.some(o => o.cam === c.cam && Math.abs(o.t - c.t) < 10 * MIN);
     const take = (list, k) => {
-      /* far first, then the middle last; then one per day round and round so the days spread out */
-      const byDay = new Map(); list.slice().sort((a, b) => (b.far - a.far) || (a.mid - b.mid) || (b.t - a.t)).forEach(c => { const d = dayStart(c.t); if (!byDay.has(d)) byDay.set(d, []); byDay.get(d).push(c); });
+      const byDay = new Map(); list.slice().sort((a, b) => (b.far - a.far) || (b.t - a.t)).forEach(c => { const d = dayStart(c.t); if (!byDay.has(d)) byDay.set(d, []); byDay.get(d).push(c); });
       const days = [...byDay.keys()].sort((a, b) => b - a); let n = 0, moved = true;
       while (n < k && moved) { moved = false; for (const d of days) { if (n >= k) break; const q = byDay.get(d); while (q.length) { const c = q.shift(); if (used.has(c.id) || near(c)) continue; out.push(c); used.add(c.id); n++; moved = true; break; } } }
       return n;
     };
-    const N = this.N, edge = Math.round(N * 0.7), want = { L: Math.ceil(edge / 2), R: Math.floor(edge / 2), O: N - edge };
-    for (const sd of ['L', 'R', 'O']) for (const dy of [true, false]) {
-      const k = dy ? Math.ceil(want[sd] / 2) : Math.floor(want[sd] / 2);
-      const got = take(this.rows.filter(c => c.side === sd && c.day === dy), k);
-      if (got < k) take(this.rows.filter(c => c.side === sd), k - got);   /* not enough at night (or day) there: the other half */
-    }
-    if (out.length < N) take(this.rows.filter(c => c.side !== 'O'), N - out.length);
-    if (out.length < N) take(this.rows, N - out.length);
+    const ar = this.sel().areas, sides = ar.filter(a => 'LRMO'.includes(a) && a.length === 1), tm = ar.filter(a => a === 'day' || a === 'night');
+    const S1 = sides.length ? sides : ['L', 'R', 'M', 'O'], T1 = tm.length === 1 ? [tm[0] === 'day'] : [true, false];
+    const ok = c => S1.includes(c.side) && T1.includes(c.day), pool = this.rows.filter(ok), N = this.N, parts = S1.length * T1.length;
+    let i = 0; for (const sd of S1) for (const dy of T1) { const k = Math.floor(N / parts) + (i++ < N % parts ? 1 : 0), got = take(pool.filter(c => c.side === sd && c.day === dy), k); if (got < k) take(pool.filter(c => c.side === sd), k - got); }
+    if (out.length < N) take(pool, N - out.length);   /* a part with too few: the others fill in, still inside her picks */
     this.picked = out.sort((a, b) => b.t - a.t);
   },
-  inView(c) { const v = S.ppView || 'all'; return v === 'all' || c.side === v || (v === 'day' && c.day) || (v === 'night' && !c.day); },
   async send() {
-    if (this.sending) return; const list = this.picked.filter(c => !this.off[c.id] && !c.sent && this.inView(c)); if (!list.length) return;
-    this.sending = true; this.total = list.length; this.done = this.ok = this.bad = 0; this.err = ''; render(); Dbg.log('person pictures send', list.length);
+    if (this.sending) return; const list = this.picked.filter(c => !this.off[c.id] && !c.sent); if (!list.length) return;
+    this.sending = true; this.total = list.length; this.done = this.ok = this.bad = 0; this.err = ''; render(); Dbg.log('frigate+ pictures send', list.length);
     People.sent = People.sent || {};
     for (const c of list) {
       const r = await People.post('/api/events/' + encodeURIComponent(c.id) + '/plus', { include_annotation: 1 });
       if (r.ok || /already/i.test(r.msg || '')) { this.ok++; People.sent[c.id] = 1; c.sent = true; } else { this.bad++; this.err = r.msg || 'Error'; Dbg.log('frigate+ refused', c.id, r.msg || ''); }
       this.done++; if (S.modal === 'pplus') render();
     }
-    this.sending = false; Dbg.log('person pictures sent', this.ok, 'refused', this.bad, this.err); if (S.modal === 'pplus') render();
+    this.sending = false; Dbg.log('frigate+ pictures sent', this.ok, 'refused', this.bad, this.err); if (S.modal === 'pplus') render();
     toast('Sent ' + this.ok + ' To Frigate+' + (this.bad ? ' · ' + this.bad + ' Refused' : '') + ' · Verify Them On The Frigate+ Website');
   }
 };
+function ppName(c) { return c.logo ? coName(c.logo) : objName(c.lab); }
 function modalPPlus() {
-  const P = PPlus, v = S.ppView || 'all';
-  let h = '<div class="scrim" data-act="close" role="presentation"><div class="dialog snzd" role="dialog" aria-label="Person Pictures For Frigate+" data-stop="1">' +
-    '<div class="dhead">Person Pictures For Frigate+<button class="ic" style="color:var(--head-fg)" data-act="ppback" aria-label="Back">' + I.x + '</button></div><div class="dbody">';
-  if (P.rows == null) return h + '<div class="wtnote" style="margin:0">Looking Through 30 Days Of Front Door And Driveway…</div></div></div></div>';
-  if (P.err && !P.picked.length) return h + '<div class="wtnote" style="margin:0">' + esc(P.err) + '</div></div></div></div>';
-  if (!P.picked.length) return h + '<div class="wtnote" style="margin:0">No Person Pictures Left To Send In The Last 30 Days.</div></div></div></div>';
-  const ps = P.picked, cnt = f => ps.filter(f).length, L = cnt(c => c.side === 'L'), R = cnt(c => c.side === 'R'), O = cnt(c => c.side === 'O'), D = cnt(c => c.day);
-  h += '<div class="ppsum"><b>' + ps.length + ' Picked</b> · Front Door And Driveway · Last 30 Days<br>Edges <b>' + (L + R) + '</b> · Other <b>' + O + '</b> · Day <b>' + D + '</b> · Night <b>' + (ps.length - D) + '</b> · Already Sent Ones Skipped</div>';
-  const V = [['all', 'All', ps.length], ['L', 'Left Edge', L], ['R', 'Right Edge', R], ['O', 'Other', O], ['day', 'Day', D], ['night', 'Night', ps.length - D]];
-  h += '<div class="ppchips">' + V.map(x => '<button class="chip sm" data-act="ppview" data-v="' + x[0] + '" aria-pressed="' + (v === x[0]) + '">' + x[1] + ' ' + x[2] + '</button>').join('') + '</div>';
-  const show = ps.filter(c => P.inView(c)), on = show.filter(c => !P.off[c.id] && !c.sent).length;
-  const side = c => c.side === 'L' ? 'Left Edge' : c.side === 'R' ? 'Right Edge' : c.mid ? 'Middle' : 'Other';
-  h += '<div class="ppgrid">' + show.map(c => '<button class="ppc' + (P.off[c.id] ? ' off' : '') + '" data-act="pptog" data-v="' + esc(c.id) + '" aria-pressed="' + !P.off[c.id] + '">' +
+  const P = PPlus, sl = P.sel(), open = S.ppOpen;
+  let h = '<div class="scrim" data-act="close" role="presentation"><div class="dialog snzd" role="dialog" aria-label="Pictures For Frigate+" data-stop="1">' +
+    '<div class="dhead">Pictures For Frigate+<button class="ic" style="color:var(--head-fg)" data-act="ppback" aria-label="Back">' + I.x + '</button></div><div class="dbody">';
+  const tab = (k, t, n) => '<button class="ppdd" data-act="ppdd" data-v="' + k + '" aria-expanded="' + (open === k) + '">' + t + (n ? '<i>' + n + '</i>' : '') + (open === k ? I.up : I.down) + '</button>';
+  h += '<div class="ppfr">' + tab('cams', 'Cameras', sl.cams.length) + tab('areas', 'Areas', sl.areas.length) + tab('objs', 'Objects', sl.objs.length) + '</div>';
+  if (open) {
+    const ck = (k, v, t, on) => '<button class="ppi" data-act="pppick" data-k="' + k + '" data-v="' + esc(v) + '" aria-pressed="' + on + '"><span class="box">' + (on ? I.check : '') + '</span>' + esc(t) + '</button>';
+    const list = open === 'cams' ? [['', 'All Cameras']].concat(Data.cams.map(c => [c.id, c.name]))
+      : open === 'areas' ? [['', 'All Areas']].concat(P.AREAS)
+      : [['', 'All Objects'], ['g:carriers', 'All Carriers'], ['g:animals', 'All Animals']].concat(OBJS().map(o => [o, objName(o)]));
+    h += '<div class="pplist">' + list.map(([v, t]) => ck(open, v, t, v === '' ? !sl[open].length : sl[open].includes(v))).join('') + '</div><button class="btn solid ppdone" data-act="ppdd" data-v="' + open + '">Done</button>';
+  }
+  const nm = (k, all) => sl[k].length ? sl[k].map(v => k === 'cams' ? (Data.cam(v) || { name: v }).name : k === 'areas' ? (P.AREAS.find(a => a[0] === v) || [0, v])[1] : v === 'g:carriers' ? 'All Carriers' : v === 'g:animals' ? 'All Animals' : objName(v)).join(', ') : all;
+  h += '<div class="ppsum">' + esc(nm('cams', 'All Cameras')) + ' · ' + esc(nm('areas', 'All Areas')) + ' · ' + esc(nm('objs', 'All Objects')) + '<br>';
+  if (P.rows == null) return h + 'Looking Through The Last 30 Days…</div></div></div></div>';
+  if (P.err && !P.picked.length) return h + esc(P.err) + '</div></div></div></div>';
+  if (!P.picked.length) return h + 'Nothing Left To Send In The Last 30 Days.</div></div></div></div>';
+  const ps = P.picked, cnt = f => ps.filter(f).length, D = cnt(c => c.day);
+  const areaN = P.AREAS.slice(0, 4).map(a => [a[1], cnt(c => c.side === a[0])]).filter(x => x[1]);
+  h += '<b>' + ps.length + ' Picked</b> · Last 30 Days · ' + areaN.map(x => x[0] + ' <b>' + x[1] + '</b>').join(' · ') + ' · Day <b>' + D + '</b> · Night <b>' + (ps.length - D) + '</b> · Already Sent Ones Skipped</div>';
+  const side = c => (P.AREAS.find(a => a[0] === c.side) || [0, ''])[1];
+  h += '<div class="ppgrid">' + ps.map(c => '<button class="ppc' + (P.off[c.id] ? ' off' : '') + '" data-act="pptog" data-v="' + esc(c.id) + '" aria-pressed="' + !P.off[c.id] + '">' +
     '<img src="' + Frigate.base() + '/api/events/' + encodeURIComponent(c.id) + '/snapshot.jpg?bbox=1&timestamp=0&height=270" alt="" loading="lazy"><span class="ppk">' + (c.sent ? '↑' : '✓') + '</span>' +
-    '<div class="ppt"><b>' + esc((Data.cam(c.cam) || { name: c.cam }).name) + '</b> · ' + dayLabel(c.t) + ' ' + hm(c.t) + '<br><span class="ppg">' + side(c) + (c.far ? ' · Far' : '') + '</span><span class="ppg' + (c.day ? '' : ' n') + '">' + (c.day ? 'Day' : 'Night') + '</span></div></button>').join('') + '</div>';
+    '<div class="ppt"><b>' + esc((Data.cam(c.cam) || { name: c.cam }).name) + '</b> · ' + dayLabel(c.t) + ' ' + hm(c.t) + '<br><span class="ppg">' + esc(ppName(c)) + '</span><span class="ppg">' + side(c) + (c.far ? ' · Far' : '') + '</span><span class="ppg' + (c.day ? '' : ' n') + '">' + (c.day ? 'Day' : 'Night') + '</span></div></button>').join('') + '</div>';
+  const on = ps.filter(c => !P.off[c.id] && !c.sent).length;
   h += '<div class="ppfoot"><button class="btn solid snzgo" data-act="ppsend"' + (P.sending || !on ? ' disabled' : '') + '>' + (P.sending ? 'Sending ' + P.done + ' / ' + P.total + '…' : on ? 'Send ' + on + ' To Frigate+' : P.done ? 'Sent ' + P.ok + (P.bad ? ' · ' + P.bad + ' Refused' : '') : 'Nothing To Send') + '</button>' +
-    '<div class="wtnote" style="margin:6px 0 0;text-align:center">' + (P.done && !P.sending && !on ? 'Now Verify Them On The Frigate+ Website' + (P.bad ? ' · Refused: ' + esc(String(P.err).replace(/^\w/, m => m.toUpperCase())) : '') : (v === 'all' ? 'Sends All Ticked' : 'Sends Only ' + V.find(x => x[0] === v)[1] + ' · All Sends Everything') + ' · Tap A Picture To Leave It Out') + '</div></div>';
+    '<div class="wtnote">' + (P.done && !P.sending && !on ? 'Now Verify Them On The Frigate+ Website' + (P.bad ? ' · Refused: ' + esc(String(P.err).replace(/^\w/, m => m.toUpperCase())) : '') : 'Tap A Picture To Leave It Out') + '</div></div>';
   return h + '</div></div></div>';
 }
 const People = {
@@ -6679,7 +6708,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.8.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.8.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6695,7 +6724,7 @@ function modalSettings() {
       (F360.now !== F360.want ? '<div class="wtnote" style="margin:-4px 2px 8px">Switching · Within 1 Min</div>' : '') : '') +
     /* 4.10.9: restart the xiaomi bridge (猫砂盆's only way in) from the phone; the mini PC does it within a minute */
     /* 5.8.4: Frigate+ person pictures (not used often, so a button here rather than in the … menu) */
-    (Data.source === 'frigate' ? row('Frigate+', '<button class="btn" data-act="ppopen2">Pick Person Pictures</button>') : '') +
+    (Data.source === 'frigate' ? row('Frigate+', '<button class="btn" data-act="ppopen2">Pick Pictures</button>') : '') +
     (Data.source === 'frigate' ? row('猫砂盆', XR.busy() ? '<span class="wtnote" style="margin:0">Restarting · Within 1 Min</span>' : '<button class="btn" data-act="xrestart">Restart</button>') : '') +
     '</div></div></div>';
 }
@@ -6955,7 +6984,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.8.5');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.8.6');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -6972,7 +7001,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.8.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.8.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7250,9 +7279,12 @@ const ACT = {
   group(d) { S.open[d.v] = S.open[d.v] === false; store.set('open', S.open); render(); },
   modal(d) { S.modal = d.v; render(); },
   close() { S.modal = null; render(); },
-  ppopen2() { S.modal = 'pplus'; S.ppView = 'all'; render(); PPlus.load(); },
-  ppback() { S.modal = 'settings'; render(); },
-  ppview(d) { S.ppView = d.v; render(); },
+  ppopen2() { S.modal = 'pplus'; S.ppOpen = null; PPlus.load(); },
+  ppback() { S.modal = 'settings'; S.ppOpen = null; render(); },
+  /* a list opens; closing it (tap its name again or Done) reads Frigate again only if something changed */
+  ppdd(d) { const was = S.ppOpen; if (was === d.v) { S.ppOpen = null; if (S.ppDirty) { S.ppDirty = false; PPlus.save(); PPlus.load(); return; } render(); return; }
+    S.ppOpen = d.v; if (was && S.ppDirty) { S.ppDirty = false; PPlus.save(); PPlus.load(); return; } render(); },
+  pppick(d) { const sl = PPlus.sel(), k = d.k, v = d.v; if (v === '') sl[k] = []; else { const i = sl[k].indexOf(v); if (i < 0) sl[k].push(v); else sl[k].splice(i, 1); } S.ppDirty = true; render(); },
   pptog(d) { if (PPlus.sending) return; PPlus.off[d.v] = !PPlus.off[d.v]; render(); },
   ppsend() { PPlus.send(); },
   toast(d) { toast(d.v); },
@@ -8262,7 +8294,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.8.5';
+    const BUILD = '5.8.6';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
