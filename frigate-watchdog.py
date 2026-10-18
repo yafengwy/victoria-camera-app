@@ -451,6 +451,55 @@ def health(dead, st, stats):
     except Exception: pass
 
 
+# Doorbell warm-up (2026-10-17, measured): the Nest doorbell's stream takes more than 45 s to start from cold (go2rtc
+# frame request: 45 s timeout on the first try, then 1.7 s and 3.4 s). Frigate's ffmpeg gave up first (10 s, then 30 s),
+# its leaving made go2rtc drop the half-built Google session, and 120 s later it started cold again — forever (no
+# doorbell picture 18:11 → 22:30). Backyard starts in seconds, so it never hit this. When the doorbell is on and has
+# no picture, a helper inside the frigate container holds the doorbell stream open (go2rtc stream.mp4, video only)
+# for up to 4 minutes, so the Google session gets built and is still there when Frigate retries; it stops as soon as
+# Frigate has frames. At most one helper at a time, a new one at most every 5 minutes. Logged in watchdog-log.txt.
+WARM_FILE = os.path.join(D, '.doorbell-warm')
+WARM_PY = (
+    "import json,time,urllib.request as u\n"
+    "t0=time.time(); ok=False; got=0\n"
+    "try:\n"
+    " r=u.urlopen('http://127.0.0.1:1984/api/stream.mp4?src=nest_doorbell&video',timeout=150)\n"
+    " last=0\n"
+    " while time.time()-t0<240:\n"
+    "  b=r.read(65536)\n"
+    "  if not b: break\n"
+    "  got+=len(b)\n"
+    "  if time.time()-last>5:\n"
+    "   last=time.time()\n"
+    "   f=json.load(u.urlopen('http://127.0.0.1:5000/api/stats',timeout=5))['cameras']['nest_doorbell'].get('camera_fps') or 0\n"
+    "   if f>=1: ok=True; break\n"
+    "except Exception as x: print('err',repr(x)[:80])\n"
+    "print('ok' if ok else 'no', round(time.time()-t0), got)\n")
+
+
+def doorbell_warm(cfg, stats):
+    c = (cfg.get('cameras') or {}).get('nest_doorbell')
+    if not c or c.get('enabled', True) is False or started_ago() < 90:
+        return
+    if (((stats.get('cameras') or {}).get('nest_doorbell') or {}).get('camera_fps') or 0) >= 1:
+        return
+    try:
+        last = float(open(WARM_FILE).read().strip() or 0)
+    except Exception:
+        last = 0
+    if time.time() - last < 300:
+        return
+    open(WARM_FILE, 'w').write(str(time.time()))
+    out = os.path.join(D, '.doorbell-warm.out')
+    try:   # report the previous helper's result, then start a new one in the background
+        prev = open(out).read().strip()
+        if prev: log('doorbell warm-up result: ' + prev[:120])
+    except Exception:
+        pass
+    log('doorbell has no picture: holding its stream open so Google finishes starting it')
+    subprocess.Popen(['docker', 'exec', 'frigate', 'python3', '-c', WARM_PY], stdout=open(out, 'w'), stderr=subprocess.STDOUT, start_new_session=True)
+
+
 def main():
     try:
         st = json.load(open(STATE))
@@ -488,6 +537,10 @@ def main():
         return
 
     dead, why, stats = [], '', None
+    try:   # runs during the 10 minutes after a restart too: that is exactly when the doorbell gets stuck
+        doorbell_warm(get('/config'), get('/stats'))
+    except Exception as x:
+        log('doorbell warm-up error: ' + repr(x)[:150])
     if started_ago() < 600:          # just (re)started: give it time
         st.update(dead_runs=0, gpu_runs=0, api_runs=0)
         health([], st, None); json.dump(st, open(STATE, 'w')); return
