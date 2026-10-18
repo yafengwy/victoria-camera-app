@@ -2990,6 +2990,22 @@ async function sendPlus(d) {
   if (p.ok || /already/i.test(p.msg || '')) { People.sent[d] = 1; return true; }
   Dbg.log('frigate+ refused', d, p.msg || ''); return false;
 }
+/* 5.8.3 her request: Fix → Send To Frigate+ sends this alert's picture to Frigate+ as Frigate saw it, changing no label
+   here or in Frigate (so she no longer screenshots alerts for Frigate+). One picture per tap (4.10.8 rule). */
+async function plusOnly(k, e) {
+  const p = evP(k, S.filt), d = (p && p.d) || (e.dets || [])[0]; People.sent = People.sent || {};
+  if (!d) { toast('No Picture To Send'); return; }
+  S.fixBusy = true; render(); let msg;
+  if (People.sent[d]) msg = 'Already Sent To Frigate+';
+  else if (!Once.plus()) msg = 'Not Sent';
+  else {
+    const r = await People.post('/api/events/' + encodeURIComponent(d) + '/plus', { include_annotation: 1 });
+    if (r.ok || /already/i.test(r.msg || '')) { People.sent[d] = 1; msg = r.ok ? 'Sent To Frigate+ · Verify It There' : 'Already Sent To Frigate+'; }
+    else msg = 'Frigate+ Did Not Take It' + (r.msg ? ' · ' + String(r.msg).replace(/^\w/, c => c.toUpperCase()) : '');
+  }
+  Dbg.log('send to frigate+ only', e.id, d, msg);
+  S.fixBusy = false; S.modal = null; render(); toast(msg);
+}
 const People = {
   sub: {}, person: {}, lab: {}, fp: Object.fromEntries(NotX.ids.map(d => [d, 1])), co: {}, faces: null, faceOn: false, faceCams: [], busy: false,
   /* 3.1.4: cats and dogs too: their names (the Cats model in Frigate, or Fix here) and the ones marked wrong (Not Cat) */
@@ -3295,7 +3311,8 @@ function modalWho() {
       '<button class="chip sm" data-act="whopick" data-v="+" aria-pressed="' + (cur === '+') + '">＋ New Person</button></div>' +
     (cur === '+' ? '<input id="whonew" class="field" type="text" placeholder="Name, E.g. Ayi" autocomplete="off" value="' + esc(S.whoNew || '') + '">' : '') +
     '<div class="lbl">Or Wrong Object</div><div class="chips"><button class="chip sm" data-act="whopick" data-v="-person" aria-pressed="' + (cur === '-person') + '">Not Person</button></div>' +
-    (cur !== '-person' && People.faceOn && People.faceCams.includes(e.cam) ? '<button class="check" role="checkbox" aria-checked="' + (S.whoTeach === true) + '" data-act="whoteach"><span class="box">' + (S.whoTeach === true ? I.check : '') + '</span>Teach Face Recognition</button>' : '') +
+    '<div class="lbl">Or Just</div><div class="chips">' + '<button class="chip sm" data-act="whopick" data-v="^plus" aria-pressed="' + (cur === '^plus') + '">Send To Frigate+</button>' + '</div>' + (cur === '^plus' ? '<div class="wtnote" style="margin:6px 0 0">Send To Frigate+: Nothing Changes Here · One Picture Waits In Frigate+ For You To Verify</div>' : '') +
+    (cur !== '-person' && cur !== '^plus' && People.faceOn && People.faceCams.includes(e.cam) ? '<button class="check" role="checkbox" aria-checked="' + (S.whoTeach === true) + '" data-act="whoteach"><span class="box">' + (S.whoTeach === true ? I.check : '') + '</span>Teach Face Recognition</button>' : '') +
     (cur === '-person' ? '<button class="check" role="checkbox" aria-checked="' + (S.fixPlus !== false) + '" data-act="fixplus"><span class="box">' + (S.fixPlus !== false ? I.check : '') + '</span>Send To Frigate+</button>' + '<div class="wtnote" style="margin:6px 0 0">Not Person: ' + (S.fixPlus !== false ? 'Marked Wrong In Frigate And Sent To Frigate+ As A Wrong Person' : 'Hidden In This App Only · Nothing Sent Or Learned') + ' · This Alert Goes Away</div>'
       : cur === '+' ? '<div class="wtnote" style="margin:6px 0 0">New Person: ' + (S.whoTeach === true && People.faceOn ? 'Adds Them To Face Recognition In Frigate With This Face' : 'Names This Alert · Tick Teach Face Recognition To Add Them There') + '</div>' : '') +
     '<button class="btn solid snzgo" data-act="whosave"' + (cur ? '' : ' disabled') + '>Save</button>' +
@@ -3310,7 +3327,8 @@ function modalFix() {
     '<div class="dhead">Fix This Alert<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
     '<img class="whoimg crop" src="' + evImg(e, p) + '" alt="">' +
     '<div class="lbl" style="margin-top:6px">Which Cat Is It?</div><div class="chips">' + names.map(n => chip(n, niceName(n))).join('') + chip('0', 'Not Ours') + (S.fixKinds || []).map(l => chip('-' + l, 'Not ' + objName(l))).join('') + '</div>' +
-    '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Teach The Cats Model</button>' +
+    '<div class="lbl">Or Just</div><div class="chips">' + chip('^plus', 'Send To Frigate+') + '</div>' + (cur === '^plus' ? '<div class="wtnote" style="margin:6px 0 0">Send To Frigate+: Nothing Changes Here · One Picture Waits In Frigate+ For You To Verify</div>' : '') +
+    (cur === '^plus' ? '' : '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Teach The Cats Model</button>') +
     (cur === '0' ? '<div class="wtnote" style="margin:6px 0 0">Not Ours: A Real Animal, But Not 胖胖 Or 团团 · Name Removed, Taught To The Cats Model As None · The Alert Stays</div>' : '') +
     (cur && cur[0] === '-' ? '<button class="check" role="checkbox" aria-checked="' + (S.fixPlus !== false) + '" data-act="fixplus"><span class="box">' + (S.fixPlus !== false ? I.check : '') + '</span>Send To Frigate+</button>' + '<div class="wtnote" style="margin:6px 0 0">Not ' + esc(objName(cur.slice(1))) + ': Wrong Animal Or Not An Animal · ' + (S.fixPlus !== false ? 'Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) + ' (Draw What It Really Is When You Verify There)' : 'Hidden In This App Only · Nothing Sent Or Learned') + ' · This Alert Goes Away</div>' : '') +
     '<button class="btn solid snzgo" data-act="fixsave"' + (cur ? '' : ' disabled') + '>' + (S.fixBusy ? 'Saving…' : 'Save') + '</button>' +
@@ -3327,11 +3345,12 @@ function modalCoFix() {
     (car ? '<div class="lbl" style="margin-top:6px">Which Company?</div><div class="chips">' + CoFix.all().map(n => chip(n, isLogo(n) ? coName(n) : n)).join('') + (CoFix.model ? chip('+', '＋ New Company') : '') + '</div>' : '') +
     (cur === '+' ? '<input id="conew" class="field" type="text" placeholder="Company Name, E.g. Instacart" autocomplete="off" value="' + esc(S.coNew || '') + '">' : '') +
     '<div class="lbl"' + (car ? '' : ' style="margin-top:6px"') + '>' + (car ? 'Or' : 'This Is Wrong') + '</div><div class="chips">' + (car ? chip('=car', 'Mark As Car') : '') + (S.fixKinds || []).map(l => chip('-' + l, 'Not ' + objName(l))).join('') + '</div>' +
+    '<div class="lbl">Or Just</div><div class="chips">' + chip('^plus', 'Send To Frigate+') + '</div>' + (cur === '^plus' ? '<div class="wtnote" style="margin:6px 0 0">Send To Frigate+: Nothing Changes Here · One Picture Waits In Frigate+ For You To Verify</div>' : '') +
     (plus ? '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Send To Frigate+</button>' : '') +
-    (cur && cur[0] !== '-' && cur !== '=car' && !plus && CoFix.model ? '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Teach The Car Model</button>' : '') +
+    (cur && cur[0] !== '-' && cur[0] !== '^' && cur !== '=car' && !plus && CoFix.model ? '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Teach The Car Model</button>' : '') +
     (cur && cur[0] === '-' ? '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Send To Frigate+</button>' : '') +
     (cur === '+' ? '<div class="wtnote" style="margin:6px 0 0">' + (S.fixTeach !== false ? 'Adds This Company To Your Car Model In Frigate And Teaches It With This Car' : 'Renamed In The App Only · Your Car Model Learns Nothing') + '</div>' : '') +
-    (cur && cur !== '+' && cur !== '=car' ? '<div class="wtnote" style="margin:6px 0 0">' + (cur[0] === '-' ? 'Not ' + esc(objName(cur.slice(1))) + ': ' + (S.fixTeach !== false ? 'Marked Wrong In Frigate And Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) : 'Hidden In This App Only · Nothing Sent Or Learned') + ' · This Alert Goes Away'
+    (cur && cur !== '+' && cur !== '=car' && cur !== '^plus' ? '<div class="wtnote" style="margin:6px 0 0">' + (cur[0] === '-' ? 'Not ' + esc(objName(cur.slice(1))) + ': ' + (S.fixTeach !== false ? 'Marked Wrong In Frigate And Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) : 'Hidden In This App Only · Nothing Sent Or Learned') + ' · This Alert Goes Away'
       : plus ? esc(coName(cur)) + ': Frigate Renames It Now' + (S.fixTeach !== false ? ' · The Picture Waits In Frigate+ For You To Verify' : '')
       : esc(cur) + ': Frigate Renames It Now' + (S.fixTeach !== false ? ' · Your Car Model Learns It Right Away' : ' · Your Car Model Learns Nothing')) + '</div>' : '') +
     '<button class="btn solid snzgo" data-act="cofixsave"' + (cur ? '' : ' disabled') + '>' + (S.fixBusy ? 'Saving…' : 'Save') + '</button>' +
@@ -6939,6 +6958,7 @@ const ACT = {
   async cofixsave() {
     Once.start('company fix');
     if (S.fixBusy || !S.fixPick) return; const k = S.fixK, e = evE(k); if (!e) return;
+    if (S.fixPick === '^plus') return plusOnly(k, e);
     let v = S.fixPick;
     /* 3.1.8 New Company: a new class in her car model (Frigate keeps classes as folders; this makes the folder) */
     if (v === '+') {
@@ -6970,6 +6990,7 @@ const ACT = {
   async fixsave() {
     Once.start('fix');
     if (S.fixBusy || !S.fixPick) return; const k = S.fixK, e = evE(k); if (!e) return;
+    if (S.fixPick === '^plus') return plusOnly(k, e);
     S.fixBusy = true; render();
     const pickv = S.fixPick, teachv = S.fixTeach !== false && !!CatFix.model, r = await CatFix.save(k, pickv, S.fixTeach !== false, S.fixPlus !== false); S.fixBusy = false;
     if (!r.ok && r.msg) { toast(r.msg); render(); return; }
@@ -6992,6 +7013,7 @@ const ACT = {
     Dbg.log('who save', S.whoId, S.whoName, e ? 'alert found' : 'alert not found', People.busy ? 'busy' : '');
     if (!e) { toast('This Alert Is No Longer Loaded · Close And Try Again'); return; }
     if (People.busy) { toast('Still Saving…'); return; }
+    if (S.whoName === '^plus') return plusOnly(S.whoId, e);
     People.busyAt = Date.now();
     if (S.whoName === '-person') {   /* Not Person: every person detection in this alert marked wrong (Frigate+) */
       People.busy = true; People.busyAt = Date.now(); let ok = true; toast('Saving…');

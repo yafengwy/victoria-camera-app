@@ -379,3 +379,9 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 - Ticking Motion on clears MotionList.days and stops a running sweep.
 - Frigate.back now drops MotionList days it just added alerts for, so motion pieces get cut around those alerts again (before, a day counted before its alerts arrived kept uncut pieces).
 - Test t104 (60 queries for 30 days × 2 cameras, re-tick re-reads).
+
+## 5.8.3 (2026-10-18) Fix → Send To Frigate+
+- Her request: a Fix choice that sends the alert's picture to Frigate+ without changing any label (no more screenshots).
+- Added as "Or Just · Send To Frigate+" (value '^plus') in all three dialogs: Who? (person), Fix (cats), Fix (companies/packages). Teach checkboxes hide when it is picked.
+- plusOnly(k, e): one detection (evP's d, else first det), POST /api/events/<id>/plus {include_annotation:1}; Once.plus rule kept; People.sent prevents repeats ("Already Sent To Frigate+"); Frigate's refusal reason is shown in the toast.
+- Test t105.
