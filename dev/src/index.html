@@ -4967,7 +4967,7 @@ function filterPanel() {
   const objSum = allObj ? 'Any Object' : objsOn.length ? objsOn.map(objName).join(', ') : 'No Objects';
   const grpOn = [...new Set(Data.cams.map(c => c.group))].find(g => { const gc = Data.cams.filter(c => c.group === g); return gc.length === camsOn.length && gc.every(c => camsOn.includes(c)); });
   const camSum = camsOn.length === Data.cams.length ? 'All Cameras' : grpOn ? grpOn + ' Only' : camsOn.length ? camsOn.length + (camsOn.length === 1 ? ' Camera' : ' Cameras') : 'No Cameras';
-  /* 5.6.11 her rule (every page): Cameras always left of / above Objects */
+  /* 5.7.1 her rule (every page): Cameras always left of / above Objects */
   let h = '<div class="fpanel2"><div class="frow">' +
     '<button class="dd2" data-act="ddcam" aria-expanded="' + S.ddCam + '"><span>' + esc(camSum) + '</span>' + (S.ddCam ? I.up : I.down) + '</button>' +
     '<div class="dd2 objqbox2"><input class="objq" type="text" data-objq="objl2" data-open="ddObj" placeholder="' + esc(objSum) + '" autocomplete="off" autocorrect="off" spellcheck="false"><button class="objqdd" data-act="ddobj" aria-label="Show Objects" aria-expanded="' + S.ddObj + '">' + (S.ddObj ? I.up : I.down) + '</button></div>' +
@@ -6118,7 +6118,7 @@ function viewReview() {
     '<button class="chip sm" data-act="rvgroup" data-v="all" aria-pressed="' + (st === 'all') + '">All Cameras</button>' +
     groups.map(g => '<button class="chip sm" data-act="rvgroup" data-v="' + esc(g) + '" aria-pressed="' + (st === g) + '">' + esc(g) + ' Only</button>').join('') +
     '<button class="chip sm" data-act="rvpick" aria-pressed="' + (st === 'custom' || S.rv.pick) + '">Choose' + (S.rv.pick ? I.up : I.down).replace(/22/g, '14') + '</button>' +
-    /* 5.6.11 her rule: Objects after (right of) the camera chips, never above them */
+    /* 5.7.1 her rule: Objects after (right of) the camera chips, never above them */
     '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + (S.rv.fopen ? I.up : I.down).replace(/22/g, '14') + '</button>';
   const ONE = !RVC && rvOneRow();
   let h = RVC ? rvBarCompact(st) : ONE ? rvBarOne(st) : '<div class="rvtop" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
