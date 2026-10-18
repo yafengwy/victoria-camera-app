@@ -371,3 +371,11 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 ## 5.8.1 — Older days were wiped by the week's alerts arriving later
 - Frigate has 10-04…10-10 review items (115–236 alerts, 330–548 detections a day); 10-04…10-06 recordings were deleted by the emergency cleanup (oldest recording day 10-07), the review rows stay.
 - Her log 00:05: "older alerts 2344 from 10/07" (Alerts page reopened on an older day) came 170 ms before "start alerts ready 2920", which replaced Data.events; Frigate.from had already moved to 10-07, so Oct 8–10 showed 0 and were never read again. Now the start merges (keeps alerts it did not read; log "kept older N") and `back()` waits for Data.evReady first. t103: week answer delayed 2.5 s, opened on day 9 → days 8 and 9 have their alerts.
+
+## 5.8.2 (2026-10-18) Motion numbers for every day
+- Her request: with Motion ticked, every day chip counts that day's motion; ticking Motion re-reads every day.
+- Measured first on her mini PC: /api/review/activity/motion for all 22 cameras, one day = 1.1 s total (max 0.14 s), load average unchanged (7.75 before/after).
+- MotionList.sweep(d0s): reads older alerts first (Frigate.back), then one day at a time (3 cameras at once) with load(d0, quiet); dayChips() patches chip numbers in place so a playing video is not redrawn; one render at the end if nothing plays.
+- Ticking Motion on clears MotionList.days and stops a running sweep.
+- Frigate.back now drops MotionList days it just added alerts for, so motion pieces get cut around those alerts again (before, a day counted before its alerts arrived kept uncut pieces).
+- Test t104 (60 queries for 30 days × 2 cameras, re-tick re-reads).

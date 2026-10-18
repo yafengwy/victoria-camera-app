@@ -1913,7 +1913,10 @@ const Frigate = {
       if (rows.length >= 5000) { const old = Math.floor(Math.min(...rows.map(r => r.start_time))); const ids = new Set(rows.map(r => r.id)); rows = rows.concat((await this.get('/api/review?limit=5000&after=' + Math.floor(a / 1000) + '&before=' + (old + 1))).filter(r => !ids.has(r.id))); }
       const fresh = this.mapReviews(rows);
       const have = new Set(Data.events.map(e => e.id)); fresh.forEach(e => { if (!have.has(e.id)) Data.events.push(e); });
-      Data.events.sort((x, y) => y.t - x.t); this.from = a;
+      Data.events.sort((x, y) => y.t - x.t);
+      /* 5.8.2: motion pieces read before these alerts were here were not cut around them: read those days again */
+      Object.keys(MotionList.days).forEach(k => { if (+k >= dayStart(a) && +k < this.from) delete MotionList.days[k]; });
+      this.from = a;
       Dbg.log('older alerts', fresh.length, 'from', ymdhms(a), (Date.now() - t0) + 'ms');
     } catch (e) { Dbg.log('older alerts failed', e && e.message); }
     this.backBusy = false;
@@ -4856,6 +4859,16 @@ function wireEvPreviews() {
   vids.forEach(v => evIO.observe(v));
 }
 function evWide() { return window.innerWidth >= 1000; }
+function dayN(d0, visible) {
+  const f = S.filt, a = d0 + DAY <= Frigate.from && Data.source === 'frigate' ? null : visible.filter(e => e.t >= d0 && e.t < d0 + DAY).length;
+  const mo = MotionList.get(d0), m = !f.motion || Data.source !== 'frigate' ? 0 : mo ? mo.filter(x => !f.off[x.cam]).length : null;
+  return a == null || m == null ? (a || m ? (a || 0) + (m || 0) : null) : a + m;
+}
+/* 5.8.2: a day's number is changed in place while motion is counted, so a playing video is not redrawn */
+function dayChips() {
+  if (S.view !== 'events') return; const visible = Data.events.filter(passes), today = dayStart(now());
+  document.querySelectorAll('.days .day').forEach(b => { const n = dayN(today - (+b.dataset.v) * DAY, visible), x = b.querySelector('b'); if (x) x.textContent = n == null ? '·' : n; });
+}
 function viewEvents() {
   const f = S.filt, today = dayStart(now());
   const visible = Data.events.filter(passes);
@@ -4866,9 +4879,8 @@ function viewEvents() {
   const lastI = Math.max(S.evDay, Data.source !== 'frigate' ? KEEP_DAYS - 1 : RecFirst.d0 == null ? KEEP_DAYS - 1 : Math.max(0, Math.min(KEEP_DAYS - 1, Math.round((today - RecFirst.d0) / DAY))));   /* a day jumped to (an old alert) always shows */
   /* 5.7.10: with Motion ticked a day's number counts its motion pieces too (Oct 8 said 0 while its list was full of
      Motion); a day whose motion is not read yet shows "·" instead of a 0 that may be wrong */
-  const moN = d0 => { if (!f.motion || Data.source !== 'frigate') return 0; const m = MotionList.get(d0); return m ? m.filter(x => !f.off[x.cam]).length : null; };
-  for (let i = 0; i <= lastI; i++) { const d0 = today - i * DAY, a = d0 + DAY <= Frigate.from && Data.source === 'frigate' ? null : visible.filter(e => e.t >= d0 && e.t < d0 + DAY).length, m = moN(d0);
-    days.push({ i, d0, n: a == null || m == null ? (a || m ? (a || 0) + (m || 0) : null) : a + m }); }
+  for (let i = 0; i <= lastI; i++) { const d0 = today - i * DAY; days.push({ i, d0, n: dayN(d0, visible) }); }
+  if (f.motion && Data.source === 'frigate' && !S.evWin) setTimeout(() => MotionList.sweep(days.map(d => d.d0)), 0);
   const d0 = days[S.evDay].d0; if (!S.evWin && d0 < Frigate.from) Frigate.back(d0);
   if (S.evWin && S.view !== 'events') S.evWin = null;
   /* 4.10.7 her rule: an animal notification opens here with only its cameras and its 20 minutes (Show All goes back) */
@@ -6067,7 +6079,7 @@ const MotionList = {
   key(d0) { return String(d0); },
   get(d0) { const x = this.days[this.key(d0)]; return x ? x.segs : null; },
   stale(d0) { const x = this.days[this.key(d0)], today = dayStart(now()); return !x || (d0 === today && now() - x.at > 60000); },
-  async load(d0) {
+  async load(d0, quiet) {
     const k = this.key(d0); if (this.busy[k] || Data.source !== 'frigate') return; this.busy[k] = 1;
     const a = Math.floor(d0 / 1000), b = Math.floor(Math.min(d0 + DAY, now()) / 1000), cams = Data.cams.map(c => c.id), rows = {};
     try {
@@ -6089,7 +6101,28 @@ const MotionList = {
       segs.sort((x, y) => y.t - x.t);
       this.days[k] = { at: now(), segs };
     } finally { delete this.busy[k]; }
+    if (quiet) return;
     if (S.filt.motion || (S.rv && S.rv.f && S.rv.f.motion && S.view === 'review')) render();
+  },
+  /* 5.8.2 her request: with Motion ticked every day in the day row gets its motion number. Measured on her mini PC:
+     all 22 cameras for one day answer in 1.1 s total (largest 0.14 s), load unchanged; days are read one at a time,
+     3 cameras at once. Ticking Motion reads every day again. Older alerts are read first so motion is cut around them. */
+  sweepOn: 0, sweepN: 0,
+  async sweep(d0s) {
+    if (this.sweepOn || Data.source !== 'frigate') return; const run = ++this.sweepN; this.sweepOn = run;
+    const t0 = Date.now(); let n = 0;
+    try {
+      const old = Math.min(...d0s); if (Frigate.from && old < Frigate.from) await Frigate.back(old);
+      for (const d0 of d0s) {
+        if (!S.filt.motion || this.sweepOn !== run) break;
+        if (this.get(d0) && !this.stale(d0)) continue;
+        while (this.busy[this.key(d0)]) await new Promise(r => setTimeout(r, 200));
+        if (this.get(d0) && !this.stale(d0)) continue;
+        await this.load(d0, true); n++; dayChips();
+      }
+    } finally { if (this.sweepOn === run) this.sweepOn = 0; }
+    Dbg.log('motion day numbers', n, 'days', (Date.now() - t0) + 'ms');
+    if (n && S.view === 'events' && !S.evPlay && !S.modal) render();
   },
   ev(cam, t, en) {
     const s0 = Math.floor(t / 1000), s1 = Math.ceil(en / 1000), base = Frigate.base();
@@ -7271,7 +7304,7 @@ const ACT = {
   momore() { MotionList.n += 50; render(); },
   chk(d) {
     if (d.v === 'demo') { S.demo = !S.demo; render(); return; }
-    if (d.v === 'motion') MotionList.n = 50;
+    if (d.v === 'motion') { MotionList.n = 50; if (!S.filt.motion) { MotionList.days = {}; MotionList.sweepOn = 0; } }
     S.filt[d.v] = !S.filt[d.v]; if (d.v === 'motion') S.moCtx = S.filt.motion ? moCtx() : null; saveFilt(); render();
   },
   /* Any Object shows no boxes ticked: the first tap picks just that object; unticking the last one goes back to Any */
