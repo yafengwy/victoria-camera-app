@@ -419,3 +419,9 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 - 5.8.9 bug: a tap on Settings version line (a <details> summary, no button) found the window background (data-act close) as nearest action and "ran" it, closing Settings (her log 23:55:37–51, 6 times). Also those taps were never lost: the click handler returned for close-inside-window without marking the tap answered.
 - Now: never run the window background; skip summary/details/links; the run tap is dispatched on the touched element itself (same guards as a real tap); close-inside-window marks the tap answered. Test t111p.
 - Doorbell 21:12 recording measured 384x512 (3:4), same shape as its pictures; upright phone camera view has no pinch zoom (4.8.8).
+
+## 2026-10-19 Doorbell recordings fixed (config, her edit)
+- Cause (ffprobe): Nest WebRTC switches 384x512 <-> 960x1280 inside one recording piece; iPhone keeps the first size and shows only the top-left corner (a pillar). Same kind as the Furbo issue.
+- Tried go2rtc ffmpeg:nest_doorbell#video=h264#width=720#height=960#audio=aac: the stream carried audio only (ffprobe: aac only), Frigate got no video. Removed.
+- Now: input back to rtsp://127.0.0.1:8554/nest_doorbell; camera output_args.record = "-f segment -segment_time 5 -segment_format mp4 -reset_timestamps 1 -strftime 1 -vf scale=720:960 -c:v libx264 -preset veryfast -crf 24 -g 20 -pix_fmt yuv420p -c:a aac". She confirmed 00:57: picture back, playback from alerts normal.
+- To check later: new pieces all 720,960; CPU cost of the encode.
