@@ -7804,9 +7804,13 @@ const TapLog = { draws: 0, d0: 0, ran: 0, why: '', sc: 0,
          finger, nothing redrawn, not a scroll or drag, not a long press, no guard said no. A click that still arrives
          later is ignored (TG.replay), so it never runs twice. */
       const a = n && n.closest && n.closest('[data-act]');
-      if (a && a.dataset.act === TG.act && this.draws === d0 && !this.why && held < 450 && Date.now() - this.sc > 900 && !n.closest('input,select,textarea,video,label')) {
+      /* 5.8.10: only a real button under the finger — never the dark area around a window (5.8.9 tapped that for a
+         tap on Settings' version line, which closed Settings 6 times); and the tap goes to the touched spot itself, so
+         every rule of a normal tap still applies */
+      const inWin = n && n.closest && n.closest('[data-stop]'), winBg = a && a.dataset.act === 'close' && inWin && !n.closest('button[data-act="close"]');
+      if (a && !winBg && a.dataset.act === TG.act && this.draws === d0 && !this.why && held < 450 && Date.now() - this.sc > 900 && !n.closest('input,select,textarea,video,label,summary,details,a[href]')) {
         Dbg.log('tap no answer', this.name(n), 'no click came · run by the app', 'held ' + held + 'ms', S.view + (S.modal ? ' ' + S.modal : ''));
-        TG.replay = Date.now(); TG.replayEl = a; a.click(); return;
+        TG.replay = Date.now(); TG.replayEl = a; n.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window })); return;
       }
       Dbg.log('tap no answer', this.name(n) + (TG.act && !(n && n.closest && n.closest('[data-act="' + TG.act + '"]')) ? ' (touched ' + TG.act + ')' : ''), this.why || 'no click came', 'redraws ' + (this.draws - d0), 'held ' + held + 'ms', Date.now() - this.sc < 900 ? 'list was scrolling' : '', S.view + (S.focus ? ' camera view' : '') + (S.modal ? ' ' + S.modal : ''));
     }, 450);
@@ -7844,7 +7848,7 @@ document.addEventListener('click', e => {
   /* lifting the finger after dragging the camera-view timeline is not a tap on the alert card under it */
   const scr = e.target.closest('#fsc, #ftsc');
   if (scr && (scr._mv || Date.now() - (scr._scrolled || 0) < 350)) { TapLog.why = 'timeline still moving (' + (scr._mv ? 'dragged' : Date.now() - (scr._scrolled || 0) + 'ms after scroll') + ')'; return; }
-  if (el.dataset.act === 'close' && e.target.closest('[data-stop]') && !e.target.closest('button[data-act="close"]')) return;
+  if (el.dataset.act === 'close' && e.target.closest('[data-stop]') && !e.target.closest('button[data-act="close"]')) { TapLog.ran = Date.now(); return; }
   Jank.act = el.dataset.act + (el.dataset.id ? ' ' + el.dataset.id : '');
   TapLog.ran = Date.now();
   const fn = ACT[el.dataset.act]; if (fn) { try { fn(el.dataset, e); } catch (x) { Dbg.log('script error', el.dataset.act, String(x && x.message || x)); throw x; } }

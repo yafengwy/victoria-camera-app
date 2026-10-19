@@ -414,3 +414,8 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 ## 5.8.9 (2026-10-18) Taps the iPhone dropped
 - Her log 23:40–23:43: 9 taps "no click came, redraws 0" (ppall, go:events, close, ltpickno, ltsel, ltnotopen, ltsplit, copylog); each time her 2nd tap worked. TapLog now runs such a tap itself after 450 ms when the same button is under the finger, nothing redrew, no scroll/drag/long press/guard; a late real click on the same button within 1.5 s is ignored (TG.replayEl). Log: "tap no answer … run by the app". Test t110p.
 - 猫砂盆 tab still shows alerts marked 不是猫 (her 5.2.3 rule: 不是猫 only takes it out of 全部).
+
+## 5.8.10 (2026-10-18) Fix 5.8.9 closing Settings
+- 5.8.9 bug: a tap on Settings version line (a <details> summary, no button) found the window background (data-act close) as nearest action and "ran" it, closing Settings (her log 23:55:37–51, 6 times). Also those taps were never lost: the click handler returned for close-inside-window without marking the tap answered.
+- Now: never run the window background; skip summary/details/links; the run tap is dispatched on the touched element itself (same guards as a real tap); close-inside-window marks the tap answered. Test t111p.
+- Doorbell 21:12 recording measured 384x512 (3:4), same shape as its pictures; upright phone camera view has no pinch zoom (4.8.8).
