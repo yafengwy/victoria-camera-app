@@ -410,3 +410,7 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 
 ## 5.8.8 (2026-10-18) Select button
 - Her feedback: hard to tap, wanted it at the far right and standing out. Now its own button at the right of the summary (34px tall), bold 14px in the strong colour; box when all are picked.
+
+## 5.8.9 (2026-10-18) Taps the iPhone dropped
+- Her log 23:40–23:43: 9 taps "no click came, redraws 0" (ppall, go:events, close, ltpickno, ltsel, ltnotopen, ltsplit, copylog); each time her 2nd tap worked. TapLog now runs such a tap itself after 450 ms when the same button is under the finger, nothing redrew, no scroll/drag/long press/guard; a late real click on the same button within 1.5 s is ignored (TG.replayEl). Log: "tap no answer … run by the app". Test t110p.
+- 猫砂盆 tab still shows alerts marked 不是猫 (her 5.2.3 rule: 不是猫 only takes it out of 全部).

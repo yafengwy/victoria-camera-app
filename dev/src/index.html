@@ -7799,8 +7799,17 @@ const TapLog = { draws: 0, d0: 0, ran: 0, why: '', sc: 0,
       if (this.ran >= at || TG.at !== at) return;
       const n = document.elementFromPoint(t0[0], t0[1]);
       if (!(n && n.closest && n.closest('[data-act]')) && !TG.act) return;   /* only app buttons: a picture, the background or a native control answers nothing on purpose */
+      /* 5.8.9: her logs (2026-10-18, iPhone) showed many "no click came, redraws 0" — the phone saw the finger lift on
+         the button but sent no click, and her second tap worked. Such a tap is now run once here: same button under the
+         finger, nothing redrawn, not a scroll or drag, not a long press, no guard said no. A click that still arrives
+         later is ignored (TG.replay), so it never runs twice. */
+      const a = n && n.closest && n.closest('[data-act]');
+      if (a && a.dataset.act === TG.act && this.draws === d0 && !this.why && held < 450 && Date.now() - this.sc > 900 && !n.closest('input,select,textarea,video,label')) {
+        Dbg.log('tap no answer', this.name(n), 'no click came · run by the app', 'held ' + held + 'ms', S.view + (S.modal ? ' ' + S.modal : ''));
+        TG.replay = Date.now(); TG.replayEl = a; a.click(); return;
+      }
       Dbg.log('tap no answer', this.name(n) + (TG.act && !(n && n.closest && n.closest('[data-act="' + TG.act + '"]')) ? ' (touched ' + TG.act + ')' : ''), this.why || 'no click came', 'redraws ' + (this.draws - d0), 'held ' + held + 'ms', Date.now() - this.sc < 900 ? 'list was scrolling' : '', S.view + (S.focus ? ' camera view' : '') + (S.modal ? ' ' + S.modal : ''));
-    }, 600);
+    }, 450);
   }
 };
 window.addEventListener('scroll', () => { TapLog.sc = Date.now(); }, { capture: true, passive: true });
@@ -7820,7 +7829,7 @@ function lostTap(e, tg) {
   if (e.touches.length || TG.mv || !TG.act || Date.now() - TG.at > 600 || !TG.t0) return;
   const n = document.elementFromPoint(TG.t0[0], TG.t0[1]), a = n && n.closest('[data-act]');
   Dbg.log('tap lost (redrawn under finger)', TG.act, a && a.dataset.act === TG.act ? 'given to new copy' : 'no same button there');
-  if (a && a.dataset.act === TG.act) { TG.replay = Date.now(); a.click(); }
+  if (a && a.dataset.act === TG.act) { TG.replay = Date.now(); TG.replayEl = a; a.click(); }
 }
 document.addEventListener('click', e => {
   if (TG.mv && Date.now() - TG.end < 800 && e.target.closest && e.target.closest('.focus, .full, #fsc, #ftsc, .rvcam')) {
@@ -7831,7 +7840,7 @@ document.addEventListener('click', e => {
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-act]');
   if (!el) return;
-  if (e.isTrusted && TG.replay && Date.now() - TG.replay < 700) { TG.replay = 0; TapLog.ran = Date.now(); return; }   /* 5.2.5: that tap was already given (a browser that still sends it) */
+  if (e.isTrusted && TG.replay && Date.now() - TG.replay < 1500 && (el === TG.replayEl || (TG.replayEl && el.dataset.act === TG.replayEl.dataset.act && el.dataset.v === TG.replayEl.dataset.v))) { TG.replay = 0; TapLog.ran = Date.now(); return; }   /* 5.2.5: that tap was already given (a browser that still sends it) */
   /* lifting the finger after dragging the camera-view timeline is not a tap on the alert card under it */
   const scr = e.target.closest('#fsc, #ftsc');
   if (scr && (scr._mv || Date.now() - (scr._scrolled || 0) < 350)) { TapLog.why = 'timeline still moving (' + (scr._mv ? 'dragged' : Date.now() - (scr._scrolled || 0) + 'ms after scroll') + ')'; return; }
