@@ -872,6 +872,7 @@ input,select,textarea{font-size:16px}
 .ppdone{width:100%;margin:0 0 10px;font-size:13px;padding:7px;min-height:0}
 /* 5.8.8: Select sits at the right on its own (a bigger tap area, not inside a line of text), bold in the strong colour */
 .ppall{flex:none;align-self:flex-end;font:inherit;font-size:14px;font-weight:700;color:var(--strong);background:none;border:1.5px solid transparent;border-radius:8px;padding:5px 10px;min-height:34px}.ppall[aria-pressed="true"]{border-color:var(--strong)}
+.ppn{font:inherit;color:inherit;background:none;border:0;padding:0;display:inline-flex;align-items:center;gap:2px;text-decoration:underline dotted;text-underline-offset:3px}.ppn b{color:var(--text);font-weight:700}.ppn svg{width:13px;height:13px}
 .ppsum{display:flex;gap:8px;align-items:flex-end}.ppst{flex:1;min-width:0}
 .ppsum{font-size:12px;color:var(--sub);margin:0 2px 8px;line-height:1.5}.ppsum b{color:var(--text);font-weight:600}
 .ppchips{display:flex;gap:5px;flex-wrap:wrap;margin:0 0 10px}.ppchips .chip.sm{font-size:12px;font-weight:500;padding:3px 9px;min-height:0;height:auto;line-height:1.5}
@@ -3037,7 +3038,7 @@ async function plusOnly(k, e) {
    are skipped. Sends one by one, only what is ticked. Load: one /api/events query (last 30 days, the picked cameras
    and objects) and 100 small snapshots, only when the page opens or a list closes with a change. */
 const PPlus = {
-  N: 100, rows: null, picked: [], off: {}, sending: false, done: 0, ok: 0, bad: 0, total: 0, err: '', seq: 0,
+  N: store.get('ppn', 100), rows: null, picked: [], off: {}, sending: false, done: 0, ok: 0, bad: 0, total: 0, err: '', seq: 0,
   AREAS: [['L', 'Left Edge'], ['R', 'Right Edge'], ['M', 'Middle'], ['O', 'Other'], ['day', 'Day'], ['night', 'Night']],
   sel() { if (!S.pp) S.pp = store.get('ppsel', { cams: ['front_door', 'driveway'], objs: ['Person'], areas: [] }); return S.pp; },
   save() { store.set('ppsel', this.sel()); },
@@ -3124,7 +3125,9 @@ function modalPPlus() {
   if (!P.picked.length) return h + 'Nothing Left To Send In The Last 30 Days.</div></div></div></div></div>';
   const ps = P.picked, cnt = f => ps.filter(f).length, D = cnt(c => c.day);
   const areaN = P.AREAS.slice(0, 4).map(a => [a[1], cnt(c => c.side === a[0])]).filter(x => x[1]);
-  h += '<b>' + ps.length + ' Picked</b> · Last 30 Days · ' + areaN.map(x => x[0] + ' <b>' + x[1] + '</b>').join(' · ') + ' · Day <b>' + D + '</b> · Night <b>' + (ps.length - D) + '</b></div><button class="ppall" data-act="ppall" aria-pressed="' + ps.every(c => !P.off[c.id]) + '" aria-label="Select All">Select</button></div>';
+  h += '<button class="ppn" data-act="ppnopen" aria-expanded="' + !!S.ppN + '"><b>' + ps.length + ' Picked</b>' + (S.ppN ? I.up : I.down) + '</button> · Last 30 Days · ' + areaN.map(x => x[0] + ' <b>' + x[1] + '</b>').join(' · ') + ' · Day <b>' + D + '</b> · Night <b>' + (ps.length - D) + '</b></div><button class="ppall" data-act="ppall" aria-pressed="' + ps.every(c => !P.off[c.id]) + '" aria-label="Select All">Select</button></div>';
+  /* 5.8.11 her request: tap the number to pick how many (20–100) */
+  if (S.ppN) h += '<div class="ppchips">' + [20, 40, 60, 80, 100].map(n => '<button class="chip sm" data-act="ppnset" data-v="' + n + '" aria-pressed="' + (P.N === n) + '">' + n + '</button>').join('') + '</div>';
   const side = c => (P.AREAS.find(a => a[0] === c.side) || [0, ''])[1];
   h += '<div class="ppgrid">' + ps.map(c => '<button class="ppc' + (P.off[c.id] ? ' off' : '') + '" data-act="pptog" data-v="' + esc(c.id) + '" aria-pressed="' + !P.off[c.id] + '">' +
     '<img src="' + Frigate.base() + '/api/events/' + encodeURIComponent(c.id) + '/snapshot.jpg?bbox=1&timestamp=0&height=270" alt="" loading="lazy"><span class="ppk">' + (c.sent ? '↑' : '✓') + '</span>' +
@@ -7289,6 +7292,8 @@ const ACT = {
     S.ppOpen = d.v; if (was && S.ppDirty) { S.ppDirty = false; PPlus.save(); PPlus.load(); return; } render(); },
   pppick(d) { const sl = PPlus.sel(), k = d.k, v = d.v; if (v === '') sl[k] = []; else { const i = sl[k].indexOf(v); if (i < 0) sl[k].push(v); else sl[k].splice(i, 1); } S.ppDirty = true; render(); },
   /* 5.8.7 her design: one word, Select — boxed = all picked; tap = none picked; tap again = all */
+  ppnopen() { S.ppN = !S.ppN; render(); },
+  ppnset(d) { if (PPlus.sending) return; PPlus.N = +d.v; store.set('ppn', PPlus.N); S.ppN = false; PPlus.off = {}; if (PPlus.rows) PPlus.pick(); Dbg.log('frigate+ pictures how many', PPlus.N, 'picked', PPlus.picked.length); render(); },
   ppall() { if (PPlus.sending) return; const all = PPlus.picked.every(c => !PPlus.off[c.id]); PPlus.off = {}; if (all) PPlus.picked.forEach(c => { PPlus.off[c.id] = true; }); render(); },
   pptog(d) { if (PPlus.sending) return; PPlus.off[d.v] = !PPlus.off[d.v]; render(); },
   ppsend() { PPlus.send(); },
