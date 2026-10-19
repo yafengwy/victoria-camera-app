@@ -2745,7 +2745,7 @@ const Playback = {
         /* start loading right at the wanted spot (not from the beginning and then jump), small buffer, play at once */
         const H = await this.hls(); if (gone()) return; if (!H.isSupported()) throw 0;
         const vt0 = this.vtime(p, camT(id) == null ? t : camT(id));
-        p.h = new H({ startPosition: vt0 != null ? vt0 : -1, maxBufferLength: 8, maxMaxBufferLength: 20, backBufferLength: 10, startFragPrefetch: true, manifestLoadingTimeOut: 8000, fragLoadingTimeOut: 8000 });
+        p.h = new H({ startPosition: vt0 != null ? vt0 : -1, testBandwidth: false, maxBufferLength: 8, maxMaxBufferLength: 20, backBufferLength: 10, startFragPrefetch: true, manifestLoadingTimeOut: 8000, fragLoadingTimeOut: 8000 });
         v.disableRemotePlayback = true;   /* ManagedMediaSource on iPhone needs this (no AirPlay of recordings) */
         hlsLog(p.h, H, 'video ' + id);
         this.guard(v, p.h, () => { p.h = null; this.load(id, t); }, 'video ' + id);
@@ -2838,8 +2838,12 @@ const Playback = {
       ['loadedmetadata', 'playing', 'waiting', 'pause', 'stalled', 'error'].forEach(ev => v.addEventListener(ev, () => Dbg.log('alert clip', ev, tag, ev === 'error' && v.error ? 'code ' + v.error.code + ' ' + (v.error.message || '') : 'at ' + v.currentTime.toFixed(1))));
       fetch(u, { credentials: 'include' }).then(r => r.text().then(t => Dbg.log('alert clip list', tag, r.status, (t.match(/#EXTINF/g) || []).length + ' parts'))).catch(e => Dbg.log('alert clip list', tag, 'failed'));
       if (this.native(cam)) { v.src = u; v.play().catch(() => {}); }
-      else this.hls().then(H => { const h = new H(); v._hls = h; v.disableRemotePlayback = true; hlsLog(h, H, 'alert clip ' + tag); h.loadSource(u); h.attachMedia(v); v.play().catch(() => {});
-        Playback.guard(v, h, () => { v._hls = null; v.src = u; v.play().catch(() => {}); }, 'alert clip ' + tag); }).catch(() => { v.src = u; });
+      /* 5.9.2: hls.js starts loading at the alert's own second, not at the clip's start. Her log 10-19 15:41: Front Door
+         loaded part 1 (14.5 MB, 3.3 s) only to jump to 59.6 s and load part 6; Driveway part 1 (9.5 MB) before part 2.
+         The recorded-pieces list (needed to find the right second) is waited for at most 1.5 s. */
+      else this.hls().then(H => Promise.race([segsP, new Promise(r => setTimeout(r, 1500))]).then(() => { const sp = at ? vodAt(v, at) : 0;
+        const h = new H(sp > 0.5 ? { startPosition: sp, testBandwidth: false } : {}); v._hls = h; v.disableRemotePlayback = true; hlsLog(h, H, 'alert clip ' + tag); if (sp > 0.5) Dbg.log('alert clip', tag, 'starts loading at ' + sp.toFixed(1)); h.loadSource(u); h.attachMedia(v); v.play().catch(() => {});
+        Playback.guard(v, h, () => { v._hls = null; v.src = u; v.play().catch(() => {}); }, 'alert clip ' + tag); })).catch(() => { v.src = u; });
     });
     const want = this.cams();
     for (const id in this.st) if (!want[id]) {
@@ -6513,7 +6517,7 @@ const RVid = {
       const v = this.el(); v.style.opacity = '0'; this.mount(); v.playbackRate = S.speed || 1;
       const vt = Playback.vtime({ win: this.win }, t) || 0, url = Frigate.base() + '/vod/' + id + '/start/' + a + '/end/' + b + '/index.m3u8';
       if (Playback.native(id)) { v.src = url; v.currentTime = vt; v.play().catch(() => {}); }
-      else { const H = await Playback.hls(); if (seq !== this.seq) return; this.h = new H({ startPosition: vt, maxBufferLength: 8, maxMaxBufferLength: 20, backBufferLength: 10 }); hlsLog(this.h, H, 'review video ' + id); this.h.loadSource(url); this.h.attachMedia(v); v.play().catch(() => {}); }
+      else { const H = await Playback.hls(); if (seq !== this.seq) return; this.h = new H({ startPosition: vt, testBandwidth: false, maxBufferLength: 8, maxMaxBufferLength: 20, backBufferLength: 10 }); hlsLog(this.h, H, 'review video ' + id); this.h.loadSource(url); this.h.attachMedia(v); v.play().catch(() => {}); }
     } catch (e) { if (seq === this.seq) Dbg.log('review video load error', id, String(e && e.message || e)); }
     if (seq === this.seq) this.loading = false;
   },

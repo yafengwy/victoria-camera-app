@@ -428,3 +428,7 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 
 ## 5.9.1 (2026-10-19) How many pictures
 - Tap "N Picked" → 20 / 40 / 60 / 80 / 100; picks again from the rows already read (no new Frigate query), remembered (homecams.ppn). Test t112p.
+
+## 5.9.2 (2026-10-19) Clips load the alert second first (computer)
+- Her log 15:41 (Windows): Front Door clip loaded part 1 (14.5 MB, 3.3 s) only to jump to 59.6 s and then load part 6; Driveway part 1 (9.5 MB) before part 2. Live streams were already 0 while clips loaded, so pausing live (her option 1) would not have helped.
+- Cause: hls.js loads a first fragment as a bandwidth test even with startPosition. Now alert cards start hls.js at the alert second (pieces list waited max 1.5 s) and all three hls.js players (alert cards, camera view, Review) use testBandwidth:false. Test t113p: loads part 7 first (was 0 then 7). iPhone native player unchanged.
