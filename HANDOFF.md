@@ -426,5 +426,5 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 - Now: input back to rtsp://127.0.0.1:8554/nest_doorbell; camera output_args.record = "-f segment -segment_time 5 -segment_format mp4 -reset_timestamps 1 -strftime 1 -vf scale=720:960 -c:v libx264 -preset veryfast -crf 24 -g 20 -pix_fmt yuv420p -c:a aac". She confirmed 00:57: picture back, playback from alerts normal.
 - To check later: new pieces all 720,960; CPU cost of the encode.
 
-## 5.8.11 (2026-10-19) How many pictures
+## 5.9.1 (2026-10-19) How many pictures
 - Tap "N Picked" → 20 / 40 / 60 / 80 / 100; picks again from the rows already read (no new Frigate query), remembered (homecams.ppn). Test t112p.
