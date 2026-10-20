@@ -280,6 +280,16 @@ img.rf{opacity:0}
 /* 4.4.3: tiny ‹ › at the strip's ends for a mouse (phones swipe); pictures can't be dragged out of the strip */
 .fev.fstrip img{-webkit-user-drag:none;user-select:none}
 .fsarr{display:none}
+/* 6.1.2 an opened group's rows (方案 C), under its card */
+.fev.open{border-radius:14px 14px 0 0}.fev .fcx{margin-left:auto;flex:none;display:flex;color:var(--dark-sub)}.fev .fcx svg{width:16px;height:16px}
+.fsub{position:absolute;right:14px;width:clamp(196px,calc(100% - 150px),230px);box-sizing:border-box;padding:4px;background:#1A1D20;border-radius:0 0 14px 14px;z-index:1}
+.fsr{display:flex;align-items:center;gap:6px;width:100%;height:40px;padding:0 6px;border-radius:10px;color:var(--dark-fg,#E8EAED);font-size:12px;text-align:left}
+.fsr b{flex:none;width:56px;font-size:12px;font-variant-numeric:tabular-nums}
+.fsr .lico{flex:none;display:flex}.fsr .lico svg{width:14px;height:14px}
+.fsr img{flex:none;width:50px;height:32px;object-fit:cover;border-radius:6px}
+.fsr span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fsr.un{opacity:.6}
+.fsr.cur{opacity:1;box-shadow:0 0 0 2px #8AB4F8,0 0 10px 1px rgba(138,180,248,.5)}
 .fsx{flex-shrink:0;width:26px;height:calc(100% - 8px);border-radius:8px;background:rgba(255,255,255,.10);color:#fff;display:flex;align-items:center;justify-content:center;padding:0}.fsx svg{width:14px;height:14px}
 @media (pointer:fine){.fsarr{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:16px;height:calc(100% - 8px);border-radius:6px;background:rgba(255,255,255,.08);color:#fff;font-size:16px;font-weight:700;line-height:1;padding:0}
   .fev.fstrip.atl .fsarr.l,.fev.fstrip.atr .fsarr.r{visibility:hidden}}
@@ -436,6 +446,7 @@ img.rf{opacity:0}
   .focus .fmark.ico:not(.dim){left:56px}
   .focus .fmark.ico{margin-left:calc(var(--ln,0) * -24px)}
   .focus .fev{left:82px;width:auto;right:8px;height:48px;gap:8px;margin-top:6px}
+  .focus .fsub{left:82px;width:auto;right:8px}
   .focus .fev img{width:60px;height:40px;border-radius:7px}
   .focus .fev b{font-size:13px}
   .focus .fev small{font-size:11px}
@@ -5155,6 +5166,7 @@ const FSeek = {
   tick(force) {
     const box = document.getElementById('fseek'); if (!box) { this.key = null; return; }
     const id = S.focus && S.focus.cam, t = id ? camT(id) : null, e = t != null ? this.alertAt(id, t) : null;
+    if (e || !EvDrag.on) fCur(e ? e.id : null);
     if (!e) { if (!box.hidden) { box.hidden = true; box.innerHTML = ''; this.key = null; placeSteps(); } return; }
     const a = e.vs * 1000, b = e.ve * 1000;
     if (this.key !== e.id || force === 'all' || !box.querySelector('.fsk')) {   /* 5.9.10: a redraw empties the box */
@@ -5434,7 +5446,7 @@ function fclipAlert(cam, t) {
 /* the download range on the camera view timeline: an orange band with a short line at Start and End */
 function fclipMarks(id) {
   const c = S.fclip; if (!c || c.cam !== id) return '';
-  const Y = t => FTOP + (focusEnd() - t) / MIN * FPX;
+  const Y = t => fY(t);
   let h = '';
   if (c.a && c.b) h += '<div class="fcband" style="top:' + Y(c.b).toFixed(1) + 'px;height:' + Math.max(2, Y(c.a) - Y(c.b)).toFixed(1) + 'px"></div>';
   if (c.a) h += '<div class="fcmk" style="top:' + Y(c.a).toFixed(1) + 'px"><span>Start<em> ' + hms(c.a) + '</em></span></div>';
@@ -5492,7 +5504,29 @@ const FBack = {
     } finally { this.busy = false; }
   }
 };
-function fLineY(t) { return t == null ? FTOP : FTOP + (focusEnd() - t) / MIN * FPX; }
+/* 6.1.2 her design (方案 C): an opened group unfolds in place into one row per alert and pushes the rest of the list
+   down. The list's time-to-height rule then has a fold in it: fmap holds [time, extra px] points (newest first); times
+   between points slide smoothly, so each row's alert sits exactly on its row and everything older moves down by the
+   height of the rows. Without an opened group fmap is empty and nothing changes. */
+function fYb(t, end) { return FTOP + (end - t) / MIN * FPX; }
+function fD(t) {
+  const m = S.focus && S.focus.fmap; if (!m || !m.length) return 0;
+  if (t >= m[0][0]) return m[0][1]; const l = m[m.length - 1]; if (t <= l[0]) return l[1];
+  for (let i = 1; i < m.length; i++) if (t >= m[i][0]) { const a = m[i - 1], b = m[i]; return b[1] + (a[1] - b[1]) * (t - b[0]) / (a[0] - b[0]); }
+  return l[1];
+}
+function fY(t, end) { return fYb(t, end == null ? focusEnd() : end) + fD(t); }
+function fT(y, end) {
+  end = end == null ? focusEnd() : end;
+  if (!(S.focus && S.focus.fmap && S.focus.fmap.length)) return end - (y - FTOP) / FPX * MIN;
+  let lo = end - 60 * DAY, hi = end + HOUR;
+  for (let i = 0; i < 60; i++) { const mid = (lo + hi) / 2; if (fY(mid, end) > y) lo = mid; else hi = mid; }
+  return (lo + hi) / 2;
+}
+function fWide() { return !!(window.matchMedia && matchMedia('(min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px)').matches); }
+/* 6.1.2: the alert playing glows in the opened group's rows */
+function fCur(id) { document.querySelectorAll('#fsc .fsr').forEach(n => n.classList.toggle('cur', !!id && n.dataset.id === id)); }
+function fLineY(t) { return t == null ? FTOP : fY(t); }
 /* keep the playing time in view without jumping: only scroll when it is off screen */
 /* 4.5.2: the camera view list has empty room above "now" (pad, one screen tall). With the blue line sitting lower
    (after tapping an alert), dragging down then moves the timeline under a line that stays put, all the way to Live,
@@ -5573,47 +5607,50 @@ function viewFocus() {
   if (S.flist) {
     body = '<div class="flist" id="flist">' + fListRows(evs, t) + '</div>';
   } else {
-    const height = FTOP + span / MIN * FPX + 400;
-    let rows = '';
-    for (let k = Math.floor(end / HOUR) * HOUR; k > end - span; k -= HOUR)
-      rows += '<div class="fhr' + (new Date(k).getHours() === 0 ? ' fday0' : '') + '" style="top:' + (FTOP + (end - k) / MIN * FPX - 8) + 'px">' + (new Date(k).getHours() === 0 && k < dayStart(now()) + 1 ? dayLabel(k) + ' ' : '') + pad(new Date(k).getHours()) + '</div>';
     /* One grouping for both the icons and the cards: alerts closer than one card height (~35 min) form a group.
-       The group gets one card and one icon per kind (with a count). Tapping either plays the same alert; a group of
-       several opens into a strip of all its alerts so each one can be picked. */
+       The group gets one card and one icon per kind (with a count), fixed on the card's row. 6.1.2 (her 方案 C): a
+       group of several alerts opens in place into one row per alert (time, icon, picture), pushing the list below down;
+       the alert playing has a soft blue glow; the card (or its ×) folds it back. */
     const grp = []; Arrive.want(evs);
     evs.forEach(e => {
-      const y = FTOP + (end - e.t) / MIN * FPX, g = grp[grp.length - 1];
+      const y = fYb(e.t, end), g = grp[grp.length - 1];
       if (g && y - g.y < 70) g.items.push(e); else grp.push({ y, items: [e] });
     });
     S.focus.groups = grp;
-    const curT = t;
+    const keyOf = g => String((g.items.find(x => !x.motion) || g.items[0]).t);
+    const og = grp.find(g => g.items.length > 1 && S.focus.og === keyOf(g));
+    let fold = null; S.focus.fmap = null;
+    if (og) {
+      const CB = fWide() ? 22 : 32, RH = 40;
+      const list = og.items.map(e => { const p = pick(e, S.filt); return { e, p, t: p.t }; }).sort((x, z) => z.t - x.t);
+      const pts = [[list[0].t + 30000, 0]]; let last = list[0].t + 30000;
+      list.forEach((r, i) => { let at = r.t - 1000; if (at >= last) at = last - 1; last = at; pts.push([at, og.y + CB + 4 + i * RH + RH / 2 - fYb(at, end)]); });
+      const bot = og.y + CB + 8 + list.length * RH, at = last - 30000; pts.push([at, bot - fYb(at, end)]);
+      S.focus.fmap = pts; fold = { g: og, list, top: og.y + CB };
+    }
+    const height = FTOP + span / MIN * FPX + 400 + (S.focus.fmap ? S.focus.fmap[S.focus.fmap.length - 1][1] : 0);
+    let rows = '';
+    for (let k = Math.floor(end / HOUR) * HOUR; k > end - span; k -= HOUR)
+      rows += '<div class="fhr' + (new Date(k).getHours() === 0 ? ' fday0' : '') + '" style="top:' + (fY(k, end) - 8) + 'px">' + (new Date(k).getHours() === 0 && k < dayStart(now()) + 1 ? dayLabel(k) + ' ' : '') + pad(new Date(k).getHours()) + '</div>';
     grp.forEach((g, gi) => {
-      const y = g.y, n = g.items.length, objs = focusObjs(g);
+      const open = !!fold && fold.g === g, y = open ? g.y : g.y + fD(g.items[0].t), n = g.items.length, objs = focusObjs(g);
       /* rail: one icon per kind of object, Interesting (orange) on the first row, Uninteresting (grey) on a second row */
       const kinds = [];
       objs.forEach(o => { const k = o.label + (o.hot ? '+' : '-'); let kd = kinds.find(x => x.k === k); if (!kd) { kd = { k, o, n: 0 }; kinds.push(kd); } kd.n++; });
       kinds.sort((a, b) => objRank(a.o.label) - objRank(b.o.label) || b.n - a.n);
       const lane = { '+': 0, '-': 0 };
       kinds.forEach(kd => {
-        /* 5.10.11: each icon sits at the time of the object it plays (the newest of its kind in the group), so a tap
-           brings the line exactly onto the icon; they used to all sit at the group's top and play its oldest one */
         const hot = kd.o.hot, ln = lane[hot ? '+' : '-']++; if (ln > 2) return;
-        rows += '<button class="fmark ico' + (hot ? '' : ' dim') + '" style="top:' + (FTOP + (end - kd.o.t) / MIN * FPX - 9 + (hot ? 0 : 24)) + 'px;--ln:' + ln + '" data-act="fgrp" data-g="' + gi + '" data-k="' + esc(kd.k) + '" aria-label="' + esc(objName(kd.o.label)) + ' ' + hm(kd.o.t) + (kd.n > 1 ? ', ' + kd.n : '') + '">' + objIcon(kd.o.label) + (kd.n > 1 ? '<b class="segn"><i>' + kd.n + '</i></b>' : '') + '</button>';
+        rows += '<button class="fmark ico' + (hot ? '' : ' dim') + '" style="top:' + (y - 9 + (hot ? 0 : 24)) + 'px;--ln:' + ln + '" data-act="fgrp" data-g="' + gi + '" data-k="' + esc(kd.k) + '" aria-label="' + esc(objName(kd.o.label)) + ' ' + hm(kd.o.t) + (kd.n > 1 ? ', ' + kd.n : '') + '">' + objIcon(kd.o.label) + (kd.n > 1 ? '<b class="segn"><i>' + kd.n + '</i></b>' : '') + '</button>';
       });
-      const e = g.items.find(x => !x.motion) || g.items[0], key = String(e.t), ep = pick(e, S.filt);   /* the card shows the alert, not a motion piece next to it */
-      if (objs.length > 1 && S.focus.og === key) {
-        /* opened: every object in these alerts, newest first; tap one to go to when it showed up */
-        /* 3.6.3: Interesting ones first (newest first among them), then Uninteresting (newest first) */
-        rows += '<div class="fev fstrip atl" style="top:' + (y - 32) + 'px"><button class="fsarr l" data-act="fstripgo" data-v="-1" aria-label="Earlier Thumbnails">‹</button><div class="fsrow">' + objs.slice().sort((a, b) => (b.hot ? 1 : 0) - (a.hot ? 1 : 0) || b.t - a.t).map(o => {
-          const on = curT != null && Math.abs(curT - (o.t - 1000)) < 1500;
-          return '<button class="fsi' + (on ? ' cur' : '') + (o.hot ? ' hot' : ' un') + '" data-act="fjump" data-t="' + o.t + '" aria-label="' + esc(objName(o.label)) + ' ' + hms(o.t) + '"><img src="' + o.img + '" alt="" loading="lazy" draggable="false"><span><i class="lico">' + objIcon(o.label) + '</i>' + (o.name ? esc(o.name) + ' ' : '') + hms(o.t) + '</span></button>';
-        }).join('') + '</div><button class="fsarr r" data-act="fstripgo" data-v="1" aria-label="More Thumbnails">›</button><button class="fsx" data-act="fstripx" aria-label="Close">' + I.x + '</button></div>';
-      } else {
+      const e = g.items.find(x => !x.motion) || g.items[0], ep = pick(e, S.filt);   /* the card shows the alert, not a motion piece next to it */
+      {
         const hotL = objs.filter(o => o.hot).map(o => o.label), names = [...new Set((hotL.length ? hotL : objs.map(o => o.label)).sort((a, b) => objRank(a) - objRank(b)).map(objName))];
         const title = names.slice(0, 2).join(', ') + (names.length > 2 ? ' +' + (names.length - 2) : '');
         const sub = hm(ep.t) + ' · ' + (n === 1 ? durLabel(e) : n + ' Alerts');
-        rows += '<button class="fev" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + evImg(e, ep) + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e, ep)) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span></button>';
+        rows += '<button class="fev' + (open ? ' open' : '') + '" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + evImg(e, ep) + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e, ep)) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span>' + (open ? '<span class="fcx" aria-hidden="true">' + I.x + '</span>' : '') + '</button>';
       }
+      if (open) rows += '<div class="fsub" style="top:' + fold.top + 'px">' + fold.list.map(r => '<button class="fsr' + (r.e.interesting ? '' : ' un') + (FSeek.key === r.e.id ? ' cur' : '') + '" data-act="fjump" data-t="' + r.t + '" data-id="' + esc(r.e.id) + '"><b>' + hms(r.t) + '</b><i class="lico">' + objIcon(ico(r.e, r.p)) + '</i><img src="' + evImg(r.e, r.p) + '" alt="" loading="lazy" draggable="false"><span>' + esc(objName(r.p.label)) + '</span></button>').join('') + '</div>';
     });
     body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px;margin-top:' + fPad() + 'px"><div class="frail">' + railState(c.id, end, span) + '</div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + (S.focus.lineY || FTOP) + 'px"></div>';
   }
@@ -5654,9 +5691,9 @@ function viewFocus() {
    13:10 – 14:20"); offline = thin dotted amber line (with "Offline · ..."). Alert icons stay on top, unchanged. */
 function railState(cam, end, span) {
   CamState.load();
-  const b = Math.min(end, now()), Y = t => FTOP + (end - t) / MIN * FPX;
+  const b = Math.min(end, now()), Y = t => fY(t, end);
   return CamState.parts(cam, end - span, b).map(x => {
-    const top = Y(x[1]), h = Math.max(1, (x[1] - x[0]) / MIN * FPX);
+    const top = Y(x[1]), h = Math.max(1, Y(x[0]) - Y(x[1]));
     return (x[2] === 'off' ? '' : '<div class="fst ' + x[2] + '" style="top:' + top.toFixed(1) + 'px;height:' + h.toFixed(1) + 'px"></div>') +
       (x[2] !== 'on' && h >= 16 ? '<div class="fstl ' + x[2] + '" style="top:' + (top + 2).toFixed(1) + 'px">' + CamState.label(x) + '</div>' : '');
   }).join('');
@@ -7906,19 +7943,15 @@ const ACT = {
     if (rvLay() !== 'grid' && S.rv.feat !== d.id) { S.rv.feat = d.id; S.rv.lp = null; rvLayout(S.hov && S.hov.id === 'rv' ? S.hov.t : S.rv.t); }   /* a small picture tapped: make it the big one */
   },
   rvlive() { S.rv.t = null; rvScrollTo(null); paintReview(); },
-  fgrp(d) {     /* tap a group's card or icon: play its newest alert (of that kind, for an icon); a group of several opens into a strip */
+  fgrp(d) {     /* 6.1.2 (方案 C): a group of several opens in place into one row per alert; the card folds it back */
     const g = S.focus && S.focus.groups && S.focus.groups[+d.g]; if (!g) return;
-    /* a group of alerts, or one alert holding several objects, opens into a strip to pick from; an icon goes to its object */
+    const key = String((g.items.find(x => !x.motion) || g.items[0]).t), several = g.items.length > 1;
+    if (!d.k && several && S.focus.og === key) { S.focus.og = null; render(); return; }
+    /* an icon plays the newest alert with that kind of object; the card plays the alert it shows */
     const objs = focusObjs(g), want = d.k ? objs.filter(o => o.label + (o.hot ? '+' : '-') === d.k) : [];
-    const o = want.length ? want[0] : (objs.filter(x => x.hot).pop() || objs[objs.length - 1]);
-    /* 4.3.11: the same key the card uses (its alert, not a motion piece): with Motion shown, the newest item was often a
-       motion piece, so the key never matched and the group never opened into its strip */
-    const og = objs.length > 1 ? String((g.items.find(x => !x.motion) || g.items[0]).t) : null;
-    if (S.focus.og !== og) { S.focus.og = og; render(); }
-    /* 5.10.10: a tap on the card plays the alert the card shows (its time is where the card sits), so the line lands on
-       the card she tapped; an icon still goes to its own object */
-    const ce = g.items.find(x => !x.motion) || g.items[0];
-    ACT.fjump({ t: d.k ? (o ? o.t : pick(g.items[0], S.filt).t) : pick(ce, S.filt).t });
+    const e = want.length ? want[0].e : (g.items.find(x => !x.motion) || g.items[0]);
+    if (several && S.focus.og !== key) { S.focus.og = key; render(); }
+    ACT.fjump({ t: pick(e, S.filt).t, id: e.id });
   },
   /* 5.10.11 her request: the × at the strip's end folds it back into its card */
   fstripx() { if (S.focus) { S.focus.og = null; render(); } },
@@ -7930,6 +7963,7 @@ const ACT = {
     S.focus.keepAt = true;
     S.camTime[id] = t; S.playing = true; paintFocus();       /* the line moves to the alert; the list stays where it is */
     document.querySelectorAll('.fsi').forEach(n => n.classList.toggle('cur', +n.dataset.t === +d.t));
+    fCur(d.id || null);
     Playback.sync();
   },
   fdate() { openDateTime(camT(S.focus.cam), v => { const d0 = dayStart(v); S.focus.back = 0; S.focus.dayEnd = d0 === dayStart(now()) ? null : d0 + DAY; S.camTime[S.focus.cam] = v >= now() - 1000 ? null : v; render(); }); }
@@ -8305,7 +8339,7 @@ function wire() {
       if (Date.now() - (window._hDragAt || 0) < 400) return;   /* a sideways drag of the picture strip that ended outside it */
       if (sc._mv || Date.now() - (sc._scrolled || 0) < 350) return;
       const fin = sc.querySelector('.fin'); if (!fin) return;
-      const y = e.clientY - fin.getBoundingClientRect().top, t = focusEnd() - (y - FTOP) / FPX * MIN;
+      const y = e.clientY - fin.getBoundingClientRect().top, t = fT(y);
       /* 4.4.10: an empty spot goes to exactly that time; only the icons and cards themselves (buttons) jump to an
          alert. It used to snap to the nearest alert within 36 px, so a tap beside an icon never reached its own time. */
       S.camTime[S.focus.cam] = (!S.focus.dayEnd && y < FTOP + 4) ? null : t; S.playing = true; paintFocus(); Playback.sync();
@@ -8329,7 +8363,7 @@ function wire() {
       const ly = S.focus.lineY == null ? FTOP : S.focus.lineY, y = Math.max(0, sc.scrollTop) - fPad() + ly;
       /* 4.6.4: the list's top is Live. Pulled to the top (or bounced past it) = Live, so the bounce can't carry the
          time back into the past ("jumped down a bit" and stayed short of now) */
-      S.camTime[S.focus.cam] = (!S.focus.dayEnd && (y < FTOP + 2 || sc.scrollTop <= 0)) ? null : focusEnd() - (y - FTOP) / FPX * MIN;
+      S.camTime[S.focus.cam] = (!S.focus.dayEnd && (y < FTOP + 2 || sc.scrollTop <= 0)) ? null : fT(y);
       fScrubPaint();
       clearTimeout(sc._padT); sc._padT = setTimeout(() => { if (S.focus && !sc._touch && !sc._ptr) fPaintLine(); }, 800);
       /* 4.6.4: no more settling back after Live: the line stays where it is, with now on it */

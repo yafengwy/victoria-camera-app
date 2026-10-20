@@ -500,3 +500,6 @@ Her real complaint (recording 01:12): tapping an alert card scrolled the list so
 
 ## 6.1.1
 Camera view rail icons: each icon sits at the time of the object it plays (newest of its kind in the group; it used to sit at the group top and play the oldest, e.g. her dog icon at 18:39 played 18:09), so the line lands exactly on the tapped icon. Opened strip has a × at its end (fstripx) that folds it back into the card. t131, t129.
+
+## 6.1.2
+Her 方案 C for the camera view list: rail icons back on the card row (fixed). A group of several alerts opens in place (card tap or icon) into one row per alert (.fsub/.fsr: time, icon, picture, label) and pushes the list below down; the alert playing glows (fCur, from FSeek.tick and fjump); card tap again (with x mark) folds it. The list time-to-height rule has a fold: S.focus.fmap [time, extra px] points, fY/fT map both ways (line, scrub, taps on empty space, hour labels, rail, clip marks), so each row sits exactly on its alert time and older items shift down. Icon = newest alert with that object. Blue-line logic unchanged (lineAt from tap, stays while dragging, Live resets). Old thumbnail strip no longer drawn. t132.
