@@ -441,8 +441,9 @@ img.rf{opacity:0}
    tall as the screen on the left, the same native-scrolling timeline as the upright phone on the right */
 @media (min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px){
   /* 6.3.10 her request: on a computer the timeline side takes the room the picture leaves (the picture is sized by the
-     screen's height, --vr = its shape), between 40% of the screen (at most 420 px) and half of it; was 270-300 px */
-  .focus{--fw:clamp(min(420px,40vw),calc(100vw - (100vh - env(safe-area-inset-top,0px) - 142px) * var(--vr,1.7778) - 32px),50vw);display:grid;grid-template-columns:minmax(0,1fr) var(--fw);grid-template-rows:68px minmax(0,1fr)}
+     screen's height, --vr = its shape), 420-450 px (40% of a small screen); was 270-300 px. 6.3.11 her request: at most
+     450 px (half the screen made the cards 40% too long, empty on the right) */
+  .focus{--fw:clamp(min(420px,40vw),calc(100vw - (100vh - env(safe-area-inset-top,0px) - 142px) * var(--vr,1.7778) - 32px),450px);display:grid;grid-template-columns:minmax(0,1fr) var(--fw);grid-template-rows:68px minmax(0,1fr)}
   /* 5.5.9: the width follows the camera's own shape (--R): a 4:3 camera (Treat Feeder) was sized as 16:9, so it came
      out taller than the screen and covered −10s / Live / +10s */
   /* 5.9.8: room for the alert bar too: with it, −10s … +10s fell off the bottom of her computer screen. 5.9.9 her
@@ -482,10 +483,10 @@ img.rf{opacity:0}
   .focus .fev img{width:60px;height:40px;border-radius:7px}
   .focus .fev b{font-size:13px}
   /* 6.3.10: the cards' pictures grow with the wider side (60x40 → up to 104x58; cards stay under the 70 px between groups) */
-  .focus .fev{height:clamp(48px,calc(var(--fw) * .1125 + 6px),64px);margin-top:calc(clamp(48px,calc(var(--fw) * .1125 + 6px),64px) / -2 + 30px)}
-  .focus .fev img{width:clamp(60px,calc(var(--fw) * .2),104px);height:clamp(40px,calc(var(--fw) * .1125),58px)}
-  .focus .fev b{font-size:clamp(13px,calc(var(--fw) * .026),15px)}
-  .focus .fev small{font-size:clamp(11px,calc(var(--fw) * .022),13px)}
+  .focus .fev{height:clamp(48px,calc(var(--fw) * .135 + 6px),64px);margin-top:calc(clamp(48px,calc(var(--fw) * .135 + 6px),64px) / -2 + 30px)}
+  .focus .fev img{width:clamp(60px,calc(var(--fw) * .24),104px);height:clamp(40px,calc(var(--fw) * .135),58px)}
+  .focus .fev b{font-size:clamp(13px,calc(var(--fw) * .033),15px)}
+  .focus .fev small{font-size:clamp(11px,calc(var(--fw) * .028),13px)}
   .focus .fev small{font-size:11px}
   .focus .flist{padding:8px 8px 80px}
   .focus .fitem{gap:10px;padding:6px;border-radius:12px}
@@ -1870,7 +1871,9 @@ function objGroupChips(f, act) {
     return '<button class="chip sm" data-act="' + act + '" data-v="' + g[0] + '" aria-pressed="' + on + '">' + g[1] + '</button>'; }).join('') + '</div>';
 }
 /* object names on screen: "garbage_truck" → "Garbage Truck" (the value itself stays as Frigate writes it) */
-const objName = o => String(o).replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase());
+/* 6.3.11: a carrier reads as its own name (UPS, not Ups) */
+const CO_NAME = { amazon: 'Amazon', fedex: 'FedEx', ups: 'UPS', usps: 'USPS', dhl: 'DHL' };
+const objName = o => CO_NAME[String(o).toLowerCase()] || String(o).replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase());
 /* an alert counts for an object filter by its object, or by the delivery company on that car */
 /* 5.7.5 her rule: a moving bicycle or motorcycle always has someone riding it, so it also counts for Person */
 const RIDDEN = /^(bicycle|motorcycle)$/i;
@@ -5688,6 +5691,13 @@ function rowIco(e, p) {
   const r = Data.alertRule[e.cam] || { zones: [] };
   return { L: ico(e, p), hot: !ps.length && !!e.interesting && (!r.zones.length ? ruleHot(e.cam, p.label) : (e.objs || []).length <= 1) };
 }
+/* 6.3.11 her report: a row with the UPS truck icon read "Car". When the row's icon is a carrier, the object it stands
+   for (its car, else the alert's main object, the same rule as the icon) is named by the carrier */
+function rowNames(e, L) {
+  let os = (e.objs && e.objs.length ? e.objs : [e.label]).map(o => String(o).toLowerCase());
+  if (isLogo(L)) { const i = os.indexOf('car') >= 0 ? os.indexOf('car') : os.indexOf(String(e.label).toLowerCase()); if (i >= 0) os[i] = String(L).toLowerCase(); else os.unshift(String(L).toLowerCase()); }
+  return [...new Set(os.sort((a, b) => objRank(a) - objRank(b)).map(objName))].join(', ');
+}
 function fWide() { return !!(window.matchMedia && matchMedia('(min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px)').matches); }
 /* 6.1.2: the alert playing glows in the opened group's rows */
 function fCur(id) { document.querySelectorAll('#fsc .fsr, #fsc .fsi[data-id]').forEach(n => n.classList.toggle('cur', !!id && n.dataset.id === id)); }
@@ -5834,7 +5844,7 @@ function viewFocus() {
         const sub = hm(ep.t) + ' · ' + (n === 1 ? durLabel(e) : n + ' Alerts');
         rows += '<button class="fev' + (open ? ' open' : '') + '" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + evImg(e, ep) + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e, ep)) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span>' + (open ? '<span class="fcx" aria-hidden="true">' + I.x + '</span>' : '') + '</button>';
       }
-      if (open) rows += '<div class="fsub" style="top:' + fold.top + 'px;height:' + fold.boxH + 'px"><div class="fsubin" id="fsubin">' + fold.list.map(r => { const ri = rowIco(r.e, r.p); return '<button class="fsr' + (ri.hot ? ' hot' : ' un') + (FSeek.key === r.e.id ? ' cur' : '') + '" data-act="fjump" data-t="' + r.t + '" data-id="' + esc(r.e.id) + '"><b>' + hms(r.t) + '</b><i class="lico">' + objIcon(ri.L) + '</i><img src="' + evImg(r.e, r.p) + '" alt="" loading="lazy" draggable="false"><span>' + esc([...new Set((r.e.objs && r.e.objs.length ? r.e.objs : [r.e.label]).slice().sort((a, b) => objRank(a) - objRank(b)).map(objName))].join(', ')) + '</span></button>'; }).join('') + '</div></div>';
+      if (open) rows += '<div class="fsub" style="top:' + fold.top + 'px;height:' + fold.boxH + 'px"><div class="fsubin" id="fsubin">' + fold.list.map(r => { const ri = rowIco(r.e, r.p); return '<button class="fsr' + (ri.hot ? ' hot' : ' un') + (FSeek.key === r.e.id ? ' cur' : '') + '" data-act="fjump" data-t="' + r.t + '" data-id="' + esc(r.e.id) + '"><b>' + hms(r.t) + '</b><i class="lico">' + objIcon(ri.L) + '</i><img src="' + evImg(r.e, r.p) + '" alt="" loading="lazy" draggable="false"><span>' + esc(rowNames(r.e, ri.L)) + '</span></button>'; }).join('') + '</div></div>';
     });
     body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px;margin-top:' + fPad() + 'px"><div class="frail">' + railState(c.id, end, span) + '</div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + (S.focus.lineY || FTOP) + 'px"></div>';
   }
