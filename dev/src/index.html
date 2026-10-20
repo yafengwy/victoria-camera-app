@@ -6245,6 +6245,7 @@ function fullUi() {
   nw.querySelectorAll(':scope > .fullsteps, :scope > .fuitop').forEach(n => w.appendChild(n));
   const os = fv.querySelector(':scope > .fside'), ns = nfv.querySelector(':scope > .fside');
   if (os) os.remove(); if (ns) fv.appendChild(ns);
+  { const l = fv.querySelector('.fpl'); if (l && S.fplTop != null) { l.scrollTop = S.fplTop; S.fplTop = null; } }
   wireFull();
   const fts = document.getElementById('ftsc');
   if (fts) hoverPreview(fts, 'full', e => { const r = fts.getBoundingClientRect(); const y = fts.scrollTop + (e.clientY - r.top) - VTOP; return y < 0 ? null : focusEnd() - y / FFPX * MIN; }, paintFocus, 'v');
@@ -8067,7 +8068,7 @@ const ACT = {
     Snd.apply();
     const h = Snd.on && Snd.host(); if (h) h.querySelectorAll('video').forEach(v => { if (v.paused && v.readyState >= 2 && (v.classList.contains('pbv') ? S.playing && camT(v.closest('[data-pb]') ? v.closest('[data-pb]').dataset.pb : '') != null : true)) v.play().catch(() => {}); });
   },
-  fuitap(d, e) { if (e && e.target.closest('.fuitop')) return; if (Date.now() - FZ.moved < 400) return; S.fui = !S.fui; if (!S.fui) S.fpanel = false; fullUi(); },
+  fuitap(d, e) { if (e && e.target.closest('.fuitop')) return; if (Date.now() - FZ.moved < 400) return; if (S.fui) { const l = document.querySelector('#fullv .fpl'); S.fplTop = l ? l.scrollTop : null; } S.fui = !S.fui; fullUi(); },   /* 6.5.6 her report: hiding the buttons to pinch-zoom, then showing them again, came back as the timeline at the top; the alerts list and its place are kept now */
   fkick() { fuiKick(); },
   fpanel() { S.fpanel = !S.fpanel; S.fui = true; fullUi(); fuiKick(); },
   /* full screen with the alert panel: the page is redrawn to mark the picked alert; the panel keeps its scroll position
