@@ -5959,9 +5959,11 @@ function viewFull(c, t, f) {
     '<div class="fulltm" id="fulltm">' + dtShort(shownT(c.id, c.id)) + '</div>' +
     (S.fui ? '<div class="fullsteps"><button class="dk sm wide" data-act="fstep" data-v="-10" aria-label="Back 10 Seconds">−10s</button><button class="dk sm wide" data-act="fstep" data-v="-5" aria-label="Back 5 Seconds">−5s</button><button class="dk sm wide fullpp" data-act="playpause" aria-label="' + (S.playing ? 'Pause' : 'Play') + '">' + (S.playing ? I.pause : I.play) + '</button><button class="fstep" data-act="flive" aria-label="Go Live">Live</button>' +
       '<button class="dk sm wide" id="fullstepf5" data-act="fstep" data-v="5" aria-label="Forward 5 Seconds"' + (t == null ? ' disabled' : '') + '>+5s</button><button class="dk sm wide" id="fullstepf" data-act="fstep" data-v="10" aria-label="Forward 10 Seconds"' + (t == null ? ' disabled' : '') + '>+10s</button></div>' : '') +
-    (S.fui ? '<div class="fuitop"><button class="dk" data-act="unfull" aria-label="Exit Full Screen">' + I.shrink + '</button><div style="flex:1"></div>' +
+    /* 6.5.4 her order: Exit, Live / time right of it; on the right Sound, Boxes, Alert Settings, Alerts / Timeline */
+    (S.fui ? '<div class="fuitop"><button class="dk" data-act="unfull" aria-label="Exit Full Screen">' + I.shrink + '</button><div class="pillk" id="fullbadge">' + (t == null ? '<span class="dot busy"></span>Live' : hms(t)) + '</div><div style="flex:1"></div>' +
+      Snd.btn('dk') + (Data.source === 'frigate' ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
       (S.fpanel ? '<button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button>' : '') +
-      '<button class="dk' + (S.fpanel ? ' on' : '') + '" data-act="fpanel" aria-label="' + (S.fpanel ? 'Show Timeline' : 'Show Alerts') + '">' + (S.fpanel ? I.tline : I.bellO) + '</button>' + (Data.source === 'frigate' ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') + '<div class="pillk" id="fullbadge">' + (t == null ? '<span class="dot busy"></span>Live' : hms(t)) + '</div></div>' : '') +
+      '<button class="dk' + (S.fpanel ? ' on' : '') + '" data-act="fpanel" aria-label="' + (S.fpanel ? 'Show Timeline' : 'Show Alerts') + '">' + (S.fpanel ? I.tline : I.bellO) + '</button></div>' : '') +
     '</div>' + side + '</div>';
 }
 /* The objects in a group of alerts on the camera view, newest first. An Interesting alert lists its own objects
