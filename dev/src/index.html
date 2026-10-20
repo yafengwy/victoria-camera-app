@@ -2721,9 +2721,13 @@ const Playback = {
         if (v.readyState > 0 || this._nat || h.media !== v || !v.isConnected) return;   /* gone or replaced meanwhile: leave it */
         /* 6.1.4: her 10:22 log: two icon taps on the bar while the clip was still loading kept it at ready 0, and the
            phone was switched to the slower built-in player for good. A jump in the last 5 s now restarts the count. */
-        if (performance.now() - (this._userSeekAt || 0) < 5000 && again++ < 3) { setTimeout(check, 5000); return; }
+        /* 6.1.5: her 10:31 log: the count ran out while the app was in the background (iPhone stops showing video there),
+           so it switched to the slow player again. Hidden now, or hidden in the last 5 s, also restarts the count. */
+        const busy = performance.now() - (this._userSeekAt || 0) < 5000 || document.hidden || performance.now() - (this._hidAt || 0) < 5000;
+        if (busy && again++ < 3) { setTimeout(check, 5000); return; }
+        if (busy) return;
         Dbg.log(tag, 'hls.js got video but shows nothing, built-in player from now on');
-        this._nat = true; try { h.destroy(); } catch (x) {} fallback();
+        this._nat = true; this._natFall = true; try { h.destroy(); } catch (x) {} fallback();
       }; setTimeout(check, 5000); });
   },
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
@@ -5541,8 +5545,11 @@ function fT(y, end) {
 function fFoldMap() {
   const f = S.focus && S.focus.fold; if (!f) { if (S.focus) S.focus.fmap = null; return; }
   const st = S.focus.subTop || 0, lo = f.top + 4, hi = f.top + f.boxH - 4;
-  const pts = [[f.ts[0] + 30000, 0]]; let last = f.ts[0] + 30000;
-  f.ts.forEach((t, i) => { let at = t - 1000; if (at >= last) at = last - 1; last = at; const y = Math.max(lo, Math.min(hi, f.top + 4 + i * f.RH + f.RH / 2 - st)); pts.push([at, y - fYb(at, f.end)]); });
+  /* 6.1.5: the whole alert (its start to its end) sits on its row, so playing on through it keeps the line on that row
+     (her 08:35 clip slid up toward the card as it played, because only the alert's start was on the row) */
+  const top = Math.max(f.ts[0], f.te[0]) + 30000, pts = [[top, 0]]; let last = top;
+  const put = (at, y) => { if (at >= last) at = last - 1; last = at; pts.push([at, y - fYb(at, f.end)]); };
+  f.ts.forEach((t, i) => { const y = Math.max(lo, Math.min(hi, f.top + 4 + i * f.RH + f.RH / 2 - st)); if (f.te[i] > t) put(f.te[i], y); put(t - 1000, y); });
   const at = last - 30000; pts.push([at, f.top + f.boxH - fYb(at, f.end)]);
   S.focus.fmap = pts;
 }
@@ -5651,7 +5658,7 @@ function viewFocus() {
       const boxH = Math.min(list.length, 5) * RH + 8;
       if (S.focus.foldKey !== k) { S.focus.foldKey = k; S.focus.subTop = 0; }
       S.focus.subTop = Math.max(0, Math.min(S.focus.subTop || 0, list.length * RH + 8 - boxH));
-      S.focus.fold = { top: og.y + CB, ts: list.map(r => r.t), boxH, end, RH };
+      S.focus.fold = { top: og.y + CB, ts: list.map(r => r.t), te: list.map(r => Math.max(r.t, r.e.end || now())), boxH, end, RH };
       fFoldMap(); fold = { g: og, list, top: og.y + CB, boxH };
     }
     const height = FTOP + span / MIN * FPX + 400 + (S.focus.fmap ? S.focus.fmap[S.focus.fmap.length - 1][1] : 0);
@@ -7977,7 +7984,9 @@ const ACT = {
     const objs = focusObjs(g), want = d.k ? objs.filter(o => o.label + (o.hot ? '+' : '-') === d.k) : [];
     const e = want.length ? want[0].e : (g.items.find(x => !x.motion) || g.items[0]);
     if (several && S.focus.og !== key) { S.focus.og = key; render(); }
-    ACT.fjump({ t: pick(e, S.filt).t, id: e.id });
+    /* 6.1.5 her rule: an icon goes to the latest alert in the group with that object, from the moment the object shows */
+    const t0 = pick(e, S.filt).t, t = want.length ? Math.max(t0, Math.min(want[0].t, e.end || now())) : t0;
+    ACT.fjump({ t, id: e.id });
   },
   /* 5.10.11 her request: the × at the strip's end folds it back into its card */
   fstripx() { if (S.focus) { S.focus.og = null; render(); } },
@@ -7998,6 +8007,9 @@ const ACT = {
 function ltReturn() { const b = S.ltBack; if (!b) return; S.ltBack = null; S.more = false; S.modal = 'litter'; S.ltCam = b.cam; S.ltSel = b.sel; S.ltPlus = true; S.ltRm = true; S.ltNotOpen = null; S.ltDelOne = null; }
 function openFocus(id) {
   FZF.s = 1; FZF.x = 0; FZF.y = 0; FZ.s = 1; FZ.x = 0; FZ.y = 0;
+  /* 6.1.5: a switch to the built-in player lasts only until the camera view is opened again (it used to last until the
+     app was reopened, and the built-in player is much slower on her recordings) */
+  if (Playback._natFall) { Playback._natFall = false; Playback._nat = null; Dbg.log('player', 'back to hls.js'); }
   S.focus = { cam: id, dayEnd: null, pad: 0, back: 0 }; S.full = false; S.fui = false; S.fpanel = false; FBack.load(id);
   if (isLand()) { S.full = true; S.autoFull = true; }   /* phone held sideways: open straight into full screen */
   render();
@@ -8555,6 +8567,7 @@ setInterval(() => {
 
 document.addEventListener('visibilitychange', () => { if (document.hidden) { Live.keepAll(); S.forced = {}; } });
 document.addEventListener('visibilitychange', () => Dbg.log('page', document.hidden ? 'hidden' : 'shown'));   /* 5.1.7 */
+document.addEventListener('visibilitychange', () => { Playback._hidAt = performance.now(); });
 window.addEventListener('pagehide', () => { Live.keepAll(); Dbg.save(); });
 let resizeTimer, lastCols = null;
 /* Turning the phone sideways while a camera is open goes full screen; turning it back returns to the camera view. */
