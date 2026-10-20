@@ -2088,7 +2088,7 @@ const Frigate = {
       const who = [...new Set([...subs.map(coName), ...names])].join(' · ');
       return {
         id: r.id, cam: r.camera, t: r.start_time * 1000, end: (r.end_time || r.start_time) * 1000, label, objs: allObjs, dets, who, logo: subs[0] || '',
-        sev: r.severity, subs, interesting: r.severity === 'alert' || Wait.hit(r.start_time * 1000, subs) || coCam(r.camera, subs),
+        sev: r.severity, subs, interesting: r.severity === 'alert' || Wait.hit(r.start_time * 1000, subs) || coCam(r.camera, subs) || appZone(r.camera, r.data && r.data.zones),
         zones: ((r.data && r.data.zones) || []).map(z => z.replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase())),
         img: Frigate.thumb(r, det),
         preview: this.base() + '/api/review/' + r.id + '/preview?format=mp4',
@@ -3113,6 +3113,12 @@ const WAIT_CO = [['amazon', 'Amazon'], ['fedex', 'FedEx'], ['ups', 'UPS'], ['usp
    Today's Waiting still notifies through HA "Camera Waiting Delivery") */
 const CO_CAMS = ['front_door', 'driveway', 'nest_doorbell'];
 const coCam = (cam, subs) => CO_CAMS.includes(cam) && (subs || []).some(x => isLogo(x));
+/* 6.4.3 her rule: zones that make an object Interesting in this app only. Frigate keeps them out of its alerts (not in
+   Review's required zones), so Home Assistant sends no notification, but here anything that enters them is orange
+   (only the objects ticked for that zone in Frigate count). Names compared without case / underscores. */
+const APP_ZONES = { front_door: ['drive way'] };
+const zKey = z => String(z || '').toLowerCase().replace(/_/g, ' ').trim();
+const appZone = (cam, zs) => (zs || []).some(z => (APP_ZONES[cam] || []).includes(zKey(z)));
 const coName = k => (WAIT_CO.find(c => c[0] === String(k).toLowerCase()) || [0, k])[1];
 const isLogo = l => WAIT_CO.some(c => c[0] === String(l).toLowerCase());
 /* Frigate+ attribute labels: attached to a person or car, never an alert of their own */
@@ -3397,11 +3403,11 @@ function coFix(e) {
   /* 5.6.8: a parked car she fixed (Mark As Car, or a name like Weee) and a FedEx van passing in the same alert: the
      van keeps its logo; the fixed car's name is only added */
   if (!isLogo(co) && (e.subs || []).length && !allCarsNamed(e.dets, d => People.co[d] || People.sub[d])) { if (co !== 'Car') e.who = [...new Set([...String(e.who || '').split(' · ').filter(Boolean), co])].join(' · '); return e; }
-  if (co === 'Car') { e.subs = []; e.logo = ''; e.who = names.join(' · '); e.co = ''; e.interesting = e.sev === 'alert'; if (isLogo(e.label)) e.label = 'Car'; return e; }   /* Just A Car (5.7.7: a logo-only label becomes Car too) */
+  if (co === 'Car') { e.subs = []; e.logo = ''; e.who = names.join(' · '); e.co = ''; e.interesting = e.sev === 'alert' || appZone(e.cam, e.zones); if (isLogo(e.label)) e.label = 'Car'; return e; }   /* Just A Car (5.7.7: a logo-only label becomes Car too) */
   if (isLogo(co)) { e.subs = [co.toLowerCase()]; e.logo = co.toLowerCase(); e.who = [coName(co), ...names].join(' · '); }
   else { e.subs = []; e.logo = ''; e.who = [co, ...names].join(' · '); }
   e.co = isLogo(co) ? coName(co) : co;
-  e.interesting = e.sev === 'alert' || Wait.hit(e.t, e.subs) || coCam(e.cam, e.subs);
+  e.interesting = e.sev === 'alert' || Wait.hit(e.t, e.subs) || coCam(e.cam, e.subs) || appZone(e.cam, e.zones);
   return e;
 }
 const hasPkg = e => !e.motion && Data.source === 'frigate' && [e.label, ...(e.objs || [])].some(o => /^(package|car)$/i.test(String(o)));   /* 3.5.10: Fix → Not Package; 3.6.2: any car too (pick its company, Mark As Car, Not Car) */
@@ -3410,7 +3416,9 @@ const PETL = ['cat', 'dog', 'raccoon', 'rabbit', 'squirrel', 'fox', 'bird', 'dee
 const isAnimal = l => PETL.includes(String(l || '').toLowerCase());
 /* 6.3.8: is this object Interesting on its camera: an alert label, and (if the camera needs zones) inside a required zone
    that counts this kind of object */
-function ruleHot(cam, l, zs) { const r = Data.alertRule[cam] || { labels: [], zones: [] }; l = String(l || '').toLowerCase(); if (!r.labels.includes(l)) return false; if (!r.zones.length) return true;
+function ruleHot(cam, l, zs) { const r = Data.alertRule[cam] || { labels: [], zones: [] }; l = String(l || '').toLowerCase();
+  if ((zs || []).some(z => appZone(cam, [z]) && (!r.zo || !r.zo[z] || r.zo[z].includes(l)))) return true;   /* 6.4.3 */
+  if (!r.labels.includes(l)) return false; if (!r.zones.length) return true;
   return (zs || []).some(z => r.zones.includes(z) && (!r.zo || !r.zo[z] || r.zo[z].includes(l))); }
 /* 6.2.4 her request: Fix → Not Dog → "It Is A" Cat / Raccoon / … : the detection is marked wrong in Frigate (and sent
    to Frigate+) as before, but the app keeps showing it as the animal she picked, so the alert doesn't vanish. Kept on
@@ -3545,7 +3553,7 @@ const Wait = {
   },
   apply() {           /* re-mark loaded alerts after the wait changed */
     let ch = false;
-    (Data.events || []).forEach(e => { if (e.sev == null) return; const v = e.sev === 'alert' || this.hit(e.t, e.subs) || coCam(e.cam, e.subs); if (v !== e.interesting) { e.interesting = v; ch = true; } });
+    (Data.events || []).forEach(e => { if (e.sev == null) return; const v = e.sev === 'alert' || this.hit(e.t, e.subs) || coCam(e.cam, e.subs) || appZone(e.cam, e.zones); if (v !== e.interesting) { e.interesting = v; ch = true; } });
     return ch;
   },
   async get() {
@@ -5042,7 +5050,7 @@ const Arrive = {
     if (drop.has(String(e.label).toLowerCase()) && e.objs.length) e.label = e.objs[0];
     const names = [...String(e.who || '').split(' · ').filter(x => x && !WAIT_CO.some(c => c[1] === x)), ...carNames.map(niceName)];
     e.who = [...new Set([...e.subs.map(coName), ...names])].join(' · ');
-    e.interesting = e.sev === 'alert' || Wait.hit(e.t, e.subs) || coCam(e.cam, e.subs);
+    e.interesting = e.sev === 'alert' || Wait.hit(e.t, e.subs) || coCam(e.cam, e.subs) || appZone(e.cam, e.zones);
     return e;
   },
   /* 5.7.4: alerts with a delivery company whose objects may be incomplete are looked at even when the current filter
