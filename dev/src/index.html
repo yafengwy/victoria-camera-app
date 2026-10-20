@@ -312,7 +312,7 @@ img.rf{opacity:0}
    hide the icon under it. */
 /* 6.2.6 her rule: Interesting = solid orange badge, Uninteresting = hollow grey icon; the tapped one gets a ring in
    its own colour (orange for Interesting, blue for Uninteresting) */
-.focus .fmark.ico:not(.dim){background:var(--hot)!important;box-shadow:none!important;color:#1A0E05!important}
+.focus .fmark.ico:not(.dim){background:transparent!important;box-shadow:none!important;color:var(--hot)!important}   /* 6.2.8: back to plain orange (the badge circle was too big); a filled icon is being picked */
 .focus .fmark.ico:not(.dim)::after{display:none!important}
 .focus .fmark.ico.sel:not(.dim){box-shadow:0 0 0 2px var(--dark-bg,#0F1113),0 0 0 4px var(--hot)!important}
 .focus .fmark.ico.dim.sel{box-shadow:0 0 0 2px #8AB4F8!important}
@@ -1613,7 +1613,10 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 /* 5.10.8 her rule: the bar sits right under the picture (its playhead almost touches it); 5.10.9: the two times right
    under it and the object icons under them, so the bar's room stays the same height */
 .focus>.fseek:not([hidden]){display:flex;flex-direction:column}
-.fseek .fsk{order:1}.fseek .evbt{order:2;margin:-4px 0 0}.fseek .fmks{order:3;margin:0}
+.fseek .fsk{order:1}.fseek .fmks{order:2;margin:-4px 0 0}.fseek .evbt{order:3;margin:-2px 0 0}
+/* 6.2.8 her screenshot: the icons sat too far under the bar (the two times were between them) and were small: they now
+   come right under the bar, one size bigger; the two times go under them */
+.fseek .evmk svg{width:18px;height:18px}.fseek .evmk{height:24px}.fseek .evmk.nm{font-size:14px}
 /* 5.10.9: a faint track under the blue pieces, so the bar is there while its recordings are still being read */
 .fseek .ltbarin{background:rgba(255,255,255,.10);border-radius:4px}
 @media (min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px){ .focus>.fseek{position:absolute;z-index:5;margin:0;max-width:none;padding:0 4px} }

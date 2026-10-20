@@ -548,3 +548,6 @@ Camera view rail icons: Interesting = solid orange badge (dark icon), Uninterest
 
 ## 6.2.7
 Opened group (List rows .fsr and Thumbnails .fsi): Interesting alert icon orange; the playing one glows orange when Interesting, blue when Uninteresting (her trial, may go back to blue).
+
+## 6.2.8
+Camera view bar: object icons right under the bar, one size bigger (18 px), the two times under them (same 64 px room). Rail Interesting icons back to plain orange (6.2.6 solid badge circle was too big; she means a filled glyph, options A-D mocked up, waiting for her pick).
