@@ -572,3 +572,6 @@ Home timeline icons that fall on the same spot now sit side by side (each nudged
 
 ## 6.3.5
 Home timeline: icons sharing a spot are centred on their real times (cluster 18 px apart around the mean), so the playhead after a tap lands within about one icon of it (her cat icon landed 2 icons right of its time). Measured on 393 px: offsets +18 / 0 / -17 px for three icons on one spot.
+
+## 6.3.6
+Icon counts (.segn) are a plain coloured number with no round background (home timeline, camera view rail, list icons): orange for Interesting, grey for Uninteresting; a soft dark halo in the camera view keeps them readable.
