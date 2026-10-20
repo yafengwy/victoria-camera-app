@@ -533,3 +533,6 @@ Her 10:55 freeze: Alert Settings opened from the turned full screen (.full.rot, 
 
 ## 6.2.2
 Settings: Camera View List = C (Open In Place, default) or B (Icons Filter), stored per device (fmode). B: opened group = one card-sized strip on its row (old .fstrip look) showing the group alerts, or only those with the tapped icon kind (S.focus.ogk; selected icon ringed .sel); the playing thumbnail glows (fCur covers .fsi); x closes; nothing below moves; the whole group time maps onto the row (fmap flat) so the line stays there while any of its alerts plays. t140.
+
+## 6.2.3
+(1) Settings: "Camera View Alerts" = List (C) / Thumbnails (B), no plan letters. (2) Picture tag follows the alert being played (FSeek.key) and shows the picked kind (ogk) if in it, else pick() most important object (was Frigate first label of whichever overlapping alert: Dog alert said Car). (3) Picked icon gets the blue ring in List mode too (ogk set in both modes). (4) Alert Icons: Badge / Two Rows only (Ring, Dot removed; stored e/d become a). Camera view icons plain (orange / grey, no circle), ring only on the picked one; home stays as before. (5) Home playhead .head-mk is a 4 px line. (6) Computer camera view: Back works again (hidden #fseek, absolute on wide screens, covered the top row since 6.1.7; now visibility hidden + no pointer events there).

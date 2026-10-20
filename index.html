@@ -300,6 +300,13 @@ img.rf{opacity:0}
 .fsi span .lico svg{width:10px;height:10px}
 .fsi.cur{outline:2px solid #8AB4F8;outline-offset:-2px;box-shadow:0 0 10px 1px rgba(138,180,248,.6)}
 .fmark.ico.sel{box-shadow:0 0 0 2px #8AB4F8}
+/* 6.2.3 her rules: in the camera view the alert icons are plain (orange Interesting, grey Uninteresting, no round
+   background); only the icon she tapped gets the blue ring. The home timeline's playhead is a thin line so it doesn't
+   hide the icon under it. */
+.focus .fmark.ico:not(.dim){background:transparent!important;box-shadow:none!important;color:var(--hot)!important}
+.focus .fmark.ico:not(.dim)::after{display:none!important}
+.focus .fmark.ico.sel,.focus .fmark.ico.sel:not(.dim){box-shadow:0 0 0 2px #8AB4F8!important}
+.head-mk{width:4px!important;margin-left:-2px!important;border-radius:2px!important;border-width:1px!important}
 .fsi.un img{filter:grayscale(1) brightness(.75)}
 .fsi.hot .lico,.fsi.un .lico{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:7px;margin-right:3px;vertical-align:-3px}
 .fsi.hot .lico{background:var(--hot);color:#fff}
@@ -437,6 +444,7 @@ img.rf{opacity:0}
   .focus .fsteps .fstep.fpp{min-width:40px;width:40px;padding:0}
   .focus .fsteps .fstep.fal{min-width:40px;width:40px;padding:0}
   .focus>.fsteps .fstep.fal{display:inline-flex}
+  .focus>.fseek[hidden]{visibility:hidden;pointer-events:none}   /* 6.2.3: the empty bar sat over the Back button on a computer */
   .focus>.fctl{padding:0 10px}
   .focus .fday{height:40px;padding:0 12px;font-size:13px}
   .focus .fctl .dk{width:40px;height:40px}
@@ -2075,8 +2083,13 @@ const Frigate = {
     if (CamState.at(cam.id, t) === 'off' && !ev0) return { img: OFFIMG, tag: '', hot: false, busy: false };   /* 5.5.5: turned off then, nothing to ask Frigate */
     if (RecMap.has(cam.id, t) === false && !alertTry(cam.id, ev0)) return { img: nrImg(cam.id, t), tag: '', hot: false, busy: false };
     const sec = RecMap.snap(cam.id, t);
-    const ev = Data.events.find(e => e.cam === cam.id && t >= e.t - 2000 && t <= (e.end || e.t) + 2000 && passes(e));
-    return { img: this.base() + '/api/' + cam.id + '/recordings/' + sec + '/snapshot.jpg?height=480', tag: ev ? ev.label : '', name: ev ? tagName(ev) : '', hot: ev ? ev.interesting : false, busy: !!ev };   /* 3.6.4: a known name (胖胖, James, FedEx) on the picture's tag */
+    /* 6.2.3 her report: the camera view played a Dog alert but the picture said Car (another alert overlapping it, and
+       Frigate's first label). The tag now follows the alert being played, shows the kind she picked with an icon if it
+       is in that alert, else the alert's most important object. */
+    const fk = S.focus && S.focus.cam === cam.id && FSeek.key && Data.events.find(e => e.id === FSeek.key && t >= e.t - 2000 && t <= (e.end || e.t) + 2000);
+    const ev = fk || Data.events.find(e => e.cam === cam.id && t >= e.t - 2000 && t <= (e.end || e.t) + 2000 && passes(e));
+    const kk = ev && S.focus && S.focus.ogk ? S.focus.ogk.slice(0, -1).toLowerCase() : '', tl = !ev ? '' : kk && (ev.objs || [ev.label]).includes(kk) ? kk : pick(ev, S.filt).label;
+    return { img: this.base() + '/api/' + cam.id + '/recordings/' + sec + '/snapshot.jpg?height=480', tag: tl, name: ev ? tagName(ev) : '', hot: ev ? ev.interesting : false, busy: !!ev };   /* 3.6.4: a known name (胖胖, James, FedEx) on the picture's tag */
   }
 };
 
@@ -2668,7 +2681,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.2.2 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.2.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4102,7 +4115,7 @@ setTimeout(() => F360.tick(), 2500); setInterval(() => { if (document.visibility
 /* Served from the mini PC (home IP or victoriashome.app): talk to the real Frigate on the same address by default */
 const HOSTED = /^(192\.168\.|10\.|localhost$|frigate)|victoriashome\.app$/.test(location.hostname);
 const S = {
-  view: 'home', fmode: store.get('fmode', 'C') === 'B' ? 'B' : 'C', markStyle: ['a', 'e', 'd', 'b'].includes(store.get('markStyle', 'a')) ? store.get('markStyle', 'a') : 'a', cover: store.get('cover', 'auto'), look: store.get('look', 'auto'), colsPref: store.get('colsPref', 'auto'), forced: {}, mode: store.get('mode', 'home'), theme: ['glass', 'google', 'green', 'blue', 'noir'].includes(store.get('theme2', 'glass')) ? store.get('theme2', 'glass') : 'glass', layout: store.get('layout', 'list'),
+  view: 'home', fmode: store.get('fmode', 'C') === 'B' ? 'B' : 'C', markStyle: store.get('markStyle', 'a') === 'b' ? 'b' : 'a',   /* 6.2.3: Ring and Dot removed (she saw no difference); they become Badge */ cover: store.get('cover', 'auto'), look: store.get('look', 'auto'), colsPref: store.get('colsPref', 'auto'), forced: {}, mode: store.get('mode', 'home'), theme: ['glass', 'google', 'green', 'blue', 'noir'].includes(store.get('theme2', 'glass')) ? store.get('theme2', 'glass') : 'glass', layout: store.get('layout', 'list'),
   server: store.get('server', HOSTED ? location.origin : ''), demo: HOSTED ? false : store.get('demo', true),   /* 4.7.2: no Use Demo Data box any more; the real site never shows demo data */
   open: store.get('open', {}), expanded: null, camTime: camTimeObj(),
   winEnd: now(), pos: 1, win: store.get('win', 30 * MIN), playing: true, speed: 1, tab: 'events',
@@ -5703,7 +5716,7 @@ function viewFocus() {
       const lane = { '+': 0, '-': 0 };
       kinds.forEach(kd => {
         const hot = kd.o.hot, ln = lane[hot ? '+' : '-']++; if (ln > 2) return;
-        rows += '<button class="fmark ico' + (hot ? '' : ' dim') + (bopen && bstrip.k === kd.k ? ' sel' : '') + '" style="top:' + (y - 9 + (hot ? 0 : 24)) + 'px;--ln:' + ln + '" data-act="fgrp" data-g="' + gi + '" data-k="' + esc(kd.k) + '" aria-label="' + esc(objName(kd.o.label)) + ' ' + hm(kd.o.t) + (kd.n > 1 ? ', ' + kd.n : '') + '">' + objIcon(kd.o.label) + (kd.n > 1 ? '<b class="segn"><i>' + kd.n + '</i></b>' : '') + '</button>';
+        rows += '<button class="fmark ico' + (hot ? '' : ' dim') + ((bopen || open) && S.focus.ogk === kd.k ? ' sel' : '') + '" style="top:' + (y - 9 + (hot ? 0 : 24)) + 'px;--ln:' + ln + '" data-act="fgrp" data-g="' + gi + '" data-k="' + esc(kd.k) + '" aria-label="' + esc(objName(kd.o.label)) + ' ' + hm(kd.o.t) + (kd.n > 1 ? ', ' + kd.n : '') + '">' + objIcon(kd.o.label) + (kd.n > 1 ? '<b class="segn"><i>' + kd.n + '</i></b>' : '') + '</button>';
       });
       const e = g.items.find(x => !x.motion) || g.items[0], ep = pick(e, S.filt);   /* the card shows the alert, not a motion piece next to it */
       if (bopen) rows += '<div class="fev fstrip atl" style="top:' + (y - 32) + 'px"><button class="fsarr l" data-act="fstripgo" data-v="-1" aria-label="Earlier Thumbnails">‹</button><div class="fsrow">' + bstrip.list.map(r => '<button class="fsi' + (r.e.interesting ? ' hot' : ' un') + (FSeek.key === r.e.id ? ' cur' : '') + '" data-act="fjump" data-t="' + r.t + '" data-id="' + esc(r.e.id) + '" aria-label="' + esc(objName(r.p.label)) + ' ' + hms(r.t) + '"><img src="' + evImg(r.e, r.p) + '" alt="" loading="lazy" draggable="false"><span><i class="lico">' + objIcon(ico(r.e, r.p)) + '</i>' + hms(r.t) + '</span></button>').join('') + '</div><button class="fsarr r" data-act="fstripgo" data-v="1" aria-label="More Thumbnails">›</button><button class="fsx" data-act="fstripx" aria-label="Close">' + I.x + '</button></div>';
@@ -7015,10 +7028,10 @@ function modalSettings() {
     row('Appearance', seg('look', S.look, [['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']])) +
     /* 4.7.9: List (one per row on a phone) lives here too; it was only in the … menu, so Auto looked the same as 2 */
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
-    row('Camera View List', seg('fmode', S.fmode, [['C', 'C · Open In Place'], ['B', 'B · Icons Filter']])) +
-    row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
+    row('Camera View Alerts', seg('fmode', S.fmode, [['C', 'List'], ['B', 'Thumbnails']])) +
+    row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.2.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.2.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7294,7 +7307,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.2.2');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.2.3');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7311,7 +7324,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.2.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.2.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -8014,7 +8027,7 @@ const ACT = {
     const g = S.focus && S.focus.groups && S.focus.groups[+d.g]; if (!g) return;
     const key = String((g.items.find(x => !x.motion) || g.items[0]).t), several = g.items.length > 1;
     if (!d.k && several && S.focus.og === key) { S.focus.og = null; S.focus.ogk = null; render(); return; }
-    if (S.fmode === 'B' && several && (S.focus.og !== key || (S.focus.ogk || null) !== (d.k || null))) { S.focus.og = key; S.focus.ogk = d.k || null; render(); }
+    if (several && (S.focus.og !== key || (S.focus.ogk || null) !== (d.k || null))) { S.focus.og = key; S.focus.ogk = d.k || null; render(); }
     /* an icon plays the newest alert with that kind of object; the card plays the alert it shows */
     const objs = focusObjs(g), want = d.k ? objs.filter(o => o.label + (o.hot ? '+' : '-') === d.k) : [];
     const e = want.length ? want[0].e : (g.items.find(x => !x.motion) || g.items[0]);
@@ -8660,7 +8673,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.2.2';
+    const BUILD = '6.2.3';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
