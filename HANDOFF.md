@@ -560,3 +560,6 @@ Her pick C: in the camera view, Interesting icons are half-filled (fill currentC
 
 ## 6.3.1
 (1) Her rule: with a group opened in the camera view list, the bar under the picture covers the whole group (first alert start to last alert end, FSeek.groupBar, bkey) with every object of its alerts (colour per alert via x._e, up to 30 objects read); moving between its alerts keeps the same bar; folded = one alert as before. FSeek.key stays the playing alert (tag, glow). (2) Live clears the picked icon ring (ogk). (3) Midnight hour mark reads Today / 00:00 at the same size.
+
+## 6.3.2
+(1) Opened group rows / thumbnails: the icon is the Interesting object (orange) via rowIco (Arrive.parts hot), else the main object in grey (her FedEx truck row with a person showed an orange truck). (2) Bar icons: a sub label that is an object word (Mark As Car = "Car") shows as that icon, not text ("CarCar"). (3) Her 11:54 log: tapping the 17:53:25 row kept glow/bar on the overlapping 17:54:29 alert (FSeek.pick matched by start time within 1.5 s; the row plays from its object time). pick now takes the row alert id.

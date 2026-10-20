@@ -5204,7 +5204,7 @@ function detHot(e, x) { const rule = (e && Data.alertRule[e.cam]) || { labels: [
 function shortName(n) { n = String(n || ''); return /^(.)\1$/u.test(n) ? Array.from(n)[0] : n; }
 function mkIcons(xs, a, b, W, act, attr, e) {
   let last = -99, h = '';
-  xs.forEach(x => { const nm = x.sub && !/^unknown$/i.test(x.sub) ? x.sub : '', logo = nm && isLogo(nm), named = nm && !logo;
+  xs.forEach(x => { const nm = x.sub && !/^unknown$/i.test(x.sub) && !OBJ_SETS.some(a => a.includes(String(x.sub).toLowerCase())) ? x.sub : '', logo = nm && isLogo(nm), named = nm && !logo;   /* 6.3.2: "Car" (Mark As Car) is not a name: her bar showed "CarCar" as text */
     let px = Math.max(0, Math.min(1, (x.t - a) / Math.max(1, b - a))) * W; if (px < last + 22) px = last + 22; last = px;
     h += '<button class="evmk' + (named ? ' nm' : '') + (detHot(x._e || e, x) ? ' hot' : '') + '" data-act="' + act + '"' + attr + ' data-t="' + x.t + '" data-n="' + esc(named ? niceName(nm) : objName(logo ? nm : x.l)) + '" style="left:' + Math.min(W - 8, px).toFixed(0) + 'px" title="' + esc((named ? niceName(nm) + ' · ' : '') + objName(logo ? nm : x.l) + ' · ' + hms(x.t)) + '" aria-label="Play From ' + esc(objName(logo ? nm : x.l)) + ' At ' + hms(x.t) + '">' + (named ? esc(shortName(niceName(nm))) : objIcon(logo ? nm : x.l)) + '</button>'; });
   return h;
@@ -5228,7 +5228,9 @@ function fJump(id, t) { if (!S.focus || S.focus.cam !== id) return; Playback._us
 const FSeek = {
   key: null, segs: {}, busy: {},
   /* the alert she tapped (list, ‹ ›) is the one the bar shows */
-  pick(id, t) { const e = Data.events.find(x => x.cam === id && Math.abs(x.t - t) < 1500); if (e && e.id !== this.key) { this.key = e.id; if (!this.groupBar(id, t)) { const b = document.getElementById('fseek'); if (b) b.innerHTML = ''; } } },
+  /* 6.3.2 her 11:54 log: tapping the 17:53:25 row (played from 17:53:30, its person) kept the glow and bar on the
+     overlapping 17:54:29 alert: the tapped row's own alert is now taken by its id */
+  pick(id, t, eid) { const e = (eid && Data.events.find(x => x.id === eid)) || Data.events.find(x => x.cam === id && Math.abs(x.t - t) < 1500); if (e && e.id !== this.key) { this.key = e.id; if (!this.groupBar(id, t)) { const b = document.getElementById('fseek'); if (b) b.innerHTML = ''; } } },
   /* 5.9.10: alerts overlap (her Front Door 18:16:29 and 18:17:26): the bar stays on the alert it shows while the second
      is still inside it, so playing on (or tapping its bicycle at 18:17:30) no longer swaps it for the next alert's bar.
      A new pick prefers an alert that has already started at that second. */
@@ -5637,6 +5639,14 @@ function fRowShow(id) {
   if (want === st) return;
   S.focus.subTop = want; fFoldMap(); const sb = document.getElementById('fsubin'); if (sb) sb.scrollTop = want;
 }
+/* 6.3.2 her report: a row with a person (Interesting) and a FedEx truck (Uninteresting) showed an orange truck. A row's
+   icon is now the Interesting object (orange), or, with none, its main object in grey */
+function rowIco(e, p) {
+  const ps = Arrive.parts(e, Object.assign({}, S.filt, { int: true, unint: true, objs: {} }));
+  const h = ps.filter(x => x.hot).sort((a, b) => objRank(a.label) - objRank(b.label))[0];
+  if (h) return { L: h.label, hot: true };
+  return { L: ico(e, p), hot: !ps.length && !!e.interesting };
+}
 function fWide() { return !!(window.matchMedia && matchMedia('(min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px)').matches); }
 /* 6.1.2: the alert playing glows in the opened group's rows */
 function fCur(id) { document.querySelectorAll('#fsc .fsr, #fsc .fsi[data-id]').forEach(n => n.classList.toggle('cur', !!id && n.dataset.id === id)); }
@@ -5776,14 +5786,14 @@ function viewFocus() {
         rows += '<button class="fmark ico' + (hot ? '' : ' dim') + ((bopen || open) && S.focus.ogk === kd.k ? ' sel' : '') + '" style="top:' + (y - 9 + (hot ? 0 : 24)) + 'px;--ln:' + ln + '" data-act="fgrp" data-g="' + gi + '" data-k="' + esc(kd.k) + '" aria-label="' + esc(objName(kd.o.label)) + ' ' + hm(kd.o.t) + (kd.n > 1 ? ', ' + kd.n : '') + '">' + objIcon(kd.o.label) + (kd.n > 1 ? '<b class="segn"><i>' + kd.n + '</i></b>' : '') + '</button>';
       });
       const e = g.items.find(x => !x.motion) || g.items[0], ep = pick(e, S.filt);   /* the card shows the alert, not a motion piece next to it */
-      if (bopen) rows += '<div class="fev fstrip atl" style="top:' + (y - 32) + 'px"><button class="fsarr l" data-act="fstripgo" data-v="-1" aria-label="Earlier Thumbnails">‹</button><div class="fsrow">' + bstrip.list.map(r => '<button class="fsi' + (r.e.interesting ? ' hot' : ' un') + (FSeek.key === r.e.id ? ' cur' : '') + '" data-act="fjump" data-t="' + r.t + '" data-id="' + esc(r.e.id) + '" aria-label="' + esc(objName(r.p.label)) + ' ' + hms(r.t) + '"><img src="' + evImg(r.e, r.p) + '" alt="" loading="lazy" draggable="false"><span><i class="lico">' + objIcon(ico(r.e, r.p)) + '</i>' + hms(r.t) + '</span></button>').join('') + '</div><button class="fsarr r" data-act="fstripgo" data-v="1" aria-label="More Thumbnails">›</button><button class="fsx" data-act="fstripx" aria-label="Close">' + I.x + '</button></div>';
+      if (bopen) rows += '<div class="fev fstrip atl" style="top:' + (y - 32) + 'px"><button class="fsarr l" data-act="fstripgo" data-v="-1" aria-label="Earlier Thumbnails">‹</button><div class="fsrow">' + bstrip.list.map(r => { const ri = rowIco(r.e, r.p); return '<button class="fsi' + (ri.hot ? ' hot' : ' un') + (FSeek.key === r.e.id ? ' cur' : '') + '" data-act="fjump" data-t="' + r.t + '" data-id="' + esc(r.e.id) + '" aria-label="' + esc(objName(r.p.label)) + ' ' + hms(r.t) + '"><img src="' + evImg(r.e, r.p) + '" alt="" loading="lazy" draggable="false"><span><i class="lico">' + objIcon(ri.L) + '</i>' + hms(r.t) + '</span></button>'; }).join('') + '</div><button class="fsarr r" data-act="fstripgo" data-v="1" aria-label="More Thumbnails">›</button><button class="fsx" data-act="fstripx" aria-label="Close">' + I.x + '</button></div>';
       else {
         const hotL = objs.filter(o => o.hot).map(o => o.label), names = [...new Set((hotL.length ? hotL : objs.map(o => o.label)).sort((a, b) => objRank(a) - objRank(b)).map(objName))];
         const title = names.slice(0, 2).join(', ') + (names.length > 2 ? ' +' + (names.length - 2) : '');
         const sub = hm(ep.t) + ' · ' + (n === 1 ? durLabel(e) : n + ' Alerts');
         rows += '<button class="fev' + (open ? ' open' : '') + '" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + evImg(e, ep) + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e, ep)) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span>' + (open ? '<span class="fcx" aria-hidden="true">' + I.x + '</span>' : '') + '</button>';
       }
-      if (open) rows += '<div class="fsub" style="top:' + fold.top + 'px;height:' + fold.boxH + 'px"><div class="fsubin" id="fsubin">' + fold.list.map(r => '<button class="fsr' + (r.e.interesting ? ' hot' : ' un') + (FSeek.key === r.e.id ? ' cur' : '') + '" data-act="fjump" data-t="' + r.t + '" data-id="' + esc(r.e.id) + '"><b>' + hms(r.t) + '</b><i class="lico">' + objIcon(ico(r.e, r.p)) + '</i><img src="' + evImg(r.e, r.p) + '" alt="" loading="lazy" draggable="false"><span>' + esc([...new Set((r.e.objs && r.e.objs.length ? r.e.objs : [r.e.label]).slice().sort((a, b) => objRank(a) - objRank(b)).map(objName))].join(', ')) + '</span></button>').join('') + '</div></div>';
+      if (open) rows += '<div class="fsub" style="top:' + fold.top + 'px;height:' + fold.boxH + 'px"><div class="fsubin" id="fsubin">' + fold.list.map(r => { const ri = rowIco(r.e, r.p); return '<button class="fsr' + (ri.hot ? ' hot' : ' un') + (FSeek.key === r.e.id ? ' cur' : '') + '" data-act="fjump" data-t="' + r.t + '" data-id="' + esc(r.e.id) + '"><b>' + hms(r.t) + '</b><i class="lico">' + objIcon(ri.L) + '</i><img src="' + evImg(r.e, r.p) + '" alt="" loading="lazy" draggable="false"><span>' + esc([...new Set((r.e.objs && r.e.objs.length ? r.e.objs : [r.e.label]).slice().sort((a, b) => objRank(a) - objRank(b)).map(objName))].join(', ')) + '</span></button>'; }).join('') + '</div></div>';
     });
     body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px;margin-top:' + fPad() + 'px"><div class="frail">' + railState(c.id, end, span) + '</div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + (S.focus.lineY || FTOP) + 'px"></div>';
   }
@@ -8100,7 +8110,7 @@ const ACT = {
   fmode(d) { S.fmode = d.v === 'B' ? 'B' : 'C'; store.set('fmode', S.fmode); if (S.focus) { S.focus.og = null; S.focus.ogk = null; } render(); },
   fstripgo(d, e) { const st = e && e.target.closest('.fstrip') && e.target.closest('.fstrip').querySelector('.fsrow'); if (st) st.scrollBy({ left: (+d.v) * Math.max(80, st.clientWidth * 0.8), behavior: 'smooth' }); },
   fjump(d) {   /* tap a card or rail icon: go to that alert (1 s before it starts) */
-    const t = +d.t - 1000, id = S.focus.cam; FSeek.pick(id, +d.t); Dbg.log('tap alert', hms(+d.t), Playback.why(id));
+    const t = +d.t - 1000, id = S.focus.cam; FSeek.pick(id, +d.t, d.id); Dbg.log('tap alert', hms(+d.t), Playback.why(id));
     /* 5.10.10 her rule: a tapped card stays under her finger. The list does not move; the blue line goes to the card
        instead and stays at that height (playing, ‹ › and swiping keep it there) until Live puts it back near the top */
     S.focus.keepAt = true; fRowShow(d.id);
