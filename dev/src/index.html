@@ -620,6 +620,13 @@ img.rf{opacity:0}
 .grid.compact .frame .ctm[hidden] ~ .tag{top:var(--bt)!important}
 .fulltm{position:absolute;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));padding:3px 8px;border-radius:6px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:400;font-variant-numeric:tabular-nums;white-space:nowrap;z-index:3;pointer-events:none}
 .fov .pillk.ftm{flex:0 0 auto;font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:400;pointer-events:none}
+/* 5.9.11 her request: on an upright phone the camera view's top row (back, time, Fix, Who?, buttons) sits above the
+   picture instead of over it, so the top of the picture is not hidden */
+@media (orientation:portrait) and (max-width:999px){
+  .focus>.fvid{margin-top:44px;overflow:visible!important}
+  .focus>.fvid>.fov{top:-40px}
+  .focus>.fvid>.fov .dk,.focus>.fvid>.fov .pillk{background:rgba(255,255,255,.12)}
+}
 .cnm{position:absolute;left:0;bottom:0;max-width:72%;padding:3px 8px 3px 8px;border-radius:0 8px 0 0;background:rgba(18,22,24,.66);color:#fff;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:2;pointer-events:none}
 .grid.compact .tag{bottom:auto;top:6px;left:6px;font-size:11px;padding:2px 7px}
 .topicons .ic{width:38px}

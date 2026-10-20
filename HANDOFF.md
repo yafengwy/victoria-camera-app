@@ -467,3 +467,6 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 ## 5.9.10 (2026-10-19) Camera view bar stays on its alert
 - Her log 22:56: tapped alert 18:16:29, its Bicycle icon (18:17:30) — the second was also inside the next alert (18:17:26), and FSeek.alertAt picked the latest covering alert, so the bar switched to that alert ("jumped to another bar"). Now the bar keeps its alert while the second is inside it; a new pick prefers an alert already started; tapping an alert in the list or ‹ › sets the bar to that alert (FSeek.pick).
 - Fixed script error "_filled of null" (a redraw emptied #fseek while the key stayed): tick rebuilds when the bar is missing. Test t120p.
+
+## 5.10.1 (2026-10-19) Upright phone camera view: top row above the picture
+- Her request: the top row (back, time, Fix, Who?, buttons) covered the top of the picture. Portrait screens under 1000 px: .fvid gets 44 px above it (overflow visible, beats .focus .fvid{overflow:hidden}) and .fov sits at -40 px; buttons lightly tinted. Computer / landscape / full screen unchanged. Test t121p.
