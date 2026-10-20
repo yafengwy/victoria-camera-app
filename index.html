@@ -253,7 +253,8 @@ img.rf{opacity:0}
 .fov .dk + .dk{margin-left:-4px}
 .ffixw{display:contents}
 .round.pfixb,.pctl.g3 .round.pfixb{width:auto;padding:0 12px}
-.fov .dk.ffix{width:auto;padding:0 12px;font-size:13px;font-weight:700}
+.fov .dk.ffix,.fuitop .dk.ffix{width:auto;padding:0 12px;font-size:13px;font-weight:700}
+.fuitop .ffixw{display:flex;gap:8px}
 .fov .dk svg,.fov .dk.ctl svg{width:17px;height:17px}
 .fctl{height:68px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--dark-line);width:100%;max-width:900px;margin:0 auto}
 .fday{height:44px;padding:0 14px;border-radius:22px;background:var(--dark-card);display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700}
@@ -2750,7 +2751,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.5.7 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.5.8 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4469,7 +4470,7 @@ document.addEventListener('scroll', () => ToTop.check(), { capture: true, passiv
 window.addEventListener('resize', () => ToTop.check());
 function render() {
   TapLog.draws++;
-  if (S.fullBack && !S.modal) { S.fullBack = false; if (S.focus) { S.full = true; S.fui = false; S.fpanel = false; } }
+  if (S.fullBack && !S.modal) { S.fullBack = false; if (S.focus) { S.full = true; } }   /* 6.5.8: back from Fix / Who? with the same buttons, list and place */
   if (fullLight()) { const _t1 = performance.now(); try { fullButtons(); paintFocus(); Playback.sync(); } catch (e) { Dbg.log('script error', 'full light', String(e && e.message || e)); } const ms = Math.round(performance.now() - _t1); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', 'full'); return; }
   const _t0 = performance.now();
   try { render0(); placeSteps(); ToTop.check(); listFit(); EvFold.run(); Arrive.carriers(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
@@ -4750,6 +4751,7 @@ function paintTimes() {
   /* camera view timeline: the date button names the day of the moment on screen (it said Today while showing yesterday) */
   if (S.focus && !S.flist) { const b = document.querySelector('.focus .fday'); if (b) { const w = dayLabel(shownT(S.focus.cam, S.focus.cam)); if (b._w !== w) { b._w = w; b.innerHTML = I.cal + w; } } }
   { const ff = document.getElementById('ffix'); if (ff && S.focus) { const v = focusFix(S.focus.cam); if (ff._v !== v) { ff._v = v; ff.innerHTML = v; } } }
+  { const ff = document.getElementById('fullfix'); if (ff && S.focus) { const v = focusFix(S.focus.cam); if (ff._v !== v) { ff._v = v; ff.innerHTML = v; } } }
   { const pf = document.getElementById('pfix'); if (pf && S.expanded) { const v = focusFix(S.expanded, 'round pfixb'); if (pf._v !== v) { pf._v = v; pf.innerHTML = v; } } }
   ['ftm', 'fulltm'].forEach(k => { const f = document.getElementById(k); if (f && S.focus) { const v = (k === 'ftm' ? dtHdr : dtShort)(shownT(S.focus.cam, S.focus.cam)); if (f.textContent !== v) f.textContent = v; } });
 }
@@ -5965,6 +5967,7 @@ function viewFull(c, t, f) {
       '<button class="dk sm wide" id="fullstepf5" data-act="fstep" data-v="5" aria-label="Forward 5 Seconds"' + (t == null ? ' disabled' : '') + '>+5s</button><button class="dk sm wide" id="fullstepf" data-act="fstep" data-v="10" aria-label="Forward 10 Seconds"' + (t == null ? ' disabled' : '') + '>+10s</button></div>' : '') +
     /* 6.5.4 her order: Exit, Live / time right of it; on the right Sound, Boxes, Alert Settings, Alerts / Timeline */
     (S.fui ? '<div class="fuitop"><button class="dk" data-act="unfull" aria-label="Exit Full Screen">' + I.shrink + '</button><div class="pillk" id="fullbadge">' + (t == null ? '<span class="dot busy"></span>Live' : hms(t)) + '</div><div style="flex:1"></div>' +
+      '<span id="fullfix" class="ffixw">' + focusFix(c.id) + '</span>' +   /* 6.5.8 her request: Fix / Who? on full screen too, left of Sound */
       Snd.btn('dk') + (Data.source === 'frigate' ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
       (S.fpanel ? '<button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button>' : '') +
       '<button class="dk' + (S.fpanel ? ' on' : '') + '" data-act="fpanel" aria-label="' + (S.fpanel ? 'Show Timeline' : 'Show Alerts') + '">' + (S.fpanel ? I.tline : I.bellO) + '</button></div>' : '') +
@@ -6259,7 +6262,11 @@ function fullUi() {
   if (fts) hoverPreview(fts, 'full', e => { const r = fts.getBoundingClientRect(); const y = fts.scrollTop + (e.clientY - r.top) - VTOP; return y < 0 ? null : focusEnd() - y / FFPX * MIN; }, paintFocus, 'v');
   FZ.apply();
 }
+/* 6.2.1: a dialog opened from the turned full screen steps out of it and comes back after; 6.5.8: Fix / Who? too, and
+   the alerts list comes back at the same place */
+function fullStep(v) { if (S.full && document.querySelector('.full.rot')) { const l = document.querySelector('#fullv .fpl'); S.fplTop = l ? l.scrollTop : null; S.full = false; S.fullBack = true; Dbg.log('full screen paused for', v); } }
 function wireFull() {
+  { const l = document.querySelector('#fullv .fpl'); if (l && S.fplTop != null) { l.scrollTop = S.fplTop; S.fplTop = null; } }
   FZ.wire();
   if (document.querySelector('.full.rot')) { rotDrag(document.getElementById('ftsc')); rotDrag(document.querySelector('.full .fpl')); }
   const sc = document.getElementById('ftsc'); if (!sc) return;
@@ -7195,7 +7202,7 @@ function modalSettings() {
     row('Camera View Alerts', seg('fmode', S.fmode, [['C', 'List'], ['B', 'Thumbnails']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.5.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.5.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7471,7 +7478,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.5.7');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.5.8');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7488,7 +7495,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.5.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.5.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7563,12 +7570,12 @@ const ACT = {
   },
   whoopen(d) {
     const e = Data.events.find(x => x.id === d.v); if (!e) return;
-    S.whoId = e.id; S.whoName = (e.dets || []).map(x => People.sub[x]).filter(Boolean).map(niceName)[0] || ''; S.whoNew = ''; S.whoTeach = undefined; S.modal = 'who'; render();
+    S.whoId = e.id; S.whoName = (e.dets || []).map(x => People.sub[x]).filter(Boolean).map(niceName)[0] || ''; S.whoNew = ''; S.whoTeach = undefined; fullStep('who'); S.modal = 'who'; render();
     if (!People.faces) People.loadFaces().then(() => { if (S.modal === 'who') render(); });
   },
-  fixopen(d) { S.fixIs = ''; S.fixK = d.v; const e = evE(d.v); S.fixPick = ((e && e.dets) || []).map(x => People.sub[x]).find(Boolean) || ''; S.fixTeach = true; S.fixBusy = false; S.fixKinds = []; S.modal = 'fix'; render();
+  fixopen(d) { S.fixIs = ''; S.fixK = d.v; const e = evE(d.v); S.fixPick = ((e && e.dets) || []).map(x => People.sub[x]).find(Boolean) || ''; S.fixTeach = true; S.fixBusy = false; S.fixKinds = []; fullStep('fix'); S.modal = 'fix'; render();
     Promise.all([CatFix.loadNames(), CatFix.kinds(d.v).then(ks => { S.fixKinds = ks; })]).then(() => { if (S.modal === 'fix') render(); }); },
-  cofixopen(d) { S.fixK = d.v; S.fixPick = ''; S.fixTeach = true; S.fixBusy = false; S.fixKinds = []; S.modal = 'cofix'; render();
+  cofixopen(d) { S.fixK = d.v; S.fixPick = ''; S.fixTeach = true; S.fixBusy = false; S.fixKinds = []; fullStep('cofix'); S.modal = 'cofix'; render();
     Promise.all([CoFix.loadNames(), CoFix.kinds(d.v).then(ks => { S.fixKinds = ks; })]).then(() => { if (S.modal === 'cofix') render(); }); },
   async cofixsave() {
     Once.start('company fix');
@@ -7769,7 +7776,7 @@ const ACT = {
   /* 6.1.11 her 10:55 report: Alert Settings opened from the turned full screen (phone upright, picture turned sideways)
      showed upright over it and her iPhone stopped taking taps (the first tap on × gave no click, later taps reached no
      button). A window opened there now steps out of full screen first and goes back into it once the window closes. */
-  modal(d) { if (S.full && document.querySelector('.full.rot')) { S.full = false; S.fullBack = true; Dbg.log('full screen paused for', d.v); } S.modal = d.v; render(); },
+  modal(d) { fullStep(d.v); S.modal = d.v; render(); },
   close() { S.modal = null; render(); },
   ppopen2() { S.modal = 'pplus'; S.ppOpen = null; PPlus.load(); },
   ppback() { S.modal = 'settings'; S.ppOpen = null; render(); },
@@ -8844,7 +8851,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.5.7';
+    const BUILD = '6.5.8';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
