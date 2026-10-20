@@ -440,7 +440,9 @@ img.rf{opacity:0}
 /* 4.9.4 her rule: a wide foldable opened flat (a small-tablet screen held sideways) gets this layout too: the picture as
    tall as the screen on the left, the same native-scrolling timeline as the upright phone on the right */
 @media (min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px){
-  .focus{--fw:clamp(270px,24vw,300px);display:grid;grid-template-columns:minmax(0,1fr) var(--fw);grid-template-rows:68px minmax(0,1fr)}
+  /* 6.3.10 her request: on a computer the timeline side takes the room the picture leaves (the picture is sized by the
+     screen's height, --vr = its shape), between 40% of the screen (at most 420 px) and half of it; was 270-300 px */
+  .focus{--fw:clamp(min(420px,40vw),calc(100vw - (100vh - env(safe-area-inset-top,0px) - 142px) * var(--vr,1.7778) - 32px),50vw);display:grid;grid-template-columns:minmax(0,1fr) var(--fw);grid-template-rows:68px minmax(0,1fr)}
   /* 5.5.9: the width follows the camera's own shape (--R): a 4:3 camera (Treat Feeder) was sized as 16:9, so it came
      out taller than the screen and covered −10s / Live / +10s */
   /* 5.9.8: room for the alert bar too: with it, −10s … +10s fell off the bottom of her computer screen. 5.9.9 her
@@ -479,6 +481,11 @@ img.rf{opacity:0}
   .focus .fsub{left:118px;width:auto;right:8px}
   .focus .fev img{width:60px;height:40px;border-radius:7px}
   .focus .fev b{font-size:13px}
+  /* 6.3.10: the cards' pictures grow with the wider side (60x40 → up to 104x58; cards stay under the 70 px between groups) */
+  .focus .fev{height:clamp(48px,calc(var(--fw) * .1125 + 6px),64px);margin-top:calc(clamp(48px,calc(var(--fw) * .1125 + 6px),64px) / -2 + 30px)}
+  .focus .fev img{width:clamp(60px,calc(var(--fw) * .2),104px);height:clamp(40px,calc(var(--fw) * .1125),58px)}
+  .focus .fev b{font-size:clamp(13px,calc(var(--fw) * .026),15px)}
+  .focus .fev small{font-size:clamp(11px,calc(var(--fw) * .022),13px)}
   .focus .fev small{font-size:11px}
   .focus .flist{padding:8px 8px 80px}
   .focus .fitem{gap:10px;padding:6px;border-radius:12px}
@@ -5837,7 +5844,7 @@ function viewFocus() {
     (frig ? '<button class="dk" data-act="focusreview" data-id="' + c.id + '" aria-label="All Cameras At This Time">' + I.review + '</button>' : '') +
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
     '</div><div class="pillk fnmbr' + rcnA(c.id) + '>' + esc(c.name) + '</div>';   /* top row: back, the picture's time, buttons; the camera name sits in the picture's bottom-left corner (Loading shows bottom-right), the object tag just above it */
-  let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
+  let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '" style="--vr:' + (isTall(c) ? c.ar : Math.min(trueAr(c), 1.7778)).toFixed(4) + '">' +
     '<div class="fvid vfit' + (c.id === 'nest_doorbell' ? ' door' : '') + (isTall(c) ? ' tall' : '') + '" style="--R:' + trueAr(c).toFixed(4) + (isTall(c) ? ';--ar:' + c.ar.toFixed(4) : trueAr(c) >= 1.2 && trueAr(c) < 1.7 ? ';aspect-ratio:' + trueAr(c).toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.quick(c.id, t != null, 'fquick') + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fseek" id="fseek" hidden></div>' +
     '<div class="fctl" id="fctl">' + (S.fclip && S.fclip.cam === c.id ?
