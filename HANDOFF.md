@@ -557,3 +557,6 @@ Her pick C: in the camera view, Interesting icons are half-filled (fill currentC
 
 ## 6.2.10
 (1) Home timeline icons merge only alerts with the same object (her "dog 2" held a dog and an Amazon person alert); a different object right next to one is lifted (.segi.up) and a tap on an icon plays one of that icon own alerts (data-ts, snapAlert uses the tap y). (2) Thumbnails under the home panel and full-screen timeline segments are named by pick() (Dog At 10:59, was Frigate first label Car). (3) Camera view rail icon numbers count alerts with that object, not detections (her dog 3 = one dog alert seen three times).
+
+## 6.3.1
+(1) Her rule: with a group opened in the camera view list, the bar under the picture covers the whole group (first alert start to last alert end, FSeek.groupBar, bkey) with every object of its alerts (colour per alert via x._e, up to 30 objects read); moving between its alerts keeps the same bar; folded = one alert as before. FSeek.key stays the playing alert (tag, glow). (2) Live clears the picked icon ring (ogk). (3) Midnight hour mark reads Today / 00:00 at the same size.
