@@ -1947,6 +1947,7 @@ const Frigate = {
       .catch(e => Dbg.log('start alerts failed', e && e.message));
     const cfg = await this.get('/api/config');
     Dbg.log('start config ready', (Date.now() - t0) + 'ms');
+    fetch('ctl/litter?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.json() : null).then(st => { if (st) { Litter.st = st; Rel.sync(st); } }).catch(() => {});   /* 6.2.4: animals she re-marked */
     const groups = cfg.camera_groups || {};
     const groupOf = id => { for (const g in groups) if ((groups[g].cameras || []).includes(id)) return g; return 'Cameras'; };
     this.streams = {}; Object.keys((cfg.go2rtc && cfg.go2rtc.streams) || {}).forEach(k => { this.streams[k] = 1; });
@@ -2681,7 +2682,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.2.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.2.4 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -3363,20 +3364,31 @@ const hasPkg = e => !e.motion && Data.source === 'frigate' && [e.label, ...(e.ob
 const coOf = e => e.co || (e.logo ? coName(e.logo) : String(e.who || '').split(' · ').find(x => CoFix.isCo(x)) || '');
 const PETL = ['cat', 'dog', 'raccoon', 'rabbit', 'squirrel', 'fox', 'bird', 'deer', 'bear', 'horse', 'skunk', 'opossum'];
 const isAnimal = l => PETL.includes(String(l || '').toLowerCase());
+/* 6.2.4 her request: Fix → Not Dog → "It Is A" Cat / Raccoon / … : the detection is marked wrong in Frigate (and sent
+   to Frigate+) as before, but the app keeps showing it as the animal she picked, so the alert doesn't vanish. Kept on
+   the mini PC with the 如厕记录 marks (/ctl/litter, "is:<animal>" per detection, 40 days) so every phone sees it; this
+   phone keeps a copy for a fast start. */
+const FIX_ANIMALS = ['cat', 'dog', 'raccoon', 'rabbit', 'squirrel', 'fox'];
+const Rel = {
+  m: (() => { const v = store.get('rel', {}); return v && typeof v === 'object' ? v : {}; })(),
+  of(d) { return this.m[d] || ''; },
+  async set(ids, l) { ids.forEach(d => { this.m[d] = l; }); store.set('rel', this.m); try { await Litter.post('mark', ids, 'is:' + l); return true; } catch (x) { Dbg.log('relabel not kept on mini PC', String(x && x.message || x)); return false; } },
+  sync(st) { const m = {}; Object.entries((st && st.marks) || {}).forEach(([k, v]) => { if (String(v).startsWith('is:')) m[k] = String(v).slice(3); }); this.m = m; store.set('rel', m); }
+};
 function fixPets(e) {
   /* 3.1.7: any detection marked wrong here (Not Cat, Not Car, Not Person…) leaves its alert */
   /* always start from what Frigate said, so undoing a name (Not Ours) brings the dog / raccoon back */
-  if (e._o) { e.objs = e._o.objs.slice(); e.label = e._o.label; e.gone = false; } else e._o = { objs: (e.objs || []).slice(), label: e.label };
-  const named = d => People.lab[d] !== 'cat' && isAnimal(People.lab[d]) && People.sub[d];
+  e.gone = false; if (e._o) { e.objs = e._o.objs.slice(); e.label = e._o.label; } else e._o = { objs: (e.objs || []).slice(), label: e.label };
+  const named = d => Rel.of(d) || (People.lab[d] !== 'cat' && isAnimal(People.lab[d]) && People.sub[d]);
   const ds = e.dets || []; if (!ds.length || !ds.some(d => People.fp[d] || named(d))) return e;
-  const kind = d => named(d) ? 'cat' : People.lab[d];
+  const kind = d => Rel.of(d) || (named(d) ? 'cat' : People.lab[d]);
   const known = ds.filter(d => People.lab[d]), keep = new Set(known.filter(d => !People.fp[d] || named(d)).map(kind));
   if (known.length === ds.length && !keep.size) { e.gone = true; return e; }
   const wrong = l => known.some(d => People.lab[d] === l) && !keep.has(l);
   const o = (e.objs || []).filter(x => !wrong(String(x).toLowerCase()));
-  if (keep.has('cat') && !o.some(x => /^cat$/i.test(x))) o.push('Cat');
+  keep.forEach(l => { if (isAnimal(l) && !o.some(x => String(x).toLowerCase() === l)) o.push(l.replace(/^\w/, m => m.toUpperCase())); });
   e.objs = o;
-  if (wrong(String(e.label).toLowerCase())) e.label = o[0] || (keep.has('cat') ? 'Cat' : e.label);
+  if (wrong(String(e.label).toLowerCase())) e.label = o[0] || e.label;
   return e;
 }
 const CatFix = {
@@ -3553,6 +3565,7 @@ function modalFix() {
     '<div class="dhead">Fix This Alert<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
     '<img class="whoimg crop" src="' + evImg(e, p) + '" alt="">' +
     '<div class="lbl" style="margin-top:6px">Which Cat Is It?</div><div class="chips">' + names.map(n => chip(n, niceName(n))).join('') + chip('0', 'Not Ours') + (S.fixKinds || []).map(l => chip('-' + l, 'Not ' + objName(l))).join('') + '</div>' +
+    (cur && cur[0] === '-' && isAnimal(cur.slice(1)) ? '<div class="lbl">It Is A</div><div class="chips">' + FIX_ANIMALS.filter(l => l !== cur.slice(1)).map(l => '<button class="chip sm" data-act="fixis" data-v="' + l + '" aria-pressed="' + (S.fixIs === l) + '">' + esc(objName(l)) + '</button>').join('') + '</div>' : '') +
     '<div class="lbl">Or Just</div><div class="chips">' + chip('^plus', 'Send To Frigate+') + '</div>' + (cur === '^plus' ? '<div class="wtnote" style="margin:6px 0 0">Send To Frigate+: Nothing Changes Here · One Picture Waits In Frigate+ For You To Verify</div>' : '') +
     (cur === '^plus' ? '' : '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Teach The Cats Model</button>') +
     (cur === '0' ? '<div class="wtnote" style="margin:6px 0 0">Not Ours: A Real Animal, But Not 胖胖 Or 团团 · Name Removed, Taught To The Cats Model As None · The Alert Stays</div>' : '') +
@@ -4943,9 +4956,9 @@ const Arrive = {
   parts(e, f) {
     const rule = Data.alertRule[e.cam] || { labels: [], zones: [] };
     /* 3.1.5: a part marked wrong stays out, unless it was given a cat's name with Fix (a "dog" that is 团团 shows as Cat) */
-    return (e.dets || []).map(d => this.det[d] && Object.assign({ d }, this.det[d])).filter(x => x && (!x.fp || (x.sub && x.l !== 'cat' && isAnimal(x.l))) && x.t >= e.t - 1000).map(x => {
-      const L = (x.l !== 'cat' && isAnimal(x.l) && x.sub && People.sub[x.d] ? 'cat' : x.l).replace(/^\w/, m => m.toUpperCase());
-      return { d: x.d, t: x.t, en: x.en, label: L, sub: x.sub, hot: rule.labels.includes(x.l) && (!rule.zones.length || x.z.some(z => rule.zones.includes(z))) };
+    return (e.dets || []).map(d => this.det[d] && Object.assign({ d }, this.det[d])).filter(x => x && (!x.fp || Rel.of(x.d) || (x.sub && x.l !== 'cat' && isAnimal(x.l))) && x.t >= e.t - 1000).map(x => {
+      const l0 = Rel.of(x.d) || (x.l !== 'cat' && isAnimal(x.l) && x.sub && People.sub[x.d] ? 'cat' : x.l), L = l0.replace(/^\w/, m => m.toUpperCase());
+      return { d: x.d, t: x.t, en: x.en, label: L, sub: x.sub, hot: rule.labels.includes(l0) && (!rule.zones.length || x.z.some(z => rule.zones.includes(z))) };
     }).filter(x => objOn(f, x.label) && (x.hot ? f.int : f.unint)).sort((a, b) => a.t - b.t);
   },
   /* Corrections made in Frigate win: a car whose sub label was changed there to a name (or cleared after "not FedEx"),
@@ -5160,7 +5173,7 @@ function mkGo(segs, t, n) {
 }
 /* 6.1.10 her rules for the icons on every alert bar: no round background (they crowded and overlapped); Interesting
    ones orange, Uninteresting grey; a doubled cat name shows one character (团团 → 团, 胖胖 → 胖) */
-function detHot(e, x) { const rule = (e && Data.alertRule[e.cam]) || { labels: [], zones: [] }; return !!(e && e.interesting) && rule.labels.includes(x.l) && (!rule.zones.length || (x.z || []).some(z => rule.zones.includes(z))); }
+function detHot(e, x) { const rule = (e && Data.alertRule[e.cam]) || { labels: [], zones: [] }; return !!(e && e.interesting) && rule.labels.includes(Rel.of(x.d) || x.l) && (!rule.zones.length || (x.z || []).some(z => rule.zones.includes(z))); }
 function shortName(n) { n = String(n || ''); return /^(.)\1$/u.test(n) ? Array.from(n)[0] : n; }
 function mkIcons(xs, a, b, W, act, attr, e) {
   let last = -99, h = '';
@@ -7031,7 +7044,7 @@ function modalSettings() {
     row('Camera View Alerts', seg('fmode', S.fmode, [['C', 'List'], ['B', 'Thumbnails']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.2.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.2.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7307,7 +7320,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.2.3');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.2.4');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7324,7 +7337,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.2.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.2.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7402,7 +7415,7 @@ const ACT = {
     S.whoId = e.id; S.whoName = (e.dets || []).map(x => People.sub[x]).filter(Boolean).map(niceName)[0] || ''; S.whoNew = ''; S.whoTeach = undefined; S.modal = 'who'; render();
     if (!People.faces) People.loadFaces().then(() => { if (S.modal === 'who') render(); });
   },
-  fixopen(d) { S.fixK = d.v; const e = evE(d.v); S.fixPick = ((e && e.dets) || []).map(x => People.sub[x]).find(Boolean) || ''; S.fixTeach = true; S.fixBusy = false; S.fixKinds = []; S.modal = 'fix'; render();
+  fixopen(d) { S.fixIs = ''; S.fixK = d.v; const e = evE(d.v); S.fixPick = ((e && e.dets) || []).map(x => People.sub[x]).find(Boolean) || ''; S.fixTeach = true; S.fixBusy = false; S.fixKinds = []; S.modal = 'fix'; render();
     Promise.all([CatFix.loadNames(), CatFix.kinds(d.v).then(ks => { S.fixKinds = ks; })]).then(() => { if (S.modal === 'fix') render(); }); },
   cofixopen(d) { S.fixK = d.v; S.fixPick = ''; S.fixTeach = true; S.fixBusy = false; S.fixKinds = []; S.modal = 'cofix'; render();
     Promise.all([CoFix.loadNames(), CoFix.kinds(d.v).then(ks => { S.fixKinds = ks; })]).then(() => { if (S.modal === 'cofix') render(); }); },
@@ -7435,7 +7448,8 @@ const ACT = {
     if (v === '=car') (EVK[k] && EVK[k].g ? EVK[k].g.ps.map(x => x.d) : (e.dets || [])).forEach(d => { const a = Arrive.det[d]; if (a && a.l === 'car') a.sub = 'Car'; });
     toast((v === '=car' ? 'Marked As Car' : v[0] === '-' ? 'Marked Not ' + objName(v.slice(1)) : 'Saved As ' + (isLogo(v) ? coName(v) : v)) + (r.sent ? ' · Sent To Frigate+' : '') + (r.taught ? ' · Car Model Learning' : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
   },
-  fixpick(d) { const i = document.getElementById('conew'); if (i) S.coNew = i.value; S.fixPick = S.fixPick === d.v ? '' : d.v; render(); if (S.fixPick === '+') { const n = document.getElementById('conew'); if (n) n.focus(); } },
+  fixis(d) { S.fixIs = S.fixIs === d.v ? '' : d.v; render(); },
+  fixpick(d) { S.fixIs = ''; const i = document.getElementById('conew'); if (i) S.coNew = i.value; S.fixPick = S.fixPick === d.v ? '' : d.v; render(); if (S.fixPick === '+') { const n = document.getElementById('conew'); if (n) n.focus(); } },
   fixteach() { S.fixTeach = S.fixTeach === false; render(); },
   fixplus() { S.fixPlus = S.fixPlus === false; render(); },
   async fixsave() {
@@ -7443,14 +7457,15 @@ const ACT = {
     if (S.fixBusy || !S.fixPick) return; const k = S.fixK, e = evE(k); if (!e) return;
     if (S.fixPick === '^plus') return plusOnly(k, e);
     S.fixBusy = true; render();
-    const pickv = S.fixPick, teachv = S.fixTeach !== false && !!CatFix.model, r = await CatFix.save(k, pickv, S.fixTeach !== false, S.fixPlus !== false); S.fixBusy = false;
+    const pickv = S.fixPick, isv = pickv[0] === '-' && isAnimal(pickv.slice(1)) ? S.fixIs || '' : '', teachv = S.fixTeach !== false && !!CatFix.model, r = await CatFix.save(k, pickv, S.fixTeach !== false, S.fixPlus !== false); S.fixBusy = false;
     if (!r.ok && r.msg) { toast(r.msg); render(); return; }
+    let kept = true; if (isv) { const ds = (e.dets || []).filter(d => People.lab[d] === pickv.slice(1)); kept = await Rel.set(ds, isv); Dbg.log('fix', e.id, 'is', isv, 'parts', ds.join(','), kept ? 'kept' : 'this phone only'); }
     whoOf(e); fixPets(e); if (e.gone) Data.events = Data.events.filter(x => x !== e);
     /* 5.4.3: the same cat can be in two alerts (Frigate made 16:08:52 and 16:09:57 from one detection): fix both */
     (Data.events || []).forEach(x => { if (x !== e && (x.dets || []).some(d => (e.dets || []).includes(d))) { whoOf(x); fixPets(x); } });
     S.modal = null; render();
     if (pickv === '0') e.who = String(e.who || '').split(' · ').filter(x => x && !CatFix.names.includes(x) && !['胖胖', '团团'].includes(x)).join(' · ');
-    toast((pickv === '0' ? 'Marked Not Ours' : pickv[0] !== '-' ? 'Saved As ' + niceName(pickv) : pickv === '-animal' ? 'Marked Not Animal' : 'Marked Not ' + objName(pickv.slice(1))) + (r.sent ? ' · Sent To Frigate+' : '') + (r.taught ? ' · Train Model To Learn' : teachv && r.miss && !r.sent ? ' · No Saved Picture For The Cats Model' : '') + (r.nc && r.nc.length && !r.taught ? ' · The Cats Model Skips ' + r.nc.map(objName).join(', ') : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
+    toast((isv ? 'Marked As ' + objName(isv) + (kept ? '' : ' · On This Phone Only') : pickv === '0' ? 'Marked Not Ours' : pickv[0] !== '-' ? 'Saved As ' + niceName(pickv) : pickv === '-animal' ? 'Marked Not Animal' : 'Marked Not ' + objName(pickv.slice(1))) + (r.sent ? ' · Sent To Frigate+' : '') + (r.taught ? ' · Train Model To Learn' : teachv && r.miss && !r.sent ? ' · No Saved Picture For The Cats Model' : '') + (r.nc && r.nc.length && !r.taught ? ' · The Cats Model Skips ' + r.nc.map(objName).join(', ') : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
   },
   whopick(d) { const i = document.getElementById('whonew'); if (i) S.whoNew = i.value; S.whoName = S.whoName === d.v ? '' : d.v;
     if (S.whoName === '+' && S.whoTeach !== false) S.whoTeach = true;   /* a new person is meant to be learned */
@@ -8673,7 +8688,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.2.3';
+    const BUILD = '6.2.4';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
