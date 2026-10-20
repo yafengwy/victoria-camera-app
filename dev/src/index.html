@@ -475,13 +475,19 @@ img.rf{opacity:0}
   .focus .fcmk em{display:inline}
   /* 6.3.9 her request: no icon sits on the rail; on a computer every icon is left of it (hours | icons | rail | cards) */
   .focus .fhr{left:4px}
-  .focus .frail{left:150px}
-  .focus .fcmk{left:133px}
-  .focus .fmark.ico.dim{left:116px!important}
-  .focus .fmark.ico:not(.dim){left:114px!important}
+  /* 6.4.5 her request: room for three icons between the hours and the rail (was ~4), the cards 30 px wider; the opened
+     rows are 62 px tall with 96x54 pictures (were 40 px, 50x32: too small to see on a computer) */
+  .focus .frail{left:120px}
+  .focus .fcmk{left:103px}
+  .focus .fmark.ico.dim{left:86px!important}
+  .focus .fmark.ico:not(.dim){left:84px!important}
   .focus .fmark.ico{margin-left:calc(var(--ln,0) * -27px)}
-  .focus .fev{left:168px;width:auto;right:8px;height:48px;gap:8px;margin-top:6px}
-  .focus .fsub{left:168px;width:auto;right:8px}
+  .focus .fev{left:138px;width:auto;right:8px;height:48px;gap:8px;margin-top:6px}
+  .focus .fsub{left:138px;width:auto;right:8px}
+  .focus .fsr{height:62px;gap:10px;font-size:13px}
+  .focus .fsr b{font-size:13px;width:62px}
+  .focus .fsr .lico svg{width:16px;height:16px}
+  .focus .fsr img{width:96px;height:54px;border-radius:8px}
   .focus .fev img{width:60px;height:40px;border-radius:7px}
   .focus .fev b{font-size:13px}
   /* 6.3.10: the cards' pictures grow with the wider side (60x40 → up to 104x58; cards stay under the 70 px between groups) */
@@ -5825,7 +5831,7 @@ function viewFocus() {
     if (og && S.fmode !== 'B') {
       /* 6.1.3 her rule: the rows box shows at most 5 rows and scrolls on its own (a drag inside it moves only the rows,
          never the timeline); a drag outside it, or with it folded, moves the timeline as before */
-      const CB = fWide() ? 22 : 32, RH = 40, k = keyOf(og);
+      const CB = fWide() ? 22 : 32, RH = fWide() ? 62 : 40, k = keyOf(og);   /* 6.4.5: bigger rows (pictures) on a computer */
       const list = og.items.map(e => { const p = pick(e, S.filt); return { e, p, t: p.t }; }).sort((x, z) => z.t - x.t);
       const boxH = Math.min(list.length, 5) * RH + 8;
       if (S.focus.foldKey !== k) { S.focus.foldKey = k; S.focus.subTop = 0; }
