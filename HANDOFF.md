@@ -457,3 +457,9 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 
 ## 5.9.8 (2026-10-19) Room for the camera view bar
 - Her computer (1920x841, Driveway): with the alert bar, −10s…+10s fell below the screen. The wide camera view picture now leaves 160 px (was 96) under it, always (no jump when the bar comes and goes). Test t118p: buttons on screen at 1920x841, 1440x800, 1280x700, 1000x600.
+
+## 5.9.9 (2026-10-19) Recorded line on the home timeline; prev/next alert; camera view controls lower
+- Home opened camera (panel #track): #recband thin line where video was recorded, blank where not (RecBand: one /recordings per camera and shown span ±25%, merged within 2.5 s, today re-asked at most once a minute, spans over a day skipped; log "timeline recordings").
+- Camera view: ‹ (Previous Alert) left of Pause and › (Next Alert) right of Live; same alerts as the list (passes, no motion), jumps 1 s before the alert with a toast; › disabled while Live.
+- Wide camera view leaves 142 px (was 160) under the picture: bigger picture, bar and buttons lower; t118p: buttons bottom 827/841 at 1920x841.
+- Test t119p.
