@@ -305,9 +305,12 @@ img.rf{opacity:0}
 /* 6.2.3 her rules: in the camera view the alert icons are plain (orange Interesting, grey Uninteresting, no round
    background); only the icon she tapped gets the blue ring. The home timeline's playhead is a thin line so it doesn't
    hide the icon under it. */
-.focus .fmark.ico:not(.dim){background:transparent!important;box-shadow:none!important;color:var(--hot)!important}
+/* 6.2.6 her rule: Interesting = solid orange badge, Uninteresting = hollow grey icon; the tapped one gets a ring in
+   its own colour (orange for Interesting, blue for Uninteresting) */
+.focus .fmark.ico:not(.dim){background:var(--hot)!important;box-shadow:none!important;color:#1A0E05!important}
 .focus .fmark.ico:not(.dim)::after{display:none!important}
-.focus .fmark.ico.sel,.focus .fmark.ico.sel:not(.dim){box-shadow:0 0 0 2px #8AB4F8!important}
+.focus .fmark.ico.sel:not(.dim){box-shadow:0 0 0 2px var(--dark-bg,#0F1113),0 0 0 4px var(--hot)!important}
+.focus .fmark.ico.dim.sel{box-shadow:0 0 0 2px #8AB4F8!important}
 .head-mk{width:4px!important;margin-left:-2px!important;border-radius:2px!important;border-width:1px!important}
 .fsi.un img{filter:grayscale(1) brightness(.75)}
 .fsi.hot .lico,.fsi.un .lico{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:7px;margin-right:3px;vertical-align:-3px}

@@ -542,3 +542,6 @@ Fix → Not <animal> now offers "It Is A" Cat / Dog / Raccoon / Rabbit / Squirre
 
 ## 6.2.5
 Camera view list: the midnight hour mark read "Today 00" and ran into the rail icons; the day (Today / date) is now a small line just above the "00" (.fhr .fdl), clear of the rail on phone and computer.
+
+## 6.2.6
+Camera view rail icons: Interesting = solid orange badge (dark icon), Uninteresting = hollow grey icon; the tapped one gets a ring in its own colour (orange with a dark gap for Interesting, blue for Uninteresting). All themes checked.
