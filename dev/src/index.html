@@ -1539,12 +1539,12 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .ltvid{position:relative;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:#000}
 .ltvid img,.ltvid video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
 .ltbar{position:relative;height:28px;display:flex;align-items:center;cursor:pointer;margin:-6px 0 -4px;touch-action:none}
-.ltbarin{flex:1;display:flex;height:8px;pointer-events:none}
-.ltbar i{height:8px;border-radius:4px;background:var(--strong);pointer-events:none}
+.ltbarin{flex:1;position:relative;height:8px;pointer-events:none}
+.ltbar i{position:absolute;top:0;height:8px;min-width:6px;border-radius:4px;background:var(--strong);pointer-events:none}
 .ltbar b{min-width:6px;pointer-events:none}
 .evbarh:empty{display:none}.evbarh{padding:2px 12px 6px}
 .evseek{position:relative;height:28px;display:flex;align-items:center;cursor:pointer;touch-action:none}
-.evseek i{height:8px;border-radius:4px;background:var(--strong);pointer-events:none}.evseek b{min-width:4px;pointer-events:none}
+.evseek i{position:absolute;top:0;height:8px;min-width:6px;border-radius:4px;background:var(--strong);pointer-events:none}.evseek b{min-width:4px;pointer-events:none}
 .evseek .evam{position:absolute;top:3px;width:3px;height:22px;margin-left:-1px;border-radius:2px;background:#E8590C;pointer-events:none}
 .evseek .ltph{width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:8px}
 .evbt{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:-2px;line-height:1.3}
@@ -3830,7 +3830,7 @@ function modalLitter() {
     const vs = Math.floor(g.t / 1000) - 2, ve = Math.ceil(g.end / 1000) + 3, vod = Frigate.base() + '/vod/' + g.cam + '/start/' + vs + '/end/' + ve + '/index.m3u8';
     const span = Math.max(1, g.end - g.t);
     /* 4.10.3 her rule: the bar under the video shows the parts (gaps blank); tapping anywhere on it jumps there */
-    let bar = '', at0 = g.t; g.ps.forEach(p => { if (p.t > at0) bar += '<b style="flex:' + Math.max(0.02, (p.t - at0) / span) + '"></b>'; bar += '<i style="flex:' + Math.max(0.03, (p.end - p.t) / span) + '"></i>'; at0 = Math.max(at0, p.end); });
+    let bar = barPieces(g.ps.map(p => ({ a: p.t, b: p.end })), g.t, g.end);   /* 5.9.5: true places, like the alert bar */
     bar = '<div class="ltbar" data-act="ltseek" data-a="' + g.t + '" data-b="' + g.end + '" role="slider" aria-label="Jump"><div class="ltbarin">' + bar + '</div><em class="ltph" style="left:0"></em></div>';
     const norec = S.ltNoRec === g.id;
     const plus = S.ltPlus !== false, rmv = S.ltRm !== false, busy = Litter.busy;
@@ -5013,9 +5013,7 @@ setInterval(() => {
   const e = evE(S.evPlay), host = e && document.getElementById('evm-' + S.evPlay); if (!host) return;
   const v = host.querySelector('video.evv'), c = host.querySelector('.evclk'); if (!v || !c) return;
   const bar = document.querySelector('#evb-' + CSS.escape(S.evPlay) + ' .evseek');
-  if (bar && !bar._filled && v._segs) { bar._filled = true; const a = +bar.dataset.a, b = +bar.dataset.b, span = Math.max(1, b - a); let h = '', at0 = a;
-    v._segs.forEach(x => { if (x.a > at0) h += '<b style="flex:' + Math.max(0.01, (x.a - at0) / span) + '"></b>'; h += '<i style="flex:' + Math.max(0.02, (x.b - x.a) / span) + '"></i>'; at0 = Math.max(at0, x.b); });
-    if (at0 < b) h += '<b style="flex:' + ((b - at0) / span) + '"></b>'; if (h) bar.querySelector('.ltbarin').innerHTML = h; }
+  if (bar && !bar._filled && v._segs) { bar._filled = true; const h = barPieces(v._segs, +bar.dataset.a, +bar.dataset.b); if (h) bar.querySelector('.ltbarin').innerHTML = h; }
   if (!(v.currentTime > 0)) { c.hidden = true; return; }
   const t = vodReal(v, v.currentTime); c.hidden = false; c.textContent = ymdhms(t);
   if (bar && !EvDrag.on) { const ph = bar.querySelector('.ltph'); if (ph) ph.style.left = (Math.max(0, Math.min(1, (t - +bar.dataset.a) / Math.max(1, +bar.dataset.b - +bar.dataset.a))) * 100).toFixed(1) + '%'; }
@@ -5031,9 +5029,13 @@ function evStop() { clearInterval(evTimer); evTimer = null; const was = S.evPlay
 function evBar(e, k) {
   if (!e || S.evPlay !== k || Data.source !== 'frigate' || !e.vs) return '';
   const a = e.vs * 1000, b = e.ve * 1000, am = Math.max(0, Math.min(1, (e.t - a) / Math.max(1, b - a)));
-  return '<div class="evseek" data-k="' + esc(k) + '" data-a="' + a + '" data-b="' + b + '" role="slider" aria-label="Jump"><div class="ltbarin"><i style="flex:1"></i></div><span class="evam" style="left:' + (am * 100).toFixed(1) + '%"></span><em class="ltph" style="left:0"></em></div>' +
+  return '<div class="evseek" data-k="' + esc(k) + '" data-a="' + a + '" data-b="' + b + '" role="slider" aria-label="Jump"><div class="ltbarin"><i style="left:0;width:100%"></i></div><span class="evam" style="left:' + (am * 100).toFixed(1) + '%"></span><em class="ltph" style="left:0"></em></div>' +
     '<div class="evbt"><span>' + hms(a) + '</span><span>' + hms(b) + '</span></div>';
 }
+/* 5.9.5: recorded pieces are drawn at their true place and length (left/width by clock time). 5.9.4 and 如厕记录 gave
+   each tiny piece a minimum share of the bar, so the bar no longer matched the clock: the dot (true time) walked over
+   blank parts and a tap on a blue piece landed in a gap and jumped on (her 猫砂盆 clip 22:10:23, 35 s recorded in 161 s) */
+function barPieces(ps, A, B) { const span = Math.max(1, B - A); return ps.map(x => { const l = Math.max(0, (x.a - A) / span), r = Math.min(1, (x.b - A) / span); return r > l ? '<i style="left:' + (l * 100).toFixed(2) + '%;width:' + ((r - l) * 100).toFixed(2) + '%"></i>' : ''; }).join(''); }
 function evBarPaint(k) { const h = k && document.getElementById('evb-' + k); if (h) h.innerHTML = evBar(evE(k), k); }
 const EvDrag = { on: false };
 function evDragTo(x, final) {

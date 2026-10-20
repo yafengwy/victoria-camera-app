@@ -441,3 +441,6 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 - evStop now lets go of every alert player (relVideo: hls destroyed, src removed) and clears bars, so switching alerts leaves no download running (log "alert clip let go").
 - Pictures For Frigate+: asks Frigate is_submitted=0 and remembers sent ids (homecams.ppsent, also from Fix → Send To Frigate+), so sent pictures never show again.
 - Tests t114p (bar, release-only seek, let go), t114t (4 themes).
+
+## 5.9.5 (2026-10-19) Bars drawn at true time
+- Her 猫砂盆 alert 22:10:23–22:13:04 (35 s recorded in 161 s): the bar gave every tiny piece a minimum share, so the dot (true clock) walked over blank parts and taps on blue landed in gaps and jumped on (log: jump 38% → 22:11:24 played from 21.3 s). Now barPieces() places each piece by clock time (absolute left/width, min 6 px) in both the alert bar and 如厕记录. Test t115p: dot always on a blue piece.
