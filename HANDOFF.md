@@ -494,3 +494,6 @@ Camera view bar (#fseek): order is bar (playhead 4px under the picture) / object
 
 ## 5.10.9
 Her recording: camera view bar looked broken (only a floating playhead while recordings load; dashed line because each recording file was its own piece). barJoin joins back-to-back pieces (gap <= 2 s) in every bar (alert cards, litter, camera view); faint track under the camera view bar; order bar / times / icons, room still 64px. t128, t126.
+
+## 5.10.10
+Her real complaint (recording 01:12): tapping an alert card scrolled the list so the card flew up under the top edge. Now a tap in the camera view list (card / strip item / rail icon, via ACT.fjump keepAt) never moves the list: the blue line moves to the tapped card (S.focus.lineAt) and stays at that height for playing, swiping and the arrows; Live (fGoLive) puts it back at 10%. A card tap plays the alert the card shows (line lands on the card). t129: card centre unchanged after each tap, line on the card.

@@ -5509,7 +5509,7 @@ function fSetPad(sc, p) {
 }
 function fSetScroll(sc, v) { v = Math.max(0, Math.round(v + fPad())); if (sc.scrollTop === v) return; S.focus.progTop = v; sc.scrollTop = v; }
 /* 4.6.5: Live puts the blue line a little below the top (4.6.6: 10% of the list), "now" on it, the list at its top */
-function fGoLive(sc) { const ly = Math.max(FTOP, Math.round(sc.clientHeight * 0.10)); S.focus.lineY = ly; fSetPad(sc, ly - FTOP); S.focus.progTop = 0; sc.scrollTop = 0; fPaintLine(); }
+function fGoLive(sc) { S.focus.lineAt = null; S.focus.keepAt = false; const ly = Math.max(FTOP, Math.round(sc.clientHeight * 0.10)); S.focus.lineY = ly; fSetPad(sc, ly - FTOP); S.focus.progTop = 0; sc.scrollTop = 0; fPaintLine(); }
 function fShow(t) { fPaintLine(); }   /* 5.5.7: the list brings t to the fixed line */
 /* The blue line sits where the playing time is. Swiping the list moves the timeline under the line (scrubs);
    tapping an alert or an empty spot moves the line there instead of moving the list. */
@@ -5522,7 +5522,9 @@ function fPaintLine() {
      under it: playing scrolls the list so the playing time is on the line, a swipe scrubs, a tap brings that time to
      the line. The list's top is Live. */
   const sc = document.getElementById('fsc'), ln = document.getElementById('fpline'); if (!sc || !ln || !S.focus) return;
-  const t = camT(S.focus.cam), LY = Math.max(FTOP, Math.round(sc.clientHeight * 0.10)), busy = fScrubbing() || sc._ptr || sc._touch;
+  const t = camT(S.focus.cam), busy = fScrubbing() || sc._ptr || sc._touch;
+  if (S.focus.keepAt && t != null && !busy) { S.focus.keepAt = false; S.focus.lineAt = Math.max(FTOP, Math.min(sc.clientHeight - 24, Math.round(fPad() + fLineY(t) - sc.scrollTop))); }
+  const LY = S.focus.lineAt != null ? S.focus.lineAt : Math.max(FTOP, Math.round(sc.clientHeight * 0.10));
   if (!busy && fPad() !== LY - FTOP) fSetPad(sc, LY - FTOP);
   S.focus.lineY = LY; if (ln.style.top !== LY + 'px') ln.style.top = LY + 'px';
   if (!busy) { const want = t == null ? 0 : Math.max(0, Math.round(fLineY(t) - FTOP)); if (isFinite(want) && Math.abs(sc.scrollTop - want) > 1) { S.focus.progTop = want; sc.scrollTop = want; } }
@@ -7910,11 +7912,17 @@ const ACT = {
        motion piece, so the key never matched and the group never opened into its strip */
     const og = objs.length > 1 ? String((g.items.find(x => !x.motion) || g.items[0]).t) : null;
     if (S.focus.og !== og) { S.focus.og = og; render(); }
-    ACT.fjump({ t: o ? o.t : pick(g.items[0], S.filt).t });
+    /* 5.10.10: a tap on the card plays the alert the card shows (its time is where the card sits), so the line lands on
+       the card she tapped; an icon still goes to its own object */
+    const ce = g.items.find(x => !x.motion) || g.items[0];
+    ACT.fjump({ t: d.k ? (o ? o.t : pick(g.items[0], S.filt).t) : pick(ce, S.filt).t });
   },
   fstripgo(d, e) { const st = e && e.target.closest('.fstrip') && e.target.closest('.fstrip').querySelector('.fsrow'); if (st) st.scrollBy({ left: (+d.v) * Math.max(80, st.clientWidth * 0.8), behavior: 'smooth' }); },
   fjump(d) {   /* tap a card or rail icon: go to that alert (1 s before it starts) */
     const t = +d.t - 1000, id = S.focus.cam; FSeek.pick(id, +d.t); Dbg.log('tap alert', hms(+d.t), Playback.why(id));
+    /* 5.10.10 her rule: a tapped card stays under her finger. The list does not move; the blue line goes to the card
+       instead and stays at that height (playing, ‹ › and swiping keep it there) until Live puts it back near the top */
+    S.focus.keepAt = true;
     S.camTime[id] = t; S.playing = true; paintFocus();       /* the line moves to the alert; the list stays where it is */
     document.querySelectorAll('.fsi').forEach(n => n.classList.toggle('cur', +n.dataset.t === +d.t));
     Playback.sync();
