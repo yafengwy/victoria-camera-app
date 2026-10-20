@@ -475,15 +475,16 @@ img.rf{opacity:0}
   .focus .fcmk em{display:inline}
   /* 6.3.9 her request: no icon sits on the rail; on a computer every icon is left of it (hours | icons | rail | cards) */
   .focus .fhr{left:4px}
-  /* 6.4.5 her request: room for three icons between the hours and the rail (was ~4), the cards 30 px wider; the opened
+  /* 6.4.5 her request: room for three icons between the hours and the rail (was ~4), the cards 30 px wider (6.4.6: four icons again,
+     dog + cat + person + car; the rail at 147 px, cards at 165 px); the opened
      rows are 62 px tall with 96x54 pictures (were 40 px, 50x32: too small to see on a computer) */
-  .focus .frail{left:120px}
-  .focus .fcmk{left:103px}
-  .focus .fmark.ico.dim{left:86px!important}
-  .focus .fmark.ico:not(.dim){left:84px!important}
+  .focus .frail{left:147px}
+  .focus .fcmk{left:130px}
+  .focus .fmark.ico.dim{left:113px!important}
+  .focus .fmark.ico:not(.dim){left:111px!important}
   .focus .fmark.ico{margin-left:calc(var(--ln,0) * -27px)}
-  .focus .fev{left:138px;width:auto;right:8px;height:48px;gap:8px;margin-top:6px}
-  .focus .fsub{left:138px;width:auto;right:8px}
+  .focus .fev{left:165px;width:auto;right:8px;height:48px;gap:8px;margin-top:6px}
+  .focus .fsub{left:165px;width:auto;right:8px}
   .focus .fsr{height:62px;gap:10px;font-size:13px}
   .focus .fsr b{font-size:13px;width:62px}
   .focus .fsr .lico svg{width:16px;height:16px}
@@ -5853,7 +5854,7 @@ function viewFocus() {
       kinds.sort((a, b) => objRank(a.o.label) - objRank(b.o.label) || b.n - a.n);
       const lane = { '+': 0, '-': 0 };
       kinds.forEach(kd => {
-        const hot = kd.o.hot, ln = lane[hot ? '+' : '-']++; if (ln > 2) return;
+        const hot = kd.o.hot, ln = lane[hot ? '+' : '-']++; if (ln > (fWide() ? 3 : 2)) return;   /* 6.4.6: four per row on a computer */
         rows += '<button class="fmark ico' + (hot ? '' : ' dim') + ((bopen || open) && S.focus.ogk === kd.k ? ' sel' : '') + '" style="top:' + (y - 9 + (hot ? 0 : 24)) + 'px;--ln:' + ln + '" data-act="fgrp" data-g="' + gi + '" data-k="' + esc(kd.k) + '" aria-label="' + esc(objName(kd.o.label)) + ' ' + hm(kd.o.t) + (kd.n > 1 ? ', ' + kd.n : '') + '">' + objIcon(kd.o.label) + (kd.n > 1 ? '<b class="segn"><i>' + kd.n + '</i></b>' : '') + '</button>';
       });
       const e = g.items.find(x => !x.motion) || g.items[0], ep = pick(e, S.filt);   /* the card shows the alert, not a motion piece next to it */

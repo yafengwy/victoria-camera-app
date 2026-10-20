@@ -475,15 +475,16 @@ img.rf{opacity:0}
   .focus .fcmk em{display:inline}
   /* 6.3.9 her request: no icon sits on the rail; on a computer every icon is left of it (hours | icons | rail | cards) */
   .focus .fhr{left:4px}
-  /* 6.4.5 her request: room for three icons between the hours and the rail (was ~4), the cards 30 px wider; the opened
+  /* 6.4.5 her request: room for three icons between the hours and the rail (was ~4), the cards 30 px wider (6.4.6: four icons again,
+     dog + cat + person + car; the rail at 147 px, cards at 165 px); the opened
      rows are 62 px tall with 96x54 pictures (were 40 px, 50x32: too small to see on a computer) */
-  .focus .frail{left:120px}
-  .focus .fcmk{left:103px}
-  .focus .fmark.ico.dim{left:86px!important}
-  .focus .fmark.ico:not(.dim){left:84px!important}
+  .focus .frail{left:147px}
+  .focus .fcmk{left:130px}
+  .focus .fmark.ico.dim{left:113px!important}
+  .focus .fmark.ico:not(.dim){left:111px!important}
   .focus .fmark.ico{margin-left:calc(var(--ln,0) * -27px)}
-  .focus .fev{left:138px;width:auto;right:8px;height:48px;gap:8px;margin-top:6px}
-  .focus .fsub{left:138px;width:auto;right:8px}
+  .focus .fev{left:165px;width:auto;right:8px;height:48px;gap:8px;margin-top:6px}
+  .focus .fsub{left:165px;width:auto;right:8px}
   .focus .fsr{height:62px;gap:10px;font-size:13px}
   .focus .fsr b{font-size:13px;width:62px}
   .focus .fsr .lico svg{width:16px;height:16px}
@@ -2732,7 +2733,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.4.5 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.4.6 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -5853,7 +5854,7 @@ function viewFocus() {
       kinds.sort((a, b) => objRank(a.o.label) - objRank(b.o.label) || b.n - a.n);
       const lane = { '+': 0, '-': 0 };
       kinds.forEach(kd => {
-        const hot = kd.o.hot, ln = lane[hot ? '+' : '-']++; if (ln > 2) return;
+        const hot = kd.o.hot, ln = lane[hot ? '+' : '-']++; if (ln > (fWide() ? 3 : 2)) return;   /* 6.4.6: four per row on a computer */
         rows += '<button class="fmark ico' + (hot ? '' : ' dim') + ((bopen || open) && S.focus.ogk === kd.k ? ' sel' : '') + '" style="top:' + (y - 9 + (hot ? 0 : 24)) + 'px;--ln:' + ln + '" data-act="fgrp" data-g="' + gi + '" data-k="' + esc(kd.k) + '" aria-label="' + esc(objName(kd.o.label)) + ' ' + hm(kd.o.t) + (kd.n > 1 ? ', ' + kd.n : '') + '">' + objIcon(kd.o.label) + (kd.n > 1 ? '<b class="segn"><i>' + kd.n + '</i></b>' : '') + '</button>';
       });
       const e = g.items.find(x => !x.motion) || g.items[0], ep = pick(e, S.filt);   /* the card shows the alert, not a motion piece next to it */
@@ -7169,7 +7170,7 @@ function modalSettings() {
     row('Camera View Alerts', seg('fmode', S.fmode, [['C', 'List'], ['B', 'Thumbnails']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.4.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.4.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7445,7 +7446,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.4.5');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.4.6');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7462,7 +7463,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.4.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.4.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -8818,7 +8819,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.4.5';
+    const BUILD = '6.4.6';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
