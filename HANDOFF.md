@@ -569,3 +569,6 @@ Her pick C: in the camera view, Interesting icons are half-filled (fill currentC
 
 ## 6.3.4
 Home timeline icons that fall on the same spot now sit side by side (each nudged 20 px right of the one before in its row; Two Rows keeps its rows), never stacked; 6.2.10 lifting (.segi.up) dropped. Taps still pick the tapped icon own alerts (data-ts + tap y).
+
+## 6.3.5
+Home timeline: icons sharing a spot are centred on their real times (cluster 18 px apart around the mean), so the playhead after a tap lands within about one icon of it (her cat icon landed 2 icons right of its time). Measured on 393 px: offsets +18 / 0 / -17 px for three icons on one spot.
