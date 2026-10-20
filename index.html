@@ -1586,7 +1586,7 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .evmks{position:relative;height:24px;margin-bottom:-2px}
 .recband{position:absolute;left:0;right:0;bottom:4px;height:3px;pointer-events:none}.recband i{position:absolute;top:0;height:3px;border-radius:2px;background:var(--icon);opacity:.55}
 .fseek{flex-shrink:0;padding:2px 12px 0;color:var(--dark-fg)}.fseek[hidden]{display:none}
-.fseek .evseek i{background:#B9CCFF}.fseek .evmk{background:rgba(255,255,255,.16);color:#fff}.fseek .ltph{background:#fff;box-shadow:0 0 0 1.5px #000}.fseek .evbt{color:rgba(255,255,255,.6)}
+.fseek .evseek i{background:#B9CCFF}.fseek .evmk{background:none;color:#8A939C}.fseek .evmk.hot{color:#F28B39}.fseek .ltph{background:#fff;box-shadow:0 0 0 1.5px #000}.fseek .evbt{color:rgba(255,255,255,.6)}
 .focus>.fseek{max-width:900px;width:100%;margin:0 auto}
 /* 5.10.7 her rule: the bar's room is always kept, even with no alert on screen, so the list below never moves up and
    down when an alert starts or ends (with the line, which stays put 10% down the list) */
@@ -1599,7 +1599,8 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .fseek .ltbarin{background:rgba(255,255,255,.10);border-radius:4px}
 @media (min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px){ .focus>.fseek{position:absolute;z-index:5;margin:0;max-width:none;padding:0 4px} }
 .evmk{position:absolute;top:0;transform:translateX(-50%);min-width:22px;height:22px;padding:0 4px;border:0;border-radius:11px;background:var(--chip);color:var(--text);display:flex;align-items:center;justify-content:center;font:inherit;font-size:11px;font-weight:600;cursor:pointer}
-.evmk svg{width:15px;height:15px}.evmk.nm{padding:0 7px}
+.evmk svg{width:15px;height:15px}.evmk.nm{padding:0 3px;font-size:13px;font-weight:700}
+.evmk{background:none!important;color:var(--sub)}.evmk.hot{color:var(--hot,#F28B39)}
 /* 5.9.6 her request: the playing position is a plain line, not a dot (both bars) */
 .evseek .ltph,.ltbar .ltph{width:4px;height:24px;margin:-12px 0 0 -2px;border-radius:2px;background:var(--text);box-shadow:0 0 0 1.5px var(--card)}
 .evbt{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:-2px;line-height:1.3}
@@ -2666,7 +2667,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.1.9 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.1.10 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -5142,11 +5143,15 @@ function mkGo(segs, t, n) {
   let best = null; sg.forEach(x => { [x.a, x.b - 1000].forEach(y => { if (best == null || Math.abs(y - t) < Math.abs(best - t)) best = y; }); });
   toast(n + ' · ' + hms(t) + ' · Not Recorded · Showing ' + hms(best)); Dbg.log('object not recorded', n, hms(t), '→', hms(best)); return best;
 }
-function mkIcons(xs, a, b, W, act, attr) {
+/* 6.1.10 her rules for the icons on every alert bar: no round background (they crowded and overlapped); Interesting
+   ones orange, Uninteresting grey; a doubled cat name shows one character (团团 → 团, 胖胖 → 胖) */
+function detHot(e, x) { const rule = (e && Data.alertRule[e.cam]) || { labels: [], zones: [] }; return !!(e && e.interesting) && rule.labels.includes(x.l) && (!rule.zones.length || (x.z || []).some(z => rule.zones.includes(z))); }
+function shortName(n) { n = String(n || ''); return /^(.)\1$/u.test(n) ? Array.from(n)[0] : n; }
+function mkIcons(xs, a, b, W, act, attr, e) {
   let last = -99, h = '';
   xs.forEach(x => { const nm = x.sub && !/^unknown$/i.test(x.sub) ? x.sub : '', logo = nm && isLogo(nm), named = nm && !logo;
     let px = Math.max(0, Math.min(1, (x.t - a) / Math.max(1, b - a))) * W; if (px < last + 22) px = last + 22; last = px;
-    h += '<button class="evmk' + (named ? ' nm' : '') + '" data-act="' + act + '"' + attr + ' data-t="' + x.t + '" data-n="' + esc(named ? niceName(nm) : objName(logo ? nm : x.l)) + '" style="left:' + Math.min(W - 8, px).toFixed(0) + 'px" title="' + esc((named ? niceName(nm) + ' · ' : '') + objName(logo ? nm : x.l) + ' · ' + hms(x.t)) + '" aria-label="Play From ' + esc(objName(logo ? nm : x.l)) + ' At ' + hms(x.t) + '">' + (named ? esc(niceName(nm)) : objIcon(logo ? nm : x.l)) + '</button>'; });
+    h += '<button class="evmk' + (named ? ' nm' : '') + (detHot(e, x) ? ' hot' : '') + '" data-act="' + act + '"' + attr + ' data-t="' + x.t + '" data-n="' + esc(named ? niceName(nm) : objName(logo ? nm : x.l)) + '" style="left:' + Math.min(W - 8, px).toFixed(0) + 'px" title="' + esc((named ? niceName(nm) + ' · ' : '') + objName(logo ? nm : x.l) + ' · ' + hms(x.t)) + '" aria-label="Play From ' + esc(objName(logo ? nm : x.l)) + ' At ' + hms(x.t) + '">' + (named ? esc(shortName(niceName(nm))) : objIcon(logo ? nm : x.l)) + '</button>'; });
   return h;
 }
 const EvMk = {
@@ -5156,7 +5161,7 @@ const EvMk = {
   paint(k) {
     const e = evE(k), box = k && document.querySelector('#evb-' + CSS.escape(k) + ' .evmks'), bar = k && document.querySelector('#evb-' + CSS.escape(k) + ' .evseek'); if (!e || !box || !bar) return;
     const a = +bar.dataset.a, b = +bar.dataset.b, W = bar.clientWidth || 300, xs = (e.dets || []).map(d => Arrive.det[d] && Object.assign({ d }, Arrive.det[d])).filter(x => x && !x.fp && x.t >= a - 1000 && x.t <= b).sort((p, q) => p.t - q.t);
-    const h = mkIcons(xs, a, b, W, 'evmk', ' data-k="' + esc(k) + '"');
+    const h = mkIcons(xs, a, b, W, 'evmk', ' data-k="' + esc(k) + '"', e);
     if (box._h !== h) { box._h = h; box.innerHTML = h; }
   }
 };
@@ -5197,7 +5202,7 @@ const FSeek = {
   },
   icons(e, a, b, bar) { const box = document.querySelector('#fseek .fmks'); if (!box) return;
     const xs = (e.dets || []).map(d => Arrive.det[d] && Object.assign({ d }, Arrive.det[d])).filter(x => x && !x.fp && x.t >= a - 1000 && x.t <= b).sort((p, q) => p.t - q.t);
-    const h = mkIcons(xs, a, b, bar.clientWidth || 300, 'fmk', ''); if (box._h !== h) { box._h = h; box.innerHTML = h; } },
+    const h = mkIcons(xs, a, b, bar.clientWidth || 300, 'fmk', '', e); if (box._h !== h) { box._h = h; box.innerHTML = h; } },
   async load(e, id) {
     if (this.busy[e.id]) return; this.busy[e.id] = 1;
     try {
@@ -6995,7 +7000,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.1.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.1.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7271,7 +7276,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.1.9');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.1.10');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7288,7 +7293,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.1.9\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.1.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -8632,7 +8637,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.1.9';
+    const BUILD = '6.1.10';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

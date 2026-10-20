@@ -524,3 +524,6 @@ Camera view Boxes button on: yellow again on upright phones (5.10.1 grey .focus>
 
 ## 6.1.9
 Her screenshot 10:50: rows box scrolled, the tapped icon alert row was outside it, so the line sat on the box edge with no glow in sight. fRowShow(id) in ACT.fjump scrolls the rows box just enough to show the target row before the line comes to it. t137: cat/person/dog/car icons each land with the glowing row visible and the line on it.
+
+## 6.1.10
+Alert bar icons (camera view bar and alert cards): no round background; Interesting orange (detHot: alert interesting + camera alert rule label/zones, same as Arrive.parts), Uninteresting grey; doubled cat names show one character (shortName: 团团 → 团, 胖胖 → 胖; the toast still says the full name). t138.
