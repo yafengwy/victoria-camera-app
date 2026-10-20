@@ -298,7 +298,8 @@ img.rf{opacity:0}
 .fev.fstrip .fsi img{width:100%;height:100%;object-fit:cover;border-radius:8px;display:block}
 .fsi span{position:absolute;left:0;right:0;bottom:0;padding:1px 4px;font-size:10px;font-weight:700;color:#fff;background:rgba(0,0,0,.6);white-space:nowrap;font-variant-numeric:tabular-nums;text-align:left}
 .fsi span .lico svg{width:10px;height:10px}
-.fsi.cur{outline:2px solid #C9D6FF;outline-offset:-2px}
+.fsi.cur{outline:2px solid #8AB4F8;outline-offset:-2px;box-shadow:0 0 10px 1px rgba(138,180,248,.6)}
+.fmark.ico.sel{box-shadow:0 0 0 2px #8AB4F8}
 .fsi.un img{filter:grayscale(1) brightness(.75)}
 .fsi.hot .lico,.fsi.un .lico{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:7px;margin-right:3px;vertical-align:-3px}
 .fsi.hot .lico{background:var(--hot);color:#fff}
@@ -2667,7 +2668,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.2.1 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.2.2 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4101,7 +4102,7 @@ setTimeout(() => F360.tick(), 2500); setInterval(() => { if (document.visibility
 /* Served from the mini PC (home IP or victoriashome.app): talk to the real Frigate on the same address by default */
 const HOSTED = /^(192\.168\.|10\.|localhost$|frigate)|victoriashome\.app$/.test(location.hostname);
 const S = {
-  view: 'home', markStyle: ['a', 'e', 'd', 'b'].includes(store.get('markStyle', 'a')) ? store.get('markStyle', 'a') : 'a', cover: store.get('cover', 'auto'), look: store.get('look', 'auto'), colsPref: store.get('colsPref', 'auto'), forced: {}, mode: store.get('mode', 'home'), theme: ['glass', 'google', 'green', 'blue', 'noir'].includes(store.get('theme2', 'glass')) ? store.get('theme2', 'glass') : 'glass', layout: store.get('layout', 'list'),
+  view: 'home', fmode: store.get('fmode', 'C') === 'B' ? 'B' : 'C', markStyle: ['a', 'e', 'd', 'b'].includes(store.get('markStyle', 'a')) ? store.get('markStyle', 'a') : 'a', cover: store.get('cover', 'auto'), look: store.get('look', 'auto'), colsPref: store.get('colsPref', 'auto'), forced: {}, mode: store.get('mode', 'home'), theme: ['glass', 'google', 'green', 'blue', 'noir'].includes(store.get('theme2', 'glass')) ? store.get('theme2', 'glass') : 'glass', layout: store.get('layout', 'list'),
   server: store.get('server', HOSTED ? location.origin : ''), demo: HOSTED ? false : store.get('demo', true),   /* 4.7.2: no Use Demo Data box any more; the real site never shows demo data */
   open: store.get('open', {}), expanded: null, camTime: camTimeObj(),
   winEnd: now(), pos: 1, win: store.get('win', 30 * MIN), playing: true, speed: 1, tab: 'events',
@@ -5561,6 +5562,8 @@ function fFoldMap() {
 /* 6.1.9 her report: an icon whose alert row was scrolled out of the rows box left the line on the box edge with no
    glow in sight. A tap now first scrolls the box just enough to show that row, then the line comes to it. */
 function fRowShow(id) {
+  if (S.fmode === 'B') { requestAnimationFrame(() => { const th = id && document.querySelector('#fsc .fsi[data-id="' + CSS.escape(id) + '"]'), row = th && th.parentElement; if (!row) return;
+    const l = th.offsetLeft - row.offsetLeft, r = l + th.offsetWidth; if (l < row.scrollLeft) row.scrollLeft = l - 4; else if (r > row.scrollLeft + row.clientWidth) row.scrollLeft = r - row.clientWidth + 4; }); return; }
   const f = S.focus && S.focus.fold, i = f && id ? f.ids.indexOf(id) : -1; if (i < 0) return;
   const view = f.boxH - 8, st = S.focus.subTop || 0, top = i * f.RH;
   let want = st; if (top < st) want = top; else if (top + f.RH > st + view) want = top + f.RH - view;
@@ -5569,7 +5572,7 @@ function fRowShow(id) {
 }
 function fWide() { return !!(window.matchMedia && matchMedia('(min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px)').matches); }
 /* 6.1.2: the alert playing glows in the opened group's rows */
-function fCur(id) { document.querySelectorAll('#fsc .fsr').forEach(n => n.classList.toggle('cur', !!id && n.dataset.id === id)); }
+function fCur(id) { document.querySelectorAll('#fsc .fsr, #fsc .fsi[data-id]').forEach(n => n.classList.toggle('cur', !!id && n.dataset.id === id)); }
 function fLineY(t) { return t == null ? FTOP : fY(t); }
 /* keep the playing time in view without jumping: only scroll when it is off screen */
 /* 4.5.2: the camera view list has empty room above "now" (pad, one screen tall). With the blue line sitting lower
@@ -5663,8 +5666,20 @@ function viewFocus() {
     S.focus.groups = grp;
     const keyOf = g => String((g.items.find(x => !x.motion) || g.items[0]).t);
     const og = grp.find(g => g.items.length > 1 && S.focus.og === keyOf(g));
-    let fold = null; S.focus.fmap = null; S.focus.fold = null;
-    if (og) {
+    let fold = null, bstrip = null; S.focus.fmap = null; S.focus.fold = null;
+    if (og && S.fmode === 'B') {
+      /* 6.2.2 her 方案 B (picked in Settings): the opened group stays one card-sized box on its own row; the icon tapped
+         picks which alerts it shows (that kind of object; the card shows them all); nothing below moves. The whole
+         group's time sits on this row, so the line stays on it while any of its alerts plays. */
+      const objs = focusObjs(og), kk = S.focus.ogk;
+      const ids = kk ? new Set(objs.filter(o => o.label + (o.hot ? '+' : '-') === kk).map(o => o.e.id)) : null;
+      const list = og.items.filter(e => !ids || ids.has(e.id)).map(e => { const p = pick(e, S.filt); return { e, p, t: p.t }; }).sort((x, z) => z.t - x.t);
+      const ts = og.items.map(e => pick(e, S.filt).t), hi = Math.max(...og.items.map((e, i) => Math.max(ts[i], e.end || now()))), lo = Math.min(...ts);
+      const at = lo - 31000, yEnd = Math.max(fYb(at, end), og.y + 1);
+      S.focus.fmap = [[hi + 30000, 0], [hi, og.y - fYb(hi, end)], [lo - 1000, og.y - fYb(lo - 1000, end)], [at, yEnd - fYb(at, end)]];
+      bstrip = { g: og, list, k: kk };
+    }
+    if (og && S.fmode !== 'B') {
       /* 6.1.3 her rule: the rows box shows at most 5 rows and scrolls on its own (a drag inside it moves only the rows,
          never the timeline); a drag outside it, or with it folded, moves the timeline as before */
       const CB = fWide() ? 22 : 32, RH = 40, k = keyOf(og);
@@ -5680,7 +5695,7 @@ function viewFocus() {
     for (let k = Math.floor(end / HOUR) * HOUR; k > end - span; k -= HOUR)
       rows += '<div class="fhr' + (new Date(k).getHours() === 0 ? ' fday0' : '') + '" style="top:' + (fY(k, end) - 8) + 'px">' + (new Date(k).getHours() === 0 && k < dayStart(now()) + 1 ? dayLabel(k) + ' ' : '') + pad(new Date(k).getHours()) + '</div>';
     grp.forEach((g, gi) => {
-      const open = !!fold && fold.g === g, y = open ? g.y : g.y + fD(g.items[0].t), n = g.items.length, objs = focusObjs(g);
+      const open = !!fold && fold.g === g, bopen = !!bstrip && bstrip.g === g, y = open || bopen ? g.y : g.y + fD(g.items[0].t), n = g.items.length, objs = focusObjs(g);
       /* rail: one icon per kind of object, Interesting (orange) on the first row, Uninteresting (grey) on a second row */
       const kinds = [];
       objs.forEach(o => { const k = o.label + (o.hot ? '+' : '-'); let kd = kinds.find(x => x.k === k); if (!kd) { kd = { k, o, n: 0 }; kinds.push(kd); } kd.n++; });
@@ -5688,10 +5703,11 @@ function viewFocus() {
       const lane = { '+': 0, '-': 0 };
       kinds.forEach(kd => {
         const hot = kd.o.hot, ln = lane[hot ? '+' : '-']++; if (ln > 2) return;
-        rows += '<button class="fmark ico' + (hot ? '' : ' dim') + '" style="top:' + (y - 9 + (hot ? 0 : 24)) + 'px;--ln:' + ln + '" data-act="fgrp" data-g="' + gi + '" data-k="' + esc(kd.k) + '" aria-label="' + esc(objName(kd.o.label)) + ' ' + hm(kd.o.t) + (kd.n > 1 ? ', ' + kd.n : '') + '">' + objIcon(kd.o.label) + (kd.n > 1 ? '<b class="segn"><i>' + kd.n + '</i></b>' : '') + '</button>';
+        rows += '<button class="fmark ico' + (hot ? '' : ' dim') + (bopen && bstrip.k === kd.k ? ' sel' : '') + '" style="top:' + (y - 9 + (hot ? 0 : 24)) + 'px;--ln:' + ln + '" data-act="fgrp" data-g="' + gi + '" data-k="' + esc(kd.k) + '" aria-label="' + esc(objName(kd.o.label)) + ' ' + hm(kd.o.t) + (kd.n > 1 ? ', ' + kd.n : '') + '">' + objIcon(kd.o.label) + (kd.n > 1 ? '<b class="segn"><i>' + kd.n + '</i></b>' : '') + '</button>';
       });
       const e = g.items.find(x => !x.motion) || g.items[0], ep = pick(e, S.filt);   /* the card shows the alert, not a motion piece next to it */
-      {
+      if (bopen) rows += '<div class="fev fstrip atl" style="top:' + (y - 32) + 'px"><button class="fsarr l" data-act="fstripgo" data-v="-1" aria-label="Earlier Thumbnails">‹</button><div class="fsrow">' + bstrip.list.map(r => '<button class="fsi' + (r.e.interesting ? ' hot' : ' un') + (FSeek.key === r.e.id ? ' cur' : '') + '" data-act="fjump" data-t="' + r.t + '" data-id="' + esc(r.e.id) + '" aria-label="' + esc(objName(r.p.label)) + ' ' + hms(r.t) + '"><img src="' + evImg(r.e, r.p) + '" alt="" loading="lazy" draggable="false"><span><i class="lico">' + objIcon(ico(r.e, r.p)) + '</i>' + hms(r.t) + '</span></button>').join('') + '</div><button class="fsarr r" data-act="fstripgo" data-v="1" aria-label="More Thumbnails">›</button><button class="fsx" data-act="fstripx" aria-label="Close">' + I.x + '</button></div>';
+      else {
         const hotL = objs.filter(o => o.hot).map(o => o.label), names = [...new Set((hotL.length ? hotL : objs.map(o => o.label)).sort((a, b) => objRank(a) - objRank(b)).map(objName))];
         const title = names.slice(0, 2).join(', ') + (names.length > 2 ? ' +' + (names.length - 2) : '');
         const sub = hm(ep.t) + ' · ' + (n === 1 ? durLabel(e) : n + ' Alerts');
@@ -6999,9 +7015,10 @@ function modalSettings() {
     row('Appearance', seg('look', S.look, [['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']])) +
     /* 4.7.9: List (one per row on a phone) lives here too; it was only in the … menu, so Auto looked the same as 2 */
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
+    row('Camera View List', seg('fmode', S.fmode, [['C', 'C · Open In Place'], ['B', 'B · Icons Filter']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.2.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.2.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7277,7 +7294,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.2.1');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.2.2');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7294,7 +7311,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.2.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.2.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7996,7 +8013,8 @@ const ACT = {
   fgrp(d) {     /* 6.1.2 (方案 C): a group of several opens in place into one row per alert; the card folds it back */
     const g = S.focus && S.focus.groups && S.focus.groups[+d.g]; if (!g) return;
     const key = String((g.items.find(x => !x.motion) || g.items[0]).t), several = g.items.length > 1;
-    if (!d.k && several && S.focus.og === key) { S.focus.og = null; render(); return; }
+    if (!d.k && several && S.focus.og === key) { S.focus.og = null; S.focus.ogk = null; render(); return; }
+    if (S.fmode === 'B' && several && (S.focus.og !== key || (S.focus.ogk || null) !== (d.k || null))) { S.focus.og = key; S.focus.ogk = d.k || null; render(); }
     /* an icon plays the newest alert with that kind of object; the card plays the alert it shows */
     const objs = focusObjs(g), want = d.k ? objs.filter(o => o.label + (o.hot ? '+' : '-') === d.k) : [];
     const e = want.length ? want[0].e : (g.items.find(x => !x.motion) || g.items[0]);
@@ -8006,7 +8024,8 @@ const ACT = {
     ACT.fjump({ t, id: e.id });
   },
   /* 5.10.11 her request: the × at the strip's end folds it back into its card */
-  fstripx() { if (S.focus) { S.focus.og = null; render(); } },
+  fstripx() { if (S.focus) { S.focus.og = null; S.focus.ogk = null; render(); } },
+  fmode(d) { S.fmode = d.v === 'B' ? 'B' : 'C'; store.set('fmode', S.fmode); if (S.focus) { S.focus.og = null; S.focus.ogk = null; } render(); },
   fstripgo(d, e) { const st = e && e.target.closest('.fstrip') && e.target.closest('.fstrip').querySelector('.fsrow'); if (st) st.scrollBy({ left: (+d.v) * Math.max(80, st.clientWidth * 0.8), behavior: 'smooth' }); },
   fjump(d) {   /* tap a card or rail icon: go to that alert (1 s before it starts) */
     const t = +d.t - 1000, id = S.focus.cam; FSeek.pick(id, +d.t); Dbg.log('tap alert', hms(+d.t), Playback.why(id));
@@ -8641,7 +8660,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.2.1';
+    const BUILD = '6.2.2';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

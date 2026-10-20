@@ -530,3 +530,6 @@ Alert bar icons (camera view bar and alert cards): no round background; Interest
 
 ## 6.2.1
 Her 10:55 freeze: Alert Settings opened from the turned full screen (.full.rot, phone upright) showed upright over it; on her iPhone the first tap on x gave no click (TapLog ran it) and later taps reached no button; not reproducible in Chromium. ACT.modal now leaves the turned full screen first (S.fullBack) and render() puts it back once the window is closed. t139.
+
+## 6.2.2
+Settings: Camera View List = C (Open In Place, default) or B (Icons Filter), stored per device (fmode). B: opened group = one card-sized strip on its row (old .fstrip look) showing the group alerts, or only those with the tapped icon kind (S.focus.ogk; selected icon ringed .sel); the playing thumbnail glows (fCur covers .fsi); x closes; nothing below moves; the whole group time maps onto the row (fmap flat) so the line stays there while any of its alerts plays. t140.
