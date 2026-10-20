@@ -470,3 +470,6 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 
 ## 5.10.1 (2026-10-19) Upright phone camera view: top row above the picture
 - Her request: the top row (back, time, Fix, Who?, buttons) covered the top of the picture. Portrait screens under 1000 px: .fvid gets 44 px above it (overflow visible, beats .focus .fvid{overflow:hidden}) and .fov sits at -40 px; buttons lightly tinted. Computer / landscape / full screen unchanged. Test t121p.
+
+## 5.10.2 (2026-10-19) Home timeline back to icons only
+- Her choice after seeing it: the recorded line on the opened camera timeline is removed (RecBand left unused); only alert icons, as before.

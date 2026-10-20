@@ -4778,7 +4778,6 @@ function panel(c, col) {
       '<button class="round o-lv" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button></span>') + '</div>' +
     '<div class="tl"><div class="tlrow"><span id="tlstart">' + hm(start) + ' ' + dayLabel(start) + '</span><button class="pill" id="winpill" data-act="modal" data-v="win" aria-label="Change Timeline Length">' + winLabel(S.win) + '</button><span id="tlend">' + (S.winEnd >= now() - 2000 ? 'Now' : hm(S.winEnd)) + '</span></div>' +
     '<div class="track' + (S.markStyle === 'b' ? ' lanes' : '') + '" id="track" role="slider" aria-label="Playback Time" aria-valuetext="' + (live ? 'Live' : hms(t)) + '" tabindex="0">' + clipBand(c.id, start) + segs +
-    '<div class="recband" id="recband">' + RecBand.html(c.id, start, S.winEnd) + '</div>' +
     '<div class="head-mk" id="playhead" style="left:' + (S.pos * 100).toFixed(2) + '%"></div></div>' +
     '</div>' +
     '<div class="tabs" role="tablist">' +
@@ -4813,7 +4812,8 @@ function tagName(e) {
 }
 const tagInner = f => objIcon(f.tag) + '<span>' + esc(f.name || objName(f.tag)) + '</span>';
 function setTag(n, f) { if (!n) return; n.innerHTML = f.tag ? tagInner(f) : ''; n.hidden = !f.tag; n.classList.toggle('un', !!f.tag && !f.hot); }
-/* 5.9.9 her request: the opened camera's timeline shows what was recorded: a thin line where there is video, blank where
+/* 5.10.2: taken off again at her request (only alert icons on this timeline, as before). Kept unused.
+   5.9.9 her request: the opened camera's timeline shows what was recorded: a thin line where there is video, blank where
    nothing was kept. One recordings question per camera and shown stretch (with some room on both sides), today's
    asked again at most once a minute; nothing for spans over a day. */
 const RecBand = {
@@ -4835,7 +4835,6 @@ const RecBand = {
     if (this.need(id, a, b)) this.load(id, a, b); const h = this.html(id, a, b); if (el._h !== h) { el._h = h; el.innerHTML = h; } }
 };
 function paintPanel() {
-  RecBand.paint();
   const id = S.expanded; if (!id) return;
   const t = camT(id), live = t == null, hv = S.hov && S.hov.id === id ? S.hov : null;
   const ph = document.getElementById('playhead'); if (ph) ph.style.left = ((hv ? hv.p : S.pos) * 100).toFixed(2) + '%';

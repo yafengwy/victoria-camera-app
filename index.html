@@ -2630,7 +2630,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.10.1 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.10.2 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4778,7 +4778,6 @@ function panel(c, col) {
       '<button class="round o-lv" id="livebtn" data-act="live1" data-id="' + c.id + '">Live</button></span>') + '</div>' +
     '<div class="tl"><div class="tlrow"><span id="tlstart">' + hm(start) + ' ' + dayLabel(start) + '</span><button class="pill" id="winpill" data-act="modal" data-v="win" aria-label="Change Timeline Length">' + winLabel(S.win) + '</button><span id="tlend">' + (S.winEnd >= now() - 2000 ? 'Now' : hm(S.winEnd)) + '</span></div>' +
     '<div class="track' + (S.markStyle === 'b' ? ' lanes' : '') + '" id="track" role="slider" aria-label="Playback Time" aria-valuetext="' + (live ? 'Live' : hms(t)) + '" tabindex="0">' + clipBand(c.id, start) + segs +
-    '<div class="recband" id="recband">' + RecBand.html(c.id, start, S.winEnd) + '</div>' +
     '<div class="head-mk" id="playhead" style="left:' + (S.pos * 100).toFixed(2) + '%"></div></div>' +
     '</div>' +
     '<div class="tabs" role="tablist">' +
@@ -4813,7 +4812,8 @@ function tagName(e) {
 }
 const tagInner = f => objIcon(f.tag) + '<span>' + esc(f.name || objName(f.tag)) + '</span>';
 function setTag(n, f) { if (!n) return; n.innerHTML = f.tag ? tagInner(f) : ''; n.hidden = !f.tag; n.classList.toggle('un', !!f.tag && !f.hot); }
-/* 5.9.9 her request: the opened camera's timeline shows what was recorded: a thin line where there is video, blank where
+/* 5.10.2: taken off again at her request (only alert icons on this timeline, as before). Kept unused.
+   5.9.9 her request: the opened camera's timeline shows what was recorded: a thin line where there is video, blank where
    nothing was kept. One recordings question per camera and shown stretch (with some room on both sides), today's
    asked again at most once a minute; nothing for spans over a day. */
 const RecBand = {
@@ -4835,7 +4835,6 @@ const RecBand = {
     if (this.need(id, a, b)) this.load(id, a, b); const h = this.html(id, a, b); if (el._h !== h) { el._h = h; el.innerHTML = h; } }
 };
 function paintPanel() {
-  RecBand.paint();
   const id = S.expanded; if (!id) return;
   const t = camT(id), live = t == null, hv = S.hov && S.hov.id === id ? S.hov : null;
   const ph = document.getElementById('playhead'); if (ph) ph.style.left = ((hv ? hv.p : S.pos) * 100).toFixed(2) + '%';
@@ -6889,7 +6888,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.10.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.10.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7165,7 +7164,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.10.1');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.10.2');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7182,7 +7181,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.10.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.10.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -8501,7 +8500,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.10.1';
+    const BUILD = '5.10.2';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
