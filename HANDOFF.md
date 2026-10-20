@@ -594,3 +594,4 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 - 6.4.9: full screen never crops the picture (her rule): removed the 5.6.1 object-fit:cover rules for a phone held sideways with the buttons hidden (img, .pbv, live video).
 - 6.4.10: Uninteresting is grey (#8FA0B8) everywhere: full screen thumbnails' edge (.fpi.un), full screen timeline pieces (.fseg.un), .fico.un, Review track marks (were yellow #E8B54A).
 - 6.5.1: full screen alert list (her choice 1 + 2): pictures 2:1 (were 16:10), name / time as a small tinted tag on the picture's bottom-left (orange / grey edge and tint) instead of a band under it — about 4.4 cards visible on a turned iPhone (was ~3.5).
+- 6.5.2: full screen list tag flush in the picture's bottom-left corner (rounded top-right only), solid orange (Interesting, dark text) or grey #8FA0B8 (Uninteresting, dark text).
