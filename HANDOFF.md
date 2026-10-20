@@ -593,3 +593,4 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 - 6.4.8: turned phone full screen: side column without the 22 px + home-bar gap (her request; fside 96 / 154 px, padding-right 4) — the picture gets ~52 pt more width on her iPhone. Drags right at the edge may catch the home bar (the 3.10.6 reason for the gap).
 - 6.4.9: full screen never crops the picture (her rule): removed the 5.6.1 object-fit:cover rules for a phone held sideways with the buttons hidden (img, .pbv, live video).
 - 6.4.10: Uninteresting is grey (#8FA0B8) everywhere: full screen thumbnails' edge (.fpi.un), full screen timeline pieces (.fseg.un), .fico.un, Review track marks (were yellow #E8B54A).
+- 6.5.1: full screen alert list (her choice 1 + 2): pictures 2:1 (were 16:10), name / time as a small tinted tag on the picture's bottom-left (orange / grey edge and tint) instead of a band under it — about 4.4 cards visible on a turned iPhone (was ~3.5).

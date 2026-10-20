@@ -1128,6 +1128,13 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
 .fpi.cur{outline:2px solid #fff;outline-offset:-2px}
 .fpi img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover}
 .fpi span{display:block;padding:3px 6px 4px;font-size:10px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* 6.4.11 her choice (1 + 2): more alerts in the full screen list: flatter pictures (2:1) and the name / time as a small
+   tag on the picture's bottom-left corner (not a full-width band, so little of the picture is covered), tinted orange
+   (Interesting) or grey (Uninteresting) with the same colored edge */
+.fpi{position:relative}
+.fpi img{aspect-ratio:2/1}
+.fpi span{position:absolute;left:4px;bottom:4px;max-width:calc(100% - 8px);box-sizing:border-box;padding:2px 6px 2px 5px;border-radius:6px;border-left:3px solid var(--hot);background:color-mix(in srgb,var(--hot) 22%,rgba(16,19,24,.82))}
+.fpi.un span{border-left-color:#8FA0B8;background:color-mix(in srgb,#8FA0B8 18%,rgba(16,19,24,.82))}
 .fzoom{position:absolute;left:50%;top:calc(50% + 18px);transform:translateX(-50%);padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.9);color:#111;font-size:11px;font-weight:800;white-space:nowrap;pointer-events:none}
 @media (pointer:fine){.fsrow{cursor:grab}.fsrow.grabbing{cursor:grabbing}#rvsc,#ftsc,#fsc{cursor:grab;user-select:none}#rvsc.grabbing,#ftsc.grabbing,#fsc.grabbing{cursor:grabbing}}
 .zdesk,.zdesk2{display:none!important}
