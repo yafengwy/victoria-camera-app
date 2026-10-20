@@ -482,3 +482,6 @@ Camera view list: on a phone held upright (portrait, width <= 999) the blue line
 
 ## 5.10.5
 Reverted 5.10.4 (40% line on phones + ResizeObserver): she found it jumpy and ugly (big empty space above the newest alert). Line back to 10% everywhere, same as 5.10.3.
+
+## 5.10.6
+Camera view list: line stays 10% down, except when the nearest newer card (incl. its own group card, which sits at the group newest alert) would be cut at the top; then fLineAt puts the line just low enough to show it (need = gap px + 36, max 45% of list). Cached per newer card (lyKey/lyVal) and only raised, so playing forward never moves it; no ResizeObserver. t125: 0 cut cards over 8 alerts, line unchanged while playing.
