@@ -108,9 +108,10 @@ img.rf{opacity:0}
   left:calc((100cqw - max(100cqw, 100cqh * var(--R,1.7778))) * var(--px,.5))!important;top:calc((100cqh - max(100cqh, 100cqw / var(--R,1.7778))) * var(--py,.5))!important}
 .vfit.vcon > img,.vfit.vcon video{width:min(100cqw, 100cqh * var(--R,1.7778))!important;height:min(100cqh, 100cqw / var(--R,1.7778))!important;
   left:calc((100cqw - min(100cqw, 100cqh * var(--R,1.7778))) / 2)!important;top:calc((100cqh - min(100cqh, 100cqw / var(--R,1.7778))) / 2)!important}
-/* 5.6.1: cut to fill the screen only on a phone held sideways; a computer shows the whole picture */
-@media (orientation:landscape) and (pointer:coarse){.full:not(.ui) .fvw.vfit > img,.full:not(.ui) .fvw.vfit video{width:max(100cqw, 100cqh * var(--R,1.7778))!important;height:max(100cqh, 100cqw / var(--R,1.7778))!important;
-  left:calc((100cqw - max(100cqw, 100cqh * var(--R,1.7778))) / 2)!important;top:calc((100cqh - max(100cqh, 100cqw / var(--R,1.7778))) / 2)!important}}
+/* 6.5.5 her rule: full screen never cuts the picture (the 5.6.1 fill-the-screen rule for a phone held sideways is gone) */
+/* 6.5.5 her report: the object tag (Person / Car, orange or grey) was missing on full screen; it sits on the picture's
+   own bottom-left corner (the picture is fitted inside, so its corner is computed like the picture's box) */
+.full .fvw > .tag{position:absolute;z-index:3;left:calc((100cqw - min(100cqw, 100cqh * var(--R,1.7778))) / 2 + 8px);bottom:calc((100cqh - min(100cqh, 100cqw / var(--R,1.7778))) / 2 + 8px)}
 /* 5.1.8: Doorbell alert clips: the true upright 3:4 picture in the middle of the card (its video is flagged 4:3) */
 .evmedia.door img,.evmedia.door video.evv{position:absolute;inset:0;margin:auto;width:auto!important;height:100%!important;max-width:100%;aspect-ratio:3/4;object-fit:fill!important}
 .full.door .fvw img,.full.door .fvw video{position:absolute;inset:0;margin:auto;width:auto!important;height:100%!important;max-width:100%;aspect-ratio:3/4;object-fit:fill!important}
@@ -1454,7 +1455,7 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 /* ---- v66: in-app zoom in full screen (the page itself never zooms, so the timeline stays put) ---- */
 .full .fvw{touch-action:none;overflow:hidden}
 .full .fov,.full .fullsteps,.full .fulltm,.full .fbot,.full .fuitop{touch-action:none}
-.full .fvw > :not(.fuitop):not(.fulltm):not(.fullsteps){transform:translate(var(--zx,0px),var(--zy,0px)) scale(var(--zs,1));transform-origin:0 0}
+.full .fvw > :not(.fuitop):not(.fulltm):not(.fullsteps):not(.tag){transform:translate(var(--zx,0px),var(--zy,0px)) scale(var(--zs,1));transform-origin:0 0}
 .full .fvw.zooming > :not(.fuitop):not(.fulltm):not(.fullsteps){will-change:transform}
 .focus .fvid.zoomed > :not(.fov):not(.fnmbr):not(.tag):not(.offv):not(.pillk){transform:translate(var(--zx,0px),var(--zy,0px)) scale(var(--zs,1))}
 .focus .fvid.zooming > :not(.fov):not(.fnmbr):not(.tag):not(.offv):not(.pillk){will-change:transform}
@@ -2746,7 +2747,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.5.4 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.5.5 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -5955,7 +5956,7 @@ function viewFull(c, t, f) {
     }
     side += (S.fpanel ? '' : '<div class="fsb zdesk2"><button class="dk sm" data-act="fzoombtn" data-v="out" aria-label="Show Longer Time">−</button><button class="dk sm" data-act="fzoombtn" data-v="in" aria-label="Show Shorter Time">+</button></div>') + '</aside>';
   }
-  return '<div class="full' + (c.id === 'nest_doorbell' ? ' door' : '') + (S.fui ? ' ui' : '') + (fullRot() ? ' rot' : '') + '" id="fullv" data-cam="' + esc(c.id) + '"><div class="fvw vfit vcon" style="--R:' + trueAr(c).toFixed(4) + '" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.quick(c.id, t != null, 'fullquick') + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
+  return '<div class="full' + (c.id === 'nest_doorbell' ? ' door' : '') + (S.fui ? ' ui' : '') + (fullRot() ? ' rot' : '') + '" id="fullv" data-cam="' + esc(c.id) + '"><div class="fvw vfit vcon" style="--R:' + trueAr(c).toFixed(4) + '" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="fulltag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div>' + Live.quick(c.id, t != null, 'fullquick') + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
     '<div class="fulltm" id="fulltm">' + dtShort(shownT(c.id, c.id)) + '</div>' +
     (S.fui ? '<div class="fullsteps"><button class="dk sm wide" data-act="fstep" data-v="-10" aria-label="Back 10 Seconds">−10s</button><button class="dk sm wide" data-act="fstep" data-v="-5" aria-label="Back 5 Seconds">−5s</button><button class="dk sm wide fullpp" data-act="playpause" aria-label="' + (S.playing ? 'Pause' : 'Play') + '">' + (S.playing ? I.pause : I.play) + '</button><button class="fstep" data-act="flive" aria-label="Go Live">Live</button>' +
       '<button class="dk sm wide" id="fullstepf5" data-act="fstep" data-v="5" aria-label="Forward 5 Seconds"' + (t == null ? ' disabled' : '') + '>+5s</button><button class="dk sm wide" id="fullstepf" data-act="fstep" data-v="10" aria-label="Forward 10 Seconds"' + (t == null ? ' disabled' : '') + '>+10s</button></div>' : '') +
@@ -6152,7 +6153,7 @@ function mkZoom(cfg) { return {
 }; }
 const FZ = mkZoom({
   host: () => document.querySelector('#fullv .fvw'), root: () => document.getElementById('fullv'),
-  keep: n => n.classList.contains('fuitop') || n.classList.contains('fulltm') || n.classList.contains('fullsteps'),
+  keep: n => n.classList.contains('fuitop') || n.classList.contains('fulltm') || n.classList.contains('fullsteps') || n.id === 'fulltag',
   side: e => !!(e.target.closest && e.target.closest('.fside')),
   can: () => !!document.getElementById('fullv') && (!S.fui || !(window.matchMedia && matchMedia('(pointer:coarse)').matches))   /* 4.9.6 her rule: on phones the full screen picture zooms only while the timeline is hidden (a zoomed picture stays zoomed when the timeline is shown); computers always */
 });
@@ -6314,7 +6315,7 @@ function paintFocus() {
   fPaintLine();
   set('fbadge', n => n.innerHTML = t == null ? label : '<span class="dot idle"></span>Live');   /* the time is shown once, on the picture; this button just goes Live */ set('fullbadge', n => n.innerHTML = hv !== undefined ? hms(hv) : label); set('fbub', n => n.textContent = hv !== undefined ? hm(hv) : t == null ? 'Live' : hm(t));
   if (S.full && !S.fLock) fullPaintLine();
-  set('ftag', n => setTag(n, f));
+  set('ftag', n => setTag(n, f)); set('fulltag', n => setTag(n, fh));
   set('livepill', n => { n.hidden = t == null; });
   set('fpp', n => { n.hidden = t == null; const k = S.playing ? 'Pause' : 'Play'; if (n.getAttribute('aria-label') !== k) { n.setAttribute('aria-label', k); n.innerHTML = S.playing ? I.pause : I.play; } });
   set('fnext', n => { n.disabled = t == null; }); set('fstepf', n => { n.disabled = t == null; }); set('fstepf5', n => { n.disabled = t == null; }); set('fullstepf', n => { n.disabled = t == null; }); set('fullstepf5', n => { n.disabled = t == null; });   /* 6.4.7: −5s / +5s on full screen too */
@@ -7185,7 +7186,7 @@ function modalSettings() {
     row('Camera View Alerts', seg('fmode', S.fmode, [['C', 'List'], ['B', 'Thumbnails']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.5.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.5.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7461,7 +7462,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.5.4');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.5.5');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7478,7 +7479,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.5.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.5.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -8834,7 +8835,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.5.4';
+    const BUILD = '6.5.5';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
