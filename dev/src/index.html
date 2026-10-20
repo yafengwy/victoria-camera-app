@@ -326,6 +326,7 @@ img.rf{opacity:0}
 .fsi.hot .lico{background:var(--hot);color:#fff}
 .fsi.un .lico{background:#6B737B;color:#E3E7EC}
 .focus .fev>span{min-width:0;overflow:hidden}
+.focus .fev>span>b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .focus .fev b,.focus .fev small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .fev i.dim{background:#5D666E}
 .fev img{width:104px;height:58px;object-fit:cover;border-radius:8px;flex-shrink:0}
@@ -442,8 +443,9 @@ img.rf{opacity:0}
 @media (min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px){
   /* 6.3.10 her request: on a computer the timeline side takes the room the picture leaves (the picture is sized by the
      screen's height, --vr = its shape), 420-450 px (40% of a small screen); was 270-300 px. 6.3.11 her request: at most
-     450 px (half the screen made the cards 40% too long, empty on the right) */
-  .focus{--fw:clamp(min(420px,40vw),calc(100vw - (100vh - env(safe-area-inset-top,0px) - 142px) * var(--vr,1.7778) - 32px),450px);display:grid;grid-template-columns:minmax(0,1fr) var(--fw);grid-template-rows:68px minmax(0,1fr)}
+     450 px (half the screen made the cards 40% too long, empty on the right). 6.4.2 her request: cards 30% shorter than
+     6.3.10 instead (~363 px) and 50 px more room for the icons left of the rail: up to 540 px */
+  .focus{--fw:clamp(min(470px,42vw),calc(100vw - (100vh - env(safe-area-inset-top,0px) - 142px) * var(--vr,1.7778) - 32px),540px);display:grid;grid-template-columns:minmax(0,1fr) var(--fw);grid-template-rows:68px minmax(0,1fr)}
   /* 5.5.9: the width follows the camera's own shape (--R): a 4:3 camera (Treat Feeder) was sized as 16:9, so it came
      out taller than the screen and covered −10s / Live / +10s */
   /* 5.9.8: room for the alert bar too: with it, −10s … +10s fell off the bottom of her computer screen. 5.9.9 her
@@ -473,13 +475,13 @@ img.rf{opacity:0}
   .focus .fcmk em{display:inline}
   /* 6.3.9 her request: no icon sits on the rail; on a computer every icon is left of it (hours | icons | rail | cards) */
   .focus .fhr{left:4px}
-  .focus .frail{left:100px}
-  .focus .fcmk{left:83px}
-  .focus .fmark.ico.dim{left:68px!important}
-  .focus .fmark.ico:not(.dim){left:66px!important}
-  .focus .fmark.ico{margin-left:calc(var(--ln,0) * -24px)}
-  .focus .fev{left:118px;width:auto;right:8px;height:48px;gap:8px;margin-top:6px}
-  .focus .fsub{left:118px;width:auto;right:8px}
+  .focus .frail{left:150px}
+  .focus .fcmk{left:133px}
+  .focus .fmark.ico.dim{left:116px!important}
+  .focus .fmark.ico:not(.dim){left:114px!important}
+  .focus .fmark.ico{margin-left:calc(var(--ln,0) * -27px)}
+  .focus .fev{left:168px;width:auto;right:8px;height:48px;gap:8px;margin-top:6px}
+  .focus .fsub{left:168px;width:auto;right:8px}
   .focus .fev img{width:60px;height:40px;border-radius:7px}
   .focus .fev b{font-size:13px}
   /* 6.3.10: the cards' pictures grow with the wider side (60x40 → up to 104x58; cards stay under the 70 px between groups) */
@@ -5840,7 +5842,7 @@ function viewFocus() {
       if (bopen) rows += '<div class="fev fstrip atl" style="top:' + (y - 32) + 'px"><button class="fsarr l" data-act="fstripgo" data-v="-1" aria-label="Earlier Thumbnails">‹</button><div class="fsrow">' + bstrip.list.map(r => { const ri = rowIco(r.e, r.p); return '<button class="fsi' + (ri.hot ? ' hot' : ' un') + (FSeek.key === r.e.id ? ' cur' : '') + '" data-act="fjump" data-t="' + r.t + '" data-id="' + esc(r.e.id) + '" aria-label="' + esc(objName(r.p.label)) + ' ' + hms(r.t) + '"><img src="' + evImg(r.e, r.p) + '" alt="" loading="lazy" draggable="false"><span><i class="lico">' + objIcon(ri.L) + '</i>' + hms(r.t) + '</span></button>'; }).join('') + '</div><button class="fsarr r" data-act="fstripgo" data-v="1" aria-label="More Thumbnails">›</button><button class="fsx" data-act="fstripx" aria-label="Close">' + I.x + '</button></div>';
       else {
         const hotL = objs.filter(o => o.hot).map(o => o.label), names = [...new Set((hotL.length ? hotL : objs.map(o => o.label)).sort((a, b) => objRank(a) - objRank(b)).map(objName))];
-        const title = names.slice(0, 2).join(', ') + (names.length > 2 ? ' +' + (names.length - 2) : '');
+        const title = names.join(', ');   /* 6.4.2 her request: every object written out (was two + "+1"); a long title ends in … */
         const sub = hm(ep.t) + ' · ' + (n === 1 ? durLabel(e) : n + ' Alerts');
         rows += '<button class="fev' + (open ? ' open' : '') + '" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + evImg(e, ep) + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e, ep)) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span>' + (open ? '<span class="fcx" aria-hidden="true">' + I.x + '</span>' : '') + '</button>';
       }
