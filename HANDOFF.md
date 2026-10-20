@@ -473,3 +473,6 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 
 ## 5.10.2 (2026-10-19) Home timeline back to icons only
 - Her choice after seeing it: the recorded line on the opened camera timeline is removed (RecBand left unused); only alert icons, as before.
+
+## 5.10.3
+Home camera panel row: only -5 / Pause / +5 and Live keep a background. Fix, Who?, Power, Boxes and Sound are plain (Boxes on = yellow icon), tighter spacing, groups never squeeze buttons, so Boxes fits on a 360-393px phone with Fix + Who? showing. All themes checked (t122).

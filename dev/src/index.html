@@ -1500,6 +1500,15 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .trio{padding:2px}
 .trio button{width:30px;height:30px;border-radius:15px}
 .trio svg{width:14px;height:14px}
+/* 5.10.3 her rule: in the camera panel row only -5 / Pause / +5 and Live keep a background; Fix, Who?, Power, Boxes
+   and Sound are plain, with less room between them, so Boxes fits on a phone even when Fix and Who? both show */
+.pctl.g3 .pg{gap:0}
+.pctl.g3 .pg .round:not(.o-lv){background:none;box-shadow:none;color:var(--head-fg);width:30px}
+.pctl.g3 .pg .round.pfixb{width:auto;padding:0 5px;font-size:12px;font-weight:800}
+.pctl.g3 .pg .round.bxr[aria-pressed="true"]{background:none;color:#F5B400}
+.pctl.g3 .gr{gap:4px}
+.pctl.g3 .pg .round{flex:none}
+.pctl.g3 .pg{min-width:max-content}   /* a group never squeezes its buttons; the trio stays centred whenever there is room */
 .tl{padding:4px 12px 6px;gap:3px}
 .tabs button{height:28px}
 .tabbody{height:126px;padding:5px 10px;gap:4px}
