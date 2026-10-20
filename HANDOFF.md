@@ -485,3 +485,6 @@ Reverted 5.10.4 (40% line on phones + ResizeObserver): she found it jumpy and ug
 
 ## 5.10.6
 Camera view list: line stays 10% down, except when the nearest newer card (incl. its own group card, which sits at the group newest alert) would be cut at the top; then fLineAt puts the line just low enough to show it (need = gap px + 36, max 45% of list). Cached per newer card (lyKey/lyVal) and only raised, so playing forward never moves it; no ResizeObserver. t125: 0 cut cards over 8 alerts, line unchanged while playing.
+
+## 5.10.7
+Camera view: the bar under the picture (#fseek) keeps its 64px room when hidden (visibility hidden), so the list never moves up/down when an alert starts or ends (screen recording showed the list jumping 64px). 5.10.6 moving line removed: line fixed at 10% again. t126: list top and line constant across Live / alerts / gaps.
