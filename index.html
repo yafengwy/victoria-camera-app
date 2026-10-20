@@ -2666,7 +2666,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.1.8 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.1.9 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -5552,6 +5552,15 @@ function fFoldMap() {
   const at = last - 30000; pts.push([at, f.top + f.boxH - fYb(at, f.end)]);
   S.focus.fmap = pts;
 }
+/* 6.1.9 her report: an icon whose alert row was scrolled out of the rows box left the line on the box edge with no
+   glow in sight. A tap now first scrolls the box just enough to show that row, then the line comes to it. */
+function fRowShow(id) {
+  const f = S.focus && S.focus.fold, i = f && id ? f.ids.indexOf(id) : -1; if (i < 0) return;
+  const view = f.boxH - 8, st = S.focus.subTop || 0, top = i * f.RH;
+  let want = st; if (top < st) want = top; else if (top + f.RH > st + view) want = top + f.RH - view;
+  if (want === st) return;
+  S.focus.subTop = want; fFoldMap(); const sb = document.getElementById('fsubin'); if (sb) sb.scrollTop = want;
+}
 function fWide() { return !!(window.matchMedia && matchMedia('(min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px)').matches); }
 /* 6.1.2: the alert playing glows in the opened group's rows */
 function fCur(id) { document.querySelectorAll('#fsc .fsr').forEach(n => n.classList.toggle('cur', !!id && n.dataset.id === id)); }
@@ -5657,7 +5666,7 @@ function viewFocus() {
       const boxH = Math.min(list.length, 5) * RH + 8;
       if (S.focus.foldKey !== k) { S.focus.foldKey = k; S.focus.subTop = 0; }
       S.focus.subTop = Math.max(0, Math.min(S.focus.subTop || 0, list.length * RH + 8 - boxH));
-      S.focus.fold = { top: og.y + CB, ts: list.map(r => r.t), te: list.map(r => Math.max(r.t, r.e.end || now())), boxH, end, RH };
+      S.focus.fold = { top: og.y + CB, ids: list.map(r => r.e.id), ts: list.map(r => r.t), te: list.map(r => Math.max(r.t, r.e.end || now())), boxH, end, RH };
       fFoldMap(); fold = { g: og, list, top: og.y + CB, boxH };
     }
     const height = FTOP + span / MIN * FPX + 400 + (S.focus.fmap ? S.focus.fmap[S.focus.fmap.length - 1][1] : 0);
@@ -6986,7 +6995,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.1.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.1.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7262,7 +7271,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.1.8');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.1.9');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7279,7 +7288,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.1.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.1.9\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7994,7 +8003,7 @@ const ACT = {
     const t = +d.t - 1000, id = S.focus.cam; FSeek.pick(id, +d.t); Dbg.log('tap alert', hms(+d.t), Playback.why(id));
     /* 5.10.10 her rule: a tapped card stays under her finger. The list does not move; the blue line goes to the card
        instead and stays at that height (playing, ‹ › and swiping keep it there) until Live puts it back near the top */
-    S.focus.keepAt = true;
+    S.focus.keepAt = true; fRowShow(d.id);
     S.camTime[id] = t; S.playing = true; paintFocus();       /* the line moves to the alert; the list stays where it is */
     document.querySelectorAll('.fsi').forEach(n => n.classList.toggle('cur', +n.dataset.t === +d.t));
     fCur(d.id || null);
@@ -8623,7 +8632,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.1.8';
+    const BUILD = '6.1.9';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

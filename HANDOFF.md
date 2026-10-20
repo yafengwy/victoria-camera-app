@@ -521,3 +521,6 @@ Her 10:38 log (6.1.5): guard fired again at 10:38:20; she had tapped another ale
 
 ## 6.1.8
 Camera view Boxes button on: yellow again on upright phones (5.10.1 grey .focus>.fvid>.fov .dk background had higher priority than .dk.bxbtn[aria-pressed=true]).
+
+## 6.1.9
+Her screenshot 10:50: rows box scrolled, the tapped icon alert row was outside it, so the line sat on the box edge with no glow in sight. fRowShow(id) in ACT.fjump scrolls the rows box just enough to show the target row before the line comes to it. t137: cat/person/dog/car icons each land with the glowing row visible and the line on it.

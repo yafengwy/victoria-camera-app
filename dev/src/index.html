@@ -5552,6 +5552,15 @@ function fFoldMap() {
   const at = last - 30000; pts.push([at, f.top + f.boxH - fYb(at, f.end)]);
   S.focus.fmap = pts;
 }
+/* 6.1.9 her report: an icon whose alert row was scrolled out of the rows box left the line on the box edge with no
+   glow in sight. A tap now first scrolls the box just enough to show that row, then the line comes to it. */
+function fRowShow(id) {
+  const f = S.focus && S.focus.fold, i = f && id ? f.ids.indexOf(id) : -1; if (i < 0) return;
+  const view = f.boxH - 8, st = S.focus.subTop || 0, top = i * f.RH;
+  let want = st; if (top < st) want = top; else if (top + f.RH > st + view) want = top + f.RH - view;
+  if (want === st) return;
+  S.focus.subTop = want; fFoldMap(); const sb = document.getElementById('fsubin'); if (sb) sb.scrollTop = want;
+}
 function fWide() { return !!(window.matchMedia && matchMedia('(min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px)').matches); }
 /* 6.1.2: the alert playing glows in the opened group's rows */
 function fCur(id) { document.querySelectorAll('#fsc .fsr').forEach(n => n.classList.toggle('cur', !!id && n.dataset.id === id)); }
@@ -5657,7 +5666,7 @@ function viewFocus() {
       const boxH = Math.min(list.length, 5) * RH + 8;
       if (S.focus.foldKey !== k) { S.focus.foldKey = k; S.focus.subTop = 0; }
       S.focus.subTop = Math.max(0, Math.min(S.focus.subTop || 0, list.length * RH + 8 - boxH));
-      S.focus.fold = { top: og.y + CB, ts: list.map(r => r.t), te: list.map(r => Math.max(r.t, r.e.end || now())), boxH, end, RH };
+      S.focus.fold = { top: og.y + CB, ids: list.map(r => r.e.id), ts: list.map(r => r.t), te: list.map(r => Math.max(r.t, r.e.end || now())), boxH, end, RH };
       fFoldMap(); fold = { g: og, list, top: og.y + CB, boxH };
     }
     const height = FTOP + span / MIN * FPX + 400 + (S.focus.fmap ? S.focus.fmap[S.focus.fmap.length - 1][1] : 0);
@@ -7994,7 +8003,7 @@ const ACT = {
     const t = +d.t - 1000, id = S.focus.cam; FSeek.pick(id, +d.t); Dbg.log('tap alert', hms(+d.t), Playback.why(id));
     /* 5.10.10 her rule: a tapped card stays under her finger. The list does not move; the blue line goes to the card
        instead and stays at that height (playing, ‹ › and swiping keep it there) until Live puts it back near the top */
-    S.focus.keepAt = true;
+    S.focus.keepAt = true; fRowShow(d.id);
     S.camTime[id] = t; S.playing = true; paintFocus();       /* the line moves to the alert; the list stays where it is */
     document.querySelectorAll('.fsi').forEach(n => n.classList.toggle('cur', +n.dataset.t === +d.t));
     fCur(d.id || null);
