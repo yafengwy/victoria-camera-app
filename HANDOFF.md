@@ -554,3 +554,6 @@ Camera view bar: object icons right under the bar, one size bigger (18 px), the 
 
 ## 6.2.9
 Her pick C: in the camera view, Interesting icons are half-filled (fill currentColor, fill-opacity .4, orange outline) on the rail, the bar under the picture, and the opened group rows / thumbnails; Uninteresting stay hollow grey. Home unchanged.
+
+## 6.2.10
+(1) Home timeline icons merge only alerts with the same object (her "dog 2" held a dog and an Amazon person alert); a different object right next to one is lifted (.segi.up) and a tap on an icon plays one of that icon own alerts (data-ts, snapAlert uses the tap y). (2) Thumbnails under the home panel and full-screen timeline segments are named by pick() (Dog At 10:59, was Frigate first label Car). (3) Camera view rail icon numbers count alerts with that object, not detections (her dog 3 = one dog alert seen three times).
