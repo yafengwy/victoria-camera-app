@@ -337,8 +337,10 @@ img.rf{opacity:0}
 .full.rot .ftsc,.full.rot .fpl{touch-action:none}
 /* 3.10.6: turned sideways on an upright phone, the timeline's outer edge is the phone's bottom edge (the swipe-home bar):
    keep a gap there so dragging the timeline doesn't move the whole app */
-.full.rot .fside{flex-basis:calc(92px + 22px + env(safe-area-inset-bottom,0px));padding-right:calc(22px + env(safe-area-inset-bottom,0px))}
-.full.rot .fside.wide{flex-basis:calc(150px + 22px + env(safe-area-inset-bottom,0px))}
+/* 6.4.8 her request: no empty strip right of the thumbnails (was 22 px + the home bar's 34 px); the picture gets that
+   width. A drag right at the edge may now catch the phone's home bar */
+.full.rot .fside{flex-basis:96px;padding-right:4px}
+.full.rot .fside.wide{flex-basis:154px}
 .full.rot{inset:auto;top:0;left:var(--vpw,100vw);width:var(--vph,100vh);height:var(--vpw,100vw);transform-origin:0 0;transform:rotate(90deg)}
 /* 5.6.1: filling the screen (edges cut off) is for a phone held sideways only; a computer shows the whole picture */
 @media (orientation:landscape) and (pointer:coarse){.full:not(.ui) .fvw img{object-fit:cover}}
