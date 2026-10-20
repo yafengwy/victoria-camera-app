@@ -1573,10 +1573,12 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 /* 5.10.7 her rule: the bar's room is always kept, even with no alert on screen, so the list below never moves up and
    down when an alert starts or ends (with the line, which stays put 10% down the list) */
 .focus>.fseek{box-sizing:border-box;min-height:64px}.focus>.fseek[hidden]{display:block;visibility:hidden}
-/* 5.10.8 her rule: the bar sits right under the picture (its playhead almost touches it); the object icons go under the
-   bar and the two times under them, so the bar's room stays the same height */
+/* 5.10.8 her rule: the bar sits right under the picture (its playhead almost touches it); 5.10.9: the two times right
+   under it and the object icons under them, so the bar's room stays the same height */
 .focus>.fseek:not([hidden]){display:flex;flex-direction:column}
-.fseek .fsk{order:1}.fseek .fmks{order:2;margin:0 0 -2px}.fseek .evbt{order:3}
+.fseek .fsk{order:1}.fseek .evbt{order:2;margin:-4px 0 0}.fseek .fmks{order:3;margin:0}
+/* 5.10.9: a faint track under the blue pieces, so the bar is there while its recordings are still being read */
+.fseek .ltbarin{background:rgba(255,255,255,.10);border-radius:4px}
 @media (min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px){ .focus>.fseek{position:absolute;z-index:5;margin:0;max-width:none;padding:0 4px} }
 .evmk{position:absolute;top:0;transform:translateX(-50%);min-width:22px;height:22px;padding:0 4px;border:0;border-radius:11px;background:var(--chip);color:var(--text);display:flex;align-items:center;justify-content:center;font:inherit;font-size:11px;font-weight:600;cursor:pointer}
 .evmk svg{width:15px;height:15px}.evmk.nm{padding:0 7px}
@@ -5096,7 +5098,10 @@ function evBar(e, k) {
 /* 5.9.5: recorded pieces are drawn at their true place and length (left/width by clock time). 5.9.4 and 如厕记录 gave
    each tiny piece a minimum share of the bar, so the bar no longer matched the clock: the dot (true time) walked over
    blank parts and a tap on a blue piece landed in a gap and jumped on (her 猫砂盆 clip 22:10:23, 35 s recorded in 161 s) */
-function barPieces(ps, A, B) { const span = Math.max(1, B - A); return ps.map(x => { const l = Math.max(0, (x.a - A) / span), r = Math.min(1, (x.b - A) / span); return r > l ? '<i style="left:' + (l * 100).toFixed(2) + '%;width:' + ((r - l) * 100).toFixed(2) + '%"></i>' : ''; }).join(''); }
+/* 5.10.9: back-to-back recording files (Frigate cuts one every few seconds) are joined into one piece; only a real gap
+   (over 2 s with nothing recorded) is left blank. They used to show as a dashed line. */
+function barJoin(ps) { const o = []; ps.slice().sort((p, q) => p.a - q.a).forEach(x => { const l = o[o.length - 1]; if (l && x.a - l.b <= 2000) l.b = Math.max(l.b, x.b); else o.push({ a: x.a, b: x.b }); }); return o; }
+function barPieces(ps, A, B) { const span = Math.max(1, B - A); return barJoin(ps).map(x => { const l = Math.max(0, (x.a - A) / span), r = Math.min(1, (x.b - A) / span); return r > l ? '<i style="left:' + (l * 100).toFixed(2) + '%;width:' + ((r - l) * 100).toFixed(2) + '%"></i>' : ''; }).join(''); }
 function evBarPaint(k) { const h = k && document.getElementById('evb-' + k); if (h) h.innerHTML = evBar(evE(k), k); EvMk.load(k); }
 /* 5.9.6 her design: instead of one orange line, each object Frigate found in the alert gets its own icon above the bar,
    at the moment it was first seen (car, person, dog…; a named cat shows its name). Tapping one plays from there, so a

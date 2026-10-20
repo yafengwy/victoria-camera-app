@@ -491,3 +491,6 @@ Camera view: the bar under the picture (#fseek) keeps its 64px room when hidden 
 
 ## 5.10.8
 Camera view bar (#fseek): order is bar (playhead 4px under the picture) / object icons / times, same 64px room. Bar starts blank until the recordings answer (was drawn fully recorded). Icons (detections) are fetched in parallel with the recordings, not after them (a slow/failed recordings answer left no icons). t127.
+
+## 5.10.9
+Her recording: camera view bar looked broken (only a floating playhead while recordings load; dashed line because each recording file was its own piece). barJoin joins back-to-back pieces (gap <= 2 s) in every bar (alert cards, litter, camera view); faint track under the camera view bar; order bar / times / icons, room still 64px. t128, t126.
