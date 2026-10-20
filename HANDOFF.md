@@ -545,3 +545,6 @@ Camera view list: the midnight hour mark read "Today 00" and ran into the rail i
 
 ## 6.2.6
 Camera view rail icons: Interesting = solid orange badge (dark icon), Uninteresting = hollow grey icon; the tapped one gets a ring in its own colour (orange with a dark gap for Interesting, blue for Uninteresting). All themes checked.
+
+## 6.2.7
+Opened group (List rows .fsr and Thumbnails .fsi): Interesting alert icon orange; the playing one glows orange when Interesting, blue when Uninteresting (her trial, may go back to blue).
