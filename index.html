@@ -2701,7 +2701,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.3.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.3.4 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -5077,12 +5077,13 @@ function trackMarks(evs, start, win, widthPx) {
     if (g && x - g.x0 < 20) g.items.push(e); else { const ng = { x0: x, items: [e], key, L }; groups.push(ng); lastOf[key] = ng; }
   });
   groups.sort((a, b) => a.x0 - b.x0);
-  if (!lanes) { let prev = null; groups.forEach(g => { g.up = !!prev && g.x0 - prev.x0 < 20 && !prev.up; prev = g; }); }
+  /* 6.3.4 her rule: icons that fall on the same spot sit side by side (never on top of each other) */
+  { const last = {}; groups.forEach(g => { const T2 = (T(g.items[0]) + T(g.items[g.items.length - 1])) / 2; let px = (T2 - start) / win * widthPx; const ln = lanes ? g.key.split('|')[0] : 'all'; if (last[ln] != null && px < last[ln] + 20) px = last[ln] + 20; last[ln] = px; g.px = px; }); }
   return groups.map(g => {
     const top = g.L, hot = g.items.some(e => e.interesting);
-    const mid = (T(g.items[0]) + T(g.items[g.items.length - 1])) / 2, pct = (mid - start) / win * 100;
+    const pct = g.px / widthPx * 100;
     const cls = lanes ? (hot ? ' lane ltop' : ' lane lbot') : (hot ? (S.markStyle === 'e' ? ' ring' : S.markStyle === 'd' ? ' mdot' : ' hot') : (S.markStyle === 'd' ? ' mdotu' : ''));
-    return '<span class="segi' + cls + (g.up ? ' up' : '') + '" data-ts="' + g.items.map(e => e.t).join(',') + '" style="left:' + pct.toFixed(2) + '%" title="' + esc(top) + ' ' + hm(T(g.items[0])) + '">' + objIcon(top) + (g.items.length > 1 ? '<b class="segn"><i>' + g.items.length + '</i></b>' : '') + '</span>';
+    return '<span class="segi' + cls + '" data-ts="' + g.items.map(e => e.t).join(',') + '" style="left:' + pct.toFixed(2) + '%" title="' + esc(top) + ' ' + hm(T(g.items[0])) + '">' + objIcon(top) + (g.items.length > 1 ? '<b class="segn"><i>' + g.items.length + '</i></b>' : '') + '</span>';
   }).join('');
 }
 function snapAlert(clientX, mouse, clientY) {
@@ -7100,7 +7101,7 @@ function modalSettings() {
     row('Camera View Alerts', seg('fmode', S.fmode, [['C', 'List'], ['B', 'Thumbnails']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.3.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.3.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7376,7 +7377,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.3.3');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.3.4');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7393,7 +7394,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.3.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.3.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -8744,7 +8745,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.3.3';
+    const BUILD = '6.3.4';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

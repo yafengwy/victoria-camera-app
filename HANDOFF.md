@@ -566,3 +566,6 @@ Her pick C: in the camera view, Interesting icons are half-filled (fill currentC
 
 ## 6.3.3
 (1) Home timeline: an alert with a package also gets its own package icon (orange when the alert is Interesting) next to its main icon (her Doorbell 11:01 Amazon person + package showed only the carrier van). (2) Picture tag: an alert recognised as a carrier (e.logo) shows the company (van icon + Amazon) instead of Person, like its thumbnail; a picked icon kind still wins.
+
+## 6.3.4
+Home timeline icons that fall on the same spot now sit side by side (each nudged 20 px right of the one before in its row; Two Rows keeps its rows), never stacked; 6.2.10 lifting (.segi.up) dropped. Taps still pick the tapped icon own alerts (data-ts + tap y).
