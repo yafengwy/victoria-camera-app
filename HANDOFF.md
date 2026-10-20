@@ -515,3 +515,6 @@ Opened group rows box: at most 5 rows tall, scrolls on its own (#fsubin, overscr
 
 ## 6.1.6
 Her 10:38 log (6.1.5): guard fired again at 10:38:20; she had tapped another alert in the list (fjump, 09:45:17) at 10:38:17, which did not set _userSeekAt. Guard now snapshots S.camTime when it starts counting and restarts whenever the wanted time changed (any tap, scrub, arrow, icon), plus the earlier hidden/seek rules.
+
+## 6.1.7
+(1) Pull down from the top of the black area (the alert bar room #fseek, right under the picture) goes full screen again (swipe on #fseek with pointer capture; starting on the bar .fsk or an icon still drags / taps them). #fseek hidden now display:block without visibility hidden so it gets the finger. (2) Her rule: phone camera view bottom row back to -10s / Pause / Live / +10s at normal size; the previous/next alert arrows only on wide screens (6.1.4 phone shrink removed). t136, t134.
