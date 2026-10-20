@@ -435,3 +435,9 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 
 ## 5.9.3 (2026-10-19) Clip length logging
 - Her Front Door clip 17:47:55–17:50:31 stopped at 71.9 s on first play (+5 s clamped to duration 72.0), fine on second play; no log of the second play. Now logs "alert clip length <video length> recorded <pieces total>" on each duration change, and +5 s at the end says "end of video, length, loaded to". Waiting for her next log.
+
+## 5.9.4 (2026-10-19) Alert drag bar; previous clip let go; sent pictures never shown again
+- Alerts page: bar under the playing alert (.evseek; .evbar was already the page header class): green recorded pieces from v._segs, blank gaps, orange line at alert start, dot follows video; drag moves only dot+clock, the video jumps once on release (log "alert jump"). Not added to camera view (it has its own timeline).
+- evStop now lets go of every alert player (relVideo: hls destroyed, src removed) and clears bars, so switching alerts leaves no download running (log "alert clip let go").
+- Pictures For Frigate+: asks Frigate is_submitted=0 and remembers sent ids (homecams.ppsent, also from Fix → Send To Frigate+), so sent pictures never show again.
+- Tests t114p (bar, release-only seek, let go), t114t (4 themes).

@@ -1542,6 +1542,12 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .ltbarin{flex:1;display:flex;height:8px;pointer-events:none}
 .ltbar i{height:8px;border-radius:4px;background:var(--strong);pointer-events:none}
 .ltbar b{min-width:6px;pointer-events:none}
+.evbarh:empty{display:none}.evbarh{padding:2px 12px 6px}
+.evseek{position:relative;height:28px;display:flex;align-items:center;cursor:pointer;touch-action:none}
+.evseek i{height:8px;border-radius:4px;background:var(--strong);pointer-events:none}.evseek b{min-width:4px;pointer-events:none}
+.evseek .evam{position:absolute;top:3px;width:3px;height:22px;margin-left:-1px;border-radius:2px;background:#E8590C;pointer-events:none}
+.evseek .ltph{width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:8px}
+.evbt{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:-2px;line-height:1.3}
 .ltph{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:7px;background:var(--card);box-shadow:0 0 0 3px var(--strong);pointer-events:none}
 .ltvid .evclk{font-size:12px}
 .ltnorec{position:absolute;left:8px;bottom:8px;z-index:3;padding:3px 8px;border-radius:6px;background:rgba(18,22,24,.72);color:#fff;font-size:12px;font-weight:700}
@@ -2605,7 +2611,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.9.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.9.4 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -3029,7 +3035,7 @@ async function plusOnly(k, e) {
   else if (!Once.plus()) msg = 'Not Sent';
   else {
     const r = await People.post('/api/events/' + encodeURIComponent(d) + '/plus', { include_annotation: 1 });
-    if (r.ok || /already/i.test(r.msg || '')) { People.sent[d] = 1; msg = r.ok ? 'Sent To Frigate+ · Verify It There' : 'Already Sent To Frigate+'; }
+    if (r.ok || /already/i.test(r.msg || '')) { People.sent[d] = 1; PPlus.keep(d); msg = r.ok ? 'Sent To Frigate+ · Verify It There' : 'Already Sent To Frigate+'; }
     else msg = 'Frigate+ Did Not Take It' + (r.msg ? ' · ' + String(r.msg).replace(/^\w/, c => c.toUpperCase()) : '');
   }
   Dbg.log('send to frigate+ only', e.id, d, msg);
@@ -3071,9 +3077,9 @@ const PPlus = {
     const my = ++this.seq; this.rows = null; this.picked = []; this.off = {}; this.done = this.ok = this.bad = 0; this.err = ''; render(); const t0 = Date.now();
     const sl = this.sel(), cams = sl.cams.length ? sl.cams : Data.cams.map(c => c.id), labs = this.labels();
     try {
-      const rows = await Frigate.get('/api/events?cameras=' + encodeURIComponent(cams.join(',')) + (labs ? '&labels=' + encodeURIComponent(labs.join(',')) : '') + '&has_snapshot=1&include_thumbnails=0&limit=5000&after=' + Math.floor((now() - 30 * DAY) / 1000));
+      const rows = await Frigate.get('/api/events?cameras=' + encodeURIComponent(cams.join(',')) + (labs ? '&labels=' + encodeURIComponent(labs.join(',')) : '') + '&has_snapshot=1&is_submitted=0&include_thumbnails=0&limit=5000&after=' + Math.floor((now() - 30 * DAY) / 1000));
       if (my !== this.seq) return;
-      this.rows = rows.filter(r => r && !r.false_positive && !r.plus_id && !(People.sent || {})[r.id] && r.data && Array.isArray(r.data.box) && r.data.box.length === 4).map(r => {
+      const gone = new Set(store.get('ppsent', [])); this.rows = rows.filter(r => r && !r.false_positive && !r.plus_id && !gone.has(r.id) && !(People.sent || {})[r.id] && r.data && Array.isArray(r.data.box) && r.data.box.length === 4).map(r => {
         const [x, , w, h] = r.data.box, cx = x + w / 2, t = r.start_time * 1000, sub = Array.isArray(r.sub_label) ? r.sub_label[0] : r.sub_label, lab = String(r.label || '').toLowerCase();
         const logo = isLogo(sub) ? String(sub).toLowerCase() : isLogo(lab) ? lab : '';
         return { id: r.id, cam: r.camera, t, lab, logo, side: cx < 0.2 ? 'L' : cx > 0.8 ? 'R' : Math.abs(cx - 0.5) <= 0.15 ? 'M' : 'O', far: w * h < 0.006, day: this.day(t) };
@@ -3098,13 +3104,15 @@ const PPlus = {
     if (out.length < N) take(pool, N - out.length);   /* a part with too few: the others fill in, still inside her picks */
     this.picked = out.sort((a, b) => b.t - a.t);
   },
+  /* 5.9.4 her rule: a picture once sent never shows here again (Frigate's own "submitted" mark plus this list) */
+  keep(id) { const a = store.get('ppsent', []); if (!a.includes(id)) { a.push(id); store.set('ppsent', a.slice(-8000)); } },
   async send() {
     if (this.sending) return; const list = this.picked.filter(c => !this.off[c.id] && !c.sent); if (!list.length) return;
     this.sending = true; this.total = list.length; this.done = this.ok = this.bad = 0; this.err = ''; render(); Dbg.log('frigate+ pictures send', list.length);
     People.sent = People.sent || {};
     for (const c of list) {
       const r = await People.post('/api/events/' + encodeURIComponent(c.id) + '/plus', { include_annotation: 1 });
-      if (r.ok || /already/i.test(r.msg || '')) { this.ok++; People.sent[c.id] = 1; c.sent = true; } else { this.bad++; this.err = r.msg || 'Error'; Dbg.log('frigate+ refused', c.id, r.msg || ''); }
+      if (r.ok || /already/i.test(r.msg || '')) { this.ok++; People.sent[c.id] = 1; c.sent = true; this.keep(c.id); } else { this.bad++; this.err = r.msg || 'Error'; Dbg.log('frigate+ refused', c.id, r.msg || ''); }
       this.done++; if (S.modal === 'pplus') render();
     }
     this.sending = false; Dbg.log('frigate+ pictures sent', this.ok, 'refused', this.bad, this.err); if (S.modal === 'pplus') render();
@@ -5004,10 +5012,41 @@ setInterval(() => {
   if (S.view !== 'events' || !S.evPlay || S.focus) return;
   const e = evE(S.evPlay), host = e && document.getElementById('evm-' + S.evPlay); if (!host) return;
   const v = host.querySelector('video.evv'), c = host.querySelector('.evclk'); if (!v || !c) return;
+  const bar = document.querySelector('#evb-' + CSS.escape(S.evPlay) + ' .evseek');
+  if (bar && !bar._filled && v._segs) { bar._filled = true; const a = +bar.dataset.a, b = +bar.dataset.b, span = Math.max(1, b - a); let h = '', at0 = a;
+    v._segs.forEach(x => { if (x.a > at0) h += '<b style="flex:' + Math.max(0.01, (x.a - at0) / span) + '"></b>'; h += '<i style="flex:' + Math.max(0.02, (x.b - x.a) / span) + '"></i>'; at0 = Math.max(at0, x.b); });
+    if (at0 < b) h += '<b style="flex:' + ((b - at0) / span) + '"></b>'; if (h) bar.querySelector('.ltbarin').innerHTML = h; }
   if (!(v.currentTime > 0)) { c.hidden = true; return; }
-  c.hidden = false; c.textContent = ymdhms(vodReal(v, v.currentTime));
+  const t = vodReal(v, v.currentTime); c.hidden = false; c.textContent = ymdhms(t);
+  if (bar && !EvDrag.on) { const ph = bar.querySelector('.ltph'); if (ph) ph.style.left = (Math.max(0, Math.min(1, (t - +bar.dataset.a) / Math.max(1, +bar.dataset.b - +bar.dataset.a))) * 100).toFixed(1) + '%'; }
 }, 250);
-function evStop() { clearInterval(evTimer); evTimer = null; S.evPlay = null; S.evPos = 0; }
+/* 5.9.4 her rule: tapping another alert stops the one before at once — its video is let go (no download left running
+   in the background) and its drag bar goes away */
+function evStop() { clearInterval(evTimer); evTimer = null; const was = S.evPlay; S.evPlay = null; S.evPos = 0;
+  document.querySelectorAll('.evmedia video.evv').forEach(v => { if (v.getAttribute('src') || v._hls) { relVideo(v); if (was) Dbg.log('alert clip let go', was); } });
+  document.querySelectorAll('.evbarh').forEach(h => { h.innerHTML = ''; }); }
+/* 5.9.4 her request: a drag bar under the playing alert, like 如厕记录: green = recorded, blank = not recorded, orange
+   line = the alert's start; the dot follows the video. Dragging only moves the dot and the clock; the video jumps once,
+   when the finger lifts (so a drag loads one piece, not one per step) */
+function evBar(e, k) {
+  if (!e || S.evPlay !== k || Data.source !== 'frigate' || !e.vs) return '';
+  const a = e.vs * 1000, b = e.ve * 1000, am = Math.max(0, Math.min(1, (e.t - a) / Math.max(1, b - a)));
+  return '<div class="evseek" data-k="' + esc(k) + '" data-a="' + a + '" data-b="' + b + '" role="slider" aria-label="Jump"><div class="ltbarin"><i style="flex:1"></i></div><span class="evam" style="left:' + (am * 100).toFixed(1) + '%"></span><em class="ltph" style="left:0"></em></div>' +
+    '<div class="evbt"><span>' + hms(a) + '</span><span>' + hms(b) + '</span></div>';
+}
+function evBarPaint(k) { const h = k && document.getElementById('evb-' + k); if (h) h.innerHTML = evBar(evE(k), k); }
+const EvDrag = { on: false };
+function evDragTo(x, final) {
+  const bar = EvDrag.bar; if (!bar) return; const host = document.getElementById('evm-' + bar.dataset.k), v = host && host.querySelector('video.evv');
+  const r = bar.getBoundingClientRect(), f = Math.max(0, Math.min(1, (x - r.left) / r.width)), t = +bar.dataset.a + f * (+bar.dataset.b - +bar.dataset.a);
+  const ph = bar.querySelector('.ltph'); if (ph) ph.style.left = (f * 100).toFixed(1) + '%';
+  const c = host && host.querySelector('.evclk'); if (c) { c.hidden = false; c.textContent = ymdhms(t); }
+  if (final && v) { try { v.currentTime = Math.max(0, vodAt(v, t)); } catch (z) {} if (!v._up) v.play().catch(() => {}); Dbg.log('alert jump', Math.round(f * 100) + '%', hms(t)); }
+}
+document.addEventListener('pointerdown', e => { const bar = e.target.closest && e.target.closest('.evseek'); if (!bar) return; EvDrag.on = true; EvDrag.bar = bar; EvDrag.x0 = e.clientX; try { bar.setPointerCapture(e.pointerId); } catch (x) {} evDragTo(e.clientX, false); }, true);
+document.addEventListener('pointermove', e => { if (EvDrag.on) evDragTo(e.clientX, false); }, true);
+['pointerup', 'pointercancel'].forEach(n => document.addEventListener(n, e => { if (!EvDrag.on) return; EvDrag.on = false; if (n === 'pointerup') evDragTo(e.clientX, true); EvDrag.bar = null; }, true));
+document.addEventListener('click', e => { if (e.target.closest && e.target.closest('.evseek, .evbt')) { TapLog.ran = Date.now(); e.stopPropagation(); } }, true);
 function evPaused(k) { const m = document.getElementById('evm-' + k), v = m && m.querySelector('video.evv'); return !!(v && v._up); }
 function evIcons() { document.querySelectorAll('.evcard .ic[data-act="evplay"]').forEach(b => { const m = b.dataset.v === S.evPlay && document.getElementById('evm-' + b.dataset.v), v = m && m.querySelector('video.evv'); b.innerHTML = b.dataset.v === S.evPlay && !(v && v._up) ? I.pause : I.playO; }); }
 function wireEvPreviews() {
@@ -5085,7 +5124,7 @@ function viewEvents() {
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(sk) + '">' + I.trash + '</button>' : '') +
         (Data.source === 'frigate' ? EvSnd.btn() : '') +   /* 5.4.8 her order: Fix · Review · Download · Delete · Mute · Play */
         '</span><button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(sk) + '">' + (S.evPlay === sk && !evPaused(sk) ? I.pause : I.playO) + '</button></div>' +
-        '<div class="evmedia' + (sel.cam === 'nest_doorbell' ? ' door' : '') + ctlOn('ev~' + sk) + '" id="evm-' + esc(sk) + '" data-act="evtap" data-v="' + esc(sk) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(sel, sp)) + ' At ' + hms(sp.t) + ' Full Screen">' + evMedia(sel, sk) + '</div></article>';
+        '<div class="evmedia' + (sel.cam === 'nest_doorbell' ? ' door' : '') + ctlOn('ev~' + sk) + '" id="evm-' + esc(sk) + '" data-act="evtap" data-v="' + esc(sk) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(sel, sp)) + ' At ' + hms(sp.t) + ' Full Screen">' + evMedia(sel, sk) + '</div><div class="evbarh" id="evb-' + esc(sk) + '">' + evBar(sel, sk) + '</div></article>';
     } else h += '<div class="empty">No alerts on this day with the current filters.</div>';
     h += '</div><div class="evlist">';
   } else h += '<div class="evwrap"><div class="evlist">';
@@ -5111,7 +5150,7 @@ function viewEvents() {
         (Data.source === 'frigate' ? EvSnd.btn() : '') +   /* 5.4.8 her order: Fix · Review · Download · Delete · Mute · Play */
         '</span><button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(k) + '">' + (S.evPlay === k && !evPaused(k) ? I.pause : I.playO) + '</button>' +
 '</div>' +
-        '<div class="evmedia' + (e.cam === 'nest_doorbell' ? ' door' : '') + ctlOn('ev~' + k) + '" id="evm-' + esc(k) + '" data-act="evtap" data-v="' + esc(k) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(e, p)) + ' At ' + hms(p.t) + ' Full Screen">' + evMedia(e, k) + '</div></article>';
+        '<div class="evmedia' + (e.cam === 'nest_doorbell' ? ' door' : '') + ctlOn('ev~' + k) + '" id="evm-' + esc(k) + '" data-act="evtap" data-v="' + esc(k) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(e, p)) + ' At ' + hms(p.t) + ' Full Screen">' + evMedia(e, k) + '</div><div class="evbarh" id="evb-' + esc(k) + '">' + evBar(e, k) + '</div></article>';
     });
   });
   if (moLeft) h += '<button class="btn momore" data-act="momore">Load More Motion · ' + moLeft + ' Left</button>';
@@ -6721,7 +6760,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.9.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.9.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -6997,7 +7036,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.9.3');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.9.4');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7014,7 +7053,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.9.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.9.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7387,7 +7426,7 @@ const ACT = {
     if (was) { const om = document.getElementById('evm-' + was), oe = evE(was); if (om && oe) { relIn(om); om.innerHTML = evMedia(oe, was); } }   /* the one that was playing goes back to its picture */
     S.evPlay = d.v; S.evPos = 0;
     const e = evE(d.v), m = document.getElementById('evm-' + d.v); if (!e || !m) return;
-    m.innerHTML = evMedia(e, d.v); evIcons();
+    m.innerHTML = evMedia(e, d.v); evBarPaint(d.v); evIcons();
     Playback.sync();   /* start the new clip right inside this tap: iPhone (Low Power Mode) only allows that */
     if (Data.source !== 'frigate') evTimer = setInterval(() => {
       S.evPos = Math.min(1, (S.evPos || 0) + 0.05);
@@ -8324,7 +8363,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.9.3';
+    const BUILD = '5.9.4';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
