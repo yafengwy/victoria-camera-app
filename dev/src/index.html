@@ -468,13 +468,15 @@ img.rf{opacity:0}
   .focus .fctl .dk.fclipal{margin-left:auto;width:auto;padding:0 10px;font-size:12px}
   .focus .fctl .fclipal~.fbk{margin-left:0}
   .focus .fcmk em{display:inline}
-  .focus .fhr{left:8px}
-  .focus .frail{left:64px}
-  .focus .fmark.ico.dim{left:58px}
-  .focus .fmark.ico:not(.dim){left:56px}
+  /* 6.3.9 her request: no icon sits on the rail; on a computer every icon is left of it (hours | icons | rail | cards) */
+  .focus .fhr{left:4px}
+  .focus .frail{left:100px}
+  .focus .fcmk{left:83px}
+  .focus .fmark.ico.dim{left:68px!important}
+  .focus .fmark.ico:not(.dim){left:66px!important}
   .focus .fmark.ico{margin-left:calc(var(--ln,0) * -24px)}
-  .focus .fev{left:82px;width:auto;right:8px;height:48px;gap:8px;margin-top:6px}
-  .focus .fsub{left:82px;width:auto;right:8px}
+  .focus .fev{left:118px;width:auto;right:8px;height:48px;gap:8px;margin-top:6px}
+  .focus .fsub{left:118px;width:auto;right:8px}
   .focus .fev img{width:60px;height:40px;border-radius:7px}
   .focus .fev b{font-size:13px}
   .focus .fev small{font-size:11px}
@@ -1251,6 +1253,10 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
 :root[data-mark="d"] .hico.hot::after,:root[data-mark="d"] .fico:not(.un)::after,:root[data-mark="d"] .fmark.ico:not(.dim)::after{content:"";position:absolute;left:50%;bottom:-3px;width:5px;height:5px;margin-left:-2.5px;border-radius:3px;background:var(--hot)}
 :root[data-mark="d"] .hico.hot,:root[data-mark="d"] .fico:not(.un),:root[data-mark="d"] .fmark.ico:not(.dim){position:absolute}
 .fmark.ico{cursor:pointer;z-index:1}
+/* 6.3.9 her request: on the phone every icon is right of the rail, none on it (rail center 63; lanes 23 px apart) */
+.fmark.ico.dim{left:76px}
+.fmark.ico:not(.dim){left:74px}
+.fmark.ico{margin-left:calc(var(--ln,0) * 23px)}
 
 /* ---- Editorial styles: Noir (black & white); serif titles, same rounded wrapped cards as the other styles ---- */
 :root[data-app-theme="noir"]{--font:'Plus Jakarta Sans',system-ui,-apple-system,sans-serif;--serif:'Cormorant Garamond','Playfair Display',Georgia,serif}
@@ -5220,11 +5226,20 @@ function mkGo(segs, t, n) {
    ones orange, Uninteresting grey; a doubled cat name shows one character (团团 → 团, 胖胖 → 胖) */
 function detHot(e, x) { return !!(e && e.interesting) && ruleHot(e.cam, Rel.of(x.d) || x.l, x.z); }
 function shortName(n) { n = String(n || ''); return /^(.)\1$/u.test(n) ? Array.from(n)[0] : n; }
+/* 6.3.9 her report: "Ups" showed right after opening, then turned into Car / Person about 2 s later. Before the objects
+   are read the alert's carrier (e.logo) is used for its car or main object (ico); once read, the objects only had their
+   plain labels. Now an object shows the carrier when its own label is one, or, when no object carries one, the same
+   rule as before they were read */
+function partLogo(e, l, sub) {
+  if (sub && isLogo(sub)) return String(sub).toLowerCase(); if (!e || !e.logo) return '';
+  if ((e.dets || []).some(d => Arrive.det[d] && isLogo(Arrive.det[d].sub))) return '';
+  return /^car$/i.test(l) || String(l).toLowerCase() === String(e.label).toLowerCase() ? e.logo : '';
+}
 function mkIcons(xs, a, b, W, act, attr, e) {
   let last = -99, h = '';
-  xs.forEach(x => { const nm = x.sub && !/^unknown$/i.test(x.sub) && !OBJ_SETS.some(a => a.includes(String(x.sub).toLowerCase())) ? x.sub : '', logo = nm && isLogo(nm), named = nm && !logo;   /* 6.3.2: "Car" (Mark As Car) is not a name: her bar showed "CarCar" as text */
+  xs.forEach(x => { const nm = x.sub && !/^unknown$/i.test(x.sub) && !OBJ_SETS.some(a => a.includes(String(x.sub).toLowerCase())) ? x.sub : '', named = nm && !isLogo(nm), lg = named ? '' : (nm && isLogo(nm) ? nm : partLogo(x._e || e, x.l, '')), logo = !!lg;   /* 6.3.2: "Car" (Mark As Car) is not a name: her bar showed "CarCar" as text */
     let px = Math.max(0, Math.min(1, (x.t - a) / Math.max(1, b - a))) * W; if (px < last + 22) px = last + 22; last = px;
-    h += '<button class="evmk' + (named ? ' nm' : '') + (detHot(x._e || e, x) ? ' hot' : '') + '" data-act="' + act + '"' + attr + ' data-t="' + x.t + '" data-n="' + esc(named ? niceName(nm) : objName(logo ? nm : x.l)) + '" style="left:' + Math.min(W - 8, px).toFixed(0) + 'px" title="' + esc((named ? niceName(nm) + ' · ' : '') + objName(logo ? nm : x.l) + ' · ' + hms(x.t)) + '" aria-label="Play From ' + esc(objName(logo ? nm : x.l)) + ' At ' + hms(x.t) + '">' + (named ? esc(shortName(niceName(nm))) : objIcon(logo ? nm : x.l)) + '</button>'; });
+    h += '<button class="evmk' + (named ? ' nm' : '') + (detHot(x._e || e, x) ? ' hot' : '') + '" data-act="' + act + '"' + attr + ' data-t="' + x.t + '" data-n="' + esc(named ? niceName(nm) : objName(logo ? lg : x.l)) + '" style="left:' + Math.min(W - 8, px).toFixed(0) + 'px" title="' + esc((named ? niceName(nm) + ' · ' : '') + objName(logo ? lg : x.l) + ' · ' + hms(x.t)) + '" aria-label="Play From ' + esc(objName(logo ? lg : x.l)) + ' At ' + hms(x.t) + '">' + (named ? esc(shortName(niceName(nm))) : objIcon(logo ? lg : x.l)) + '</button>'; });
   return h;
 }
 const EvMk = {
@@ -5662,7 +5677,7 @@ function fRowShow(id) {
 function rowIco(e, p) {
   const ps = Arrive.parts(e, Object.assign({}, S.filt, { int: true, unint: true, objs: {} }));
   const h = ps.filter(x => x.hot).sort((a, b) => objRank(a.label) - objRank(b.label))[0];
-  if (h) return { L: h.label, hot: true };
+  if (h) return { L: partLogo(e, h.label, h.sub) || h.label, hot: true };
   const r = Data.alertRule[e.cam] || { zones: [] };
   return { L: ico(e, p), hot: !ps.length && !!e.interesting && (!r.zones.length ? ruleHot(e.cam, p.label) : (e.objs || []).length <= 1) };
 }
@@ -5905,7 +5920,7 @@ function focusObjs(g) {
   g.items.forEach(e => {
     const ps = Arrive.parts(e, S.filt);
     const nm = x => x.sub && String(x.sub).toLowerCase() !== 'unknown' ? (isLogo(String(x.sub).toLowerCase()) ? coName(x.sub) : niceName(x.sub)) : '';
-    if (ps.length) ps.forEach(x => out.push({ e, t: x.t, label: x.label, name: nm(x), hot: x.hot && e.interesting, img: Frigate.base() + '/api/events/' + x.d + '/thumbnail.webp' }));
+    if (ps.length) ps.forEach(x => out.push({ e, t: x.t, label: partLogo(e, x.label, x.sub) || x.label, name: isLogo(String(x.sub || '').toLowerCase()) ? '' : nm(x), hot: x.hot && e.interesting, img: Frigate.base() + '/api/events/' + x.d + '/thumbnail.webp' }));
     else { const p = pick(e, S.filt), r = Data.alertRule[e.cam] || { zones: [] }; out.push({ e, t: p.t, label: ico(e, p), hot: !!e.interesting && (!r.zones.length ? ruleHot(e.cam, p.label) : (e.objs || []).length <= 1), img: evImg(e, p) }); }   /* 6.3.8: objects not read yet: don't paint a passer-by orange because a dog made the alert */
   });
   return out.sort((a, b) => b.t - a.t);
