@@ -399,6 +399,15 @@ img.rf{opacity:0}
 .fsteps .fstep.f5{display:none}
 .fstep.fal{display:inline-flex;align-items:center;justify-content:center}.fstep.fal svg{width:20px;height:20px}.fstep.fal:disabled{opacity:.35}
 .fstep.fpp{min-width:52px;width:52px;padding:0;display:flex;align-items:center;justify-content:center}.fstep.fpp[hidden]{display:none}.fstep.fpp svg{width:22px;height:22px}
+/* 6.1.4 her screenshot: on a phone the six buttons (−10s ‹ Pause Live › +10s) were wider than the screen; smaller
+   buttons and gaps so all six fit (360 px wide phones included) */
+@media (max-width:520px){
+  .focus>.fsteps{gap:6px}
+  .focus>.fsteps .fstep{height:46px;min-width:46px;padding:0 6px;font-size:13px;border-radius:23px}
+  .focus>.fsteps .fstep.fal{width:40px;min-width:40px;padding:0}
+  .focus>.fsteps .fstep.fpp{width:46px;min-width:46px}
+  .focus>.fsteps .livepill{height:46px;padding:0 14px;font-size:15px;gap:6px}
+}
 .fstep{height:52px;min-width:64px;padding:0 12px;border-radius:26px;background:rgba(36,42,52,.94);color:#fff;font-size:15px;font-weight:700;font-variant-numeric:tabular-nums;box-shadow:0 6px 16px rgba(0,0,0,.35)}
 .fstep[disabled]{opacity:.35}
 .fullsteps{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(6px + env(safe-area-inset-bottom,0px));z-index:4;display:flex;align-items:center;gap:10px}
@@ -2661,7 +2670,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.1.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.1.4 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -2708,11 +2717,14 @@ const Playback = {
     /* 3.10.8: the 5 s count starts when the first part has arrived (Front Door's 8 MB parts took 2.5 s to arrive, the
        count ran out right after and switched to the built-in player, which then stalled for 30-80 s) */
     let armed = false; h.on(window.Hls.Events.FRAG_LOADED, () => { if (armed) return; armed = true;
-      setTimeout(() => {
+      let again = 0; const check = () => {
         if (v.readyState > 0 || this._nat || h.media !== v || !v.isConnected) return;   /* gone or replaced meanwhile: leave it */
+        /* 6.1.4: her 10:22 log: two icon taps on the bar while the clip was still loading kept it at ready 0, and the
+           phone was switched to the slower built-in player for good. A jump in the last 5 s now restarts the count. */
+        if (performance.now() - (this._userSeekAt || 0) < 5000 && again++ < 3) { setTimeout(check, 5000); return; }
         Dbg.log(tag, 'hls.js got video but shows nothing, built-in player from now on');
         this._nat = true; try { h.destroy(); } catch (x) {} fallback();
-      }, 5000); });
+      }; setTimeout(check, 5000); });
   },
   st: {},          /* cam -> { v, win:{a,b,segs}, loading, ext } */
   hlsP: null,
@@ -5149,7 +5161,7 @@ const EvDrag = { on: false };
 /* 5.9.7 her request: the same bar in the camera view, between the picture and −10s … +10s (small gaps): it shows the
    alert the recording is in, its recorded pieces, its objects' icons and a line at the shown second; dragging moves only
    the line, letting go (or tapping an icon) moves the recording there. Hidden while Live or outside any alert. */
-function fJump(id, t) { if (!S.focus || S.focus.cam !== id) return; S.camTime[id] = t; S.playing = true; paintFocus(); Playback.sync(); try { fShow(t); } catch (z) {} FSeek.tick(true); }
+function fJump(id, t) { if (!S.focus || S.focus.cam !== id) return; Playback._userSeekAt = performance.now(); S.camTime[id] = t; S.playing = true; paintFocus(); Playback.sync(); try { fShow(t); } catch (z) {} FSeek.tick(true); }
 const FSeek = {
   key: null, segs: {}, busy: {},
   /* the alert she tapped (list, ‹ ›) is the one the bar shows */
@@ -5664,7 +5676,7 @@ function viewFocus() {
         const sub = hm(ep.t) + ' · ' + (n === 1 ? durLabel(e) : n + ' Alerts');
         rows += '<button class="fev' + (open ? ' open' : '') + '" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + evImg(e, ep) + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e, ep)) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span>' + (open ? '<span class="fcx" aria-hidden="true">' + I.x + '</span>' : '') + '</button>';
       }
-      if (open) rows += '<div class="fsub" style="top:' + fold.top + 'px;height:' + fold.boxH + 'px"><div class="fsubin" id="fsubin">' + fold.list.map(r => '<button class="fsr' + (r.e.interesting ? '' : ' un') + (FSeek.key === r.e.id ? ' cur' : '') + '" data-act="fjump" data-t="' + r.t + '" data-id="' + esc(r.e.id) + '"><b>' + hms(r.t) + '</b><i class="lico">' + objIcon(ico(r.e, r.p)) + '</i><img src="' + evImg(r.e, r.p) + '" alt="" loading="lazy" draggable="false"><span>' + esc(objName(r.p.label)) + '</span></button>').join('') + '</div></div>';
+      if (open) rows += '<div class="fsub" style="top:' + fold.top + 'px;height:' + fold.boxH + 'px"><div class="fsubin" id="fsubin">' + fold.list.map(r => '<button class="fsr' + (r.e.interesting ? '' : ' un') + (FSeek.key === r.e.id ? ' cur' : '') + '" data-act="fjump" data-t="' + r.t + '" data-id="' + esc(r.e.id) + '"><b>' + hms(r.t) + '</b><i class="lico">' + objIcon(ico(r.e, r.p)) + '</i><img src="' + evImg(r.e, r.p) + '" alt="" loading="lazy" draggable="false"><span>' + esc([...new Set((r.e.objs && r.e.objs.length ? r.e.objs : [r.e.label]).slice().sort((a, b) => objRank(a) - objRank(b)).map(objName))].join(', ')) + '</span></button>').join('') + '</div></div>';
     });
     body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px;margin-top:' + fPad() + 'px"><div class="frail">' + railState(c.id, end, span) + '</div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + (S.focus.lineY || FTOP) + 'px"></div>';
   }
@@ -6968,7 +6980,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.1.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.1.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7244,7 +7256,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.1.3');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.1.4');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7261,7 +7273,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.1.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.1.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7553,7 +7565,7 @@ const ACT = {
     if (!e) { toast(dir < 0 ? 'No Earlier Alert' : 'No Later Alert'); return; }
     Dbg.log('camera view', dir < 0 ? 'previous' : 'next', 'alert', hms(e.t)); toast(lab(e) + ' At ' + hm(e.t)); FSeek.pick(id, e.t); fJump(id, e.t - 1000);
   },
-  fmk(d) { const id = S.focus && S.focus.cam; if (!id) return; const e = FSeek.key && Data.events.find(x => x.id === FSeek.key), t = mkGo(e && FSeek.segs[e.id], +d.t, d.n || 'Object'); fJump(id, t); Dbg.log('camera view jump to object', d.n, hms(t)); },
+  fmk(d) { const id = S.focus && S.focus.cam; if (!id) return; S.focus.keepAt = true; Playback._userSeekAt = performance.now(); const e = FSeek.key && Data.events.find(x => x.id === FSeek.key), t = mkGo(e && FSeek.segs[e.id], +d.t, d.n || 'Object'); fJump(id, t); Dbg.log('camera view jump to object', d.n, hms(t)); },
   evmk(d) { const host = document.getElementById('evm-' + d.k), v = host && host.querySelector('video.evv'); if (!v) return; const t = mkGo(v._segs, +d.t, d.n || 'Object'); try { v.currentTime = Math.max(0, vodAt(v, t)); } catch (z) {} v._up = false; v.play().catch(() => {}); evIcons(); Dbg.log('alert jump to object', d.n, hms(t)); },
   ppnopen() { S.ppN = !S.ppN; render(); },
   ppnset(d) { if (PPlus.sending) return; PPlus.N = +d.v; store.set('ppn', PPlus.N); S.ppN = false; PPlus.off = {}; if (PPlus.rows) PPlus.pick(); Dbg.log('frigate+ pictures how many', PPlus.N, 'picked', PPlus.picked.length); render(); },
@@ -8594,7 +8606,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.1.3';
+    const BUILD = '6.1.4';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

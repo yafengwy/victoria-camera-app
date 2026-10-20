@@ -506,3 +506,6 @@ Her 方案 C for the camera view list: rail icons back on the card row (fixed). 
 
 ## 6.1.3
 Opened group rows box: at most 5 rows tall, scrolls on its own (#fsubin, overscroll contain; mouse drag via dragScroll; fsc drag/tap ignore .fsub), so a drag inside it moves only the rows, never the timeline. fFoldMap rebuilds the fold from S.focus.subTop (rows scrolled out sit on the box edge); after the finger lifts the line follows the glowing row (keepAt) with time and list unchanged. Her note: if plan C does not work out she will ask to switch the camera view to plan B (icons as filters). t133.
+
+## 6.1.4
+(1) Her 10:22 log: two bar-icon taps while the clip loaded kept hls.js at ready 0, the iPhone guard switched to the built-in player for good (then native slow / buffered none). Guard now restarts its 5 s count when she jumped in the last 5 s (fJump/fmk set Playback._userSeekAt), up to 3 times. (2) Rows in an opened group name every object of the alert (Person, Car): her car icon at 09:10:22 belonged to the 09:10:23 alert. Bar icon tap (fmk) is a tap: keepAt moves the line to that alert row. (3) Phone (<=520 px): bottom buttons -10s < Pause Live > +10s smaller with 6 px gaps; fit 360 and 393 px (were 481 px wide). t134, t133.
