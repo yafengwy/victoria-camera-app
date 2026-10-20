@@ -575,3 +575,6 @@ Home timeline: icons sharing a spot are centred on their real times (cluster 18 
 
 ## 6.3.6
 Icon counts (.segn) are a plain coloured number with no round background (home timeline, camera view rail, list icons): orange for Interesting, grey for Uninteresting; a soft dark halo in the camera view keeps them readable.
+
+## 6.3.7
+Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, also in Two Rows); without their background they had floated ~13 px away.
