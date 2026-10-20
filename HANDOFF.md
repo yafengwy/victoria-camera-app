@@ -444,3 +444,8 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 
 ## 5.9.5 (2026-10-19) Bars drawn at true time
 - Her 猫砂盆 alert 22:10:23–22:13:04 (35 s recorded in 161 s): the bar gave every tiny piece a minimum share, so the dot (true clock) walked over blank parts and taps on blue landed in gaps and jumped on (log: jump 38% → 22:11:24 played from 21.3 s). Now barPieces() places each piece by clock time (absolute left/width, min 6 px) in both the alert bar and 如厕记录. Test t115p: dot always on a blue piece.
+
+## 5.9.6 (2026-10-19) Object icons on the alert bar; line playhead
+- Her design: the orange alert-start line is gone; every object in the alert (Arrive.det: label, sub, first-seen time; up to 12 fetched from /api/events/<id> if unknown) gets an icon above the bar at its first-seen time (named cat shows its name, company shows its icon); icons too close are nudged 22 px apart. Tap = play from there (log "alert jump to object"). Marked-wrong objects are left out.
+- Playhead is a plain line (alert bar and 如厕记录).
+- Test t116p.
