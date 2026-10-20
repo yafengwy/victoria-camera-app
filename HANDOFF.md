@@ -503,3 +503,6 @@ Camera view rail icons: each icon sits at the time of the object it plays (newes
 
 ## 6.1.2
 Her 方案 C for the camera view list: rail icons back on the card row (fixed). A group of several alerts opens in place (card tap or icon) into one row per alert (.fsub/.fsr: time, icon, picture, label) and pushes the list below down; the alert playing glows (fCur, from FSeek.tick and fjump); card tap again (with x mark) folds it. The list time-to-height rule has a fold: S.focus.fmap [time, extra px] points, fY/fT map both ways (line, scrub, taps on empty space, hour labels, rail, clip marks), so each row sits exactly on its alert time and older items shift down. Icon = newest alert with that object. Blue-line logic unchanged (lineAt from tap, stays while dragging, Live resets). Old thumbnail strip no longer drawn. t132.
+
+## 6.1.3
+Opened group rows box: at most 5 rows tall, scrolls on its own (#fsubin, overscroll contain; mouse drag via dragScroll; fsc drag/tap ignore .fsub), so a drag inside it moves only the rows, never the timeline. fFoldMap rebuilds the fold from S.focus.subTop (rows scrolled out sit on the box edge); after the finger lifts the line follows the glowing row (keepAt) with time and list unchanged. Her note: if plan C does not work out she will ask to switch the camera view to plan B (icons as filters). t133.

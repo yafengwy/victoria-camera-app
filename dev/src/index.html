@@ -283,6 +283,7 @@ img.rf{opacity:0}
 /* 6.1.2 an opened group's rows (方案 C), under its card */
 .fev.open{border-radius:14px 14px 0 0}.fev .fcx{margin-left:auto;flex:none;display:flex;color:var(--dark-sub)}.fev .fcx svg{width:16px;height:16px}
 .fsub{position:absolute;right:14px;width:clamp(196px,calc(100% - 150px),230px);box-sizing:border-box;padding:4px;background:#1A1D20;border-radius:0 0 14px 14px;z-index:1}
+.fsubin{height:100%;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;scrollbar-width:none}.fsubin::-webkit-scrollbar{display:none}
 .fsr{display:flex;align-items:center;gap:6px;width:100%;height:40px;padding:0 6px;border-radius:10px;color:var(--dark-fg,#E8EAED);font-size:12px;text-align:left}
 .fsr b{flex:none;width:56px;font-size:12px;font-variant-numeric:tabular-nums}
 .fsr .lico{flex:none;display:flex}.fsr .lico svg{width:14px;height:14px}
@@ -5523,6 +5524,16 @@ function fT(y, end) {
   for (let i = 0; i < 60; i++) { const mid = (lo + hi) / 2; if (fY(mid, end) > y) lo = mid; else hi = mid; }
   return (lo + hi) / 2;
 }
+/* the rows' place on the list: each row's alert sits on its row as the box is scrolled; rows scrolled out of the box
+   sit on its top or bottom edge; everything older than the group moves down by the box height */
+function fFoldMap() {
+  const f = S.focus && S.focus.fold; if (!f) { if (S.focus) S.focus.fmap = null; return; }
+  const st = S.focus.subTop || 0, lo = f.top + 4, hi = f.top + f.boxH - 4;
+  const pts = [[f.ts[0] + 30000, 0]]; let last = f.ts[0] + 30000;
+  f.ts.forEach((t, i) => { let at = t - 1000; if (at >= last) at = last - 1; last = at; const y = Math.max(lo, Math.min(hi, f.top + 4 + i * f.RH + f.RH / 2 - st)); pts.push([at, y - fYb(at, f.end)]); });
+  const at = last - 30000; pts.push([at, f.top + f.boxH - fYb(at, f.end)]);
+  S.focus.fmap = pts;
+}
 function fWide() { return !!(window.matchMedia && matchMedia('(min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px)').matches); }
 /* 6.1.2: the alert playing glows in the opened group's rows */
 function fCur(id) { document.querySelectorAll('#fsc .fsr').forEach(n => n.classList.toggle('cur', !!id && n.dataset.id === id)); }
@@ -5619,14 +5630,17 @@ function viewFocus() {
     S.focus.groups = grp;
     const keyOf = g => String((g.items.find(x => !x.motion) || g.items[0]).t);
     const og = grp.find(g => g.items.length > 1 && S.focus.og === keyOf(g));
-    let fold = null; S.focus.fmap = null;
+    let fold = null; S.focus.fmap = null; S.focus.fold = null;
     if (og) {
-      const CB = fWide() ? 22 : 32, RH = 40;
+      /* 6.1.3 her rule: the rows box shows at most 5 rows and scrolls on its own (a drag inside it moves only the rows,
+         never the timeline); a drag outside it, or with it folded, moves the timeline as before */
+      const CB = fWide() ? 22 : 32, RH = 40, k = keyOf(og);
       const list = og.items.map(e => { const p = pick(e, S.filt); return { e, p, t: p.t }; }).sort((x, z) => z.t - x.t);
-      const pts = [[list[0].t + 30000, 0]]; let last = list[0].t + 30000;
-      list.forEach((r, i) => { let at = r.t - 1000; if (at >= last) at = last - 1; last = at; pts.push([at, og.y + CB + 4 + i * RH + RH / 2 - fYb(at, end)]); });
-      const bot = og.y + CB + 8 + list.length * RH, at = last - 30000; pts.push([at, bot - fYb(at, end)]);
-      S.focus.fmap = pts; fold = { g: og, list, top: og.y + CB };
+      const boxH = Math.min(list.length, 5) * RH + 8;
+      if (S.focus.foldKey !== k) { S.focus.foldKey = k; S.focus.subTop = 0; }
+      S.focus.subTop = Math.max(0, Math.min(S.focus.subTop || 0, list.length * RH + 8 - boxH));
+      S.focus.fold = { top: og.y + CB, ts: list.map(r => r.t), boxH, end, RH };
+      fFoldMap(); fold = { g: og, list, top: og.y + CB, boxH };
     }
     const height = FTOP + span / MIN * FPX + 400 + (S.focus.fmap ? S.focus.fmap[S.focus.fmap.length - 1][1] : 0);
     let rows = '';
@@ -5650,7 +5664,7 @@ function viewFocus() {
         const sub = hm(ep.t) + ' · ' + (n === 1 ? durLabel(e) : n + ' Alerts');
         rows += '<button class="fev' + (open ? ' open' : '') + '" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + evImg(e, ep) + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e, ep)) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span>' + (open ? '<span class="fcx" aria-hidden="true">' + I.x + '</span>' : '') + '</button>';
       }
-      if (open) rows += '<div class="fsub" style="top:' + fold.top + 'px">' + fold.list.map(r => '<button class="fsr' + (r.e.interesting ? '' : ' un') + (FSeek.key === r.e.id ? ' cur' : '') + '" data-act="fjump" data-t="' + r.t + '" data-id="' + esc(r.e.id) + '"><b>' + hms(r.t) + '</b><i class="lico">' + objIcon(ico(r.e, r.p)) + '</i><img src="' + evImg(r.e, r.p) + '" alt="" loading="lazy" draggable="false"><span>' + esc(objName(r.p.label)) + '</span></button>').join('') + '</div>';
+      if (open) rows += '<div class="fsub" style="top:' + fold.top + 'px;height:' + fold.boxH + 'px"><div class="fsubin" id="fsubin">' + fold.list.map(r => '<button class="fsr' + (r.e.interesting ? '' : ' un') + (FSeek.key === r.e.id ? ' cur' : '') + '" data-act="fjump" data-t="' + r.t + '" data-id="' + esc(r.e.id) + '"><b>' + hms(r.t) + '</b><i class="lico">' + objIcon(ico(r.e, r.p)) + '</i><img src="' + evImg(r.e, r.p) + '" alt="" loading="lazy" draggable="false"><span>' + esc(objName(r.p.label)) + '</span></button>').join('') + '</div></div>';
     });
     body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px;margin-top:' + fPad() + 'px"><div class="frail">' + railState(c.id, end, span) + '</div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + (S.focus.lineY || FTOP) + 'px"></div>';
   }
@@ -8324,6 +8338,14 @@ function wire() {
   }); }
   dragScroll(document.getElementById('ftsc'), true);
   dragScroll(document.getElementById('fsc'), true);
+  { const sb = document.getElementById('fsubin');
+    if (sb && !sb._on) { sb._on = 1; sb.scrollTop = (S.focus && S.focus.subTop) || 0; dragScroll(sb, true);
+      /* 6.1.3: scrolling the rows moves only the rows; the line follows the glowing row once the finger is up (the time
+         and the rest of the list stay put) */
+      sb.addEventListener('scroll', () => {
+        if (!S.focus || !S.focus.fold) return; S.focus.subTop = sb.scrollTop; fFoldMap(); S.focus.keepAt = true;
+        clearTimeout(sb._t); const go = () => { const sc = document.getElementById('fsc'); if (sc && (sc._touch || sc._ptr)) { sb._t = setTimeout(go, 150); return; } fPaintLine(); }; sb._t = setTimeout(go, 120);
+      }, { passive: true }); } }
   document.querySelectorAll('.fev.fstrip').forEach(o => { const n = o.querySelector('.fsrow'); if (!n) return; dragScroll(n, false);   /* 4.4.2: a mouse drags the thumbnail strip sideways */
     const ends = () => { o.classList.toggle('atl', n.scrollLeft < 4); o.classList.toggle('atr', n.scrollLeft + n.clientWidth > n.scrollWidth - 4); };
     if (!n._ends) { n._ends = 1; n.addEventListener('scroll', ends, { passive: true }); } ends(); });
@@ -8335,7 +8357,7 @@ function wire() {
     sc.addEventListener('touchcancel', () => { sc._touch = false; }, { passive: true });
     sc.addEventListener('touchmove', e => { const t = e.touches[0]; if (e.touches.length > 1 || (sc._t0 && t && Math.hypot(t.clientX - sc._t0[0], t.clientY - sc._t0[1]) > 8)) sc._mv = true; }, { passive: true });
     sc.addEventListener('click', e => {
-      if (e.target.closest('button') || e.target.closest('.fstrip')) return;
+      if (e.target.closest('button') || e.target.closest('.fstrip') || e.target.closest('.fsub')) return;
       if (Date.now() - (window._hDragAt || 0) < 400) return;   /* a sideways drag of the picture strip that ended outside it */
       if (sc._mv || Date.now() - (sc._scrolled || 0) < 350) return;
       const fin = sc.querySelector('.fin'); if (!fin) return;
@@ -8443,6 +8465,7 @@ function dragScroll(el, vertical) {
     if (e.pointerType !== 'mouse' || e.button !== 0) return;
     /* 4.4.2: a drag that starts on a sideways strip inside this list moves the strip, not the list (and not the time) */
     if (vertical && e.target.closest && e.target.closest('.fstrip') && el.contains(e.target.closest('.fstrip'))) return;
+    if (vertical && el.id === 'fsc' && e.target.closest && e.target.closest('.fsub')) return;   /* 6.1.3: the rows box scrolls by itself */
     st = { x: e.clientX, y: e.clientY, sl: el.scrollLeft, stp: el.scrollTop, moved: false, ly: S.focus && S.focus.lineY != null ? S.focus.lineY : FTOP };
     el.classList.add('grabbing');
   });
