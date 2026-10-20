@@ -2088,7 +2088,7 @@ const Frigate = {
       const who = [...new Set([...subs.map(coName), ...names])].join(' · ');
       return {
         id: r.id, cam: r.camera, t: r.start_time * 1000, end: (r.end_time || r.start_time) * 1000, label, objs: allObjs, dets, who, logo: subs[0] || '',
-        sev: r.severity, subs, interesting: r.severity === 'alert' || Wait.hit(r.start_time * 1000, subs) || coCam(r.camera, subs) || appZone(r.camera, r.data && r.data.zones),
+        sev: r.severity, subs, interesting: r.severity === 'alert' || Wait.hit(r.start_time * 1000, subs) || coCam(r.camera, subs),
         zones: ((r.data && r.data.zones) || []).map(z => z.replace(/_/g, ' ').replace(/\b\w/g, m => m.toUpperCase())),
         img: Frigate.thumb(r, det),
         preview: this.base() + '/api/review/' + r.id + '/preview?format=mp4',
@@ -3119,6 +3119,10 @@ const coCam = (cam, subs) => CO_CAMS.includes(cam) && (subs || []).some(x => isL
 const APP_ZONES = { front_door: ['drive way'] };
 const zKey = z => String(z || '').toLowerCase().replace(/_/g, ' ').trim();
 const appZone = (cam, zs) => (zs || []).some(z => (APP_ZONES[cam] || []).includes(zKey(z)));
+/* her follow-up: only on that camera's own full screen view; the Alerts page and the home page stay as Frigate says
+   (the Driveway camera already shows everything in that area there) */
+const inFocus = cam => !!(S.focus && S.focus.cam === cam);
+const evInt = e => !!e && (!!e.interesting || (inFocus(e.cam) && appZone(e.cam, e.zones)));
 const coName = k => (WAIT_CO.find(c => c[0] === String(k).toLowerCase()) || [0, k])[1];
 const isLogo = l => WAIT_CO.some(c => c[0] === String(l).toLowerCase());
 /* Frigate+ attribute labels: attached to a person or car, never an alert of their own */
@@ -3403,11 +3407,11 @@ function coFix(e) {
   /* 5.6.8: a parked car she fixed (Mark As Car, or a name like Weee) and a FedEx van passing in the same alert: the
      van keeps its logo; the fixed car's name is only added */
   if (!isLogo(co) && (e.subs || []).length && !allCarsNamed(e.dets, d => People.co[d] || People.sub[d])) { if (co !== 'Car') e.who = [...new Set([...String(e.who || '').split(' · ').filter(Boolean), co])].join(' · '); return e; }
-  if (co === 'Car') { e.subs = []; e.logo = ''; e.who = names.join(' · '); e.co = ''; e.interesting = e.sev === 'alert' || appZone(e.cam, e.zones); if (isLogo(e.label)) e.label = 'Car'; return e; }   /* Just A Car (5.7.7: a logo-only label becomes Car too) */
+  if (co === 'Car') { e.subs = []; e.logo = ''; e.who = names.join(' · '); e.co = ''; e.interesting = e.sev === 'alert'; if (isLogo(e.label)) e.label = 'Car'; return e; }   /* Just A Car (5.7.7: a logo-only label becomes Car too) */
   if (isLogo(co)) { e.subs = [co.toLowerCase()]; e.logo = co.toLowerCase(); e.who = [coName(co), ...names].join(' · '); }
   else { e.subs = []; e.logo = ''; e.who = [co, ...names].join(' · '); }
   e.co = isLogo(co) ? coName(co) : co;
-  e.interesting = e.sev === 'alert' || Wait.hit(e.t, e.subs) || coCam(e.cam, e.subs) || appZone(e.cam, e.zones);
+  e.interesting = e.sev === 'alert' || Wait.hit(e.t, e.subs) || coCam(e.cam, e.subs);
   return e;
 }
 const hasPkg = e => !e.motion && Data.source === 'frigate' && [e.label, ...(e.objs || [])].some(o => /^(package|car)$/i.test(String(o)));   /* 3.5.10: Fix → Not Package; 3.6.2: any car too (pick its company, Mark As Car, Not Car) */
@@ -3417,7 +3421,7 @@ const isAnimal = l => PETL.includes(String(l || '').toLowerCase());
 /* 6.3.8: is this object Interesting on its camera: an alert label, and (if the camera needs zones) inside a required zone
    that counts this kind of object */
 function ruleHot(cam, l, zs) { const r = Data.alertRule[cam] || { labels: [], zones: [] }; l = String(l || '').toLowerCase();
-  if ((zs || []).some(z => appZone(cam, [z]) && (!r.zo || !r.zo[z] || r.zo[z].includes(l)))) return true;   /* 6.4.3 */
+  if (inFocus(cam) && (zs || []).some(z => appZone(cam, [z]) && (!r.zo || !r.zo[z] || r.zo[z].includes(l)))) return true;   /* 6.4.3: camera view only */
   if (!r.labels.includes(l)) return false; if (!r.zones.length) return true;
   return (zs || []).some(z => r.zones.includes(z) && (!r.zo || !r.zo[z] || r.zo[z].includes(l))); }
 /* 6.2.4 her request: Fix → Not Dog → "It Is A" Cat / Raccoon / … : the detection is marked wrong in Frigate (and sent
@@ -3553,7 +3557,7 @@ const Wait = {
   },
   apply() {           /* re-mark loaded alerts after the wait changed */
     let ch = false;
-    (Data.events || []).forEach(e => { if (e.sev == null) return; const v = e.sev === 'alert' || this.hit(e.t, e.subs) || coCam(e.cam, e.subs) || appZone(e.cam, e.zones); if (v !== e.interesting) { e.interesting = v; ch = true; } });
+    (Data.events || []).forEach(e => { if (e.sev == null) return; const v = e.sev === 'alert' || this.hit(e.t, e.subs) || coCam(e.cam, e.subs); if (v !== e.interesting) { e.interesting = v; ch = true; } });
     return ch;
   },
   async get() {
@@ -4195,7 +4199,7 @@ const S = {
 };
 function passes(e) {
   const f = S.filt;
-  if (e.interesting ? !f.int : !f.unint) return false;
+  if (evInt(e) ? !f.int : !f.unint) return false;
   if (!objHit(f, e)) return false;
   if (f.off[e.cam]) return false;
   return true;
@@ -4988,7 +4992,7 @@ const Arrive = {
   want(evs, all) {
     if (Data.source !== 'frigate' || !evs.length) return;
     evs.forEach(e => {
-      if ((!e.interesting && !all) || !e.dets || (e.dets.length < 2 && (e.objs || []).length < 2 && !(e.subs || []).length)) return;
+      if ((!evInt(e) && !all) || !e.dets || (e.dets.length < 2 && (e.objs || []).length < 2 && !(e.subs || []).length)) return;
       e.dets.slice(0, 8).forEach(d => { if (!this.det[d] && !this.asked[d]) { this.asked[d] = 1; this.q.push(d); } });
     });
     this.pump();
@@ -5050,7 +5054,7 @@ const Arrive = {
     if (drop.has(String(e.label).toLowerCase()) && e.objs.length) e.label = e.objs[0];
     const names = [...String(e.who || '').split(' · ').filter(x => x && !WAIT_CO.some(c => c[1] === x)), ...carNames.map(niceName)];
     e.who = [...new Set([...e.subs.map(coName), ...names])].join(' · ');
-    e.interesting = e.sev === 'alert' || Wait.hit(e.t, e.subs) || coCam(e.cam, e.subs) || appZone(e.cam, e.zones);
+    e.interesting = e.sev === 'alert' || Wait.hit(e.t, e.subs) || coCam(e.cam, e.subs);
     return e;
   },
   /* 5.7.4: alerts with a delivery company whose objects may be incomplete are looked at even when the current filter
@@ -5244,7 +5248,7 @@ function mkGo(segs, t, n) {
 }
 /* 6.1.10 her rules for the icons on every alert bar: no round background (they crowded and overlapped); Interesting
    ones orange, Uninteresting grey; a doubled cat name shows one character (团团 → 团, 胖胖 → 胖) */
-function detHot(e, x) { return !!(e && e.interesting) && ruleHot(e.cam, Rel.of(x.d) || x.l, x.z); }
+function detHot(e, x) { return evInt(e) && ruleHot(e.cam, Rel.of(x.d) || x.l, x.z); }
 function shortName(n) { n = String(n || ''); return /^(.)\1$/u.test(n) ? Array.from(n)[0] : n; }
 /* 6.3.9 her report: "Ups" showed right after opening, then turned into Car / Person about 2 s later. Before the objects
    are read the alert's carrier (e.logo) is used for its car or main object (ico); once read, the objects only had their
@@ -5322,7 +5326,7 @@ const FSeek = {
     const vs = Math.min(...its.map(x => x.vs)), ve = Math.max(...its.map(x => x.ve)); if (t < vs * 1000 || t > ve * 1000) return null;
     const key = 'g:' + id + ':' + vs + ':' + ve; if (this._g && this._g.id === key) return this._g;
     const detE = {}; its.forEach(x => (x.dets || []).forEach(d => { detE[d] = x; }));
-    return (this._g = { id: key, cam: id, vs, ve, dets: Object.keys(detE), detE, interesting: its.some(x => x.interesting) });
+    return (this._g = { id: key, cam: id, vs, ve, dets: Object.keys(detE), detE, interesting: its.some(x => evInt(x)) });
   },
   icons(e, a, b, bar) { const box = document.querySelector('#fseek .fmks'); if (!box) return;
     const xs = (e.dets || []).map(d => Arrive.det[d] && Object.assign({ d, _e: e.detE ? e.detE[d] : null }, Arrive.det[d])).filter(x => x && !x.fp && x.t >= a - 1000 && x.t <= b).sort((p, q) => p.t - q.t);
@@ -5699,7 +5703,7 @@ function rowIco(e, p) {
   const h = ps.filter(x => x.hot).sort((a, b) => objRank(a.label) - objRank(b.label))[0];
   if (h) return { L: partLogo(e, h.label, h.sub) || h.label, hot: true };
   const r = Data.alertRule[e.cam] || { zones: [] };
-  return { L: ico(e, p), hot: !ps.length && !!e.interesting && (!r.zones.length ? ruleHot(e.cam, p.label) : (e.objs || []).length <= 1) };
+  return { L: ico(e, p), hot: !ps.length && evInt(e) && (!r.zones.length ? ruleHot(e.cam, p.label) : (e.objs || []).length <= 1) };
 }
 /* 6.3.11 her report: a row with the UPS truck icon read "Car". When the row's icon is a carrier, the object it stands
    for (its car, else the alert's main object, the same rule as the icon) is named by the carrier */
@@ -5923,7 +5927,7 @@ function viewFull(c, t, f) {
       list.forEach(e => {
         const dl = dayStart(e.t) === dayStart(now()) ? 'Today' : dayStart(e.t) === dayStart(now() - DAY) ? 'Yesterday' : dayLabel(e.t);
         if (dl !== lastDay) { side += '<div class="fpd">' + dl + '</div>'; lastDay = dl; }
-        side += '<button class="fpi' + (t != null && t >= e.t - 3000 && t <= (e.end || e.t) + 3000 ? ' cur' : '') + (e.interesting ? '' : ' un') + '" data-act="fseek" data-t="' + e.t + '"><img src="' + e.img + '" alt="" loading="lazy"><span><i class="lico">' + objIcon(ico(e)) + '</i>' + esc(lab(e)) + ' ' + hm(e.t) + '</span></button>';
+        side += '<button class="fpi' + (t != null && t >= e.t - 3000 && t <= (e.end || e.t) + 3000 ? ' cur' : '') + (evInt(e) ? '' : ' un') + '" data-act="fseek" data-t="' + e.t + '"><img src="' + e.img + '" alt="" loading="lazy"><span><i class="lico">' + objIcon(ico(e)) + '</i>' + esc(lab(e)) + ' ' + hm(e.t) + '</span></button>';
       });
       side += '</div>';
     } else {
@@ -5947,8 +5951,8 @@ function focusObjs(g) {
   g.items.forEach(e => {
     const ps = Arrive.parts(e, S.filt);
     const nm = x => x.sub && String(x.sub).toLowerCase() !== 'unknown' ? (isLogo(String(x.sub).toLowerCase()) ? coName(x.sub) : niceName(x.sub)) : '';
-    if (ps.length) ps.forEach(x => out.push({ e, t: x.t, label: partLogo(e, x.label, x.sub) || x.label, name: isLogo(String(x.sub || '').toLowerCase()) ? '' : nm(x), hot: x.hot && e.interesting, img: Frigate.base() + '/api/events/' + x.d + '/thumbnail.webp' }));
-    else { const p = pick(e, S.filt), r = Data.alertRule[e.cam] || { zones: [] }; out.push({ e, t: p.t, label: ico(e, p), hot: !!e.interesting && (!r.zones.length ? ruleHot(e.cam, p.label) : (e.objs || []).length <= 1), img: evImg(e, p) }); }   /* 6.3.8: objects not read yet: don't paint a passer-by orange because a dog made the alert */
+    if (ps.length) ps.forEach(x => out.push({ e, t: x.t, label: partLogo(e, x.label, x.sub) || x.label, name: isLogo(String(x.sub || '').toLowerCase()) ? '' : nm(x), hot: x.hot && evInt(e), img: Frigate.base() + '/api/events/' + x.d + '/thumbnail.webp' }));
+    else { const p = pick(e, S.filt), r = Data.alertRule[e.cam] || { zones: [] }; out.push({ e, t: p.t, label: ico(e, p), hot: evInt(e) && (!r.zones.length ? ruleHot(e.cam, p.label) : (e.objs || []).length <= 1), img: evImg(e, p) }); }   /* 6.3.8: objects not read yet: don't paint a passer-by orange because a dog made the alert */
   });
   return out.sort((a, b) => b.t - a.t);
 }
@@ -5979,11 +5983,11 @@ function fTrack(c, band) {
   const fpk = new Map(fevs.map(e => [e, pick(e, S.filt)]));
   fevs.sort((a, b) => fpk.get(b).t - fpk.get(a).t).forEach(e => {
     const y0 = Y(Math.max(e.end || e.t, e.t + 5000)), y1 = Math.max(Y(e.t), y0 + 3);
-    tr += '<button class="fseg' + (e.interesting ? '' : ' un') + '" data-act="fseek" data-t="' + fpk.get(e).t + '" aria-label="' + esc(lab(e, pick(e, S.filt))) + ' At ' + hm(e.t) + '" style="top:' + y0.toFixed(1) + 'px;height:' + (y1 - y0).toFixed(1) + 'px"></button>';
+    tr += '<button class="fseg' + (evInt(e) ? '' : ' un') + '" data-act="fseek" data-t="' + fpk.get(e).t + '" aria-label="' + esc(lab(e, pick(e, S.filt))) + ' At ' + hm(e.t) + '" style="top:' + y0.toFixed(1) + 'px;height:' + (y1 - y0).toFixed(1) + 'px"></button>';
     const yc = fpk.get(e).moved ? clamp(Y(fpk.get(e).t), y0, y1) : (y0 + y1) / 2;   /* where its object arrived, once known */
     if (yc - lastIc >= 18) { lastIc = yc; icons.push({ e, yc, n: 1 }); } else if (icons.length) icons[icons.length - 1].n++;   /* close ones add to the count */
   });
-  icons.forEach(g => { tr += '<span class="fico' + (g.e.interesting ? '' : ' un') + '" style="top:' + (g.yc - 7.5).toFixed(1) + 'px">' + objIcon(ico(g.e, fpk.get(g.e))) + (g.n > 1 ? '<b class="segn"><i>' + g.n + '</i></b>' : '') + '</span>'; });
+  icons.forEach(g => { tr += '<span class="fico' + (evInt(g.e) ? '' : ' un') + '" style="top:' + (g.yc - 7.5).toFixed(1) + 'px">' + objIcon(ico(g.e, fpk.get(g.e))) + (g.n > 1 ? '<b class="segn"><i>' + g.n + '</i></b>' : '') + '</span>'; });
   return tr;
 }
 function fTrackBand(force) {
