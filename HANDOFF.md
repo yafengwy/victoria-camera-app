@@ -476,3 +476,6 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 
 ## 5.10.3
 Home camera panel row: only -5 / Pause / +5 and Live keep a background. Fix, Who?, Power, Boxes and Sound are plain (Boxes on = yellow icon), tighter spacing, groups never squeeze buttons, so Boxes fits on a 360-393px phone with Fix + Who? showing. All themes checked (t122).
+
+## 5.10.4
+Camera view list: on a phone held upright (portrait, width <= 999) the blue line sits 40% down the list (fLineK; 10% elsewhere), so newer alerts above the playing one are not cut off under the Today row. A ResizeObserver on #fsc repaints the line when the list height changes (the bar under the picture showing). t124.
