@@ -1980,7 +1980,8 @@ const Frigate = {
       st.enabled = cc.enabled !== false; st.alerts = !(cc.review && cc.review.alerts && cc.review.alerts.enabled === false);
       /* what makes an object Interesting on this camera (Frigate's alert labels and required zones) */
       const ra = (cc.review && cc.review.alerts) || {}, ga = (cfg.review && cfg.review.alerts) || {};
-      Data.alertRule[id] = { labels: (ra.labels || ga.labels || []).map(x => String(x).toLowerCase()), zones: ra.required_zones || [] }; });
+      const zo = {}; Object.entries(cc.zones || {}).forEach(([z, zc]) => { const o = zc && zc.objects; zo[z] = Array.isArray(o) && o.length ? o.map(x => String(x).toLowerCase()) : null; });
+      Data.alertRule[id] = { labels: (ra.labels || ga.labels || []).map(x => String(x).toLowerCase()), zones: ra.required_zones || [], zo }; });
     const cap = l => String(l).replace(/^\w/, m => m.toUpperCase());
     Data.logos = [].concat(((cfg.objects || {}).track) || [], ...Object.values(cfg.cameras).map(cc => ((cc.objects || {}).track) || [])).some(l => isLogo(l));
     Data.objs = [...new Set([].concat(((cfg.objects || {}).track) || [], ...Object.values(cfg.cameras).map(cc => ((cc.objects || {}).track) || [])).filter(l => !isAttr(l)).map(cap))];
@@ -3389,6 +3390,10 @@ const hasPkg = e => !e.motion && Data.source === 'frigate' && [e.label, ...(e.ob
 const coOf = e => e.co || (e.logo ? coName(e.logo) : String(e.who || '').split(' · ').find(x => CoFix.isCo(x)) || '');
 const PETL = ['cat', 'dog', 'raccoon', 'rabbit', 'squirrel', 'fox', 'bird', 'deer', 'bear', 'horse', 'skunk', 'opossum'];
 const isAnimal = l => PETL.includes(String(l || '').toLowerCase());
+/* 6.3.8: is this object Interesting on its camera: an alert label, and (if the camera needs zones) inside a required zone
+   that counts this kind of object */
+function ruleHot(cam, l, zs) { const r = Data.alertRule[cam] || { labels: [], zones: [] }; l = String(l || '').toLowerCase(); if (!r.labels.includes(l)) return false; if (!r.zones.length) return true;
+  return (zs || []).some(z => r.zones.includes(z) && (!r.zo || !r.zo[z] || r.zo[z].includes(l))); }
 /* 6.2.4 her request: Fix → Not Dog → "It Is A" Cat / Raccoon / … : the detection is marked wrong in Frigate (and sent
    to Frigate+) as before, but the app keeps showing it as the animal she picked, so the alert doesn't vanish. Kept on
    the mini PC with the 如厕记录 marks (/ctl/litter, "is:<animal>" per detection, 40 days) so every phone sees it; this
@@ -4983,7 +4988,7 @@ const Arrive = {
     /* 3.1.5: a part marked wrong stays out, unless it was given a cat's name with Fix (a "dog" that is 团团 shows as Cat) */
     return (e.dets || []).map(d => this.det[d] && Object.assign({ d }, this.det[d])).filter(x => x && (!x.fp || Rel.of(x.d) || (x.sub && x.l !== 'cat' && isAnimal(x.l))) && x.t >= e.t - 1000).map(x => {
       const l0 = Rel.of(x.d) || (x.l !== 'cat' && isAnimal(x.l) && x.sub && People.sub[x.d] ? 'cat' : x.l), L = l0.replace(/^\w/, m => m.toUpperCase());
-      return { d: x.d, t: x.t, en: x.en, label: L, sub: x.sub, hot: rule.labels.includes(l0) && (!rule.zones.length || x.z.some(z => rule.zones.includes(z))) };
+      return { d: x.d, t: x.t, en: x.en, label: L, sub: x.sub, hot: ruleHot(e.cam, l0, x.z) };
     }).filter(x => objOn(f, x.label) && (x.hot ? f.int : f.unint)).sort((a, b) => a.t - b.t);
   },
   /* Corrections made in Frigate win: a car whose sub label was changed there to a name (or cleared after "not FedEx"),
@@ -5213,7 +5218,7 @@ function mkGo(segs, t, n) {
 }
 /* 6.1.10 her rules for the icons on every alert bar: no round background (they crowded and overlapped); Interesting
    ones orange, Uninteresting grey; a doubled cat name shows one character (团团 → 团, 胖胖 → 胖) */
-function detHot(e, x) { const rule = (e && Data.alertRule[e.cam]) || { labels: [], zones: [] }; return !!(e && e.interesting) && rule.labels.includes(Rel.of(x.d) || x.l) && (!rule.zones.length || (x.z || []).some(z => rule.zones.includes(z))); }
+function detHot(e, x) { return !!(e && e.interesting) && ruleHot(e.cam, Rel.of(x.d) || x.l, x.z); }
 function shortName(n) { n = String(n || ''); return /^(.)\1$/u.test(n) ? Array.from(n)[0] : n; }
 function mkIcons(xs, a, b, W, act, attr, e) {
   let last = -99, h = '';
@@ -5291,7 +5296,7 @@ const FSeek = {
     if (this.busy[e.id]) return; this.busy[e.id] = 1;
     try {
       /* 5.10.8: the object icons no longer wait for the recordings answer (a slow or failed one left the bar with no icons) */
-      const again = () => { if (this.bkey === e.id) this.tick(true); };
+      const again = () => { if (this.bkey === e.id) this.tick(true); if (e.detE && ds.length && S.focus && !fScrubbing()) render(); };   /* 6.3.8: the group's objects just read: redraw its icons and rows with their real colours and counts */
       const ds = (e.dets || []).filter(d => !Arrive.det[d]).slice(0, e.detE ? 30 : 12);
       const pIcons = ds.length ? Promise.all(ds.map(d => Frigate.get('/api/events/' + encodeURIComponent(d)).then(r => { if (r) Arrive.det[d] = Arrive.row(r); }).catch(() => {}))).then(again) : Promise.resolve();
       const pSegs = this.segs[e.id] ? Promise.resolve() : Frigate.get('/api/' + id + '/recordings?after=' + e.vs + '&before=' + e.ve).then(rows => { if (rows) this.segs[e.id] = rows.filter(x => x.end_time > e.vs && x.start_time < e.ve).map(x => ({ a: Math.max(e.vs, x.start_time) * 1000, b: Math.min(e.ve, x.end_time) * 1000 })).sort((p, q) => p.a - q.a); }).catch(() => {});
@@ -5658,7 +5663,8 @@ function rowIco(e, p) {
   const ps = Arrive.parts(e, Object.assign({}, S.filt, { int: true, unint: true, objs: {} }));
   const h = ps.filter(x => x.hot).sort((a, b) => objRank(a.label) - objRank(b.label))[0];
   if (h) return { L: h.label, hot: true };
-  return { L: ico(e, p), hot: !ps.length && !!e.interesting };
+  const r = Data.alertRule[e.cam] || { zones: [] };
+  return { L: ico(e, p), hot: !ps.length && !!e.interesting && (!r.zones.length ? ruleHot(e.cam, p.label) : (e.objs || []).length <= 1) };
 }
 function fWide() { return !!(window.matchMedia && matchMedia('(min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px)').matches); }
 /* 6.1.2: the alert playing glows in the opened group's rows */
@@ -5900,7 +5906,7 @@ function focusObjs(g) {
     const ps = Arrive.parts(e, S.filt);
     const nm = x => x.sub && String(x.sub).toLowerCase() !== 'unknown' ? (isLogo(String(x.sub).toLowerCase()) ? coName(x.sub) : niceName(x.sub)) : '';
     if (ps.length) ps.forEach(x => out.push({ e, t: x.t, label: x.label, name: nm(x), hot: x.hot && e.interesting, img: Frigate.base() + '/api/events/' + x.d + '/thumbnail.webp' }));
-    else { const p = pick(e, S.filt); out.push({ e, t: p.t, label: ico(e, p), hot: e.interesting, img: evImg(e, p) }); }
+    else { const p = pick(e, S.filt), r = Data.alertRule[e.cam] || { zones: [] }; out.push({ e, t: p.t, label: ico(e, p), hot: !!e.interesting && (!r.zones.length ? ruleHot(e.cam, p.label) : (e.objs || []).length <= 1), img: evImg(e, p) }); }   /* 6.3.8: objects not read yet: don't paint a passer-by orange because a dog made the alert */
   });
   return out.sort((a, b) => b.t - a.t);
 }
@@ -8112,10 +8118,15 @@ const ACT = {
     if (several && (S.focus.og !== key || (S.focus.ogk || null) !== (d.k || null))) { S.focus.og = key; S.focus.ogk = d.k || null; render(); }
     /* an icon plays the newest alert with that kind of object; the card plays the alert it shows */
     const objs = focusObjs(g), want = d.k ? objs.filter(o => o.label + (o.hot ? '+' : '-') === d.k) : [];
-    const e = want.length ? want[0].e : (g.items.find(x => !x.motion) || g.items[0]);
+    /* 6.3.8 her rule: tapping the same Interesting icon again steps to its next (older) alert, then back to the newest */
+    const alerts = []; want.forEach(o => { if (!alerts.includes(o.e)) alerts.push(o.e); });
+    const again = d.k && /\+$/.test(d.k) && S.focus.og === key && S.focus.ogk === d.k && S.focus.ogkAt === d.k && alerts.length > 1;
+    const ci = again ? alerts.findIndex(x => x.id === FSeek.key) : -1, pickE = again && ci >= 0 ? alerts[(ci + 1) % alerts.length] : alerts[0];
+    S.focus.ogkAt = d.k || null;
+    const e = pickE || (g.items.find(x => !x.motion) || g.items[0]); const wo = want.find(o => o.e === e) || want[0];
     if (several && S.focus.og !== key) { S.focus.og = key; render(); }
     /* 6.1.5 her rule: an icon goes to the latest alert in the group with that object, from the moment the object shows */
-    const t0 = pick(e, S.filt).t, t = want.length ? Math.max(t0, Math.min(want[0].t, e.end || now())) : t0;
+    const t0 = pick(e, S.filt).t, t = wo ? Math.max(t0, Math.min(wo.t, e.end || now())) : t0;
     ACT.fjump({ t, id: e.id });
   },
   /* 5.10.11 her request: the × at the strip's end folds it back into its card */

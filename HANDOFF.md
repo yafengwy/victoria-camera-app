@@ -578,3 +578,6 @@ Icon counts (.segn) are a plain coloured number with no round background (home t
 
 ## 6.3.7
 Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, also in Two Rows); without their background they had floated ~13 px away.
+
+## 6.3.8
+(1) Interesting per object = ruleHot(cam, label, zones): alert label + a required zone that counts that kind (zone objects from config now read into alertRule.zo). Objects not read yet no longer inherit the alert colour (only a single-object alert can be orange then), and when the opened group objects arrive the list redraws, so counts and colours stop jumping (her person outside the zone in a dog alert showed orange; the 2s came and went). (2) Tapping the same Interesting rail icon again steps to its next older alert in the group, then wraps to the newest; Uninteresting icons always go to the newest.
