@@ -1573,6 +1573,10 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 /* 5.10.7 her rule: the bar's room is always kept, even with no alert on screen, so the list below never moves up and
    down when an alert starts or ends (with the line, which stays put 10% down the list) */
 .focus>.fseek{box-sizing:border-box;min-height:64px}.focus>.fseek[hidden]{display:block;visibility:hidden}
+/* 5.10.8 her rule: the bar sits right under the picture (its playhead almost touches it); the object icons go under the
+   bar and the two times under them, so the bar's room stays the same height */
+.focus>.fseek:not([hidden]){display:flex;flex-direction:column}
+.fseek .fsk{order:1}.fseek .fmks{order:2;margin:0 0 -2px}.fseek .evbt{order:3}
 @media (min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px){ .focus>.fseek{position:absolute;z-index:5;margin:0;max-width:none;padding:0 4px} }
 .evmk{position:absolute;top:0;transform:translateX(-50%);min-width:22px;height:22px;padding:0 4px;border:0;border-radius:11px;background:var(--chip);color:var(--text);display:flex;align-items:center;justify-content:center;font:inherit;font-size:11px;font-weight:600;cursor:pointer}
 .evmk svg{width:15px;height:15px}.evmk.nm{padding:0 7px}
@@ -5149,7 +5153,7 @@ const FSeek = {
     const a = e.vs * 1000, b = e.ve * 1000;
     if (this.key !== e.id || force === 'all' || !box.querySelector('.fsk')) {   /* 5.9.10: a redraw empties the box */
       this.key = e.id; box.hidden = false;
-      box.innerHTML = '<div class="evmks fmks"></div><div class="evseek fsk" data-cam="' + esc(id) + '" data-a="' + a + '" data-b="' + b + '" role="slider" aria-label="Jump"><div class="ltbarin"><i style="left:0;width:100%"></i></div><em class="ltph" style="left:0"></em></div><div class="evbt"><span>' + hms(a) + '</span><span>' + hms(b) + '</span></div>';
+      box.innerHTML = '<div class="evmks fmks"></div><div class="evseek fsk" data-cam="' + esc(id) + '" data-a="' + a + '" data-b="' + b + '" role="slider" aria-label="Jump"><div class="ltbarin"></div><em class="ltph" style="left:0"></em></div><div class="evbt"><span>' + hms(a) + '</span><span>' + hms(b) + '</span></div>';
       placeSteps(); this.load(e, id);
     }
     const bar = box.querySelector('.fsk'), sg = this.segs[e.id];
@@ -5163,9 +5167,12 @@ const FSeek = {
   async load(e, id) {
     if (this.busy[e.id]) return; this.busy[e.id] = 1;
     try {
-      if (!this.segs[e.id]) { const rows = await Frigate.get('/api/' + id + '/recordings?after=' + e.vs + '&before=' + e.ve); this.segs[e.id] = (rows || []).filter(x => x.end_time > e.vs && x.start_time < e.ve).map(x => ({ a: Math.max(e.vs, x.start_time) * 1000, b: Math.min(e.ve, x.end_time) * 1000 })).sort((p, q) => p.a - q.a); }
+      /* 5.10.8: the object icons no longer wait for the recordings answer (a slow or failed one left the bar with no icons) */
+      const again = () => { if (this.key === e.id) this.tick(true); };
       const ds = (e.dets || []).filter(d => !Arrive.det[d]).slice(0, 12);
-      if (ds.length) await Promise.all(ds.map(d => Frigate.get('/api/events/' + encodeURIComponent(d)).then(r => { if (r) Arrive.det[d] = Arrive.row(r); }).catch(() => {})));
+      const pIcons = ds.length ? Promise.all(ds.map(d => Frigate.get('/api/events/' + encodeURIComponent(d)).then(r => { if (r) Arrive.det[d] = Arrive.row(r); }).catch(() => {}))).then(again) : Promise.resolve();
+      const pSegs = this.segs[e.id] ? Promise.resolve() : Frigate.get('/api/' + id + '/recordings?after=' + e.vs + '&before=' + e.ve).then(rows => { if (rows) this.segs[e.id] = rows.filter(x => x.end_time > e.vs && x.start_time < e.ve).map(x => ({ a: Math.max(e.vs, x.start_time) * 1000, b: Math.min(e.ve, x.end_time) * 1000 })).sort((p, q) => p.a - q.a); }).catch(() => {});
+      await Promise.all([pIcons, pSegs]);
     } catch (z) {} finally { delete this.busy[e.id]; }
     if (this.key === e.id) this.tick(true);
   }

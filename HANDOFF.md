@@ -488,3 +488,6 @@ Camera view list: line stays 10% down, except when the nearest newer card (incl.
 
 ## 5.10.7
 Camera view: the bar under the picture (#fseek) keeps its 64px room when hidden (visibility hidden), so the list never moves up/down when an alert starts or ends (screen recording showed the list jumping 64px). 5.10.6 moving line removed: line fixed at 10% again. t126: list top and line constant across Live / alerts / gaps.
+
+## 5.10.8
+Camera view bar (#fseek): order is bar (playhead 4px under the picture) / object icons / times, same 64px room. Bar starts blank until the recordings answer (was drawn fully recorded). Icons (detections) are fetched in parallel with the recordings, not after them (a slow/failed recordings answer left no icons). t127.
