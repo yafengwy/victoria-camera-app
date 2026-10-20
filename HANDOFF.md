@@ -527,3 +527,6 @@ Her screenshot 10:50: rows box scrolled, the tapped icon alert row was outside i
 
 ## 6.1.10
 Alert bar icons (camera view bar and alert cards): no round background; Interesting orange (detHot: alert interesting + camera alert rule label/zones, same as Arrive.parts), Uninteresting grey; doubled cat names show one character (shortName: 团团 → 团, 胖胖 → 胖; the toast still says the full name). t138.
+
+## 6.2.1
+Her 10:55 freeze: Alert Settings opened from the turned full screen (.full.rot, phone upright) showed upright over it; on her iPhone the first tap on x gave no click (TapLog ran it) and later taps reached no button; not reproducible in Chromium. ACT.modal now leaves the turned full screen first (S.fullBack) and render() puts it back once the window is closed. t139.

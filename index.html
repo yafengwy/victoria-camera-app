@@ -2667,7 +2667,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.1.10 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.2.1 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4358,6 +4358,7 @@ document.addEventListener('scroll', () => ToTop.check(), { capture: true, passiv
 window.addEventListener('resize', () => ToTop.check());
 function render() {
   TapLog.draws++;
+  if (S.fullBack && !S.modal) { S.fullBack = false; if (S.focus) { S.full = true; S.fui = false; S.fpanel = false; } }
   if (fullLight()) { const _t1 = performance.now(); try { fullButtons(); paintFocus(); Playback.sync(); } catch (e) { Dbg.log('script error', 'full light', String(e && e.message || e)); } const ms = Math.round(performance.now() - _t1); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', 'full'); return; }
   const _t0 = performance.now();
   try { render0(); placeSteps(); ToTop.check(); listFit(); EvFold.run(); Arrive.carriers(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
@@ -7000,7 +7001,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.1.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.2.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7276,7 +7277,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.1.10');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.2.1');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7293,7 +7294,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.1.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.2.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7569,7 +7570,10 @@ const ACT = {
   async snzresume() { if (await Snz.put({ until: 0, mode: 't', cams: [] })) { render(); toast('Notifications Back On'); } },
   layout() { S.layout = S.layout === 'list' ? 'grid' : 'list'; store.set('layout', S.layout); render(); },
   group(d) { S.open[d.v] = S.open[d.v] === false; store.set('open', S.open); render(); },
-  modal(d) { S.modal = d.v; render(); },
+  /* 6.1.11 her 10:55 report: Alert Settings opened from the turned full screen (phone upright, picture turned sideways)
+     showed upright over it and her iPhone stopped taking taps (the first tap on × gave no click, later taps reached no
+     button). A window opened there now steps out of full screen first and goes back into it once the window closes. */
+  modal(d) { if (S.full && document.querySelector('.full.rot')) { S.full = false; S.fullBack = true; Dbg.log('full screen paused for', d.v); } S.modal = d.v; render(); },
   close() { S.modal = null; render(); },
   ppopen2() { S.modal = 'pplus'; S.ppOpen = null; PPlus.load(); },
   ppback() { S.modal = 'settings'; S.ppOpen = null; render(); },
@@ -8637,7 +8641,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.1.10';
+    const BUILD = '6.2.1';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

@@ -4358,6 +4358,7 @@ document.addEventListener('scroll', () => ToTop.check(), { capture: true, passiv
 window.addEventListener('resize', () => ToTop.check());
 function render() {
   TapLog.draws++;
+  if (S.fullBack && !S.modal) { S.fullBack = false; if (S.focus) { S.full = true; S.fui = false; S.fpanel = false; } }
   if (fullLight()) { const _t1 = performance.now(); try { fullButtons(); paintFocus(); Playback.sync(); } catch (e) { Dbg.log('script error', 'full light', String(e && e.message || e)); } const ms = Math.round(performance.now() - _t1); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', 'full'); return; }
   const _t0 = performance.now();
   try { render0(); placeSteps(); ToTop.check(); listFit(); EvFold.run(); Arrive.carriers(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
@@ -7569,7 +7570,10 @@ const ACT = {
   async snzresume() { if (await Snz.put({ until: 0, mode: 't', cams: [] })) { render(); toast('Notifications Back On'); } },
   layout() { S.layout = S.layout === 'list' ? 'grid' : 'list'; store.set('layout', S.layout); render(); },
   group(d) { S.open[d.v] = S.open[d.v] === false; store.set('open', S.open); render(); },
-  modal(d) { S.modal = d.v; render(); },
+  /* 6.1.11 her 10:55 report: Alert Settings opened from the turned full screen (phone upright, picture turned sideways)
+     showed upright over it and her iPhone stopped taking taps (the first tap on × gave no click, later taps reached no
+     button). A window opened there now steps out of full screen first and goes back into it once the window closes. */
+  modal(d) { if (S.full && document.querySelector('.full.rot')) { S.full = false; S.fullBack = true; Dbg.log('full screen paused for', d.v); } S.modal = d.v; render(); },
   close() { S.modal = null; render(); },
   ppopen2() { S.modal = 'pplus'; S.ppOpen = null; PPlus.load(); },
   ppback() { S.modal = 'settings'; S.ppOpen = null; render(); },
