@@ -1107,6 +1107,9 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
 .fside.wide{flex-basis:150px}
 .fsh,.fsb{display:flex;justify-content:center;gap:6px;padding:0 6px}
 .fsb{padding-top:8px}
+/* 6.5.7 her report: the orange looked almost red on the full screen and camera view: these pages are always dark, so
+   they use the dark-page orange whatever the app's light / dark setting */
+.full,.focus{--hot:#FF8A3D}
 .fullsteps .fullpp svg{width:16px;height:16px}
 .fuitop .dk.on{background:#fff;color:#111}
 .dk.sm{width:38px;height:38px;border-radius:19px;background:rgba(255,255,255,.1);color:#fff}
@@ -1123,7 +1126,7 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
 .fseg.un{background:#8FA0B8}   /* 6.4.10 her rule: Uninteresting is grey everywhere (yellow confused her) */
 .fline2{position:absolute;left:0;right:0;top:50%;height:2px;margin-top:-1px;background:#FF4D4F;pointer-events:none}
 .fbub{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:3px 8px;border-radius:10px;background:#D9342B;color:#fff;font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;pointer-events:none}
-.fpl{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:8px 6px 4px}
+.fpl{position:relative;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:8px 6px 4px}
 .fpd{flex-shrink:0;font-size:10px;font-weight:800;color:rgba(255,255,255,.55);padding:6px 2px 0}
 .fpe{font-size:11px;color:rgba(255,255,255,.55);padding:8px 2px}
 .fpi{display:block;flex-shrink:0;width:100%;border-radius:8px;overflow:hidden;background:#1C2027;text-align:left;box-shadow:inset 3px 0 0 var(--hot)}
@@ -6245,7 +6248,12 @@ function fullUi() {
   nw.querySelectorAll(':scope > .fullsteps, :scope > .fuitop').forEach(n => w.appendChild(n));
   const os = fv.querySelector(':scope > .fside'), ns = nfv.querySelector(':scope > .fside');
   if (os) os.remove(); if (ns) fv.appendChild(ns);
-  { const l = fv.querySelector('.fpl'); if (l && S.fplTop != null) { l.scrollTop = S.fplTop; S.fplTop = null; } }
+  { const l = fv.querySelector('.fpl'); if (l && S.fplTop != null) { l.scrollTop = S.fplTop; S.fplTop = null; }
+    else if (l && S.fplJump) { S.fplJump = false; const t = camT(c.id), its = [...l.querySelectorAll('.fpi')];
+      /* 6.5.7 her request: picked an alert on the timeline, then switched to the alerts: open the list at that alert
+         (the one playing, else the closest to the time shown) instead of at the top */
+      const it = l.querySelector('.fpi.cur') || (t == null ? null : its.reduce((m, n) => !m || Math.abs(+n.dataset.t - t) < Math.abs(+m.dataset.t - t) ? n : m, null));
+      if (it) l.scrollTop = Math.max(0, it.offsetTop - l.offsetTop - (l.clientHeight - it.offsetHeight) / 2); } }
   wireFull();
   const fts = document.getElementById('ftsc');
   if (fts) hoverPreview(fts, 'full', e => { const r = fts.getBoundingClientRect(); const y = fts.scrollTop + (e.clientY - r.top) - VTOP; return y < 0 ? null : focusEnd() - y / FFPX * MIN; }, paintFocus, 'v');
@@ -8070,7 +8078,7 @@ const ACT = {
   },
   fuitap(d, e) { if (e && e.target.closest('.fuitop')) return; if (Date.now() - FZ.moved < 400) return; if (S.fui) { const l = document.querySelector('#fullv .fpl'); S.fplTop = l ? l.scrollTop : null; } S.fui = !S.fui; fullUi(); },   /* 6.5.6 her report: hiding the buttons to pinch-zoom, then showing them again, came back as the timeline at the top; the alerts list and its place are kept now */
   fkick() { fuiKick(); },
-  fpanel() { S.fpanel = !S.fpanel; S.fui = true; fullUi(); fuiKick(); },
+  fpanel() { S.fpanel = !S.fpanel; S.fui = true; S.fplTop = null; S.fplJump = S.fpanel; fullUi(); fuiKick(); },   /* 6.5.7: switching to the alerts opens them at the alert being watched */
   /* full screen with the alert panel: the page is redrawn to mark the picked alert; the panel keeps its scroll position
      (render keeps every scrolled list in place) */
   fseek(d) { FSeek.pick(S.focus.cam, +d.t); Dbg.log('tap alert', hms(+d.t), Playback.why(S.focus.cam)); S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true;

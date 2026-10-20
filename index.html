@@ -1107,6 +1107,9 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
 .fside.wide{flex-basis:150px}
 .fsh,.fsb{display:flex;justify-content:center;gap:6px;padding:0 6px}
 .fsb{padding-top:8px}
+/* 6.5.7 her report: the orange looked almost red on the full screen and camera view: these pages are always dark, so
+   they use the dark-page orange whatever the app's light / dark setting */
+.full,.focus{--hot:#FF8A3D}
 .fullsteps .fullpp svg{width:16px;height:16px}
 .fuitop .dk.on{background:#fff;color:#111}
 .dk.sm{width:38px;height:38px;border-radius:19px;background:rgba(255,255,255,.1);color:#fff}
@@ -1123,7 +1126,7 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
 .fseg.un{background:#8FA0B8}   /* 6.4.10 her rule: Uninteresting is grey everywhere (yellow confused her) */
 .fline2{position:absolute;left:0;right:0;top:50%;height:2px;margin-top:-1px;background:#FF4D4F;pointer-events:none}
 .fbub{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:3px 8px;border-radius:10px;background:#D9342B;color:#fff;font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;pointer-events:none}
-.fpl{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:8px 6px 4px}
+.fpl{position:relative;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:8px 6px 4px}
 .fpd{flex-shrink:0;font-size:10px;font-weight:800;color:rgba(255,255,255,.55);padding:6px 2px 0}
 .fpe{font-size:11px;color:rgba(255,255,255,.55);padding:8px 2px}
 .fpi{display:block;flex-shrink:0;width:100%;border-radius:8px;overflow:hidden;background:#1C2027;text-align:left;box-shadow:inset 3px 0 0 var(--hot)}
@@ -2747,7 +2750,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.5.6 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.5.7 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -6245,7 +6248,12 @@ function fullUi() {
   nw.querySelectorAll(':scope > .fullsteps, :scope > .fuitop').forEach(n => w.appendChild(n));
   const os = fv.querySelector(':scope > .fside'), ns = nfv.querySelector(':scope > .fside');
   if (os) os.remove(); if (ns) fv.appendChild(ns);
-  { const l = fv.querySelector('.fpl'); if (l && S.fplTop != null) { l.scrollTop = S.fplTop; S.fplTop = null; } }
+  { const l = fv.querySelector('.fpl'); if (l && S.fplTop != null) { l.scrollTop = S.fplTop; S.fplTop = null; }
+    else if (l && S.fplJump) { S.fplJump = false; const t = camT(c.id), its = [...l.querySelectorAll('.fpi')];
+      /* 6.5.7 her request: picked an alert on the timeline, then switched to the alerts: open the list at that alert
+         (the one playing, else the closest to the time shown) instead of at the top */
+      const it = l.querySelector('.fpi.cur') || (t == null ? null : its.reduce((m, n) => !m || Math.abs(+n.dataset.t - t) < Math.abs(+m.dataset.t - t) ? n : m, null));
+      if (it) l.scrollTop = Math.max(0, it.offsetTop - l.offsetTop - (l.clientHeight - it.offsetHeight) / 2); } }
   wireFull();
   const fts = document.getElementById('ftsc');
   if (fts) hoverPreview(fts, 'full', e => { const r = fts.getBoundingClientRect(); const y = fts.scrollTop + (e.clientY - r.top) - VTOP; return y < 0 ? null : focusEnd() - y / FFPX * MIN; }, paintFocus, 'v');
@@ -7187,7 +7195,7 @@ function modalSettings() {
     row('Camera View Alerts', seg('fmode', S.fmode, [['C', 'List'], ['B', 'Thumbnails']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.5.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.5.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7463,7 +7471,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.5.6');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.5.7');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7480,7 +7488,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.5.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.5.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -8070,7 +8078,7 @@ const ACT = {
   },
   fuitap(d, e) { if (e && e.target.closest('.fuitop')) return; if (Date.now() - FZ.moved < 400) return; if (S.fui) { const l = document.querySelector('#fullv .fpl'); S.fplTop = l ? l.scrollTop : null; } S.fui = !S.fui; fullUi(); },   /* 6.5.6 her report: hiding the buttons to pinch-zoom, then showing them again, came back as the timeline at the top; the alerts list and its place are kept now */
   fkick() { fuiKick(); },
-  fpanel() { S.fpanel = !S.fpanel; S.fui = true; fullUi(); fuiKick(); },
+  fpanel() { S.fpanel = !S.fpanel; S.fui = true; S.fplTop = null; S.fplJump = S.fpanel; fullUi(); fuiKick(); },   /* 6.5.7: switching to the alerts opens them at the alert being watched */
   /* full screen with the alert panel: the page is redrawn to mark the picked alert; the panel keeps its scroll position
      (render keeps every scrolled list in place) */
   fseek(d) { FSeek.pick(S.focus.cam, +d.t); Dbg.log('tap alert', hms(+d.t), Playback.why(S.focus.cam)); S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true;
@@ -8836,7 +8844,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.5.6';
+    const BUILD = '6.5.7';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
