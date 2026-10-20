@@ -2835,6 +2835,9 @@ const Playback = {
       const tag = (u.match(/\/vod\/([^/]+)\/start\/(\d+)\/end\/(\d+)/) || []).slice(1).map((x, i) => i ? hms(+x * 1000) : x).join(' ');
       Dbg.log('alert clip', tag, this.native(cam) ? 'native' : 'hls.js');
       /* 5.1.7: also 'waiting' (stuck for more video) and 'pause', to tell a stuck clip from one the page paused */
+      /* 5.9.3: her Front Door clip (10-19 21:49) stopped at 71.9 s although the alert ran 2.5 min, and played fully the
+         second time: log the video's length each time it changes and the recorded pieces' total, to see which is short */
+      v.addEventListener('durationchange', () => { const rec = (v._segs || []).reduce((n, x) => n + (x.b - x.a) / 1000, 0); Dbg.log('alert clip length', tag, isFinite(v.duration) ? v.duration.toFixed(1) + 's' : String(v.duration), 'recorded ' + rec.toFixed(1) + 's', v._hls ? 'hls.js' : 'native'); });
       ['loadedmetadata', 'playing', 'waiting', 'pause', 'stalled', 'error'].forEach(ev => v.addEventListener(ev, () => Dbg.log('alert clip', ev, tag, ev === 'error' && v.error ? 'code ' + v.error.code + ' ' + (v.error.message || '') : 'at ' + v.currentTime.toFixed(1))));
       fetch(u, { credentials: 'include' }).then(r => r.text().then(t => Dbg.log('alert clip list', tag, r.status, (t.match(/#EXTINF/g) || []).length + ' parts'))).catch(e => Dbg.log('alert clip list', tag, 'failed'));
       if (this.native(cam)) { v.src = u; v.play().catch(() => {}); }
@@ -7352,8 +7355,8 @@ const ACT = {
   evskip(d, ev) {
     const m = ev && ev.target.closest('.evmedia, .ltvid'), v = m && m.querySelector('video.evv'); if (!v) return;
     const end = isFinite(v.duration) ? v.duration - 0.1 : Infinity;
-    v.currentTime = Math.max(0, Math.min(end, v.currentTime + +d.v));
-    Dbg.log('video', 'skip ' + d.v, 'to ' + v.currentTime.toFixed(1));
+    const want = v.currentTime + +d.v; v.currentTime = Math.max(0, Math.min(end, want));
+    Dbg.log('video', 'skip ' + d.v, 'to ' + v.currentTime.toFixed(1) + (want > end ? ' (end of video, length ' + (v.duration || 0).toFixed(1) + 's, loaded to ' + (v.buffered.length ? v.buffered.end(v.buffered.length - 1).toFixed(1) : '0') + 's)' : ''));
   },
   async evjump(d) {
     const k = d.v, w = String(d.w || ''), c = EVK[k], e = evE(k); if (!e) return;
