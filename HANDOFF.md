@@ -479,3 +479,6 @@ Home camera panel row: only -5 / Pause / +5 and Live keep a background. Fix, Who
 
 ## 5.10.4
 Camera view list: on a phone held upright (portrait, width <= 999) the blue line sits 40% down the list (fLineK; 10% elsewhere), so newer alerts above the playing one are not cut off under the Today row. A ResizeObserver on #fsc repaints the line when the list height changes (the bar under the picture showing). t124.
+
+## 5.10.5
+Reverted 5.10.4 (40% line on phones + ResizeObserver): she found it jumpy and ugly (big empty space above the newest alert). Line back to 10% everywhere, same as 5.10.3.
