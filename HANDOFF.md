@@ -563,3 +563,6 @@ Her pick C: in the camera view, Interesting icons are half-filled (fill currentC
 
 ## 6.3.2
 (1) Opened group rows / thumbnails: the icon is the Interesting object (orange) via rowIco (Arrive.parts hot), else the main object in grey (her FedEx truck row with a person showed an orange truck). (2) Bar icons: a sub label that is an object word (Mark As Car = "Car") shows as that icon, not text ("CarCar"). (3) Her 11:54 log: tapping the 17:53:25 row kept glow/bar on the overlapping 17:54:29 alert (FSeek.pick matched by start time within 1.5 s; the row plays from its object time). pick now takes the row alert id.
+
+## 6.3.3
+(1) Home timeline: an alert with a package also gets its own package icon (orange when the alert is Interesting) next to its main icon (her Doorbell 11:01 Amazon person + package showed only the carrier van). (2) Picture tag: an alert recognised as a carrier (e.logo) shows the company (van icon + Amazon) instead of Person, like its thumbnail; a picked icon kind still wins.
