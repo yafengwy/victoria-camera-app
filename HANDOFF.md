@@ -551,3 +551,6 @@ Opened group (List rows .fsr and Thumbnails .fsi): Interesting alert icon orange
 
 ## 6.2.8
 Camera view bar: object icons right under the bar, one size bigger (18 px), the two times under them (same 64 px room). Rail Interesting icons back to plain orange (6.2.6 solid badge circle was too big; she means a filled glyph, options A-D mocked up, waiting for her pick).
+
+## 6.2.9
+Her pick C: in the camera view, Interesting icons are half-filled (fill currentColor, fill-opacity .4, orange outline) on the rail, the bar under the picture, and the opened group rows / thumbnails; Uninteresting stay hollow grey. Home unchanged.

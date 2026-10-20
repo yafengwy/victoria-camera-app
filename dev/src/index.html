@@ -314,6 +314,10 @@ img.rf{opacity:0}
    its own colour (orange for Interesting, blue for Uninteresting) */
 .focus .fmark.ico:not(.dim){background:transparent!important;box-shadow:none!important;color:var(--hot)!important}   /* 6.2.8: back to plain orange (the badge circle was too big); a filled icon is being picked */
 .focus .fmark.ico:not(.dim)::after{display:none!important}
+/* 6.2.9 her pick (C): in the camera view an Interesting icon is half-filled (light orange inside, orange outline) so it
+   stands out from the hollow grey Uninteresting ones without getting bigger: the rail, the bar under the picture, and
+   the opened group's rows and thumbnails */
+.focus .fmark.ico:not(.dim) svg,.fseek .evmk.hot svg,.fsr.hot .lico svg,.fsi.hot .lico svg{fill:currentColor;fill-opacity:.4}
 .focus .fmark.ico.sel:not(.dim){box-shadow:0 0 0 2px var(--dark-bg,#0F1113),0 0 0 4px var(--hot)!important}
 .focus .fmark.ico.dim.sel{box-shadow:0 0 0 2px #8AB4F8!important}
 .head-mk{width:4px!important;margin-left:-2px!important;border-radius:2px!important;border-width:1px!important}
