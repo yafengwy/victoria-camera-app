@@ -2623,7 +2623,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.9.9 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.9.10 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -5112,13 +5112,24 @@ const EvDrag = { on: false };
 function fJump(id, t) { if (!S.focus || S.focus.cam !== id) return; S.camTime[id] = t; S.playing = true; paintFocus(); Playback.sync(); try { fShow(t); } catch (z) {} FSeek.tick(true); }
 const FSeek = {
   key: null, segs: {}, busy: {},
-  alertAt(id, t) { let best = null; for (const e of Data.events) if (e.cam === id && e.vs && t >= e.vs * 1000 && t <= e.ve * 1000 && (!best || e.t > best.t)) best = e; return best; },
+  /* the alert she tapped (list, ‹ ›) is the one the bar shows */
+  pick(id, t) { const e = Data.events.find(x => x.cam === id && Math.abs(x.t - t) < 1500); if (e && e.id !== this.key) { this.key = e.id; const b = document.getElementById('fseek'); if (b) b.innerHTML = ''; } },
+  /* 5.9.10: alerts overlap (her Front Door 18:16:29 and 18:17:26): the bar stays on the alert it shows while the second
+     is still inside it, so playing on (or tapping its bicycle at 18:17:30) no longer swaps it for the next alert's bar.
+     A new pick prefers an alert that has already started at that second. */
+  alertAt(id, t) {
+    const cur = this.key && Data.events.find(e => e.id === this.key);
+    if (cur && cur.cam === id && t >= cur.vs * 1000 && t <= cur.ve * 1000) return cur;
+    let best = null, any = null;
+    for (const e of Data.events) if (e.cam === id && e.vs && t >= e.vs * 1000 && t <= e.ve * 1000) { if (e.t <= t + 3000 && (!best || e.t > best.t)) best = e; if (!any || e.t < any.t) any = e; }
+    return best || any;
+  },
   tick(force) {
     const box = document.getElementById('fseek'); if (!box) { this.key = null; return; }
     const id = S.focus && S.focus.cam, t = id ? camT(id) : null, e = t != null ? this.alertAt(id, t) : null;
     if (!e) { if (!box.hidden) { box.hidden = true; box.innerHTML = ''; this.key = null; placeSteps(); } return; }
     const a = e.vs * 1000, b = e.ve * 1000;
-    if (this.key !== e.id || force === 'all') {
+    if (this.key !== e.id || force === 'all' || !box.querySelector('.fsk')) {   /* 5.9.10: a redraw empties the box */
       this.key = e.id; box.hidden = false;
       box.innerHTML = '<div class="evmks fmks"></div><div class="evseek fsk" data-cam="' + esc(id) + '" data-a="' + a + '" data-b="' + b + '" role="slider" aria-label="Jump"><div class="ltbarin"><i style="left:0;width:100%"></i></div><em class="ltph" style="left:0"></em></div><div class="evbt"><span>' + hms(a) + '</span><span>' + hms(b) + '</span></div>';
       placeSteps(); this.load(e, id);
@@ -6871,7 +6882,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.9.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.9.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7147,7 +7158,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.9.9');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.9.10');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7164,7 +7175,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.9.9\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.9.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7454,7 +7465,7 @@ const ACT = {
     const al = Data.events.filter(e => e.cam === id && passes(e) && !e.motion);
     const e = dir < 0 ? al.filter(x => x.t < cur - 3000).sort((a, b) => b.t - a.t)[0] : al.filter(x => x.t > cur + 3000).sort((a, b) => a.t - b.t)[0];
     if (!e) { toast(dir < 0 ? 'No Earlier Alert' : 'No Later Alert'); return; }
-    Dbg.log('camera view', dir < 0 ? 'previous' : 'next', 'alert', hms(e.t)); toast(lab(e) + ' At ' + hm(e.t)); fJump(id, e.t - 1000);
+    Dbg.log('camera view', dir < 0 ? 'previous' : 'next', 'alert', hms(e.t)); toast(lab(e) + ' At ' + hm(e.t)); FSeek.pick(id, e.t); fJump(id, e.t - 1000);
   },
   fmk(d) { const id = S.focus && S.focus.cam; if (!id) return; const e = FSeek.key && Data.events.find(x => x.id === FSeek.key), t = mkGo(e && FSeek.segs[e.id], +d.t, d.n || 'Object'); fJump(id, t); Dbg.log('camera view jump to object', d.n, hms(t)); },
   evmk(d) { const host = document.getElementById('evm-' + d.k), v = host && host.querySelector('video.evv'); if (!v) return; const t = mkGo(v._segs, +d.t, d.n || 'Object'); try { v.currentTime = Math.max(0, vodAt(v, t)); } catch (z) {} v._up = false; v.play().catch(() => {}); evIcons(); Dbg.log('alert jump to object', d.n, hms(t)); },
@@ -7752,7 +7763,7 @@ const ACT = {
   fpanel() { S.fpanel = !S.fpanel; S.fui = true; fullUi(); fuiKick(); },
   /* full screen with the alert panel: the page is redrawn to mark the picked alert; the panel keeps its scroll position
      (render keeps every scrolled list in place) */
-  fseek(d) { Dbg.log('tap alert', hms(+d.t), Playback.why(S.focus.cam)); S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true;
+  fseek(d) { FSeek.pick(S.focus.cam, +d.t); Dbg.log('tap alert', hms(+d.t), Playback.why(S.focus.cam)); S.camTime[S.focus.cam] = +d.t - 1000; S.playing = true;
     /* 4.9.5: the alert list is no longer redrawn for a tap (4.9.2 light redraw), so mark the tapped one here and load
        its video directly; before, only the first tapped alert played */
     if (S.fpanel) document.querySelectorAll('#fullv .fpi').forEach(n => n.classList.toggle('cur', n === (d.el || null) || +n.dataset.t === +d.t));
@@ -7873,7 +7884,7 @@ const ACT = {
   },
   fstripgo(d, e) { const st = e && e.target.closest('.fstrip') && e.target.closest('.fstrip').querySelector('.fsrow'); if (st) st.scrollBy({ left: (+d.v) * Math.max(80, st.clientWidth * 0.8), behavior: 'smooth' }); },
   fjump(d) {   /* tap a card or rail icon: go to that alert (1 s before it starts) */
-    const t = +d.t - 1000, id = S.focus.cam; Dbg.log('tap alert', hms(+d.t), Playback.why(id));
+    const t = +d.t - 1000, id = S.focus.cam; FSeek.pick(id, +d.t); Dbg.log('tap alert', hms(+d.t), Playback.why(id));
     S.camTime[id] = t; S.playing = true; paintFocus();       /* the line moves to the alert; the list stays where it is */
     document.querySelectorAll('.fsi').forEach(n => n.classList.toggle('cur', +n.dataset.t === +d.t));
     Playback.sync();
@@ -8483,7 +8494,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.9.9';
+    const BUILD = '5.9.10';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

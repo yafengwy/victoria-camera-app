@@ -463,3 +463,7 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 - Camera view: ‹ (Previous Alert) left of Pause and › (Next Alert) right of Live; same alerts as the list (passes, no motion), jumps 1 s before the alert with a toast; › disabled while Live.
 - Wide camera view leaves 142 px (was 160) under the picture: bigger picture, bar and buttons lower; t118p: buttons bottom 827/841 at 1920x841.
 - Test t119p.
+
+## 5.9.10 (2026-10-19) Camera view bar stays on its alert
+- Her log 22:56: tapped alert 18:16:29, its Bicycle icon (18:17:30) — the second was also inside the next alert (18:17:26), and FSeek.alertAt picked the latest covering alert, so the bar switched to that alert ("jumped to another bar"). Now the bar keeps its alert while the second is inside it; a new pick prefers an alert already started; tapping an alert in the list or ‹ › sets the bar to that alert (FSeek.pick).
+- Fixed script error "_filled of null" (a redraw emptied #fseek while the key stayed): tick rebuilds when the bar is missing. Test t120p.
