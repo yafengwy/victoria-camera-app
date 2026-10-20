@@ -280,6 +280,7 @@ img.rf{opacity:0}
 /* 4.4.3: tiny ‹ › at the strip's ends for a mouse (phones swipe); pictures can't be dragged out of the strip */
 .fev.fstrip img{-webkit-user-drag:none;user-select:none}
 .fsarr{display:none}
+.fsx{flex-shrink:0;width:26px;height:calc(100% - 8px);border-radius:8px;background:rgba(255,255,255,.10);color:#fff;display:flex;align-items:center;justify-content:center;padding:0}.fsx svg{width:14px;height:14px}
 @media (pointer:fine){.fsarr{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:16px;height:calc(100% - 8px);border-radius:6px;background:rgba(255,255,255,.08);color:#fff;font-size:16px;font-weight:700;line-height:1;padding:0}
   .fev.fstrip.atl .fsarr.l,.fev.fstrip.atr .fsarr.r{visibility:hidden}}
 .fsi{position:relative;flex-shrink:0;height:calc(100% - 8px);aspect-ratio:16/10;border-radius:8px;overflow:hidden;box-shadow:inset 0 0 0 2px transparent}
@@ -5594,8 +5595,10 @@ function viewFocus() {
       kinds.sort((a, b) => objRank(a.o.label) - objRank(b.o.label) || b.n - a.n);
       const lane = { '+': 0, '-': 0 };
       kinds.forEach(kd => {
+        /* 5.10.11: each icon sits at the time of the object it plays (the newest of its kind in the group), so a tap
+           brings the line exactly onto the icon; they used to all sit at the group's top and play its oldest one */
         const hot = kd.o.hot, ln = lane[hot ? '+' : '-']++; if (ln > 2) return;
-        rows += '<button class="fmark ico' + (hot ? '' : ' dim') + '" style="top:' + (y - 9 + (hot ? 0 : 24)) + 'px;--ln:' + ln + '" data-act="fgrp" data-g="' + gi + '" data-k="' + esc(kd.k) + '" aria-label="' + esc(objName(kd.o.label)) + ' ' + hm(kd.o.t) + (kd.n > 1 ? ', ' + kd.n : '') + '">' + objIcon(kd.o.label) + (kd.n > 1 ? '<b class="segn"><i>' + kd.n + '</i></b>' : '') + '</button>';
+        rows += '<button class="fmark ico' + (hot ? '' : ' dim') + '" style="top:' + (FTOP + (end - kd.o.t) / MIN * FPX - 9 + (hot ? 0 : 24)) + 'px;--ln:' + ln + '" data-act="fgrp" data-g="' + gi + '" data-k="' + esc(kd.k) + '" aria-label="' + esc(objName(kd.o.label)) + ' ' + hm(kd.o.t) + (kd.n > 1 ? ', ' + kd.n : '') + '">' + objIcon(kd.o.label) + (kd.n > 1 ? '<b class="segn"><i>' + kd.n + '</i></b>' : '') + '</button>';
       });
       const e = g.items.find(x => !x.motion) || g.items[0], key = String(e.t), ep = pick(e, S.filt);   /* the card shows the alert, not a motion piece next to it */
       if (objs.length > 1 && S.focus.og === key) {
@@ -5604,7 +5607,7 @@ function viewFocus() {
         rows += '<div class="fev fstrip atl" style="top:' + (y - 32) + 'px"><button class="fsarr l" data-act="fstripgo" data-v="-1" aria-label="Earlier Thumbnails">‹</button><div class="fsrow">' + objs.slice().sort((a, b) => (b.hot ? 1 : 0) - (a.hot ? 1 : 0) || b.t - a.t).map(o => {
           const on = curT != null && Math.abs(curT - (o.t - 1000)) < 1500;
           return '<button class="fsi' + (on ? ' cur' : '') + (o.hot ? ' hot' : ' un') + '" data-act="fjump" data-t="' + o.t + '" aria-label="' + esc(objName(o.label)) + ' ' + hms(o.t) + '"><img src="' + o.img + '" alt="" loading="lazy" draggable="false"><span><i class="lico">' + objIcon(o.label) + '</i>' + (o.name ? esc(o.name) + ' ' : '') + hms(o.t) + '</span></button>';
-        }).join('') + '</div><button class="fsarr r" data-act="fstripgo" data-v="1" aria-label="More Thumbnails">›</button></div>';
+        }).join('') + '</div><button class="fsarr r" data-act="fstripgo" data-v="1" aria-label="More Thumbnails">›</button><button class="fsx" data-act="fstripx" aria-label="Close">' + I.x + '</button></div>';
       } else {
         const hotL = objs.filter(o => o.hot).map(o => o.label), names = [...new Set((hotL.length ? hotL : objs.map(o => o.label)).sort((a, b) => objRank(a) - objRank(b)).map(objName))];
         const title = names.slice(0, 2).join(', ') + (names.length > 2 ? ' +' + (names.length - 2) : '');
@@ -7907,7 +7910,7 @@ const ACT = {
     const g = S.focus && S.focus.groups && S.focus.groups[+d.g]; if (!g) return;
     /* a group of alerts, or one alert holding several objects, opens into a strip to pick from; an icon goes to its object */
     const objs = focusObjs(g), want = d.k ? objs.filter(o => o.label + (o.hot ? '+' : '-') === d.k) : [];
-    const o = want.length ? want[want.length - 1] : (objs.filter(x => x.hot).pop() || objs[objs.length - 1]);
+    const o = want.length ? want[0] : (objs.filter(x => x.hot).pop() || objs[objs.length - 1]);
     /* 4.3.11: the same key the card uses (its alert, not a motion piece): with Motion shown, the newest item was often a
        motion piece, so the key never matched and the group never opened into its strip */
     const og = objs.length > 1 ? String((g.items.find(x => !x.motion) || g.items[0]).t) : null;
@@ -7917,6 +7920,8 @@ const ACT = {
     const ce = g.items.find(x => !x.motion) || g.items[0];
     ACT.fjump({ t: d.k ? (o ? o.t : pick(g.items[0], S.filt).t) : pick(ce, S.filt).t });
   },
+  /* 5.10.11 her request: the × at the strip's end folds it back into its card */
+  fstripx() { if (S.focus) { S.focus.og = null; render(); } },
   fstripgo(d, e) { const st = e && e.target.closest('.fstrip') && e.target.closest('.fstrip').querySelector('.fsrow'); if (st) st.scrollBy({ left: (+d.v) * Math.max(80, st.clientWidth * 0.8), behavior: 'smooth' }); },
   fjump(d) {   /* tap a card or rail icon: go to that alert (1 s before it starts) */
     const t = +d.t - 1000, id = S.focus.cam; FSeek.pick(id, +d.t); Dbg.log('tap alert', hms(+d.t), Playback.why(id));

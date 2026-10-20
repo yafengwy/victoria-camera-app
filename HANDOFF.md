@@ -497,3 +497,6 @@ Her recording: camera view bar looked broken (only a floating playhead while rec
 
 ## 5.10.10
 Her real complaint (recording 01:12): tapping an alert card scrolled the list so the card flew up under the top edge. Now a tap in the camera view list (card / strip item / rail icon, via ACT.fjump keepAt) never moves the list: the blue line moves to the tapped card (S.focus.lineAt) and stays at that height for playing, swiping and the arrows; Live (fGoLive) puts it back at 10%. A card tap plays the alert the card shows (line lands on the card). t129: card centre unchanged after each tap, line on the card.
+
+## 6.1.1
+Camera view rail icons: each icon sits at the time of the object it plays (newest of its kind in the group; it used to sit at the group top and play the oldest, e.g. her dog icon at 18:39 played 18:09), so the line lands exactly on the tapped icon. Opened strip has a × at its end (fstripx) that folds it back into the card. t131, t129.
