@@ -271,6 +271,8 @@ img.rf{opacity:0}
 .fst.f.down{right:13px;width:2px}
 .fhr{position:absolute;left:12px;font-size:12px;font-weight:700;color:var(--dark-sub);font-variant-numeric:tabular-nums}
 .fhr.fday0{color:var(--dark-fg,#fff);white-space:nowrap;z-index:1}
+/* 6.2.5 her report: "Today 00" (midnight) ran into the rail icons: the day now sits on its own small line just above the hour */
+.fhr .fdl{position:absolute;left:0;bottom:100%;font-size:10px;line-height:1.1;white-space:nowrap}
 .fev{position:absolute;left:54px;right:12px;height:60px;display:flex;align-items:center;gap:12px;text-align:left}
 .fev i{width:18px;height:18px;border-radius:5px;background:#5FD3B4;flex-shrink:0}
 .fev.fstrip{gap:4px;padding:0 2px;justify-content:flex-start}
@@ -5719,7 +5721,7 @@ function viewFocus() {
     const height = FTOP + span / MIN * FPX + 400 + (S.focus.fmap ? S.focus.fmap[S.focus.fmap.length - 1][1] : 0);
     let rows = '';
     for (let k = Math.floor(end / HOUR) * HOUR; k > end - span; k -= HOUR)
-      rows += '<div class="fhr' + (new Date(k).getHours() === 0 ? ' fday0' : '') + '" style="top:' + (fY(k, end) - 8) + 'px">' + (new Date(k).getHours() === 0 && k < dayStart(now()) + 1 ? dayLabel(k) + ' ' : '') + pad(new Date(k).getHours()) + '</div>';
+      rows += '<div class="fhr' + (new Date(k).getHours() === 0 ? ' fday0' : '') + '" style="top:' + (fY(k, end) - 8) + 'px">' + (new Date(k).getHours() === 0 && k < dayStart(now()) + 1 ? '<span class="fdl">' + dayLabel(k) + '</span>' : '') + pad(new Date(k).getHours()) + '</div>';
     grp.forEach((g, gi) => {
       const open = !!fold && fold.g === g, bopen = !!bstrip && bstrip.g === g, y = open || bopen ? g.y : g.y + fD(g.items[0].t), n = g.items.length, objs = focusObjs(g);
       /* rail: one icon per kind of object, Interesting (orange) on the first row, Uninteresting (grey) on a second row */

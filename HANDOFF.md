@@ -539,3 +539,6 @@ Settings: Camera View List = C (Open In Place, default) or B (Icons Filter), sto
 
 ## 6.2.4
 Fix → Not <animal> now offers "It Is A" Cat / Dog / Raccoon / Rabbit / Squirrel / Fox (FIX_ANIMALS minus the wrong one). Save does the same as before (marked wrong in Frigate, Frigate+ per checkbox, Cats model teach per checkbox) and keeps the detection shown as the picked animal: Rel map {detection id: animal}, saved on the mini PC in /ctl/litter marks as "is:<animal>" (40 days, every phone; litter code only reads mo- marks) plus a local copy (store rel), synced at start. fixPets / Arrive.parts / detHot read Rel, so the alert stays (not gone) with the new animal icon. fixPets always resets e.gone first.
+
+## 6.2.5
+Camera view list: the midnight hour mark read "Today 00" and ran into the rail icons; the day (Today / date) is now a small line just above the "00" (.fhr .fdl), clear of the rail on phone and computer.
