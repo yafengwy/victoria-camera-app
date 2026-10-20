@@ -2670,7 +2670,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.1.5 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.1.6 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -2717,13 +2717,16 @@ const Playback = {
     /* 3.10.8: the 5 s count starts when the first part has arrived (Front Door's 8 MB parts took 2.5 s to arrive, the
        count ran out right after and switched to the built-in player, which then stalled for 30-80 s) */
     let armed = false; h.on(window.Hls.Events.FRAG_LOADED, () => { if (armed) return; armed = true;
-      let again = 0; const check = () => {
+      let again = 0, want = JSON.stringify(S.camTime); const check = () => {
         if (v.readyState > 0 || this._nat || h.media !== v || !v.isConnected) return;   /* gone or replaced meanwhile: leave it */
         /* 6.1.4: her 10:22 log: two icon taps on the bar while the clip was still loading kept it at ready 0, and the
            phone was switched to the slower built-in player for good. A jump in the last 5 s now restarts the count. */
         /* 6.1.5: her 10:31 log: the count ran out while the app was in the background (iPhone stops showing video there),
            so it switched to the slow player again. Hidden now, or hidden in the last 5 s, also restarts the count. */
-        const busy = performance.now() - (this._userSeekAt || 0) < 5000 || document.hidden || performance.now() - (this._hidAt || 0) < 5000;
+        /* 6.1.6: her 10:38 log: a tap on another alert in the list (09:45:17) 2.5 s before the count ran out wasn't seen as
+           a jump (only bar icons and arrows were). Any change of the wanted time since the count started now restarts it. */
+        const w2 = JSON.stringify(S.camTime), moved = w2 !== want; want = w2;
+        const busy = moved || performance.now() - (this._userSeekAt || 0) < 5000 || document.hidden || performance.now() - (this._hidAt || 0) < 5000;
         if (busy && again++ < 3) { setTimeout(check, 5000); return; }
         if (busy) return;
         Dbg.log(tag, 'hls.js got video but shows nothing, built-in player from now on');
@@ -6987,7 +6990,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.1.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.1.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7263,7 +7266,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.1.5');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.1.6');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7280,7 +7283,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.1.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.1.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -8619,7 +8622,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.1.5';
+    const BUILD = '6.1.6';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

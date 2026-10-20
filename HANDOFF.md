@@ -512,3 +512,6 @@ Opened group rows box: at most 5 rows tall, scrolls on its own (#fsubin, overscr
 
 ## 6.1.5
 (1) Opened group fold: each row now holds its whole alert (start-1 s to end), so playing on through an alert keeps the line on its row (her 08:35 clip slid up toward the card). Icon tap = latest alert in the group with that object, played from when the object shows (clamped inside the alert). t135. (2) Her 10:31 log: the iPhone blank-video guard fired while the app was in the background (page hidden 10:31:04, fired 10:31:07) and switched to the built-in player again; guard also waits while hidden / hidden in the last 5 s. The switch now lasts only until the camera view is opened again (_natFall reset in openFocus), not until the app restarts.
+
+## 6.1.6
+Her 10:38 log (6.1.5): guard fired again at 10:38:20; she had tapped another alert in the list (fjump, 09:45:17) at 10:38:17, which did not set _userSeekAt. Guard now snapshots S.camTime when it starts counting and restarts whenever the wanted time changed (any tap, scrub, arrow, icon), plus the earlier hidden/seek rules.
