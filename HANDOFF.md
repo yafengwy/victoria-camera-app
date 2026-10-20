@@ -449,3 +449,8 @@ She asked to keep this so the reply can show, with numbers, that lowering the sc
 - Her design: the orange alert-start line is gone; every object in the alert (Arrive.det: label, sub, first-seen time; up to 12 fetched from /api/events/<id> if unknown) gets an icon above the bar at its first-seen time (named cat shows its name, company shows its icon); icons too close are nudged 22 px apart. Tap = play from there (log "alert jump to object"). Marked-wrong objects are left out.
 - Playhead is a plain line (alert bar and 如厕记录).
 - Test t116p.
+
+## 5.9.7 (2026-10-19) Alert bar in the camera view; icons say what they are
+- Camera view (computer and phone upright): #fseek between the picture and −10s…+10s (computer: 2 px under the picture, buttons 4 px under the bar via placeSteps; phone: in the flow under the picture). Shows the alert the shown second is in (FSeek.alertAt, latest alert whose vs–ve covers camT), its recorded pieces (/recordings, cached per alert), object icons (shared mkIcons), line at the shown second; drag/tap moves the line, release jumps (fJump: camTime, paintFocus, Playback.sync, fShow). Hidden while Live / outside alerts. Not in full screen.
+- Her Front Door 17:53 alert: the last icon (a car) was first seen at 17:55:20, a second with no recording, so tapping it could not get there. mkGo(): every icon tap toasts its name and time; when that second was not recorded it says so and goes to the closest recorded second.
+- Test t117p.

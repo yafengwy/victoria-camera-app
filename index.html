@@ -1546,6 +1546,10 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .evseek{position:relative;height:28px;display:flex;align-items:center;cursor:pointer;touch-action:none}
 .evseek i{position:absolute;top:0;height:8px;min-width:6px;border-radius:4px;background:var(--strong);pointer-events:none}.evseek b{min-width:4px;pointer-events:none}
 .evmks{position:relative;height:24px;margin-bottom:-2px}
+.fseek{flex-shrink:0;padding:2px 12px 0;color:var(--dark-fg)}.fseek[hidden]{display:none}
+.fseek .evseek i{background:#B9CCFF}.fseek .evmk{background:rgba(255,255,255,.16);color:#fff}.fseek .ltph{background:#fff;box-shadow:0 0 0 1.5px #000}.fseek .evbt{color:rgba(255,255,255,.6)}
+.focus>.fseek{max-width:900px;width:100%;margin:0 auto}
+@media (min-width:1000px) and (min-height:560px), (orientation:landscape) and (min-width:700px) and (min-height:500px){ .focus>.fseek{position:absolute;z-index:5;margin:0;max-width:none;padding:0 4px} }
 .evmk{position:absolute;top:0;transform:translateX(-50%);min-width:22px;height:22px;padding:0 4px;border:0;border-radius:11px;background:var(--chip);color:var(--text);display:flex;align-items:center;justify-content:center;font:inherit;font-size:11px;font-weight:600;cursor:pointer}
 .evmk svg{width:15px;height:15px}.evmk.nm{padding:0 7px}
 /* 5.9.6 her request: the playing position is a plain line, not a dot (both bars) */
@@ -2614,7 +2618,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 5.9.6 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 5.9.7 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4204,7 +4208,10 @@ function placeSteps() {
   if (!f || !v) return;
   const wide = getComputedStyle(document.querySelector('.focus')).display === 'grid';
   if (!wide) { if (f.style.top) { f.style.top = ''; f.style.bottom = ''; } return; }
-  const vb = v.getBoundingClientRect().bottom, fh = f.offsetHeight || 44, H = window.innerHeight;
+  const vr = v.getBoundingClientRect(), vb = vr.bottom, fh = f.offsetHeight || 44, H = window.innerHeight, sk = document.getElementById('fseek');
+  /* 5.9.7: with the alert bar showing, the bar sits 2 px under the picture and the buttons 4 px under the bar */
+  if (sk && !sk.hidden) { const fr = document.querySelector('.focus').getBoundingClientRect(); Object.assign(sk.style, { top: Math.round(vb - fr.top + 2) + 'px', left: Math.round(vr.left - fr.left) + 'px', width: Math.round(vr.width) + 'px' });
+    const top2 = Math.round(vb + 2 + sk.offsetHeight + 4); if (f.style.top !== top2 + 'px') { f.style.top = top2 + 'px'; f.style.bottom = 'auto'; } return; }
   const top = Math.round(Math.max(vb + 6, (vb + H) / 2 - fh / 2));
   if (f.style.top !== top + 'px') { f.style.top = top + 'px'; f.style.bottom = 'auto'; }
   if (!v._ro && window.ResizeObserver) { v._ro = new ResizeObserver(() => placeSteps()); v._ro.observe(v); }
@@ -5044,6 +5051,21 @@ function evBarPaint(k) { const h = k && document.getElementById('evb-' + k); if 
 /* 5.9.6 her design: instead of one orange line, each object Frigate found in the alert gets its own icon above the bar,
    at the moment it was first seen (car, person, dog…; a named cat shows its name). Tapping one plays from there, so a
    "dog" can be checked at once. Objects are read from Frigate (up to 12 per alert) if not known yet. */
+/* 5.9.7: an object can be first seen in a second that has no recording (her Front Door 17:55:20 car: the bar is blank
+   there), so its icon could never be reached. Tapping an icon now says what it is, and goes to the closest recorded
+   second when its own second wasn't recorded. */
+function mkGo(segs, t, n) {
+  const sg = segs || []; if (!sg.length || sg.some(x => t >= x.a && t <= x.b)) { toast(n + ' · ' + hms(t)); return t; }
+  let best = null; sg.forEach(x => { [x.a, x.b - 1000].forEach(y => { if (best == null || Math.abs(y - t) < Math.abs(best - t)) best = y; }); });
+  toast(n + ' · ' + hms(t) + ' · Not Recorded · Showing ' + hms(best)); Dbg.log('object not recorded', n, hms(t), '→', hms(best)); return best;
+}
+function mkIcons(xs, a, b, W, act, attr) {
+  let last = -99, h = '';
+  xs.forEach(x => { const nm = x.sub && !/^unknown$/i.test(x.sub) ? x.sub : '', logo = nm && isLogo(nm), named = nm && !logo;
+    let px = Math.max(0, Math.min(1, (x.t - a) / Math.max(1, b - a))) * W; if (px < last + 22) px = last + 22; last = px;
+    h += '<button class="evmk' + (named ? ' nm' : '') + '" data-act="' + act + '"' + attr + ' data-t="' + x.t + '" data-n="' + esc(named ? niceName(nm) : objName(logo ? nm : x.l)) + '" style="left:' + Math.min(W - 8, px).toFixed(0) + 'px" title="' + esc((named ? niceName(nm) + ' · ' : '') + objName(logo ? nm : x.l) + ' · ' + hms(x.t)) + '" aria-label="Play From ' + esc(objName(logo ? nm : x.l)) + ' At ' + hms(x.t) + '">' + (named ? esc(niceName(nm)) : objIcon(logo ? nm : x.l)) + '</button>'; });
+  return h;
+}
 const EvMk = {
   async load(k) { const e = evE(k); if (!e || Data.source !== 'frigate') return; const ds = (e.dets || []).filter(d => !Arrive.det[d]).slice(0, 12);
     if (ds.length) await Promise.all(ds.map(d => Frigate.get('/api/events/' + encodeURIComponent(d)).then(r => { if (r) Arrive.det[d] = Arrive.row(r); }).catch(() => {})));
@@ -5051,19 +5073,53 @@ const EvMk = {
   paint(k) {
     const e = evE(k), box = k && document.querySelector('#evb-' + CSS.escape(k) + ' .evmks'), bar = k && document.querySelector('#evb-' + CSS.escape(k) + ' .evseek'); if (!e || !box || !bar) return;
     const a = +bar.dataset.a, b = +bar.dataset.b, W = bar.clientWidth || 300, xs = (e.dets || []).map(d => Arrive.det[d] && Object.assign({ d }, Arrive.det[d])).filter(x => x && !x.fp && x.t >= a - 1000 && x.t <= b).sort((p, q) => p.t - q.t);
-    let last = -99, h = '';
-    xs.forEach(x => { const nm = x.sub && !/^unknown$/i.test(x.sub) ? x.sub : '', logo = nm && isLogo(nm), named = nm && !logo;
-      let px = Math.max(0, Math.min(1, (x.t - a) / Math.max(1, b - a))) * W; if (px < last + 22) px = last + 22; last = px;
-      h += '<button class="evmk' + (named ? ' nm' : '') + '" data-act="evmk" data-k="' + esc(k) + '" data-t="' + x.t + '" style="left:' + Math.min(W - 8, px).toFixed(0) + 'px" title="' + esc((named ? niceName(nm) + ' · ' : '') + objName(logo ? nm : x.l) + ' · ' + hms(x.t)) + '" aria-label="Play From ' + esc(objName(logo ? nm : x.l)) + ' At ' + hms(x.t) + '">' + (named ? esc(niceName(nm)) : objIcon(logo ? nm : x.l)) + '</button>'; });
+    const h = mkIcons(xs, a, b, W, 'evmk', ' data-k="' + esc(k) + '"');
     if (box._h !== h) { box._h = h; box.innerHTML = h; }
   }
 };
 const EvDrag = { on: false };
+/* 5.9.7 her request: the same bar in the camera view, between the picture and −10s … +10s (small gaps): it shows the
+   alert the recording is in, its recorded pieces, its objects' icons and a line at the shown second; dragging moves only
+   the line, letting go (or tapping an icon) moves the recording there. Hidden while Live or outside any alert. */
+function fJump(id, t) { if (!S.focus || S.focus.cam !== id) return; S.camTime[id] = t; S.playing = true; paintFocus(); Playback.sync(); try { fShow(t); } catch (z) {} FSeek.tick(true); }
+const FSeek = {
+  key: null, segs: {}, busy: {},
+  alertAt(id, t) { let best = null; for (const e of Data.events) if (e.cam === id && e.vs && t >= e.vs * 1000 && t <= e.ve * 1000 && (!best || e.t > best.t)) best = e; return best; },
+  tick(force) {
+    const box = document.getElementById('fseek'); if (!box) { this.key = null; return; }
+    const id = S.focus && S.focus.cam, t = id ? camT(id) : null, e = t != null ? this.alertAt(id, t) : null;
+    if (!e) { if (!box.hidden) { box.hidden = true; box.innerHTML = ''; this.key = null; placeSteps(); } return; }
+    const a = e.vs * 1000, b = e.ve * 1000;
+    if (this.key !== e.id || force === 'all') {
+      this.key = e.id; box.hidden = false;
+      box.innerHTML = '<div class="evmks fmks"></div><div class="evseek fsk" data-cam="' + esc(id) + '" data-a="' + a + '" data-b="' + b + '" role="slider" aria-label="Jump"><div class="ltbarin"><i style="left:0;width:100%"></i></div><em class="ltph" style="left:0"></em></div><div class="evbt"><span>' + hms(a) + '</span><span>' + hms(b) + '</span></div>';
+      placeSteps(); this.load(e, id);
+    }
+    const bar = box.querySelector('.fsk'), sg = this.segs[e.id];
+    if (sg && !bar._filled) { bar._filled = true; const h = barPieces(sg, a, b); if (h) bar.querySelector('.ltbarin').innerHTML = h; }
+    if (bar._w !== bar.clientWidth || force) { bar._w = bar.clientWidth; this.icons(e, a, b, bar); }
+    if (!EvDrag.on) { const ph = bar.querySelector('.ltph'); if (ph) ph.style.left = (Math.max(0, Math.min(1, (t - a) / Math.max(1, b - a))) * 100).toFixed(1) + '%'; }
+  },
+  icons(e, a, b, bar) { const box = document.querySelector('#fseek .fmks'); if (!box) return;
+    const xs = (e.dets || []).map(d => Arrive.det[d] && Object.assign({ d }, Arrive.det[d])).filter(x => x && !x.fp && x.t >= a - 1000 && x.t <= b).sort((p, q) => p.t - q.t);
+    const h = mkIcons(xs, a, b, bar.clientWidth || 300, 'fmk', ''); if (box._h !== h) { box._h = h; box.innerHTML = h; } },
+  async load(e, id) {
+    if (this.busy[e.id]) return; this.busy[e.id] = 1;
+    try {
+      if (!this.segs[e.id]) { const rows = await Frigate.get('/api/' + id + '/recordings?after=' + e.vs + '&before=' + e.ve); this.segs[e.id] = (rows || []).filter(x => x.end_time > e.vs && x.start_time < e.ve).map(x => ({ a: Math.max(e.vs, x.start_time) * 1000, b: Math.min(e.ve, x.end_time) * 1000 })).sort((p, q) => p.a - q.a); }
+      const ds = (e.dets || []).filter(d => !Arrive.det[d]).slice(0, 12);
+      if (ds.length) await Promise.all(ds.map(d => Frigate.get('/api/events/' + encodeURIComponent(d)).then(r => { if (r) Arrive.det[d] = Arrive.row(r); }).catch(() => {})));
+    } catch (z) {} finally { delete this.busy[e.id]; }
+    if (this.key === e.id) this.tick(true);
+  }
+};
+setInterval(() => { if (S.focus && !document.hidden) FSeek.tick(); }, 250);
 function evDragTo(x, final) {
   const bar = EvDrag.bar; if (!bar) return; const host = document.getElementById('evm-' + bar.dataset.k), v = host && host.querySelector('video.evv');
   const r = bar.getBoundingClientRect(), f = Math.max(0, Math.min(1, (x - r.left) / r.width)), t = +bar.dataset.a + f * (+bar.dataset.b - +bar.dataset.a);
   const ph = bar.querySelector('.ltph'); if (ph) ph.style.left = (f * 100).toFixed(1) + '%';
   const c = host && host.querySelector('.evclk'); if (c) { c.hidden = false; c.textContent = ymdhms(t); }
+  if (final && bar.dataset.cam) { fJump(bar.dataset.cam, t); Dbg.log('camera view jump', Math.round(f * 100) + '%', hms(t)); return; }
   if (final && v) { try { v.currentTime = Math.max(0, vodAt(v, t)); } catch (z) {} if (!v._up) v.play().catch(() => {}); Dbg.log('alert jump', Math.round(f * 100) + '%', hms(t)); }
 }
 document.addEventListener('pointerdown', e => { const bar = e.target.closest && e.target.closest('.evseek'); if (!bar) return; EvDrag.on = true; EvDrag.bar = bar; EvDrag.x0 = e.clientX; try { bar.setPointerCapture(e.pointerId); } catch (x) {} evDragTo(e.clientX, false); }, true);
@@ -5495,6 +5551,7 @@ function viewFocus() {
     '</div><div class="pillk fnmbr' + rcnA(c.id) + '>' + esc(c.name) + '</div>';   /* top row: back, the picture's time, buttons; the camera name sits in the picture's bottom-left corner (Loading shows bottom-right), the object tag just above it */
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '">' +
     '<div class="fvid vfit' + (c.id === 'nest_doorbell' ? ' door' : '') + (isTall(c) ? ' tall' : '') + '" style="--R:' + trueAr(c).toFixed(4) + (isTall(c) ? ';--ar:' + c.ar.toFixed(4) : trueAr(c) >= 1.2 && trueAr(c) < 1.7 ? ';aspect-ratio:' + trueAr(c).toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.quick(c.id, t != null, 'fquick') + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
+    '<div class="fseek" id="fseek" hidden></div>' +
     '<div class="fctl" id="fctl">' + (S.fclip && S.fclip.cam === c.id ?
       '<button class="dk" data-act="fclipx" aria-label="Cancel Download">' + I.x + '</button><div class="fclipt"><b>Start</b> ' + (S.fclip.a ? hms(S.fclip.a) : '—') + '<br><b>End</b> ' + (S.fclip.b ? hms(S.fclip.b) : '—') + '</div>' +
       (S.fclip.al ? '<button class="dk fclipal' + (S.fclip.a === S.fclip.al.a && S.fclip.b === S.fclip.al.b ? ' set' : '') + '" data-act="fclipal" aria-label="Whole Alert">Alert</button>' : '') +
@@ -6783,7 +6840,7 @@ function modalSettings() {
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['e', 'Ring'], ['d', 'Dot'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.9.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 5.9.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7059,7 +7116,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.9.6');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 5.9.7');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7076,7 +7133,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 5.9.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 5.9.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7361,7 +7418,8 @@ const ACT = {
     S.ppOpen = d.v; if (was && S.ppDirty) { S.ppDirty = false; PPlus.save(); PPlus.load(); return; } render(); },
   pppick(d) { const sl = PPlus.sel(), k = d.k, v = d.v; if (v === '') sl[k] = []; else { const i = sl[k].indexOf(v); if (i < 0) sl[k].push(v); else sl[k].splice(i, 1); } S.ppDirty = true; render(); },
   /* 5.8.7 her design: one word, Select — boxed = all picked; tap = none picked; tap again = all */
-  evmk(d) { const host = document.getElementById('evm-' + d.k), v = host && host.querySelector('video.evv'); if (!v) return; try { v.currentTime = Math.max(0, vodAt(v, +d.t)); } catch (z) {} v._up = false; v.play().catch(() => {}); evIcons(); Dbg.log('alert jump to object', hms(+d.t)); },
+  fmk(d) { const id = S.focus && S.focus.cam; if (!id) return; const e = FSeek.key && Data.events.find(x => x.id === FSeek.key), t = mkGo(e && FSeek.segs[e.id], +d.t, d.n || 'Object'); fJump(id, t); Dbg.log('camera view jump to object', d.n, hms(t)); },
+  evmk(d) { const host = document.getElementById('evm-' + d.k), v = host && host.querySelector('video.evv'); if (!v) return; const t = mkGo(v._segs, +d.t, d.n || 'Object'); try { v.currentTime = Math.max(0, vodAt(v, t)); } catch (z) {} v._up = false; v.play().catch(() => {}); evIcons(); Dbg.log('alert jump to object', d.n, hms(t)); },
   ppnopen() { S.ppN = !S.ppN; render(); },
   ppnset(d) { if (PPlus.sending) return; PPlus.N = +d.v; store.set('ppn', PPlus.N); S.ppN = false; PPlus.off = {}; if (PPlus.rows) PPlus.pick(); Dbg.log('frigate+ pictures how many', PPlus.N, 'picked', PPlus.picked.length); render(); },
   ppall() { if (PPlus.sending) return; const all = PPlus.picked.every(c => !PPlus.off[c.id]); PPlus.off = {}; if (all) PPlus.picked.forEach(c => { PPlus.off[c.id] = true; }); render(); },
@@ -8387,7 +8445,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '5.9.6';
+    const BUILD = '5.9.7';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
