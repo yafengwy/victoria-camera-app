@@ -1117,14 +1117,14 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
 .ftk{position:absolute;left:0;height:1px;background:rgba(255,255,255,.4)}
 .flb{position:absolute;left:13px;transform:translateY(-50%);font-size:10px;font-weight:700;color:rgba(255,255,255,.7);font-variant-numeric:tabular-nums;white-space:nowrap}
 .fseg{position:absolute;right:8px;width:12px;border-radius:3px;background:var(--hot);padding:0}
-.fseg.un{background:#E8B54A}
+.fseg.un{background:#8FA0B8}   /* 6.4.10 her rule: Uninteresting is grey everywhere (yellow confused her) */
 .fline2{position:absolute;left:0;right:0;top:50%;height:2px;margin-top:-1px;background:#FF4D4F;pointer-events:none}
 .fbub{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:3px 8px;border-radius:10px;background:#D9342B;color:#fff;font-size:11px;font-weight:800;font-variant-numeric:tabular-nums;pointer-events:none}
 .fpl{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px;padding:8px 6px 4px}
 .fpd{flex-shrink:0;font-size:10px;font-weight:800;color:rgba(255,255,255,.55);padding:6px 2px 0}
 .fpe{font-size:11px;color:rgba(255,255,255,.55);padding:8px 2px}
 .fpi{display:block;flex-shrink:0;width:100%;border-radius:8px;overflow:hidden;background:#1C2027;text-align:left;box-shadow:inset 3px 0 0 var(--hot)}
-.fpi.un{box-shadow:inset 3px 0 0 #E8B54A}
+.fpi.un{box-shadow:inset 3px 0 0 #8FA0B8}
 .fpi.cur{outline:2px solid #fff;outline-offset:-2px}
 .fpi img{display:block;width:100%;aspect-ratio:16/10;object-fit:cover}
 .fpi span{display:block;padding:3px 6px 4px;font-size:10px;font-weight:700;color:#fff;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1187,7 +1187,7 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
 .segi{position:absolute;top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;display:flex;pointer-events:none;z-index:1}
 .segi svg{width:16px;height:16px}
 .fico{position:absolute;right:24px;width:15px;height:15px;display:flex;color:var(--hot);pointer-events:none}
-.fico.un{color:#E8B54A}
+.fico.un{color:#8FA0B8}
 .fico svg{width:15px;height:15px}
 .lico,.fev i.lico{display:inline-flex;vertical-align:-2px;margin-right:4px;font-style:normal;width:auto;height:auto;background:none;border-radius:0}
 .lico svg{width:1.05em;height:1.05em}
@@ -6771,7 +6771,7 @@ function drawRvTrack(force) {
     for (let m = m0; m < m0 + g; m++) { const bk = rvBk.get(m); if (bk) { n = Math.max(n, bk.n); hot = hot || bk.hot; other = Math.max(other, bk.other); Object.assign(hl, bk.hl); for (const k in bk.lab) { lab[k] = (lab[k] || 0) + bk.lab[k]; if (!(first[k] <= bk.first[k])) first[k] = bk.first[k]; } } }
     let w = 0, col = '';
     /* every mark the same length: it only says "something here", the icon says what */
-    if (n) { w = 14; col = hot ? 'var(--hot)' : '#E8B54A'; }
+    if (n) { w = 14; col = hot ? 'var(--hot)' : '#8FA0B8'; }
     else if (other) { w = 8; col = 'var(--rvgrey)'; }
     /* the bar and icon sit where the first alert in this group starts (not at the group's first minute), so a jump
        to that alert puts the line right on the bar */
