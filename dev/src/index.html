@@ -2986,6 +2986,10 @@ const Playback = {
     if (S.focus) document.querySelectorAll('.evmedia video.evv[data-on]').forEach(v => { if (!v.paused) { v.pause(); Dbg.log('alert clip paused behind full view'); } if (v._hls) { try { v._hls.stopLoad(); } catch (x) {} } });
     document.querySelectorAll('video[data-hls]:not([data-on])').forEach(v => {     /* alert cards */
       if (S.focus && v.closest('.evmedia')) return;
+      /* 6.6.2 her log 10-21 12:35-12:43 (out on the phone's network, 1-2 MB/s): two clips downloaded at once (the alert
+         card and the Fix / object clip opened on top), each half as fast. Only the clip just opened loads now: the
+         others stop downloading and pause, and the newest one held goes on when it is the only one left */
+      document.querySelectorAll('video[data-hls][data-on]').forEach(o => { if (o === v || o._held) return; o._held = true; o._heldAt = Date.now(); try { if (o._hls) o._hls.stopLoad(); } catch (x) {} if (!o.paused) o.pause(); Dbg.log('alert clip held', o.dataset.cam || ''); });
       v.dataset.on = '1'; const u = v.dataset.hls, cam = v.dataset.cam, vs = +v.dataset.vs || 0, ve = +v.dataset.ve || 0, at = +v.dataset.at || 0;
       if (v.closest('.evmedia')) EvSnd.prep(v);   /* 5.1.3: Alerts sound button */
       v.addEventListener('playing', () => { v.style.opacity = '1'; });
@@ -2996,7 +3000,7 @@ const Playback = {
           .map(x => ({ a: Math.max(vs, x.start_time) * 1000, b: Math.min(ve, x.end_time) * 1000 }));
       }).catch(() => {}) : Promise.resolve();
       v._vs = vs * 1000;
-      if (at) v.addEventListener('loadedmetadata', () => segsP.then(() => { const vt = vodAt(v, at); if (vt > 0.5 && Math.abs(v.currentTime - vt) > 1) v.currentTime = vt; }), { once: true });   /* open at the alert */
+      if (at) v.addEventListener('loadedmetadata', () => segsP.then(() => { const vt = vodAt(v, v._jumpAt || at); if (vt > 0.5 && Math.abs(v.currentTime - vt) > 1) v.currentTime = vt; }), { once: true });   /* open at the alert */
       /* alert-card and full-screen players: say what happened, so a clip that never starts shows up in the Playback Log */
       const tag = (u.match(/\/vod\/([^/]+)\/start\/(\d+)\/end\/(\d+)/) || []).slice(1).map((x, i) => i ? hms(+x * 1000) : x).join(' ');
       Dbg.log('alert clip', tag, this.native(cam) ? 'native' : 'hls.js');
@@ -3010,10 +3014,13 @@ const Playback = {
       /* 5.9.2: hls.js starts loading at the alert's own second, not at the clip's start. Her log 10-19 15:41: Front Door
          loaded part 1 (14.5 MB, 3.3 s) only to jump to 59.6 s and load part 6; Driveway part 1 (9.5 MB) before part 2.
          The recorded-pieces list (needed to find the right second) is waited for at most 1.5 s. */
-      else this.hls().then(H => Promise.race([segsP, new Promise(r => setTimeout(r, 1500))]).then(() => { const sp = at ? vodAt(v, at) : 0;
+      else this.hls().then(H => Promise.race([segsP, new Promise(r => setTimeout(r, 1500))]).then(() => { const sp = (v._jumpAt || at) ? vodAt(v, v._jumpAt || at) : 0;
         const h = new H(sp > 0.5 ? { startPosition: sp, testBandwidth: false } : {}); v._hls = h; v.disableRemotePlayback = true; hlsLog(h, H, 'alert clip ' + tag); if (sp > 0.5) Dbg.log('alert clip', tag, 'starts loading at ' + sp.toFixed(1)); h.loadSource(u); h.attachMedia(v); v.play().catch(() => {});
         Playback.guard(v, h, () => { v._hls = null; v.src = u; v.play().catch(() => {}); }, 'alert clip ' + tag); })).catch(() => { v.src = u; });
     });
+    { const on = [...document.querySelectorAll('video[data-hls][data-on]')];
+      if (!on.some(o => !o._held)) { const h = on.filter(o => o._held).sort((a, b) => b._heldAt - a._heldAt)[0];
+        if (h && !(S.focus && h.closest('.evmedia'))) { h._held = false; try { if (h._hls) h._hls.startLoad(); } catch (x) {} if (!h._up) h.play().catch(() => {}); Dbg.log('alert clip goes on', h.dataset.cam || ''); } } }
     const want = this.cams();
     for (const id in this.st) if (!want[id]) {
       this.stop(id, 'not open');
@@ -7903,7 +7910,10 @@ const ACT = {
     const early = x.t < e.t - 1000, at = early ? e.t : x.t;
     toast(w + (byName ? ' = ' + objName(x.l) : '') + (early ? ' · There Since ' + hms(x.t) : ' · ' + hms(x.t)));
     Dbg.log('jump', k, w, x.d, x.l, hms(x.t), early ? 'early, to ' + hms(at) : '');
-    if (S.evPlay === k) { const m = document.getElementById('evm-' + k), v = m && m.querySelector('video.evv'); if (v && v.readyState > 0) { v.currentTime = vodAt(v, at - 1000); return; } }
+    if (S.evPlay === k) { const m = document.getElementById('evm-' + k), v = m && m.querySelector('video.evv'); if (v && v.readyState > 0) { v.currentTime = vodAt(v, at - 1000); return; }
+      /* 6.6.2 her log 12:43:13: a jump while the clip was still loading let it go and loaded it again (6.8 MB twice); now
+         the clip already loading opens at that second */
+      if (v && v.dataset.on) { v._jumpAt = at - 1000; Dbg.log('jump waits for the clip', k, hms(at - 1000)); return; } }
     S.evAt = { k, t: at - 1000 }; if (S.evPlay === k) evStop(); ACT.evplay({ v: k, jump: 1 });
   },
   evplay(d, ev) {
