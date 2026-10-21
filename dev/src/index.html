@@ -4156,8 +4156,9 @@ const Roam = {
   phone() { return /iPhone|Android/i.test(navigator.userAgent); },
   active() { return this.on && this.phone() && !/^wi-?fi$/i.test(String(this.net || '')); },
   low() { return this.active() && !this.hd; },
-  /* someone's Roaming is on and this phone hasn't said whose it is: ask once */
-  ask() { if (this.phone() && !this.who && (this.all.victoria || this.all.james) && !S.modal) { S.modal = 'roamwho'; render(); } },
+  /* 6.6.5 her rule: the first time the app is opened in a place on a phone it asks whose phone it is (not only while
+     someone is roaming — she would forget to set it later); the answer shows in Settings → This Phone */
+  ask() { if (this.phone() && !this.who && !S.modal) { S.modal = 'roamwho'; render(); } },
   async load() {
     if (Data.source !== 'frigate') return;
     const was = this.low();
@@ -4557,7 +4558,7 @@ function render0() {
   if (S.focus && !S.watch) h += viewFocus();
   if (S.modal === 'filter') h += modalFilter();
   if (S.modal === 'settings') h += modalSettings();
-  if (S.modal === 'roamwho') h += '<div class="scrim" role="presentation"><div class="dialog sm" role="dialog" aria-label="Who Is Using This Phone" data-stop="1"><div class="dhead">Who Is Using This Phone?</div><div class="dbody"><div class="wtnote" style="margin:0 0 10px">Asked once here, for Roaming (low data on the phone\'s network). You can change it in Settings.</div><div class="chips"><button class="chip" data-act="roamwho" data-v="victoria">Victoria</button><button class="chip" data-act="roamwho" data-v="james">James</button></div></div></div></div>';
+  if (S.modal === 'roamwho') h += '<div class="scrim" role="presentation"><div class="dialog sm" role="dialog" aria-label="Who Is Using This Phone" data-stop="1"><div class="dhead">Who Is Using This Phone?</div><div class="dbody"><div class="wtnote" style="margin:0 0 10px">Asked once here. Used for Roaming (low data on the phone\'s network). You can change it in Settings → This Phone.</div><div class="chips"><button class="chip" data-act="roamwho" data-v="victoria">Victoria</button><button class="chip" data-act="roamwho" data-v="james">James</button></div></div></div></div>';
   if (S.modal === 'win') h += modalWin();
   if (S.modal === 'snooze') h += modalSnooze();
   if (S.modal === 'wait') h += modalWait();
