@@ -1242,6 +1242,11 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
 :root[data-dark] .tag:not(.un),:root[data-dark] .focus .tag:not(.un){background:var(--hot);color:#1A0E05}
 .focus .tag:not(.un){background:var(--hot)}
 .tag.un{background:rgba(18,22,24,.66);color:#E6ECF2;box-shadow:inset 0 0 0 1px rgba(255,255,255,.35)}
+/* 6.5.9: several things on the picture at once: one tag each */
+.tag.multi{background:none!important;box-shadow:none!important;padding:0;gap:6px}
+.tag.multi .tagp{display:inline-flex;align-items:center;gap:4px;padding:4px 9px;border-radius:6px;background:var(--hot);color:#fff;font-style:normal}
+.tag.multi .tagp.un{background:rgba(18,22,24,.66);color:#E6ECF2;box-shadow:inset 0 0 0 1px rgba(255,255,255,.35)}
+.tag.multi .tagp svg{width:13px;height:13px;flex-shrink:0}
 .rvcam .tag svg{width:11px;height:11px}
 
 /* ---- v54: playhead always above alert icons; option B = two rows (Interesting top, Uninteresting bottom) ---- */
@@ -2159,7 +2164,12 @@ const Frigate = {
     const ev = fk || Data.events.find(e => e.cam === cam.id && t >= e.t - 2000 && t <= (e.end || e.t) + 2000 && passes(e));
     /* 6.3.3 her rule: an alert recognised as a carrier (Amazon, FedEx…) says so on the picture, like its thumbnail */
     const kk = ev && S.focus && S.focus.ogk ? S.focus.ogk.slice(0, -1).toLowerCase() : '', pp = ev && pick(ev, S.filt), tl = !ev ? '' : kk && (ev.objs || [ev.label]).includes(kk) ? kk : ev.logo && /^(person|car|truck)$/i.test(pp.label) ? ev.logo : pp.label;
-    return { img: this.base() + '/api/' + cam.id + '/recordings/' + sec + '/snapshot.jpg?height=480', tag: tl, name: ev ? tagName(ev) : '', hot: ev ? ev.interesting : false, busy: !!ev };   /* 3.6.4: a known name (胖胖, James, FedEx) on the picture's tag */
+    /* 6.5.9 her report: the FedEx alert's picture said "[truck] James" (the company's icon with the person's name). The
+       name now belongs to the icon, and every different thing in that alert seen at this moment gets its own tag */
+    const pr = ev && partRows(ev), at = pr ? pr.filter(r => t >= r.t - 1000 && t <= r.en + 1000) : [];
+    const tags = at.length > 1 ? at.map(r => ({ tag: r.icon, name: r.name, hot: r.hot })) : null;
+    const nm0 = ev ? (isLogo(String(tl).toLowerCase()) ? coName(tl) : tagName(ev)) : '';
+    return { img: this.base() + '/api/' + cam.id + '/recordings/' + sec + '/snapshot.jpg?height=480', tag: tl, name: nm0, tags, hot: ev ? evInt(ev) : false, busy: !!ev };   /* 3.6.4: a known name (胖胖, James, FedEx) on the picture's tag */
   }
 };
 
@@ -2751,7 +2761,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.5.8 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.5.9 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4715,7 +4725,7 @@ function camCard(c, fr, span2) {
     '<button class="hit" data-act="tap" data-id="' + c.id + '" aria-label="Show playback for ' + esc(c.name) + '"></button>' +
     (F360.away(c.id) ? '<div class="offv">' + I.power + '<b>Service Suspended</b><span>' + (F360.now === 'furbo' ? 'In The Furbo App Now' : 'Moving To The Furbo App · Within 1 Min') + '</span><button class="btn solid" data-act="furbo360" data-v="app">Bring Back</button></div>'
     : off ? '<div class="offv" id="off-' + c.id + '" data-act="tap" data-id="' + c.id + '"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>' : '') +
-    (slim ? '<div class="ctr">' + snz + badgeHtml(c.id, t, f) + '</div>' : badgeHtml(c.id, t, f)) + '<div class="ctm" id="ctm-' + c.id + '"' + (t != null ? ' hidden' : '') + '>' + hms(shownT(c.id, Live.cardSrc(c.id))) + '</div><div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="tag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div></article>';
+    (slim ? '<div class="ctr">' + snz + badgeHtml(c.id, t, f) + '</div>' : badgeHtml(c.id, t, f)) + '<div class="ctm" id="ctm-' + c.id + '"' + (t != null ? ' hidden' : '') + '>' + hms(shownT(c.id, Live.cardSrc(c.id))) + '</div><div class="tag' + (f.tags ? ' multi' : f.tag && !f.hot ? ' un' : '') + '" id="tag-' + c.id + '"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div></article>';
 }
 /* The moment the picture on screen is from: the playback time; live video = now while the picture is moving,
    and when it stops (Still) the moment it last moved; a still snapshot = when that snapshot was taken. */
@@ -4971,8 +4981,8 @@ function tagName(e) {
   const pet = w => CatFix.names.includes(w) || ['胖胖', '团团'].includes(w), co = w => isLogo(String(w).toLowerCase()) || CoFix.isCo(w) || /^(FedEx|UPS|USPS|Amazon|DHL)$/.test(w);
   return (isAnimal(L) ? ws.find(pet) : L === 'car' ? ws.find(co) : L === 'person' ? ws.find(w => !pet(w) && !co(w)) : '') || '';
 }
-const tagInner = f => objIcon(f.tag) + '<span>' + esc(f.name || objName(f.tag)) + '</span>';
-function setTag(n, f) { if (!n) return; n.innerHTML = f.tag ? tagInner(f) : ''; n.hidden = !f.tag; n.classList.toggle('un', !!f.tag && !f.hot); }
+const tagInner = f => f.tags ? f.tags.map(x => '<i class="tagp' + (x.hot ? '' : ' un') + '">' + objIcon(x.tag) + '<span>' + esc(x.name || objName(x.tag)) + '</span></i>').join('') : objIcon(f.tag) + '<span>' + esc(f.name || objName(f.tag)) + '</span>';
+function setTag(n, f) { if (!n) return; const h = f.tag ? tagInner(f) : ''; if (n.innerHTML !== h) n.innerHTML = h; n.hidden = !f.tag; n.classList.toggle('multi', !!f.tags); n.classList.toggle('un', !!f.tag && !f.tags && !f.hot); }
 /* 5.10.2: taken off again at her request (only alert icons on this timeline, as before). Kept unused.
    5.9.9 her request: the opened camera's timeline shows what was recorded: a thin line where there is video, blank where
    nothing was kept. One recordings question per camera and shown stretch (with some room on both sides), today's
@@ -5044,7 +5054,10 @@ const Arrive = {
     /* 3.1.5: a part marked wrong stays out, unless it was given a cat's name with Fix (a "dog" that is 团团 shows as Cat) */
     return (e.dets || []).map(d => this.det[d] && Object.assign({ d }, this.det[d])).filter(x => x && (!x.fp || Rel.of(x.d) || (x.sub && x.l !== 'cat' && isAnimal(x.l))) && x.t >= e.t - 1000).map(x => {
       const l0 = Rel.of(x.d) || (x.l !== 'cat' && isAnimal(x.l) && x.sub && People.sub[x.d] ? 'cat' : x.l), L = l0.replace(/^\w/, m => m.toUpperCase());
-      return { d: x.d, t: x.t, en: x.en, label: L, sub: x.sub, hot: ruleHot(e.cam, l0, x.z) };
+      /* 6.5.9: a carrier's car / driver is Interesting on Front Door, Driveway and Doorbell (3.3.1), or while she waits for
+         that company, like the whole alert: her 17:37 FedEx alert split into nothing because only the zone rule was asked */
+      const pl = partLogo(e, l0, x.sub);
+      return { d: x.d, t: x.t, en: x.en, label: L, sub: x.sub, hot: ruleHot(e.cam, l0, x.z) || (!!pl && (coCam(e.cam, [pl]) || Wait.hit(x.t, [pl]))) };
     }).filter(x => objOn(f, x.label) && (x.hot ? f.int : f.unint)).sort((a, b) => a.t - b.t);
   },
   /* Corrections made in Frigate win: a car whose sub label was changed there to a name (or cleared after "not FedEx"),
@@ -5109,6 +5122,7 @@ const Arrive = {
       if (S.dragging || Date.now() - lastTouch < 1500) return this.redraw();
       if (S.expanded) refreshTrack();
       const tr = S.focus && document.getElementById('ftrack'); if (tr) tr.innerHTML = fTrack(Data.cam(S.focus.cam));
+      { const l = S.full && S.fpanel && document.querySelector('#fullv .fpl'); if (l) { S.fplTop = l.scrollTop; fullUi(); } }   /* 6.5.9: the full screen list splits too */
       /* camera view alert list: the rows of alerts whose objects just arrived split, in place (no page redraw) */
       const fl = S.focus && S.flist && document.getElementById('flist');
       if (fl) { const st = fl.scrollTop, c = Data.cam(S.focus.cam); fl.innerHTML = fListRows(camEvents(c.id).filter(e => e.t <= now()).sort((a, b) => b.t - a.t).slice(0, 500), camT(c.id)); fl.scrollTop = st; fListDay(fl); }
@@ -5274,7 +5288,7 @@ function mkGo(segs, t, n) {
 }
 /* 6.1.10 her rules for the icons on every alert bar: no round background (they crowded and overlapped); Interesting
    ones orange, Uninteresting grey; a doubled cat name shows one character (团团 → 团, 胖胖 → 胖) */
-function detHot(e, x) { return evInt(e) && ruleHot(e.cam, Rel.of(x.d) || x.l, x.z); }
+function detHot(e, x) { if (!evInt(e)) return false; const l = Rel.of(x.d) || x.l, pl = partLogo(e, l, x.sub); return ruleHot(e.cam, l, x.z) || (!!pl && (coCam(e.cam, [pl]) || Wait.hit(x.t, [pl]))); }   /* 6.5.9: carriers too, like the rows */
 function shortName(n) { n = String(n || ''); return /^(.)\1$/u.test(n) ? Array.from(n)[0] : n; }
 /* 6.3.9 her report: "Ups" showed right after opening, then turned into Car / Person about 2 s later. Before the objects
    are read the alert's carrier (e.logo) is used for its car or main object (ico); once read, the objects only had their
@@ -5282,8 +5296,12 @@ function shortName(n) { n = String(n || ''); return /^(.)\1$/u.test(n) ? Array.f
    rule as before they were read */
 function partLogo(e, l, sub) {
   if (sub && isLogo(sub)) return String(sub).toLowerCase(); if (!e || !e.logo) return '';
-  if ((e.dets || []).some(d => Arrive.det[d] && isLogo(Arrive.det[d].sub))) return '';
-  return /^car$/i.test(l) || String(l).toLowerCase() === String(e.label).toLowerCase() ? e.logo : '';
+  if (sub && !/^unknown$/i.test(sub)) return '';   /* 6.5.9: someone with a name (James) is not the company */
+  const xs = (e.dets || []).map(d => Arrive.det[d]).filter(Boolean);
+  if (xs.some(x => isLogo(x.sub))) return '';
+  /* the company is its car; only an alert with no car known gives it to its main object (the driver) */
+  if (/^car$/i.test(l)) return e.logo;
+  return String(l).toLowerCase() === String(e.label).toLowerCase() && !xs.some(x => x.l === 'car' && !x.fp) ? e.logo : '';
 }
 function mkIcons(xs, a, b, W, act, attr, e) {
   let last = -99, h = '';
@@ -5794,11 +5812,25 @@ function fScrubPaint() {
    their own row at the second they showed up, not one row from the first second of the whole alert. Interesting only
    shows the Interesting objects; with Uninteresting on, those objects get their own rows too. An alert whose objects
    aren't known yet (or has just one) stays one row, at its picked object's time. */
+/* 6.5.9 her choice (1): an alert with different things in it (the FedEx truck at 17:37:07, James at 17:37:23) is one
+   row per thing, each with its own time, icon, name and colour; the same kind seen again in that alert stays one row.
+   Until the alert's objects are known it is one row, as before. Used by the camera view list and the full screen list. */
+function partRows(e) {
+  const ps = Arrive.parts(e, S.filt); if (!ps.length) return null;
+  const out = [], seen = {};
+  ps.forEach(x => {
+    const lg = partLogo(e, x.label, x.sub), nmd = !lg && x.sub && !/^unknown$/i.test(x.sub) && !isLogo(String(x.sub).toLowerCase()) ? niceName(x.sub) : '';
+    const icon = lg || x.label, name = nmd || objName(icon), k = icon.toLowerCase() + '|' + name;
+    const r = seen[k]; if (r) { r.en = Math.max(r.en, x.en || x.t); r.hot = r.hot || x.hot; return; }
+    out.push(seen[k] = { e, t: x.t, en: x.en || x.t, name, icon, hot: x.hot && evInt(e), img: Frigate.base() + '/api/events/' + x.d + '/thumbnail.webp', dur: '' });
+  });
+  return out;
+}
 function fListRows(evs, t) {
   const rows = [];
   evs.forEach(e => {
-    const ps = Arrive.parts(e, S.filt);
-    if (ps.length) ps.forEach(x => rows.push({ e, t: x.t, name: x.sub && x.sub.toLowerCase() !== 'unknown' ? objName(x.sub) : objName(x.label), icon: x.label, img: Frigate.base() + '/api/events/' + x.d + '/thumbnail.webp', dur: '' }));
+    const pr = partRows(e);
+    if (pr) pr.forEach(r => rows.push(r));
     else { const p = pick(e, S.filt); rows.push({ e, t: p.t, name: lab(e, p), icon: ico(e, p), img: evImg(e, p), dur: durLabel(e) }); }
   });
   rows.sort((a, b) => b.t - a.t);
@@ -5895,7 +5927,7 @@ function viewFocus() {
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
     '</div><div class="pillk fnmbr' + rcnA(c.id) + '>' + esc(c.name) + '</div>';   /* top row: back, the picture's time, buttons; the camera name sits in the picture's bottom-left corner (Loading shows bottom-right), the object tag just above it */
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '" style="--vr:' + (isTall(c) ? c.ar : Math.min(trueAr(c), 1.7778)).toFixed(4) + '">' +
-    '<div class="fvid vfit' + (c.id === 'nest_doorbell' ? ' door' : '') + (isTall(c) ? ' tall' : '') + '" style="--R:' + trueAr(c).toFixed(4) + (isTall(c) ? ';--ar:' + c.ar.toFixed(4) : trueAr(c) >= 1.2 && trueAr(c) < 1.7 ? ';aspect-ratio:' + trueAr(c).toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.quick(c.id, t != null, 'fquick') + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
+    '<div class="fvid vfit' + (c.id === 'nest_doorbell' ? ' door' : '') + (isTall(c) ? ' tall' : '') + '" style="--R:' + trueAr(c).toFixed(4) + (isTall(c) ? ';--ar:' + c.ar.toFixed(4) : trueAr(c) >= 1.2 && trueAr(c) < 1.7 ? ';aspect-ratio:' + trueAr(c).toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.quick(c.id, t != null, 'fquick') + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tags ? ' multi' : f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fseek" id="fseek" hidden></div>' +
     '<div class="fctl" id="fctl">' + (S.fclip && S.fclip.cam === c.id ?
       '<button class="dk" data-act="fclipx" aria-label="Cancel Download">' + I.x + '</button><div class="fclipt"><b>Start</b> ' + (S.fclip.a ? hms(S.fclip.a) : '—') + '<br><b>End</b> ' + (S.fclip.b ? hms(S.fclip.b) : '—') + '</div>' +
@@ -5948,12 +5980,16 @@ function viewFull(c, t, f) {
     if (S.fpanel) {
       let lastDay = null;
       side += '<div class="fpl">';
-      const list = evs.slice().sort((a, b) => b.t - a.t);
-      if (!list.length) side += '<div class="fpe">No alerts match your filters.</div>';
-      list.forEach(e => {
-        const dl = dayStart(e.t) === dayStart(now()) ? 'Today' : dayStart(e.t) === dayStart(now() - DAY) ? 'Yesterday' : dayLabel(e.t);
+      Arrive.want(evs);
+      const rows = [];
+      evs.forEach(e => { const pr = partRows(e); if (pr) pr.forEach(r => rows.push(r)); else rows.push({ e, t: e.t, en: e.end || e.t, name: lab(e), icon: ico(e), hot: evInt(e), img: e.img }); });
+      rows.sort((a, b) => b.t - a.t);
+      const cur = t == null ? null : rows.filter(r => t >= r.t - 3000 && t <= r.en + 3000).sort((a, b) => b.t - a.t)[0];
+      if (!rows.length) side += '<div class="fpe">No alerts match your filters.</div>';
+      rows.forEach(r => {
+        const dl = dayStart(r.t) === dayStart(now()) ? 'Today' : dayStart(r.t) === dayStart(now() - DAY) ? 'Yesterday' : dayLabel(r.t);
         if (dl !== lastDay) { side += '<div class="fpd">' + dl + '</div>'; lastDay = dl; }
-        side += '<button class="fpi' + (t != null && t >= e.t - 3000 && t <= (e.end || e.t) + 3000 ? ' cur' : '') + (evInt(e) ? '' : ' un') + '" data-act="fseek" data-t="' + e.t + '"><img src="' + e.img + '" alt="" loading="lazy"><span><i class="lico">' + objIcon(ico(e)) + '</i>' + esc(lab(e)) + ' ' + hm(e.t) + '</span></button>';
+        side += '<button class="fpi' + (r === cur ? ' cur' : '') + (r.hot ? '' : ' un') + '" data-act="fseek" data-t="' + r.t + '"><img src="' + r.img + '" alt="" loading="lazy"><span><i class="lico">' + objIcon(r.icon) + '</i>' + esc(r.name) + ' ' + hm(r.t) + '</span></button>';
       });
       side += '</div>';
     } else {
@@ -5961,7 +5997,7 @@ function viewFull(c, t, f) {
     }
     side += (S.fpanel ? '' : '<div class="fsb zdesk2"><button class="dk sm" data-act="fzoombtn" data-v="out" aria-label="Show Longer Time">−</button><button class="dk sm" data-act="fzoombtn" data-v="in" aria-label="Show Shorter Time">+</button></div>') + '</aside>';
   }
-  return '<div class="full' + (c.id === 'nest_doorbell' ? ' door' : '') + (S.fui ? ' ui' : '') + (fullRot() ? ' rot' : '') + '" id="fullv" data-cam="' + esc(c.id) + '"><div class="fvw vfit vcon" style="--R:' + trueAr(c).toFixed(4) + '" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + '<div class="tag' + (f.tag && !f.hot ? ' un' : '') + '" id="fulltag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div>' + Live.quick(c.id, t != null, 'fullquick') + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
+  return '<div class="full' + (c.id === 'nest_doorbell' ? ' door' : '') + (S.fui ? ' ui' : '') + (fullRot() ? ' rot' : '') + '" id="fullv" data-cam="' + esc(c.id) + '"><div class="fvw vfit vcon" style="--R:' + trueAr(c).toFixed(4) + '" data-act="fuitap"><img id="fullimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + '<div class="tag' + (f.tags ? ' multi' : f.tag && !f.hot ? ' un' : '') + '" id="fulltag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div>' + Live.quick(c.id, t != null, 'fullquick') + Live.holder(c.id, t != null, 'fulllive') + Playback.holder(c.id) +
     '<div class="fulltm" id="fulltm">' + dtShort(shownT(c.id, c.id)) + '</div>' +
     (S.fui ? '<div class="fullsteps"><button class="dk sm wide" data-act="fstep" data-v="-10" aria-label="Back 10 Seconds">−10s</button><button class="dk sm wide" data-act="fstep" data-v="-5" aria-label="Back 5 Seconds">−5s</button><button class="dk sm wide fullpp" data-act="playpause" aria-label="' + (S.playing ? 'Pause' : 'Play') + '">' + (S.playing ? I.pause : I.play) + '</button><button class="fstep" data-act="flive" aria-label="Go Live">Live</button>' +
       '<button class="dk sm wide" id="fullstepf5" data-act="fstep" data-v="5" aria-label="Forward 5 Seconds"' + (t == null ? ' disabled' : '') + '>+5s</button><button class="dk sm wide" id="fullstepf" data-act="fstep" data-v="10" aria-label="Forward 10 Seconds"' + (t == null ? ' disabled' : '') + '>+10s</button></div>' : '') +
@@ -7202,7 +7238,7 @@ function modalSettings() {
     row('Camera View Alerts', seg('fmode', S.fmode, [['C', 'List'], ['B', 'Thumbnails']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.5.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.5.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7478,7 +7514,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.5.8');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.5.9');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7495,7 +7531,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.5.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.5.9\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -8851,7 +8887,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.5.8';
+    const BUILD = '6.5.9';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
