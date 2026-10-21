@@ -4156,9 +4156,9 @@ const Roam = {
   phone() { return /iPhone|Android/i.test(navigator.userAgent); },
   active() { return this.on && this.phone() && !/^wi-?fi$/i.test(String(this.net || '')); },
   low() { return this.active() && !this.hd; },
-  /* 6.6.5 her rule: the first time the app is opened in a place on a phone it asks whose phone it is (not only while
-     someone is roaming — she would forget to set it later); the answer shows in Settings → This Phone */
-  ask() { if (this.phone() && !this.who && !S.modal) { S.modal = 'roamwho'; render(); } },
+  /* 6.6.6 her rule (back to 6.6.4): asked once per place on a phone, only while someone's Roaming is on; with both off
+     nothing is asked. The answer shows in Settings → This Phone */
+  ask() { if (this.phone() && !this.who && (this.all.victoria || this.all.james) && !S.modal) { S.modal = 'roamwho'; render(); } },
   async load() {
     if (Data.source !== 'frigate') return;
     const was = this.low();
