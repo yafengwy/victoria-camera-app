@@ -292,6 +292,93 @@ CACHE, LOCKS, LOCK = {}, {}, threading.Lock()
 DISK = '/tmp/clipcache'
 os.makedirs(DISK, exist_ok=True)
 
+# ---- Roaming (2026-10-21): low-data recordings for the app while she is abroad on the phone's network ----
+# /low/vod/<cam>/start/<a>/end/<b>/index.m3u8 is Frigate's own recording playlist (same seconds, same gaps, same
+# timeline as /vod/), with every piece re-made small on demand (640 wide H.264 ~450 kb/s, AAC 48 kb/s mono, MPEG-TS,
+# timestamps kept) at s/<token>.ts. A piece is made only when a player asks for it (plus the next one, ahead), at
+# most two at a time, and kept in memory for a while. Nothing is made unless the app is in low-data mode.
+import base64, collections
+LOWP = re.compile(r'^/low/vod/([a-z0-9_]+)/start/([0-9.]+)/end/([0-9.]+)/index\.m3u8$')
+LOWS = re.compile(r'^/low/vod/[^?]*/s/([A-Za-z0-9_\-]+)\.ts$')
+LOW_SEM = threading.Semaphore(2)
+LOW_CACHE = collections.OrderedDict()   # token -> bytes
+LOW_NEXT = {}
+LOW_BUSY = {}
+LOW_LOCK = threading.Lock()
+INIT_CACHE = {}
+
+def low_get(u, timeout=30):
+    with urllib.request.urlopen(u, timeout=timeout) as r:
+        return r.read()
+
+def low_tok(seg, init):
+    return base64.urlsafe_b64encode(json.dumps([seg, init]).encode()).decode().rstrip('=')
+
+def low_untok(t):
+    return json.loads(base64.urlsafe_b64decode(t + '=' * (-len(t) % 4)).decode())
+
+def low_playlist(cam, a, b):
+    u = f'{FRIGATE}/vod/{cam}/start/{a}/end/{b}/index.m3u8'
+    txt = low_get(u).decode()
+    if '#EXT-X-STREAM-INF' in txt:
+        v = next(l for l in txt.splitlines() if l.strip() and not l.startswith('#'))
+        u = urllib.parse.urljoin(u, v.strip()); txt = low_get(u).decode()
+    out, init, toks = [], None, []
+    for line in txt.splitlines():
+        if line.startswith('#EXT-X-MAP'):
+            m = re.search(r'URI="([^"]+)"', line); init = urllib.parse.urljoin(u, m.group(1)) if m else None; continue
+        if line.startswith('#EXT-X-VERSION'):
+            out.append('#EXT-X-VERSION:3'); continue
+        if line.strip() and not line.startswith('#'):
+            t = low_tok(urllib.parse.urljoin(u, line.strip()), init); toks.append(t); out.append('s/' + t + '.ts'); continue
+        out.append(line)
+    with LOW_LOCK:
+        for i in range(len(toks) - 1): LOW_NEXT[toks[i]] = toks[i + 1]
+    print('low playlist', cam, a, b, len(toks), 'pieces', flush=True)
+    return ('\n'.join(out) + '\n').encode()
+
+def low_make(tok):
+    with LOW_LOCK:
+        if tok in LOW_CACHE: LOW_CACHE.move_to_end(tok); return LOW_CACHE[tok]
+        ev = LOW_BUSY.get(tok)
+        if ev is None: ev = LOW_BUSY[tok] = threading.Event(); mine = True
+        else: mine = False
+    if not mine:
+        ev.wait(60)
+        with LOW_LOCK: return LOW_CACHE.get(tok)
+    body = None
+    try:
+        seg, init = low_untok(tok)
+        t0 = time.time()
+        raw = low_get(seg)
+        if init:
+            if init not in INIT_CACHE: INIT_CACHE[init] = low_get(init)
+            raw = INIT_CACHE[init] + raw
+        with LOW_SEM, tempfile.TemporaryDirectory() as d:
+            a, b = os.path.join(d, 'in'), os.path.join(d, 'out.ts')
+            open(a, 'wb').write(raw)
+            t1 = time.time()
+            subprocess.run(['ffmpeg', '-v', 'error', '-copyts', '-i', a, '-map', '0:v:0', '-map', '0:a?', '-vf', "scale='min(640,iw)':-2",
+                            '-c:v', 'libx264', '-preset', 'veryfast', '-profile:v', 'main', '-level:v', '3.1', '-b:v', '450k', '-maxrate', '600k',
+                            '-bufsize', '900k', '-bf', '0', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '48k', '-ac', '1', '-ar', '44100',
+                            '-f', 'mpegts', '-mpegts_copyts', '1', '-muxdelay', '0', '-muxpreload', '0', '-y', b], check=True, timeout=60)
+            body = open(b, 'rb').read()
+        print('low piece', f'{len(raw) // 1024} KB -> {len(body) // 1024} KB', f'get {t1 - t0:.1f}s make {time.time() - t1:.1f}s', flush=True)
+    except Exception as x:
+        print('low piece failed', repr(x), flush=True)
+    with LOW_LOCK:
+        if body is not None:
+            LOW_CACHE[tok] = body
+            while len(LOW_CACHE) > 300: LOW_CACHE.popitem(last=False)
+        LOW_BUSY.pop(tok, None)
+    ev.set()
+    return body
+
+def low_ahead(tok):
+    n = LOW_NEXT.get(tok)
+    if n and n not in LOW_CACHE and n not in LOW_BUSY:
+        threading.Thread(target=low_make, args=(n,), daemon=True).start()
+
 def disk_path(key):
     import hashlib
     return os.path.join(DISK, hashlib.md5(key.encode()).hexdigest())
@@ -405,7 +492,32 @@ class H(BaseHTTPRequestHandler):
         print('furbo360 want', want)
         self.ctl_reply(200, {'want': want})
 
+    def low_reply(self, code, body, ctype):
+        self.send_response(code)
+        self.send_header('Content-Type', ctype)
+        self.send_header('Content-Length', str(len(body)))
+        self.send_header('Cache-Control', 'no-cache' if ctype.endswith('mpegurl') else 'max-age=3600')
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
+        lp = LOWP.match(self.path.split('?')[0])
+        if lp:
+            try: self.low_reply(200, low_playlist(lp.group(1), lp.group(2), lp.group(3)), 'application/vnd.apple.mpegurl')
+            except Exception as x:
+                print('low playlist failed', self.path, repr(x), flush=True)
+                try: self.send_error(502)
+                except Exception: pass
+            return
+        ls = LOWS.match(self.path.split('?')[0])
+        if ls:
+            body = low_make(ls.group(1))
+            if body is None:
+                try: self.send_error(502)
+                except Exception: pass
+                return
+            low_ahead(ls.group(1))
+            self.low_reply(200, body, 'video/mp2t'); return
         if self.path.split('?')[0] == '/ctl/litter':
             with LITTER_LOCK:
                 d = litter_load()

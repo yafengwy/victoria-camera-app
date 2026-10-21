@@ -255,6 +255,11 @@ img.rf{opacity:0}
 .round.pfixb,.pctl.g3 .round.pfixb{width:auto;padding:0 12px}
 .fov .dk.ffix,.fuitop .dk.ffix{width:auto;padding:0 12px;font-size:13px;font-weight:700}
 .fuitop .ffixw{display:flex;gap:8px}
+.qwrap{position:relative;display:inline-flex}
+.fov .dk.qbtn,.fuitop .dk.qbtn{width:auto;padding:0 10px;font-size:12px;font-weight:800;white-space:nowrap}
+.qmenu{position:absolute;top:calc(100% + 6px);left:0;display:flex;flex-direction:column;min-width:96px;padding:4px;border-radius:12px;background:#1C2027;box-shadow:0 8px 24px rgba(0,0,0,.45);z-index:20}
+.qmenu button{padding:10px 12px;border-radius:8px;color:#fff;font-size:14px;font-weight:700;text-align:left}
+.qmenu button[aria-pressed="true"]{background:rgba(185,204,255,.18);color:#B9CCFF}
 .fov .dk svg,.fov .dk.ctl svg{width:17px;height:17px}
 .fctl{height:68px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid var(--dark-line);width:100%;max-width:900px;margin:0 auto}
 .fday{height:44px;padding:0 14px;border-radius:22px;background:var(--dark-card);display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700}
@@ -2418,9 +2423,10 @@ const Live = {
   cardSrc(id) { return (PHONE_LIVE() || S.layout === 'grid' && S.expanded !== id) && Frigate.streams && Frigate.streams[id + '_sub'] ? id + '_sub' : id; },
   /* 4.2.4: camera view / full screen: the light stream sits under the HD one and starts first (it connects in ~1-2 s);
      the HD video covers it as soon as it has a picture, and the light one is then closed */
-  quick(id, hide, hid) { return Frigate.streams && Frigate.streams[id + '_sub'] ? this.holder(id + '_sub', hide, hid) : ''; },
+  quick(id, hide, hid) { return !Roam.low() && Frigate.streams && Frigate.streams[id + '_sub'] ? this.holder(id + '_sub', hide, hid) : ''; },
   hdUp(id) { const e = this.els[id]; return !!(e && e.okSince && now() - e.okSince > 1200); },
-  holder(src, hide, id) { return Data.source === 'frigate' && Ctl.on(this.cam(src)) ? '<div class="lvh"' + (id ? ' id="' + id + '"' : '') + ' data-live="' + esc(src) + '"' + (hide ? ' hidden' : '') + '></div>' : ''; },
+  holder(src, hide, id) { if (Roam.low() && !/_sub$/.test(src) && Frigate.streams && Frigate.streams[src + '_sub']) src = src + '_sub';   /* 6.6.3 low data: the light stream */
+    return Data.source === 'frigate' && Ctl.on(this.cam(src)) ? '<div class="lvh"' + (id ? ' id="' + id + '"' : '') + ' data-live="' + esc(src) + '"' + (hide ? ' hidden' : '') + '></div>' : ''; },
   el(src) {
     let e = this.els[src];
     if (!e) {
@@ -2761,7 +2767,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.6.2 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.6.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -2887,7 +2893,7 @@ const Playback = {
       if (gone()) return;
       const hold = all.filter(r => r.start_time <= a + 1 && r.end_time > a).sort((x, y) => y.start_time - x.start_time)[0];
       if (hold) a = Math.floor(hold.start_time);
-      const url = Frigate.base() + '/vod/' + id + '/start/' + a + '/end/' + b + '/index.m3u8';
+      const url = Roam.url(Frigate.base() + '/vod/' + id + '/start/' + a + '/end/' + b + '/index.m3u8');
       const rows = all.filter(r => r.end_time > a);
       Dbg.log('recordings answered', id, Math.round(performance.now() - t0) + 'ms');
       const segs = rows.map(r => [Math.max(a, r.start_time), Math.min(b, r.end_time)]).filter(g => g[1] > g[0]).sort((x, y) => x[0] - y[0]);
@@ -2990,7 +2996,7 @@ const Playback = {
          card and the Fix / object clip opened on top), each half as fast. Only the clip just opened loads now: the
          others stop downloading and pause, and the newest one held goes on when it is the only one left */
       document.querySelectorAll('video[data-hls][data-on]').forEach(o => { if (o === v || o._held) return; o._held = true; o._heldAt = Date.now(); try { if (o._hls) o._hls.stopLoad(); } catch (x) {} if (!o.paused) o.pause(); Dbg.log('alert clip held', o.dataset.cam || ''); });
-      v.dataset.on = '1'; const u = v.dataset.hls, cam = v.dataset.cam, vs = +v.dataset.vs || 0, ve = +v.dataset.ve || 0, at = +v.dataset.at || 0;
+      v.dataset.on = '1'; const u = Roam.url(v.dataset.hls), cam = v.dataset.cam, vs = +v.dataset.vs || 0, ve = +v.dataset.ve || 0, at = +v.dataset.at || 0;
       if (v.closest('.evmedia')) EvSnd.prep(v);   /* 5.1.3: Alerts sound button */
       v.addEventListener('playing', () => { v.style.opacity = '1'; });
       /* the recorded pieces in the player's window, so video time ↔ clock time stays right even when the minute
@@ -4135,6 +4141,44 @@ function modalSnooze() {
 /* Camera Mode lives in Home Assistant (input_select.camera_mode), which switches it on its own when you leave,
    come home or go to sleep. The mini PC passes these two requests on to Home Assistant with its own key,
    so no key is ever in this page. */
+/* 6.6.3 her rule (abroad one month a year on T-Mobile roaming): Settings → Roaming. Off (normal, in the US): always
+   HD. On: on Wi-Fi still HD; on the phone's network everything is low-data — live in the light stream, recordings made
+   small by the mini PC (/low/vod/, ~12x smaller), and her iPhone's notifications without the moving picture (Home
+   Assistant reads the same switch). The iPhone's network comes from the Home Assistant app
+   (sensor.victorias_iphone_15_connection_type); only her iPhone follows it, a computer always gets HD. In the camera
+   view and full screen a Low / HD button lets her pick HD for a while (until she leaves the camera). */
+const Roam = {
+  on: store.get('roam', false), net: store.get('roamnet', null), hd: false,
+  phone() { return /iPhone/i.test(navigator.userAgent); },
+  active() { return this.on && this.phone() && !/^wi-?fi$/i.test(String(this.net || '')); },
+  low() { return this.active() && !this.hd; },
+  async load() {
+    if (Data.source !== 'frigate') return;
+    const was = this.low();
+    try { const r = await fetch(Frigate.base() + '/ha/roaming', { credentials: 'include', cache: 'no-store' }); if (r.ok) { const v = (await r.json()).state === 'on'; if (Date.now() - (this.setAt || 0) > 5000) { this.on = v; store.set('roam', v); } } } catch (e) {}
+    if (this.on && this.phone()) try { const r = await fetch(Frigate.base() + '/ha/net/iphone', { credentials: 'include', cache: 'no-store' }); if (r.ok) { const n = (await r.json()).state; if (n !== this.net) Dbg.log('roaming network', n); this.net = n; store.set('roamnet', n); } } catch (e) {}
+    if (was !== this.low()) this.apply();
+  },
+  async set(v) {
+    const was = this.low(); this.on = v; this.setAt = Date.now(); store.set('roam', v);
+    try { await fetch(Frigate.base() + '/ha/roaming/' + (v ? 'on' : 'off'), { method: 'POST', credentials: 'include' }); } catch (e) {}
+    toast(v ? 'Roaming On · Low Data Off Wi-Fi' : 'Roaming Off · Always HD');
+    await this.load(); if (was !== this.low()) this.apply(); else render();
+  },
+  /* the recording players start again with the other version (same second); live switches stream on the next draw */
+  apply() {
+    Dbg.log('low data', this.low() ? 'on' : 'off');
+    for (const id in Playback.st) { const p = Playback.st[id]; if (p.h) { try { p.h.destroy(); } catch (e) {} p.h = null; } if (p.v.getAttribute('src')) { p.v.removeAttribute('src'); try { p.v.load(); } catch (e) {} } p.win = null; p.loading = false; p.lastSet = null; p.on = false; }
+    render(); Playback.sync();
+  },
+  url(u) { return this.low() && u ? u.replace('/vod/', '/low/vod/') : u; }
+};
+/* the Low / HD button on the camera view and full screen (only while Roaming is on and the phone is off Wi-Fi) */
+function qualBtn() {
+  if (!Roam.active()) return '';
+  return '<span class="qwrap"><button class="dk qbtn" data-act="qmenu" aria-label="Video Quality">' + (Roam.hd ? 'HD' : 'Low') + ' ▾</button>' +
+    (S.qOpen ? '<span class="qmenu"><button data-act="qset" data-v="low" aria-pressed="' + !Roam.hd + '">Low</button><button data-act="qset" data-v="hd" aria-pressed="' + Roam.hd + '">HD</button></span>' : '') + '</span>';
+}
 const HA = {
   names: { normal: 'Normal', home: 'At Home', sleep: 'Sleep' },
   key(name) { for (const k in this.names) if (this.names[k] === name) return k; return null; },
@@ -5928,7 +5972,7 @@ function viewFocus() {
     body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px;margin-top:' + fPad() + 'px"><div class="frail">' + railState(c.id, end, span) + '</div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + (S.focus.lineY || FTOP) + 'px"></div>';
   }
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
-  const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk ftm" id="ftm">' + dtHdr(shownT(c.id, c.id)) + '</div><div style="flex:1"></div><span id="ffix" class="ffixw">' + focusFix(c.id) + '</span>' +
+  const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk ftm" id="ftm">' + dtHdr(shownT(c.id, c.id)) + '</div>' + qualBtn() + '<div style="flex:1"></div><span id="ffix" class="ffixw">' + focusFix(c.id) + '</span>' +
     /* 5.1.11 (her choice, phone and computer): Review at the moment shown, in place of Turn Camera Off (that stays on Home) */
     (frig ? '<button class="dk" data-act="focusreview" data-id="' + c.id + '" aria-label="All Cameras At This Time">' + I.review + '</button>' : '') +
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
@@ -6009,7 +6053,7 @@ function viewFull(c, t, f) {
     (S.fui ? '<div class="fullsteps"><button class="dk sm wide" data-act="fstep" data-v="-10" aria-label="Back 10 Seconds">−10s</button><button class="dk sm wide" data-act="fstep" data-v="-5" aria-label="Back 5 Seconds">−5s</button><button class="dk sm wide fullpp" data-act="playpause" aria-label="' + (S.playing ? 'Pause' : 'Play') + '">' + (S.playing ? I.pause : I.play) + '</button><button class="fstep" data-act="flive" aria-label="Go Live">Live</button>' +
       '<button class="dk sm wide" id="fullstepf5" data-act="fstep" data-v="5" aria-label="Forward 5 Seconds"' + (t == null ? ' disabled' : '') + '>+5s</button><button class="dk sm wide" id="fullstepf" data-act="fstep" data-v="10" aria-label="Forward 10 Seconds"' + (t == null ? ' disabled' : '') + '>+10s</button></div>' : '') +
     /* 6.5.4 her order: Exit, Live / time right of it; on the right Sound, Boxes, Alert Settings, Alerts / Timeline */
-    (S.fui ? '<div class="fuitop"><button class="dk" data-act="unfull" aria-label="Exit Full Screen">' + I.shrink + '</button><div class="pillk" id="fullbadge">' + (t == null ? '<span class="dot busy"></span>Live' : hms(t)) + '</div><div style="flex:1"></div>' +
+    (S.fui ? '<div class="fuitop"><button class="dk" data-act="unfull" aria-label="Exit Full Screen">' + I.shrink + '</button><div class="pillk" id="fullbadge">' + (t == null ? '<span class="dot busy"></span>Live' : hms(t)) + '</div>' + qualBtn() + '<div style="flex:1"></div>' +
       '<span id="fullfix" class="ffixw">' + focusFix(c.id) + '</span>' +   /* 6.5.8 her request: Fix / Who? on full screen too, left of Sound */
       Snd.btn('dk') + (Data.source === 'frigate' ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
       (S.fpanel ? '<button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button>' : '') +
@@ -7041,7 +7085,7 @@ const RVid = {
       this.win = { a, b, segs };
       if (!segs.length) { this.loading = false; Dbg.log('review video none here', id, hms(t)); return; }
       const v = this.el(); v.style.opacity = '0'; this.mount(); v.playbackRate = S.speed || 1;
-      const vt = Playback.vtime({ win: this.win }, t) || 0, url = Frigate.base() + '/vod/' + id + '/start/' + a + '/end/' + b + '/index.m3u8';
+      const vt = Playback.vtime({ win: this.win }, t) || 0, url = Roam.url(Frigate.base() + '/vod/' + id + '/start/' + a + '/end/' + b + '/index.m3u8');
       if (Playback.native(id)) { v.src = url; v.currentTime = vt; v.play().catch(() => {}); }
       else { const H = await Playback.hls(); if (seq !== this.seq) return; this.h = new H({ startPosition: vt, testBandwidth: false, maxBufferLength: 8, maxMaxBufferLength: 20, backBufferLength: 10 }); hlsLog(this.h, H, 'review video ' + id); this.h.loadSource(url); this.h.attachMedia(v); v.play().catch(() => {}); }
     } catch (e) { if (seq === this.seq) Dbg.log('review video load error', id, String(e && e.message || e)); }
@@ -7243,9 +7287,10 @@ function modalSettings() {
     /* 4.7.9: List (one per row on a phone) lives here too; it was only in the … menu, so Auto looked the same as 2 */
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Camera View Alerts', seg('fmode', S.fmode, [['C', 'List'], ['B', 'Thumbnails']])) +
+    row('Roaming', seg('roam', Roam.on ? 'on' : 'off', [['off', 'Off'], ['on', 'On']])) +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.6.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.6.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7521,7 +7566,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.6.2');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.6.3');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7538,7 +7583,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.6.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.6.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -8097,7 +8142,7 @@ const ACT = {
     Dbg.log('camera view to review', id, t == null ? 'live' : hms(t));
     S.view = 'review'; S.modal = null; S.more = false; render(); window.scrollTo(0, 0);
   },
-  unfocus() { const id = S.focus && S.focus.cam, live = id && camT(id) == null; S.focus = null; S.full = false; S.fclip = null;
+  unfocus() { if (Roam.hd) { Roam.hd = false; S.qOpen = false; setTimeout(() => Roam.apply(), 0); } const id = S.focus && S.focus.cam, live = id && camT(id) == null; S.focus = null; S.full = false; S.fclip = null;
     /* 5.2.6 her rule: opened from a 如厕记录 visit (double tap) → Back goes to that visit again */
     ltReturn(); render(); if (live) Snap.refreshOne(id); },
   /* camera view download: start = the second being watched (Live: the last 30 s); end defaults to 30 s later and
@@ -8267,6 +8312,9 @@ const ACT = {
   },
   /* 5.10.11 her request: the × at the strip's end folds it back into its card */
   fstripx() { if (S.focus) { S.focus.og = null; S.focus.ogk = null; render(); fPaintLine(); } },
+  roam(d) { Roam.set(d.v === 'on'); },
+  qmenu() { S.qOpen = !S.qOpen; if (S.full) fullUi(); else render(); },
+  qset(d) { S.qOpen = false; const hd = d.v === 'hd'; if (hd !== Roam.hd) { Roam.hd = hd; Dbg.log('quality picked', hd ? 'HD' : 'Low'); Roam.apply(); } else if (S.full) fullUi(); else render(); },
   fmode(d) { S.fmode = d.v === 'B' ? 'B' : 'C'; store.set('fmode', S.fmode); if (S.focus) { S.focus.og = null; S.focus.ogk = null; } render(); },
   fstripgo(d, e) { const st = e && e.target.closest('.fstrip') && e.target.closest('.fstrip').querySelector('.fsrow'); if (st) st.scrollBy({ left: (+d.v) * Math.max(80, st.clientWidth * 0.8), behavior: 'smooth' }); },
   fjump(d) {   /* tap a card or rail icon: go to that alert (1 s before it starts) */
@@ -8896,13 +8944,13 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
     Diag.run();
     setInterval(() => Motion.ensure(), 3000); setInterval(() => Live.watch(), 2000);
     document.addEventListener('visibilitychange', () => { if (document.hidden) Live.hidAt = now(); if (!document.hidden) { Motion.ensure(); Frigate.refresh(); LastMo.load(); if (now() - (Live.hidAt || 0) > 60000) Live.sweepStart('back to app'); HA.get(); Snz.get(); Wait.get(); } });
-    window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); HA.get(); setInterval(() => HA.get(), 10000); if (store.get('boxes', false)) Box.set(true); if (!Playback.native()) Playback.hls().catch(() => {}); Snz.get(); setInterval(() => Snz.get(), 15000); Wait.get(); setInterval(() => Wait.get(), 15000); FpQ.run(); setInterval(() => FpQ.run(), 120000);
+    window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); HA.get(); setInterval(() => HA.get(), 10000); Roam.load(); setInterval(() => Roam.load(), 20000); if (store.get('boxes', false)) Box.set(true); if (!Playback.native()) Playback.hls().catch(() => {}); Snz.get(); setInterval(() => Snz.get(), 15000); Wait.get(); setInterval(() => Wait.get(), 15000); FpQ.run(); setInterval(() => FpQ.run(), 120000);
     setInterval(() => { if (S.view === 'home' && !S.modal && (Snz.active() || Wait.active() || document.querySelector('.snzban'))) render(); }, 60000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000); Pic.poll(); setInterval(() => Pic.poll(), 15000);
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.6.2';
+    const BUILD = '6.6.3';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
