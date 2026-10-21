@@ -2767,7 +2767,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.6.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.6.4 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4147,21 +4147,31 @@ function modalSnooze() {
    Assistant reads the same switch). The iPhone's network comes from the Home Assistant app
    (sensor.victorias_iphone_15_connection_type); only her iPhone follows it, a computer always gets HD. In the camera
    view and full screen a Low / HD button lets her pick HD for a while (until she leaves the camera). */
+/* 6.6.4: Victoria and James each have their own Roaming (input_boolean.camera_app_roaming / _james) and phone network
+   (sensor.victorias_iphone_15_connection_type / sensor.jamess_iphone_16_connection_type). The app can't tell who holds
+   the phone, so each place (home-screen app, Safari, Chrome…) is asked once — only while someone's Roaming is on */
 const Roam = {
-  on: store.get('roam', false), net: store.get('roamnet', null), hd: false,
-  phone() { return /iPhone/i.test(navigator.userAgent); },
+  who: store.get('roamwho', ''), all: store.get('roamall', { victoria: false, james: false }), net: store.get('roamnet', null), hd: false,
+  get on() { return !!(this.who && this.all[this.who]); },
+  phone() { return /iPhone|Android/i.test(navigator.userAgent); },
   active() { return this.on && this.phone() && !/^wi-?fi$/i.test(String(this.net || '')); },
   low() { return this.active() && !this.hd; },
+  /* someone's Roaming is on and this phone hasn't said whose it is: ask once */
+  ask() { if (this.phone() && !this.who && (this.all.victoria || this.all.james) && !S.modal) { S.modal = 'roamwho'; render(); } },
   async load() {
     if (Data.source !== 'frigate') return;
     const was = this.low();
-    try { const r = await fetch(Frigate.base() + '/ha/roaming', { credentials: 'include', cache: 'no-store' }); if (r.ok) { const v = (await r.json()).state === 'on'; if (Date.now() - (this.setAt || 0) > 5000) { this.on = v; store.set('roam', v); } } } catch (e) {}
-    if (this.on && this.phone()) try { const r = await fetch(Frigate.base() + '/ha/net/iphone', { credentials: 'include', cache: 'no-store' }); if (r.ok) { const n = (await r.json()).state; if (n !== this.net) Dbg.log('roaming network', n); this.net = n; store.set('roamnet', n); } } catch (e) {}
+    await Promise.all(['victoria', 'james'].map(async p => { try { const r = await fetch(Frigate.base() + '/ha/roaming/' + p, { credentials: 'include', cache: 'no-store' }); if (r.ok && Date.now() - (this.setAt || 0) > 5000) this.all[p] = (await r.json()).state === 'on'; } catch (e) {} }));
+    store.set('roamall', this.all);
+    if (this.on && this.phone()) try { const r = await fetch(Frigate.base() + '/ha/net/' + this.who, { credentials: 'include', cache: 'no-store' }); if (r.ok) { const n = (await r.json()).state; if (n !== this.net) Dbg.log('roaming network', this.who, n); this.net = n; store.set('roamnet', n); } } catch (e) {}
+    this.ask();
     if (was !== this.low()) this.apply();
   },
+  setWho(w) { const was = this.low(); this.who = w; store.set('roamwho', w); this.net = null; store.set('roamnet', null); Dbg.log('this phone is', w); this.load().then(() => { if (was !== this.low()) this.apply(); }); },
   async set(v) {
-    const was = this.low(); this.on = v; this.setAt = Date.now(); store.set('roam', v);
-    try { await fetch(Frigate.base() + '/ha/roaming/' + (v ? 'on' : 'off'), { method: 'POST', credentials: 'include' }); } catch (e) {}
+    if (!this.who) { S.modal = 'roamwho'; S.roamAfter = v; render(); return; }
+    const was = this.low(); this.all[this.who] = v; this.setAt = Date.now(); store.set('roamall', this.all);
+    try { await fetch(Frigate.base() + '/ha/roaming/' + this.who + '/' + (v ? 'on' : 'off'), { method: 'POST', credentials: 'include' }); } catch (e) {}
     toast(v ? 'Roaming On · Low Data Off Wi-Fi' : 'Roaming Off · Always HD');
     await this.load(); if (was !== this.low()) this.apply(); else render();
   },
@@ -4547,6 +4557,7 @@ function render0() {
   if (S.focus && !S.watch) h += viewFocus();
   if (S.modal === 'filter') h += modalFilter();
   if (S.modal === 'settings') h += modalSettings();
+  if (S.modal === 'roamwho') h += '<div class="scrim" role="presentation"><div class="dialog sm" role="dialog" aria-label="Who Is Using This Phone" data-stop="1"><div class="dhead">Who Is Using This Phone?</div><div class="dbody"><div class="wtnote" style="margin:0 0 10px">Asked once here, for Roaming (low data on the phone\'s network). You can change it in Settings.</div><div class="chips"><button class="chip" data-act="roamwho" data-v="victoria">Victoria</button><button class="chip" data-act="roamwho" data-v="james">James</button></div></div></div></div>';
   if (S.modal === 'win') h += modalWin();
   if (S.modal === 'snooze') h += modalSnooze();
   if (S.modal === 'wait') h += modalWait();
@@ -7287,10 +7298,11 @@ function modalSettings() {
     /* 4.7.9: List (one per row on a phone) lives here too; it was only in the … menu, so Auto looked the same as 2 */
     row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Camera View Alerts', seg('fmode', S.fmode, [['C', 'List'], ['B', 'Thumbnails']])) +
-    row('Roaming', seg('roam', Roam.on ? 'on' : 'off', [['off', 'Off'], ['on', 'On']])) +
+    (Roam.phone() ? row('This Phone', seg('roamwho', Roam.who, [['victoria', 'Victoria'], ['james', 'James']])) +
+      row('Roaming', seg('roam', Roam.on ? 'on' : 'off', [['off', 'Off'], ['on', 'On']])) : '') +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.6.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.6.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7566,7 +7578,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.6.3');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.6.4');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7583,7 +7595,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.6.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.6.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -8313,6 +8325,7 @@ const ACT = {
   /* 5.10.11 her request: the × at the strip's end folds it back into its card */
   fstripx() { if (S.focus) { S.focus.og = null; S.focus.ogk = null; render(); fPaintLine(); } },
   roam(d) { Roam.set(d.v === 'on'); },
+  roamwho(d) { const back = S.modal === 'roamwho'; Roam.setWho(d.v); if (back) { S.modal = null; if (S.roamAfter != null) { const v = S.roamAfter; S.roamAfter = null; Roam.set(v); } } render(); },
   qmenu() { S.qOpen = !S.qOpen; if (S.full) fullUi(); else render(); },
   qset(d) { S.qOpen = false; const hd = d.v === 'hd'; if (hd !== Roam.hd) { Roam.hd = hd; Dbg.log('quality picked', hd ? 'HD' : 'Low'); Roam.apply(); } else if (S.full) fullUi(); else render(); },
   fmode(d) { S.fmode = d.v === 'B' ? 'B' : 'C'; store.set('fmode', S.fmode); if (S.focus) { S.focus.og = null; S.focus.ogk = null; } render(); },
@@ -8950,7 +8963,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.6.3';
+    const BUILD = '6.6.4';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
