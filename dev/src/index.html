@@ -7983,13 +7983,18 @@ const ACT = {
     S.playing = true; seek(id, nt); render();
   },
   speed(d) { S.speed = +d.v; render(); },
-  tab(d) { S.tab = d.v; render(); },
+  tab(d) { S.tab = d.v;
+    /* 6.5.10 her request: like the camera view's download, opening Clip while watching an alert fills Start and End
+       with that whole alert (still going: End waits for ]); marks she set herself on this camera are kept */
+    if (d.v === 'clip' && S.expanded) { const cam = S.expanded, t = camT(cam), al = t == null ? null : fclipAlert(cam, t);
+      if (al && (!S.clip || S.clip.cam !== cam || S.clip.auto || (!S.clip.a && !S.clip.b))) { S.clip = { cam, a: al.a, b: al.b, auto: true }; if (al.cut) toast('Up To 30 Minutes · End Moved'); Dbg.log('clip tab: alert', cam, hms(al.a), al.b ? hms(al.b) : 'still going'); } }
+    render(); },
   devdo(d) { Dev.run(d.v, d.e, d.to, d.cf); },
   clipmark(d) {
     const id = S.expanded; if (!id) return;
     const t = camT(id) == null ? now() : camT(id);
     if (!S.clip || S.clip.cam !== id) S.clip = { cam: id };
-    S.clip[d.v] = t;
+    S.clip[d.v] = t; S.clip.auto = false;
     if (S.clip.a && S.clip.b && S.clip.b < S.clip.a) { const x = S.clip.a; S.clip.a = S.clip.b; S.clip.b = x; }
     render();
   },
