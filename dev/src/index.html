@@ -2462,7 +2462,7 @@ const Live = {
       if (!on || document.hidden) { e.cAt = 0; e.okSince = 0; continue; }   /* 4.2.11: a page left in the background no longer logs "ready 2965 s" */
       if (!e.cAt) e.cAt = now();
       const play = v && v.readyState >= 2 && !v.paused && v.currentTime > 0 && !document.hidden;
-      if (play && !e.okSince) { e.okSince = now(); Dbg.log('live ready', src, ((now() - e.cAt) / 1000).toFixed(1) + 's'); }
+      if (play && !e.okSince) { e.okSince = now(); Dbg.log('live ready', src, ((now() - e.cAt) / 1000).toFixed(1) + 's', v.videoWidth ? v.videoWidth + 'x' + v.videoHeight : '');   /* 6.6.11: the stream's size, to compare Low (light stream) and HD */ }
       else if (!play && e.okSince && !document.hidden) e.okSince = 0; }
     /* 3.10.3: not while a camera is open: copying its big frame (Treat Feeder 2048x1536) every 5 s froze the iPhone 6.8 s */
     if (PHONE_LIVE() && S.view === 'home' && !S.focus && !document.hidden) for (const src in this.els) { const e = this.els[src];
@@ -2941,6 +2941,7 @@ const Playback = {
     if (!p) {
       const v = document.createElement('video'); v.className = 'pbv'; v.muted = true; Snd.guard(v); v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'auto';
       v.addEventListener('playing', () => { v._unlocked = true; });   /* played once: the phone lets it play later without a tap */
+      v.addEventListener('loadeddata', () => Dbg.log('video size', id, v.videoWidth + 'x' + v.videoHeight, Roam.low() ? 'low data' : 'full'));   /* 6.6.11 */
       p = this.st[id] = { v, win: null, loading: false, on: false, ext: 0, lastSet: null };
       ['loadstart', 'loadedmetadata', 'canplay', 'playing', 'waiting', 'stalled', 'pause', 'seeked'].forEach(k => v.addEventListener(k, () => (p.win || p.loading) && Dbg.log('video', id, k, 'at ' + v.currentTime.toFixed(1), 'ready ' + v.readyState)));
       v.addEventListener('canplay', () => { if (v.paused && !p.loading && !p.prep && p.win && S.playing && this.cams()[id]) setTimeout(() => { if (v.paused && !p.prep) this.sync(); }, 300); });
@@ -3018,6 +3019,7 @@ const Playback = {
       /* 5.1.7: also 'waiting' (stuck for more video) and 'pause', to tell a stuck clip from one the page paused */
       /* 5.9.3: her Front Door clip (10-19 21:49) stopped at 71.9 s although the alert ran 2.5 min, and played fully the
          second time: log the video's length each time it changes and the recorded pieces' total, to see which is short */
+      v.addEventListener('loadeddata', () => Dbg.log('alert clip size', tag, v.videoWidth + 'x' + v.videoHeight, /\/low\//.test(u) ? 'low data' : 'full'), { once: true });   /* 6.6.11 */
       v.addEventListener('durationchange', () => { const rec = (v._segs || []).reduce((n, x) => n + (x.b - x.a) / 1000, 0); Dbg.log('alert clip length', tag, isFinite(v.duration) ? v.duration.toFixed(1) + 's' : String(v.duration), 'recorded ' + rec.toFixed(1) + 's', v._hls ? 'hls.js' : 'native'); });
       ['loadedmetadata', 'playing', 'waiting', 'pause', 'stalled', 'error'].forEach(ev => v.addEventListener(ev, () => Dbg.log('alert clip', ev, tag, ev === 'error' && v.error ? 'code ' + v.error.code + ' ' + (v.error.message || '') : 'at ' + v.currentTime.toFixed(1))));
       fetch(u, { credentials: 'include' }).then(r => r.text().then(t => Dbg.log('alert clip list', tag, r.status, (t.match(/#EXTINF/g) || []).length + ' parts'))).catch(e => Dbg.log('alert clip list', tag, 'failed'));
