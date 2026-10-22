@@ -590,7 +590,9 @@ def main():
         log('restart frigate: ' + why)
         if 'frozen' in why:   # keep Frigate's own log from before the restart, to find what froze it
             try:
-                open(os.path.join(D, 'frigate-frozen-log.txt'), 'w').write(sh(['docker', 'logs', 'frigate', '--since', '12h', '--tail', '4000'], 60))
+                txt = sh(['docker', 'logs', 'frigate', '--since', '12h'], 90)   # the /ws probe's HandshakeError lines left out
+                keep = [l for l in txt.splitlines() if not re.search(r'HandshakeError|raise Handshake|HTTP_UPGRADE|ws4py', l)]
+                open(os.path.join(D, 'frigate-frozen-log.txt'), 'w').write('\n'.join(keep[-20000:]))
             except Exception:
                 pass
         r = subprocess.run(['docker', 'restart', 'frigate'], capture_output=True, text=True, timeout=180)
