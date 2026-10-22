@@ -1701,7 +1701,7 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .ltnot.ltfix{border-color:var(--strong)}.ltnot.ltfix .ltnott{color:var(--head-fg)}.ltnot.ltfix .box{border-color:var(--strong)}.ltnot.ltfix .check[aria-checked="true"] .box{background:var(--strong);color:var(--strong-fg)}
 .ltfximg{width:100%;max-height:200px;object-fit:contain;border-radius:10px;background:#000;margin:4px 0}
 .mofximg{display:block;width:100%;max-height:44vh;object-fit:contain;border-radius:10px;background:#000;margin:4px 0 8px}
-.mofxrow{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px}
+.mofxnudge{margin-bottom:12px}
 .mofxt{display:flex;flex-direction:column;gap:3px;padding:3px;border-radius:9px;background:var(--chip);color:var(--text);font-size:11px;font-weight:700;text-align:center}
 .mofxt img{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:6px;background:#000}
 .mofxt[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--strong);background:var(--strong);color:var(--strong-fg)}
@@ -7299,13 +7299,14 @@ function filterZones() {
 /* 6.6.7 her request: Fix on a Motion card (Frigate missed the animal / person): the frame on screen when Fix was tapped,
    or one 0.5 / 1 s before or after (like 猫砂盆's Fix), goes to Frigate+; she draws the box on the Frigate+ site */
 function modalMoFix() {
+  /* 6.6.8 her rule: like 猫砂盆, the buttons keep moving the frame (−1 s −1 s −1 s…, ±0.3 s), not five fixed pictures */
   const F = S.moFix, img = ms => Frigate.base() + '/api/' + F.cam + '/recordings/' + ((F.t + ms) / 1000).toFixed(2) + '/snapshot.jpg?height=';
-  const offs = [-1000, -500, 0, 500, 1000], lab = ms => ms === 0 ? 'This Frame' : (ms > 0 ? '+' : '−') + Math.abs(ms / 1000) + ' s';
+  const nb = (ms, l) => '<button class="chip sm" data-act="mofixpick" data-v="' + ms + '">' + l + '</button>';
   return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm" role="dialog" aria-label="Fix This Motion" data-stop="1">' +
     '<div class="dhead">Send To Frigate+<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
     '<div class="wtnote" style="margin:0 0 6px">' + esc((Data.cam(F.cam) || { name: F.cam }).name) + ' · ' + hms(F.t + F.off) + ' · This picture goes to Frigate+, where you draw the box.</div>' +
     '<img class="mofximg" src="' + img(F.off) + '480" alt="">' +
-    '<div class="mofxrow">' + offs.map(ms => '<button class="mofxt" data-act="mofixpick" data-v="' + ms + '" aria-pressed="' + (F.off === ms) + '"><img src="' + img(ms) + '120" alt="" loading="lazy"><span>' + lab(ms) + '</span></button>').join('') + '</div>' +
+    '<div class="ltfxnudge mofxnudge">' + nb(-1000, '−1 s') + nb(-300, '−0.3') + '<span>' + (F.off ? (F.off > 0 ? '+' : '−') + (Math.abs(F.off) / 1000).toFixed(1) + ' s' : 'This Frame') + '</span>' + nb(300, '+0.3') + nb(1000, '+1 s') + '</div>' +
     '<div class="ltcf"><button class="btn" data-act="close">Cancel</button><button class="btn solid" data-act="mofixgo"' + (F.busy ? ' disabled' : '') + '>' + (F.busy ? 'Sending…' : 'Send To Frigate+') + '</button></div>' +
     '</div></div></div>';
 }
@@ -8352,7 +8353,7 @@ const ACT = {
     const t = playing ? vodReal(v, v.currentTime) : evP(d.v, S.filt).t;
     if (playing && !v.paused) { v._up = true; v.pause(); evIcons(); }   /* the frame she saw stays on screen */
     S.moFix = { k: d.v, cam: e.cam, t: Math.round(t), off: 0 }; Dbg.log('motion fix frame', e.cam, hms(t), playing ? 'paused video' : 'motion start'); S.modal = 'mofix'; render(); },
-  mofixpick(d) { if (!S.moFix) return; S.moFix.off = +d.v; render(); },
+  mofixpick(d) { if (!S.moFix) return; S.moFix.off += +d.v; render(); },
   async mofixgo() { const F = S.moFix; if (!F || F.busy) return; F.busy = true; render(); let ok = false, msg = '';
     try { const r = await fetch(Frigate.base() + '/api/' + F.cam + '/plus/' + ((F.t + F.off) / 1000).toFixed(2), { method: 'POST', credentials: 'include', headers: { 'X-CSRF-TOKEN': '1' } });
       let j = {}; try { j = await r.json(); } catch (x) {} ok = r.ok && j.success !== false; msg = j.message || String(r.status); } catch (x) { msg = x && x.message; }
