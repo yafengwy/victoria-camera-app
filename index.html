@@ -2797,7 +2797,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.7.5 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.7.6 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -7367,13 +7367,15 @@ function modalSettings() {
       row('Roaming', seg('roam', Roam.on ? 'on' : 'off', [['off', 'Off'], ['on', 'On']])) : '') +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.7.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.7.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
     '<div class="logrow"><span>Playback Log · ' + Dbg.a.length + ' Lines</span><button class="btn" data-act="copylog">Copy</button></div>' +
     (Data.source === 'frigate' ? '<div class="logrow"><span>Mini PC Log</span><button class="btn" data-act="copyhealth">Copy</button></div>' +
-      '<div class="logrow"><span>Frigate Log · Last 2 Hrs</span><button class="btn" data-act="copyflog">Copy</button></div>' : '') +
+      '<div class="logrow"><span>Frigate Log · Last 2 Hrs</span><button class="btn" data-act="copyflog">Copy</button></div>' +
+      /* 6.7.6 her question from Seoul (why so slow): how fast the line from the mini PC to this phone really is */
+      '<div class="logrow"><span>Speed Test' + (S.netSpeed ? ' · ' + esc(S.netSpeed) : '') + '</span><button class="btn" data-act="speedtest"' + (S.netBusy ? ' disabled' : '') + '>' + (S.netBusy ? 'Testing…' : 'Run') + '</button></div>' : '') +
     '</div>' + '</details>' +
     /* 4.7.3: the Frigate address and Save are only for a copy of the app opened outside her site; on her site the app
        always talks to its own Frigate, so they are gone */
@@ -7635,6 +7637,21 @@ const ACT = {
     toast((plus ? '已发给 Frigate+' : '') + (plus && rmv ? ' · ' : '') + (rmv ? '已从如厕记录删掉' : '') + (ok ? '' : ' · 有一部分没成功')); render();
   },
   go(d) { S.view = d.v; S.modal = null; S.more = false; S.evPop = null; render(); window.scrollTo(0, 0); },
+  /* 6.7.6: ping = 3 tiny requests (version.txt), speed = one 4 MB file (speed.bin, made by the mini PC); goes to the log */
+  async speedtest() {
+    if (S.netBusy) return; S.netBusy = true; S.netSpeed = ''; render();
+    try {
+      const ps = [];
+      for (let i = 0; i < 3; i++) { const t0 = performance.now(); const r = await fetch('version.txt?t=' + Date.now() + i, { cache: 'no-store', credentials: 'include' }); await r.text(); ps.push(performance.now() - t0); }
+      const t0 = performance.now(), r = await fetch('speed.bin?t=' + Date.now(), { cache: 'no-store', credentials: 'include' });
+      if (!r.ok) throw new Error('http ' + r.status);
+      const n = (await r.arrayBuffer()).byteLength, sec = (performance.now() - t0) / 1000;
+      const mbps = n * 8 / sec / 1e6, ping = Math.round(Math.min(...ps));
+      S.netSpeed = mbps.toFixed(1) + ' Mbps · Ping ' + ping + ' ms';
+      Dbg.log('speed test', mbps.toFixed(1) + ' Mbps', (n / 1048576).toFixed(1) + ' MB in ' + sec.toFixed(1) + 's', 'ping ' + ps.map(Math.round).join('/') + ' ms', 'network ' + (Roam.net || 'unknown'));
+    } catch (e) { S.netSpeed = 'Failed'; Dbg.log('speed test failed', e.message); }
+    S.netBusy = false; render();
+  },
   copylog() {
     const txt = Dbg.text();
     const fallback = () => { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('Log Copied'); } catch (e) { toast('Copy Failed'); } ta.remove(); };
@@ -7643,7 +7660,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.7.5');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.7.6');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7660,7 +7677,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.7.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.7.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -9048,7 +9065,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.7.5';
+    const BUILD = '6.7.6';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

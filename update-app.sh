@@ -23,6 +23,8 @@ git -C "$G" fetch -q --depth 1 origin main && git -C "$G" reset -q --hard origin
 for f in index.html version.txt icon-180.png icon-192.png icon-512.png manifest.webmanifest; do
   [ -s "$G/$f" ] && ! cmp -s "$G/$f" "$D/app/$f" && cp "$G/$f" "$D/app/$f"
 done
+# 4 MB of random bytes for Settings → Speed Test (6.7.6): how fast the line from here to the phone is
+[ -s "$D/app/speed.bin" ] || head -c 4194304 /dev/urandom > "$D/app/speed.bin"
 # Reload only counts once it succeeded (.applied-* copies), so a failed reload is retried next minute
 if [ -s "$G/app-nginx.conf" ] && ! cmp -s "$G/app-nginx.conf" "$D/.applied-nginx"; then
   cp "$G/app-nginx.conf" "$D/app-nginx.conf" && { echo "$(date "+%m-%d %H:%M") nginx reload"; docker exec vh-app nginx -s reload; } >&2 && cp "$G/app-nginx.conf" "$D/.applied-nginx" && echo "$(date "+%m-%d %H:%M") nginx ok" >&2

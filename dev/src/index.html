@@ -7373,7 +7373,9 @@ function modalSettings() {
     '<div class="logrows">' +
     '<div class="logrow"><span>Playback Log · ' + Dbg.a.length + ' Lines</span><button class="btn" data-act="copylog">Copy</button></div>' +
     (Data.source === 'frigate' ? '<div class="logrow"><span>Mini PC Log</span><button class="btn" data-act="copyhealth">Copy</button></div>' +
-      '<div class="logrow"><span>Frigate Log · Last 2 Hrs</span><button class="btn" data-act="copyflog">Copy</button></div>' : '') +
+      '<div class="logrow"><span>Frigate Log · Last 2 Hrs</span><button class="btn" data-act="copyflog">Copy</button></div>' +
+      /* 6.7.6 her question from Seoul (why so slow): how fast the line from the mini PC to this phone really is */
+      '<div class="logrow"><span>Speed Test' + (S.netSpeed ? ' · ' + esc(S.netSpeed) : '') + '</span><button class="btn" data-act="speedtest"' + (S.netBusy ? ' disabled' : '') + '>' + (S.netBusy ? 'Testing…' : 'Run') + '</button></div>' : '') +
     '</div>' + '</details>' +
     /* 4.7.3: the Frigate address and Save are only for a copy of the app opened outside her site; on her site the app
        always talks to its own Frigate, so they are gone */
@@ -7635,6 +7637,21 @@ const ACT = {
     toast((plus ? '已发给 Frigate+' : '') + (plus && rmv ? ' · ' : '') + (rmv ? '已从如厕记录删掉' : '') + (ok ? '' : ' · 有一部分没成功')); render();
   },
   go(d) { S.view = d.v; S.modal = null; S.more = false; S.evPop = null; render(); window.scrollTo(0, 0); },
+  /* 6.7.6: ping = 3 tiny requests (version.txt), speed = one 4 MB file (speed.bin, made by the mini PC); goes to the log */
+  async speedtest() {
+    if (S.netBusy) return; S.netBusy = true; S.netSpeed = ''; render();
+    try {
+      const ps = [];
+      for (let i = 0; i < 3; i++) { const t0 = performance.now(); const r = await fetch('version.txt?t=' + Date.now() + i, { cache: 'no-store', credentials: 'include' }); await r.text(); ps.push(performance.now() - t0); }
+      const t0 = performance.now(), r = await fetch('speed.bin?t=' + Date.now(), { cache: 'no-store', credentials: 'include' });
+      if (!r.ok) throw new Error('http ' + r.status);
+      const n = (await r.arrayBuffer()).byteLength, sec = (performance.now() - t0) / 1000;
+      const mbps = n * 8 / sec / 1e6, ping = Math.round(Math.min(...ps));
+      S.netSpeed = mbps.toFixed(1) + ' Mbps · Ping ' + ping + ' ms';
+      Dbg.log('speed test', mbps.toFixed(1) + ' Mbps', (n / 1048576).toFixed(1) + ' MB in ' + sec.toFixed(1) + 's', 'ping ' + ps.map(Math.round).join('/') + ' ms', 'network ' + (Roam.net || 'unknown'));
+    } catch (e) { S.netSpeed = 'Failed'; Dbg.log('speed test failed', e.message); }
+    S.netBusy = false; render();
+  },
   copylog() {
     const txt = Dbg.text();
     const fallback = () => { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('Log Copied'); } catch (e) { toast('Copy Failed'); } ta.remove(); };
