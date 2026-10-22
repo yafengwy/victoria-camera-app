@@ -1776,6 +1776,31 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 <input id="dtpick" class="hidden-date" type="datetime-local" step="60" aria-label="Pick Date And Time" tabindex="-1">
 
 <script>
+/* 6.7.3 her rule: the cameras are in Los Angeles, so every time and day in the app is Los Angeles time, wherever the
+   phone is (she flew to Asia and the app showed Seoul time). The phone's own time zone is replaced here for the whole
+   page: hours/days/minutes read, set and built from parts all use America/Los_Angeles. Moments (Date.now, getTime) are
+   unchanged. */
+(() => {
+  const TZ = 'America/Los_Angeles', D = Date, P = D.prototype, F = new Intl.DateTimeFormat('en-US', { timeZone: TZ, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' });
+  const memo = new Map();
+  /* LA wall clock minus UTC, in ms, at moment t */
+  const off = t => { if (!isFinite(t)) return 0; const k = Math.floor(t / 900000); let o = memo.get(k); if (o === undefined) {
+      const p = {}; F.formatToParts(new D(k * 900000)).forEach(x => { p[x.type] = +x.value; });
+      o = D.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second) - k * 900000; if (memo.size > 5000) memo.clear(); memo.set(k, o); } return o; };
+  const toUtc = w => { let u = w - off(w); u = w - off(u); return u; };   /* LA wall clock (as UTC ms) -> moment */
+  const g = (k) => function () { const t = P.getTime.call(this); return isFinite(t) ? new D(t + off(t))['getUTC' + k]() : NaN; };
+  ['FullYear', 'Month', 'Date', 'Day', 'Hours', 'Minutes', 'Seconds', 'Milliseconds'].forEach(k => { P['get' + k] = g(k); });
+  P.getYear = function () { return this.getFullYear() - 1900; };
+  P.getTimezoneOffset = function () { return -Math.round(off(P.getTime.call(this)) / 60000); };
+  const s = (k) => function (...a) { const t = P.getTime.call(this); const w = new D(t + off(t)); w['setUTC' + k](...a); return P.setTime.call(this, toUtc(w.getTime())); };
+  ['FullYear', 'Month', 'Date', 'Hours', 'Minutes', 'Seconds', 'Milliseconds'].forEach(k => { P['set' + k] = s(k); });
+  const lo = (n) => { const o = P[n]; P[n] = function (l, opt) { return o.call(this, l, Object.assign({ timeZone: TZ }, opt || {})); }; };
+  ['toLocaleString', 'toLocaleDateString', 'toLocaleTimeString'].forEach(lo);
+  class LADate extends D { constructor(...a) { if (a.length >= 2) super(toUtc(D.UTC(...a))); else if (a.length === 1) super(typeof a[0] === 'string' && /^\d{4}-\d\d-\d\d[T ]\d\d:\d\d(:\d\d(\.\d+)?)?$/.test(a[0]) ? toUtc(D.parse(a[0].replace(' ', 'T') + 'Z')) : a[0]); else super(); } }
+  window.Date = LADate;
+})();
+</script>
+<script>
 
 /* ===== Demo images (filled in at build time for the preview) ===== */
 const DEMO_IMG = /*MOCK_IMAGES*/{};
@@ -5745,7 +5770,7 @@ const RecFirst = {
     if (Data.source !== 'frigate' || this.busy || Date.now() - this.at < HOUR || !Data.cams.length) return; this.busy = true; this.at = Date.now();
     /* never hide a day that has something: days are asked in her time zone, any camera that does not answer means
        "unknown" (all 30 days stay), and a day with an alert already in the app always counts */
-    let first = null, i = 0, failed = 0; const cams = Data.cams.map(c => c.id), tz = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/Los_Angeles');
+    let first = null, i = 0, failed = 0; const cams = Data.cams.map(c => c.id), tz = encodeURIComponent('America/Los_Angeles');
     const one = async () => { while (i < cams.length) { const id = cams[i++];
       try { const d = ((await Frigate.get('/api/' + id + '/recordings/summary?timezone=' + tz)) || []).map(r => r.day).filter(Boolean).sort()[0]; if (d && (!first || d < first)) first = d; } catch (e) { failed++; } } };
     await Promise.all([one(), one(), one()]); this.busy = false;
