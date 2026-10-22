@@ -67,6 +67,7 @@ try:
 except Exception as x:
     print('Cams check failed', repr(x))
 PY
+  [ -s "$D/frigate-frozen-log.txt" ] && echo "FrozenLog $(grep -E '2026-10-22 1(2:5|3:0)' "$D/frigate-frozen-log.txt" | grep -viE 'HandshakeError|raise Handshake|HTTP_UPGRADE' | sed -E 's#[^ /@]+:[^ /@]+@#***@#g' | tail -25 | cut -c1-200 | tr '\n' ' ')"
   echo "Cache $(docker exec frigate sh -c 'ls -t /tmp/cache 2>/dev/null | head -4 | tr "\n" " "; ls /tmp/cache 2>/dev/null | wc -l')"
   echo "Started $(docker inspect -f '{{.State.StartedAt}} restarts {{.RestartCount}}' frigate)"
   echo "FrigateErr $(docker logs frigate --since 30m 2>&1 | grep -iE 'error|exception|timeout|stuck|unable' | sed -E 's#[^ /@]+:[^ /@]+@#***@#g' | tail -6 | cut -c1-220 | tr '\n' ' ')"
