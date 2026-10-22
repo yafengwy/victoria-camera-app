@@ -53,14 +53,21 @@ fi
   # 2026-10-22 her report from abroad: card pictures were night at LA 13:50 and nothing recorded, while live worked.
   # Per camera: frames/s Frigate reads, detection on/off, recording on/off, and the last watchdog lines
   python3 - <<'PY' 2>&1
-import json, urllib.request as u
+import json, time, urllib.request as u
 try:
     st = json.load(u.urlopen('http://127.0.0.1:5000/api/stats', timeout=5)).get('cameras', {})
     cf = json.load(u.urlopen('http://127.0.0.1:5000/api/config', timeout=5)).get('cameras', {})
     print('Cams ' + ' '.join('%s fps %s det %s rec %s' % (c, round((st.get(c) or {}).get('camera_fps') or 0, 1), 'on' if (v.get('detect') or {}).get('enabled') else 'off', 'on' if (v.get('record') or {}).get('enabled') else 'off') for c, v in cf.items()))
+    full = json.load(u.urlopen('http://127.0.0.1:5000/api/stats', timeout=5))
+    print('Proc ' + ' '.join('%s p %s d %s s %s' % (c, round(v.get('process_fps') or 0, 1), round(v.get('detection_fps') or 0, 1), round(v.get('skipped_fps') or 0, 1)) for c, v in (full.get('cameras') or {}).items()))
+    print('Detectors ' + json.dumps(full.get('detectors'))[:400] + ' Uptime ' + str((full.get('service') or {}).get('uptime')) + ' Now ' + str(int(time.time())))
+    for c in ('front_door', 'driveway', 'garage1'):
+        r = json.load(u.urlopen('http://127.0.0.1:5000/api/%s/recordings?after=%d&before=%d' % (c, time.time() - 3600, time.time()), timeout=8))
+        print('Rec1h %s %d newest %s' % (c, len(r), max([x.get('end_time') or 0 for x in r] or [0])))
 except Exception as x:
     print('Cams check failed', repr(x))
 PY
+  echo "FrigateErr $(docker logs frigate --since 30m 2>&1 | grep -iE 'error|exception|timeout|stuck|unable' | sed -E 's#[^ /@]+:[^ /@]+@#***@#g' | tail -6 | cut -c1-220 | tr '\n' ' ')"
   echo "Watchdog $(tail -4 "$D/watchdog-log.txt" 2>/dev/null | tr '\n' ' ')"
 } > "$D/app/diag.txt" 2>&1
 # Frigate watchdog: restarts Frigate by itself when cameras stop giving frames / graphics decoding keeps failing
