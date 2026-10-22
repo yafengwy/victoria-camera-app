@@ -1700,6 +1700,11 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .ltact.fx{border-color:var(--strong);color:var(--strong)}.ltact.fx[aria-pressed="true"]{background:var(--strong);color:var(--strong-fg)}
 .ltnot.ltfix{border-color:var(--strong)}.ltnot.ltfix .ltnott{color:var(--head-fg)}.ltnot.ltfix .box{border-color:var(--strong)}.ltnot.ltfix .check[aria-checked="true"] .box{background:var(--strong);color:var(--strong-fg)}
 .ltfximg{width:100%;max-height:200px;object-fit:contain;border-radius:10px;background:#000;margin:4px 0}
+.mofximg{display:block;width:100%;max-height:44vh;object-fit:contain;border-radius:10px;background:#000;margin:4px 0 8px}
+.mofxrow{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:10px}
+.mofxt{display:flex;flex-direction:column;gap:3px;padding:3px;border-radius:9px;background:var(--chip);color:var(--text);font-size:11px;font-weight:700;text-align:center}
+.mofxt img{width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:6px;background:#000}
+.mofxt[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--strong);background:var(--strong);color:var(--strong-fg)}
 .ltfxnudge{display:flex;align-items:center;gap:6px}.ltfxnudge span{flex:1;text-align:center;font-size:12px;color:var(--sub)}.ltfxnudge .chip{font-weight:500}
 .ltfxobj{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}.ltfxobj .chip{font-weight:500}.ltfxobj .chip[aria-pressed="true"]{background:var(--strong);color:var(--strong-fg);box-shadow:none}
 .ltdelb{flex:none;width:36px;height:36px;color:var(--sub)}
@@ -4558,6 +4563,7 @@ function render0() {
   if (S.focus && !S.watch) h += viewFocus();
   if (S.modal === 'filter') h += modalFilter();
   if (S.modal === 'settings') h += modalSettings();
+  if (S.modal === 'mofix' && S.moFix) h += modalMoFix();
   if (S.modal === 'roamwho') h += '<div class="scrim" role="presentation"><div class="dialog sm" role="dialog" aria-label="Who Is Using This Phone" data-stop="1"><div class="dhead">Who Is Using This Phone?</div><div class="dbody"><div class="wtnote" style="margin:0 0 10px">Asked once here. Used for Roaming (low data on the phone\'s network). You can change it in Settings → This Phone.</div><div class="chips"><button class="chip" data-act="roamwho" data-v="victoria">Victoria</button><button class="chip" data-act="roamwho" data-v="james">James</button></div></div></div></div>';
   if (S.modal === 'win') h += modalWin();
   if (S.modal === 'snooze') h += modalSnooze();
@@ -5533,6 +5539,7 @@ function viewEvents() {
     if (sel) {
       const sc = Data.cam(sel.cam), sp = evP(sk, f);
       h += '<article class="evcard big' + (sel.interesting || sel.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + (sel.motion ? '<i class="modot"></i>Motion' : '<i class="lico">' + objIcon(ico(sel, sp)) + '</i>' + ttlHtml(sk, sc0.g ? labGroup(sc0.g) : labAll(sel, sp, f))) + ' At ' + hms(sp.t) + '</b></div><span class="evx">' +
+        (sel.motion && Data.source === 'frigate' ? '<button class="whob" data-act="mofixopen" data-v="' + esc(sk) + '">Fix</button>' : '') +   /* 6.6.7: motion Fix → Frigate+ */
         (isPet(sel, sk) ? '<button class="whob" data-act="fixopen" data-v="' + esc(sk) + '">Fix</button>' : (coOf(sel) && Data.source === 'frigate' && !sel.motion) || hasPkg(sel) ? '<button class="whob" data-act="cofixopen" data-v="' + esc(sk) + '">Fix</button>' : '') +
         (hasPerson(sel) && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(sel.id) + '">' + (sel.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         /* 5.1.10 (her choice): Review at this moment instead of Open Camera (a double tap on the picture already opens it) */
@@ -5559,6 +5566,7 @@ function viewEvents() {
         return;
       }
       h += '<article class="evcard' + (e.interesting || e.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + icn + (e.motion ? esc(ttl) : ttlHtml(k, ttl)) + ' At ' + hms(p.t) + '</b></div><span class="evx">' +
+        (e.motion && Data.source === 'frigate' ? '<button class="whob" data-act="mofixopen" data-v="' + esc(k) + '">Fix</button>' : '') +   /* 6.6.7: motion Fix → Frigate+ */
         (isPet(e, k) ? '<button class="whob" data-act="fixopen" data-v="' + esc(k) + '">Fix</button>' : (coOf(e) && Data.source === 'frigate' && !e.motion) || hasPkg(e) ? '<button class="whob" data-act="cofixopen" data-v="' + esc(k) + '">Fix</button>' : '') +
         (hasPerson(e) && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
         '<button class="ic" aria-label="All Cameras At This Time" data-act="evreview" data-v="' + esc(k) + '">' + I.review + '</button>' +
@@ -7288,6 +7296,19 @@ function filterZones() {
   const zk = (on, v, label) => '<button class="check" role="checkbox" aria-checked="' + on + '" data-act="zone" data-id="' + c.id + '" data-v="' + esc(v) + '"><span class="box">' + (on ? I.check : '') + '</span>' + esc(label) + '</button>';
   return '<div class="lbl">In Zone · ' + esc(c.name) + '</div>' + zk(!z.length, '', 'Whole Camera') + c.zones.map(zn => zk(z.includes(zn), zn, zn)).join('');
 }
+/* 6.6.7 her request: Fix on a Motion card (Frigate missed the animal / person): the frame on screen when Fix was tapped,
+   or one 0.5 / 1 s before or after (like 猫砂盆's Fix), goes to Frigate+; she draws the box on the Frigate+ site */
+function modalMoFix() {
+  const F = S.moFix, img = ms => Frigate.base() + '/api/' + F.cam + '/recordings/' + ((F.t + ms) / 1000).toFixed(2) + '/snapshot.jpg?height=';
+  const offs = [-1000, -500, 0, 500, 1000], lab = ms => ms === 0 ? 'This Frame' : (ms > 0 ? '+' : '−') + Math.abs(ms / 1000) + ' s';
+  return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm" role="dialog" aria-label="Fix This Motion" data-stop="1">' +
+    '<div class="dhead">Send To Frigate+<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
+    '<div class="wtnote" style="margin:0 0 6px">' + esc((Data.cam(F.cam) || { name: F.cam }).name) + ' · ' + hms(F.t + F.off) + ' · This picture goes to Frigate+, where you draw the box.</div>' +
+    '<img class="mofximg" src="' + img(F.off) + '480" alt="">' +
+    '<div class="mofxrow">' + offs.map(ms => '<button class="mofxt" data-act="mofixpick" data-v="' + ms + '" aria-pressed="' + (F.off === ms) + '"><img src="' + img(ms) + '120" alt="" loading="lazy"><span>' + lab(ms) + '</span></button>').join('') + '</div>' +
+    '<div class="ltcf"><button class="btn" data-act="close">Cancel</button><button class="btn solid" data-act="mofixgo"' + (F.busy ? ' disabled' : '') + '>' + (F.busy ? 'Sending…' : 'Send To Frigate+') + '</button></div>' +
+    '</div></div></div>';
+}
 function modalSettings() {
   const seg = (act, cur, opts, nowrap) => '<div class="sseg' + (opts.length > 5 && !nowrap ? ' wrap' : '') + '">' + opts.map(v => '<button data-act="' + act + '" data-v="' + v[0] + '" aria-pressed="' + (cur === v[0]) + '">' + v[1] + '</button>').join('') + '</div>';
   const row = (label, ctl) => '<div class="srow"><span class="slbl">' + label + '</span>' + ctl + '</div>';
@@ -8326,6 +8347,17 @@ const ACT = {
   /* 5.10.11 her request: the × at the strip's end folds it back into its card */
   fstripx() { if (S.focus) { S.focus.og = null; S.focus.ogk = null; render(); fPaintLine(); } },
   roam(d) { Roam.set(d.v === 'on'); },
+  mofixopen(d) { const e = evE(d.v); if (!e) return;
+    const m = document.getElementById('evm-' + d.v), v = m && m.querySelector('video.evv'), playing = S.evPlay === d.v && v && v.currentTime > 0;
+    const t = playing ? vodReal(v, v.currentTime) : evP(d.v, S.filt).t;
+    if (playing && !v.paused) { v._up = true; v.pause(); evIcons(); }   /* the frame she saw stays on screen */
+    S.moFix = { k: d.v, cam: e.cam, t: Math.round(t), off: 0 }; Dbg.log('motion fix frame', e.cam, hms(t), playing ? 'paused video' : 'motion start'); S.modal = 'mofix'; render(); },
+  mofixpick(d) { if (!S.moFix) return; S.moFix.off = +d.v; render(); },
+  async mofixgo() { const F = S.moFix; if (!F || F.busy) return; F.busy = true; render(); let ok = false, msg = '';
+    try { const r = await fetch(Frigate.base() + '/api/' + F.cam + '/plus/' + ((F.t + F.off) / 1000).toFixed(2), { method: 'POST', credentials: 'include', headers: { 'X-CSRF-TOKEN': '1' } });
+      let j = {}; try { j = await r.json(); } catch (x) {} ok = r.ok && j.success !== false; msg = j.message || String(r.status); } catch (x) { msg = x && x.message; }
+    Dbg.log('motion fix frigate+', F.cam, hms(F.t + F.off), ok ? 'sent' : 'failed ' + msg);
+    S.moFix = null; S.modal = null; toast(ok ? 'Sent To Frigate+ · Draw The Box On The Frigate+ Site' : 'Not Sent To Frigate+ · Try Again'); render(); },
   roamwho(d) { const back = S.modal === 'roamwho'; Roam.setWho(d.v); if (back) { S.modal = null; if (S.roamAfter != null) { const v = S.roamAfter; S.roamAfter = null; Roam.set(v); } } render(); },
   qmenu() { S.qOpen = !S.qOpen; if (S.full) fullUi(); else render(); },
   qset(d) { S.qOpen = false; const hd = d.v === 'hd'; if (hd !== Roam.hd) { Roam.hd = hd; Dbg.log('quality picked', hd ? 'HD' : 'Low'); Roam.apply(); } else if (S.full) fullUi(); else render(); },
