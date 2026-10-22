@@ -8352,7 +8352,14 @@ const ACT = {
     const m = document.getElementById('evm-' + d.v), v = m && m.querySelector('video.evv'), playing = S.evPlay === d.v && v && v.currentTime > 0;
     const t = playing ? vodReal(v, v.currentTime) : evP(d.v, S.filt).t;
     if (playing && !v.paused) { v._up = true; v.pause(); evIcons(); }   /* the frame she saw stays on screen */
-    S.moFix = { k: d.v, cam: e.cam, t: Math.round(t), off: 0 }; Dbg.log('motion fix frame', e.cam, hms(t), playing ? 'paused video' : 'motion start'); S.modal = 'mofix'; render(); },
+    S.moFix = { k: d.v, cam: e.cam, t: Math.round(t), off: 0 }; Dbg.log('motion fix frame', e.cam, hms(t), playing ? 'paused video' : 'motion start'); S.modal = 'mofix'; render();
+    /* 6.6.9 her report (Upstairs Living 20:55:30): the motion started before its recording did (that moment had no
+       recording, so no picture). Not playing: the first recorded second at or after the motion's start is used */
+    if (!playing && Data.source === 'frigate') { const F = S.moFix, s0 = Math.floor(t / 1000);
+      Frigate.get('/api/' + e.cam + '/recordings?after=' + (s0 - 5) + '&before=' + (s0 + 180)).then(rows => {
+        if (S.moFix !== F) return; const r = (rows || []).filter(x => x.end_time * 1000 > t).sort((x, y) => x.start_time - y.start_time)[0];
+        if (r && r.start_time * 1000 > t) { F.t = Math.round(r.start_time * 1000 + 500); F.off = 0; Dbg.log('motion fix frame moved to recording', e.cam, hms(F.t)); render(); }
+        else if (!r) Dbg.log('motion fix: no recording after', e.cam, hms(t)); }).catch(() => {}); } },
   mofixpick(d) { if (!S.moFix) return; S.moFix.off += +d.v; render(); },
   async mofixgo() { const F = S.moFix; if (!F || F.busy) return; F.busy = true; render(); let ok = false, msg = '';
     try { const r = await fetch(Frigate.base() + '/api/' + F.cam + '/plus/' + ((F.t + F.off) / 1000).toFixed(2), { method: 'POST', credentials: 'include', headers: { 'X-CSRF-TOKEN': '1' } });
