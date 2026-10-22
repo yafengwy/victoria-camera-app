@@ -67,6 +67,16 @@ try:
 except Exception as x:
     print('Cams check failed', repr(x))
 PY
+  # brightness (0 dark … 255 bright) of Frigate's own latest picture vs go2rtc's current frame of the same camera,
+  # whether Frigate's picture changes at all, and the newest recording pieces Frigate is writing
+  for c in front_door driveway garage1; do
+    y1=$(docker exec frigate sh -c "ffmpeg -v error -i 'http://127.0.0.1:5000/api/$c/latest.jpg?h=180' -vf signalstats,metadata=print:key=lavfi.signalstats.YAVG -f null - 2>&1 | grep -o 'YAVG=[0-9.]*' | head -1")
+    y2=$(docker exec frigate sh -c "ffmpeg -v error -i 'http://127.0.0.1:1984/api/frame.jpeg?src=$c' -vf signalstats,metadata=print:key=lavfi.signalstats.YAVG -f null - 2>&1 | grep -o 'YAVG=[0-9.]*' | head -1")
+    m1=$(curl -s -m 5 "http://127.0.0.1:5000/api/$c/latest.jpg?h=180" | md5sum | cut -c1-8); sleep 2; m2=$(curl -s -m 5 "http://127.0.0.1:5000/api/$c/latest.jpg?h=180" | md5sum | cut -c1-8)
+    echo "Bright $c frigate ${y1:-none} go2rtc ${y2:-none} md5 $m1 $m2"
+  done
+  echo "Cache $(docker exec frigate sh -c 'ls -t /tmp/cache 2>/dev/null | head -4 | tr "\n" " "; ls /tmp/cache 2>/dev/null | wc -l')"
+  echo "Started $(docker inspect -f '{{.State.StartedAt}} restarts {{.RestartCount}}' frigate)"
   echo "FrigateErr $(docker logs frigate --since 30m 2>&1 | grep -iE 'error|exception|timeout|stuck|unable' | sed -E 's#[^ /@]+:[^ /@]+@#***@#g' | tail -6 | cut -c1-220 | tr '\n' ' ')"
   echo "Watchdog $(tail -4 "$D/watchdog-log.txt" 2>/dev/null | tr '\n' ' ')"
 } > "$D/app/diag.txt" 2>&1
