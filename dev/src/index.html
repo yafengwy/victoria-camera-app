@@ -4187,7 +4187,22 @@ const Roam = {
   apply() {
     Dbg.log('low data', this.low() ? 'on' : 'off');
     for (const id in Playback.st) { const p = Playback.st[id]; if (p.h) { try { p.h.destroy(); } catch (e) {} p.h = null; } if (p.v.getAttribute('src')) { p.v.removeAttribute('src'); try { p.v.load(); } catch (e) {} } p.win = null; p.loading = false; p.lastSet = null; p.on = false; }
-    render(); Playback.sync();
+    render(); this.swapLive(); Playback.sync();
+  },
+  /* 6.7.2 her report: in full screen a redraw only refreshes the buttons (fullLight), so Low -> HD kept the light
+     stream playing. The live holders of the open camera are switched here: Low = light stream only; HD = light stream
+     under the HD one (as when the camera opens) */
+  swapLive() {
+    const c = S.focus && S.focus.cam; if (!c || !Frigate.streams || !Frigate.streams[c + '_sub']) return;
+    const low = this.low(), want = low ? c + '_sub' : c;
+    [['fulllive', 'fullquick'], ['flive', 'fquick']].forEach(([L, Q]) => {
+      const h = document.getElementById(L); if (!h) return;
+      if (h.dataset.live !== want) { const o = Live.els[h.dataset.live]; if (o && o.parentNode === h) o.remove(); h.dataset.live = want; Dbg.log('live stream switched', want); }
+      const q = document.getElementById(Q);
+      if (!low && !q) h.insertAdjacentHTML('beforebegin', Live.quick(c, h.hidden, Q));
+      else if (low && q) { const o = Live.els[q.dataset.live]; if (o && o.parentNode === q) o.remove(); q.remove(); }
+    });
+    Live.mount();
   },
   url(u) { return this.low() && u ? u.replace('/vod/', '/low/vod/') : u; }
 };
