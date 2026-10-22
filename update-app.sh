@@ -68,8 +68,8 @@ except Exception as x:
     print('Cams check failed', repr(x))
 PY
   # the morning freeze of 10-22, read once (docker logs over many hours is slow) and kept in a file
-  F=$D/frozen-1022.txt
-  [ -f "$F" ] || docker logs frigate --since 2026-10-22T12:50:00Z --until 2026-10-22T13:08:00Z 2>&1 | grep -viE 'HandshakeError|raise Handshake|HTTP_UPGRADE|ws4py|Traceback|File "|^\s*$' | sed -E 's#[^ /@]+:[^ /@]+@#***@#g' | tail -30 | cut -c1-200 > "$F"
+  F=$D/frozen-1022b.txt
+  [ -f "$F" ] || docker logs frigate --since 2026-10-22T11:00:00Z --until 2026-10-22T13:10:00Z 2>&1 | grep -E 'ERROR|WARNING|CRITICAL|Killed|memory|Timeout|timed out' | grep -viE 'HandshakeError|ws4py' | sed -E 's#[^ /@]+:[^ /@]+@#***@#g' | tail -30 | cut -c1-200 > "$F"
   echo "FrozenLog $(tr '\n' ' ' < "$F")"
   echo "Cache $(docker exec frigate sh -c 'ls -t /tmp/cache 2>/dev/null | head -4 | tr "\n" " "; ls /tmp/cache 2>/dev/null | wc -l')"
   echo "Started $(docker inspect -f '{{.State.StartedAt}} restarts {{.RestartCount}}' frigate)"
