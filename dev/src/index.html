@@ -8350,7 +8350,9 @@ const ACT = {
   roam(d) { Roam.set(d.v === 'on'); },
   mofixopen(d) { const e = evE(d.v); if (!e) return;
     const m = document.getElementById('evm-' + d.v), v = m && m.querySelector('video.evv'), playing = S.evPlay === d.v && v && v.currentTime > 0;
-    const t = playing ? vodReal(v, v.currentTime) : evP(d.v, S.filt).t;
+    /* 6.6.10 her measurement: Frigate's picture for the paused second was always one −0.3 step after the frame she paused
+       on, so the paused frame starts 0.3 s earlier */
+    const t = playing ? vodReal(v, v.currentTime) - 300 : evP(d.v, S.filt).t;
     if (playing && !v.paused) { v._up = true; v.pause(); evIcons(); }   /* the frame she saw stays on screen */
     S.moFix = { k: d.v, cam: e.cam, t: Math.round(t), off: 0 }; Dbg.log('motion fix frame', e.cam, hms(t), playing ? 'paused video' : 'motion start'); S.modal = 'mofix'; render();
     /* 6.6.9 her report (Upstairs Living 20:55:30): the motion started before its recording did (that moment had no
