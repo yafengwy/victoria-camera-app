@@ -543,7 +543,7 @@ def main():
     except Exception as x:
         log('doorbell warm-up error: ' + repr(x)[:150])
     if started_ago() < 600:          # just (re)started: give it time
-        st.update(dead_runs=0, gpu_runs=0, api_runs=0)
+        st.update(dead_runs=0, gpu_runs=0, api_runs=0, frozen_runs=0, cache_runs=0, last_uptime=None)
         health([], st, None); json.dump(st, open(STATE, 'w')); return
 
     try:
@@ -557,6 +557,17 @@ def main():
             if (s.get('camera_fps') or 0) < 1:
                 dead.append(cam)
         st['dead_runs'] = st['dead_runs'] + 1 if len(dead) >= 5 else 0
+        # 2026-10-22 (her report from abroad): Frigate froze at ~06:00 after the 04:00 restart. Its API still answered,
+        # but /api/stats kept the same numbers (uptime 7175 s for hours, every camera "5 fps"), the newest recording
+        # piece in /tmp/cache stayed at 06:02 (598 pieces piled up), pictures stayed at dawn, no detection, no
+        # notifications, until noticed at 14:30. Frozen = the stats uptime does not move, or no new recording piece
+        # for 10 min while cameras are on; 5 checks in a row restart Frigate.
+        up = (stats.get('service') or {}).get('uptime')
+        st['frozen_runs'] = st.get('frozen_runs', 0) + 1 if up is not None and up == st.get('last_uptime') else 0
+        st['last_uptime'] = up
+        recon = [cam for cam, c in (cfg.get('cameras') or {}).items() if c.get('enabled', True) is not False and (c.get('record') or {}).get('enabled') and cam not in dead]
+        fresh = 'skip' if not recon else sh(['docker', 'exec', 'frigate', 'sh', '-c', 'find /tmp/cache -maxdepth 1 -name "*.mp4" -mmin -10 | head -1'])
+        st['cache_runs'] = st.get('cache_runs', 0) + 1 if not fresh.strip() and len(dead) < 5 else 0
     except Exception:
         st['api_runs'] += 1
     if stats is not None:
@@ -572,12 +583,19 @@ def main():
     # no frames, and that restarted Frigate by mistake (white app while it restarted)
     if st['gpu_runs'] >= 5: why = f'graphics decode errors for 5 min ({g} in the last 2 min); no frames: {", ".join(dead) or "none"}'
     elif st['api_runs'] >= 5: why = 'Frigate API not answering for 5 min'
+    elif st.get('frozen_runs', 0) >= 5: why = 'Frigate frozen: its stats stopped changing (uptime %s s) for 5 min' % st.get('last_uptime')
+    elif st.get('cache_runs', 0) >= 5: why = 'Frigate frozen: no new recording piece for 15 min'
 
     if why and time.time() - st['last_restart'] > 1800:
         log('restart frigate: ' + why)
+        if 'frozen' in why:   # keep Frigate's own log from before the restart, to find what froze it
+            try:
+                open(os.path.join(D, 'frigate-frozen-log.txt'), 'w').write(sh(['docker', 'logs', 'frigate', '--since', '12h', '--tail', '4000'], 60))
+            except Exception:
+                pass
         r = subprocess.run(['docker', 'restart', 'frigate'], capture_output=True, text=True, timeout=180)
         log('restart done' if r.returncode == 0 else 'restart failed: ' + (r.stderr or '').strip()[:200])
-        st.update(last_restart=time.time(), dead_runs=0, gpu_runs=0, api_runs=0)
+        st.update(last_restart=time.time(), dead_runs=0, gpu_runs=0, api_runs=0, frozen_runs=0, cache_runs=0)
         hk = (datetime.now(TZ) if TZ else datetime.now()).strftime('%m-%d %Hh'); st.setdefault('hist', {}).setdefault(hk, {'dec': {}, 'crash': {}, 'disc': {}, 'nofr': 0, 'load': 0, 'mem': 999})['rs'] = 1
     elif why and not st.get('noted'):
         log('would restart (waiting, restarted < 30 min ago): ' + why)
