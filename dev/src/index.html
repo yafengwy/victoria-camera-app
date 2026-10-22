@@ -4288,7 +4288,7 @@ const Diag = {
   async run() {
     try { const r = await fetch(Frigate.base() + '/ws', { credentials: 'include' }); const t = (await r.text()).slice(0, 200).toLowerCase();
       this.route = t.includes('<!doctype') || t.includes('<html') ? 'Old Config' : 'OK (' + r.status + ')'; } catch (e) { this.route = 'Error'; }
-    try { const r = await fetch('diag.txt?t=' + Date.now(), { credentials: 'include' }); if (r.ok) this.srv = (await r.text()).trim().split('\n').join(' | ').slice(0, 300); } catch (e) {}
+    try { const r = await fetch('diag.txt?t=' + Date.now(), { credentials: 'include' }); if (r.ok) this.srv = (await r.text()).trim().split('\n').join(' | ').slice(0, 3000); } catch (e) {}
     try { const r = await fetch('health.txt?t=' + Date.now(), { credentials: 'include' }); if (r.ok) this.health = (await r.text()).trim(); } catch (e) {}
     try { const r = await fetch('update-log.txt?t=' + Date.now(), { credentials: 'include' }); if (r.ok) { const l = (await r.text()).trim().split('\n').filter(Boolean); this.log = l.slice(-3).join(' | ').slice(0, 300); } } catch (e) {}
     await F360.load();

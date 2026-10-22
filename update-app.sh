@@ -50,6 +50,18 @@ fi
     r=$(curl -s -i -m 4 -N -H "Connection: Upgrade" -H "Upgrade: websocket" -H "Sec-WebSocket-Version: 13" -H "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==" "$u" 2>&1 | head -1 | tr -d "\r")
     echo "$u -> ${r:-no answer}"
   done
+  # 2026-10-22 her report from abroad: card pictures were night at LA 13:50 and nothing recorded, while live worked.
+  # Per camera: frames/s Frigate reads, detection on/off, recording on/off, and the last watchdog lines
+  python3 - <<'PY' 2>&1
+import json, urllib.request as u
+try:
+    st = json.load(u.urlopen('http://127.0.0.1:5000/api/stats', timeout=5)).get('cameras', {})
+    cf = json.load(u.urlopen('http://127.0.0.1:5000/api/config', timeout=5)).get('cameras', {})
+    print('Cams ' + ' '.join('%s fps %s det %s rec %s' % (c, round((st.get(c) or {}).get('camera_fps') or 0, 1), 'on' if (v.get('detect') or {}).get('enabled') else 'off', 'on' if (v.get('record') or {}).get('enabled') else 'off') for c, v in cf.items()))
+except Exception as x:
+    print('Cams check failed', repr(x))
+PY
+  echo "Watchdog $(tail -4 "$D/watchdog-log.txt" 2>/dev/null | tr '\n' ' ')"
 } > "$D/app/diag.txt" 2>&1
 # Frigate watchdog: restarts Frigate by itself when cameras stop giving frames / graphics decoding keeps failing
 # (it stayed broken from 23:00 to 08:40 on 2026-10-04); log in ~/frigate/watchdog-log.txt
