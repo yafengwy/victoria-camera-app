@@ -77,6 +77,7 @@ PY
   echo "Started $(docker inspect -f '{{.State.StartedAt}} restarts {{.RestartCount}}' frigate)"
   echo "FrigateErr $(docker logs frigate --since 30m 2>&1 | grep -iE 'error|exception|timeout|stuck|unable' | sed -E 's#[^ /@]+:[^ /@]+@#***@#g' | tail -6 | cut -c1-220 | tr '\n' ' ')"
   echo "Watchdog $(tail -4 "$D/watchdog-log.txt" 2>/dev/null | tr '\n' ' ')"
+  echo "Restarts $(grep -E 'restart|would restart|frozen' "$D/watchdog-log.txt" 2>/dev/null | tail -4 | tr '\n' ' ')"
 } > "$D/app/diag.tmp" 2>&1 && mv -f "$D/app/diag.tmp" "$D/app/diag.txt"   # whole file at once: the app never reads a half-written one
 # Frigate watchdog: restarts Frigate by itself when cameras stop giving frames / graphics decoding keeps failing
 # (it stayed broken from 23:00 to 08:40 on 2026-10-04); log in ~/frigate/watchdog-log.txt

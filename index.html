@@ -2036,33 +2036,48 @@ Data.alertRule = {};
 const Frigate = {
   base() { return S.server.replace(/\/+$/, ''); },
   async get(p) { const r = await fetch(this.base() + p, { credentials: 'include' }); if (!r.ok) throw new Error(r.status); return r.json(); },
+  loadRev(t0, subsP) {
+    const week = now() - 7 * DAY;
+    const revP = (async () => {
+      const c = Roam.on ? await RevCache.get() : null, cFrom = c && c.from ? Math.max(week, c.from) : week;
+      const keep = c && Array.isArray(c.rows) ? c.rows.filter(r => r.start_time * 1000 >= cFrom) : null;
+      if (keep && keep.length) {
+        this.from = Math.min(this.from || Infinity, cFrom);
+        const since = Math.max(Math.floor(cFrom / 1000), Math.floor(Math.max(...keep.map(r => r.start_time))) - 7200), news = await this.page(since, 0, 0), ids = new Set(news.map(r => r.id));
+        const rows = news.concat(keep.filter(r => !ids.has(r.id))); Dbg.log('alerts from saved copy', keep.length, 'new asked', news.length); RevCache.put(rows, cFrom); return rows;
+      }
+      const from = Roam.on ? dayStart(now()) - DAY : week; this.from = Math.min(this.from || Infinity, from);
+      const rows = await this.page(Math.floor(from / 1000), 0, 0); RevCache.put(rows, from); if (Roam.on) Dbg.log('alerts asked from', ymdhms(from)); return rows;
+    })();
+    this.revOk = false;
+    Data.evReady = Promise.all([subsP || Promise.resolve(), revP]).then(([, rows]) => {
+      /* 5.8.1: older days read before the week arrived (her log 00:05:13: "older alerts 2344 from 10/07", then
+         "start alerts ready" replaced the list, so Oct 8–10 showed 0 and were never read again) are kept */
+      const fresh = this.mapReviews(rows), ids = new Set(fresh.map(e => e.id)), kept = (Data.events || []).filter(e => !ids.has(e.id) && !/^recent-/.test(e.id));
+      Data.events = fresh.concat(kept).sort((x, y) => y.t - x.t); this.revOk = true; Dbg.log('start alerts ready', fresh.length, 'kept older', kept.length, (Date.now() - t0) + 'ms'); })
+      .catch(e => { this.revFail = Date.now(); Dbg.log('start alerts failed', e && e.message); });
+    return Data.evReady;
+  },
+  /* back in the app after the week's alerts failed to load: read them again (6.7.9) */
+  retryRev() { if (Data.source !== 'frigate' || this.revOk || !this.revFail || this.revBusy) return; this.revBusy = true; Dbg.log('alerts read again');
+    this.loadRev(Date.now()).then(() => { this.revBusy = false; if (this.revOk && !S.dragging && !S.modal) render(); }); },
   async load() {
     const t0 = Date.now();
     /* the week's alerts and the people's names are asked for right away, in parallel with the camera list; the
        cameras show as soon as the list is in, the alerts join when they arrive (Data.evReady) */
-    this.from = now() - 7 * DAY;
+    this.from = 0;
     /* 5.7.7: 3539 alerts in 7 days but only the newest 2000 were asked for, so 10-11 / 10-12 showed nothing at all;
        now the week is read in pages of 2000 (older pages after the newest) */
-    const page = async (after, before, n) => { const rows = await this.get('/api/review?limit=2000&after=' + after + (before ? '&before=' + before : ''));
-      if (rows.length >= 2000 && n < 10) { const old = Math.floor(Math.min(...rows.map(r => r.start_time))); const ids = new Set(rows.map(r => r.id)); return rows.concat((await page(after, old + 1, n + 1)).filter(r => !ids.has(r.id))); } return rows; };
     /* 6.7.8: Roaming on + this phone has the week saved: only alerts from 2 hours before the newest saved one are asked
-       for (open ones get their end), the rest comes from the copy; the copy is saved after every full or partial read */
-    const after0 = Math.floor(this.from / 1000);
-    const revP = (async () => {
-      const c = Roam.on ? await RevCache.get() : null, keep = c && Array.isArray(c.rows) ? c.rows.filter(r => r.start_time >= after0) : null;
-      if (keep && keep.length) {
-        const since = Math.max(after0, Math.floor(Math.max(...keep.map(r => r.start_time))) - 7200), news = await page(since, 0, 0), ids = new Set(news.map(r => r.id));
-        const rows = news.concat(keep.filter(r => !ids.has(r.id))); Dbg.log('alerts from saved copy', keep.length, 'new asked', news.length); RevCache.put(rows); return rows;
-      }
-      const rows = await page(after0, 0, 0); RevCache.put(rows); return rows;
-    })();
+       for (open ones get their end), the rest comes from the copy; the copy is saved after every full or partial read.
+       6.7.9 (her log from China: every first read failed, so no copy was ever saved): Roaming on with no copy yet asks
+       only yesterday and today (older days load when she goes to them, as always); the copy keeps how far back it
+       reaches. A read that fails (the phone stops it when the app goes to the background) is tried again when she is
+       back in the app. */
+    const page = this.page = async (after, before, n) => { const rows = await this.get('/api/review?limit=2000&after=' + after + (before ? '&before=' + before : ''));
+      if (rows.length >= 2000 && n < 10) { const old = Math.floor(Math.min(...rows.map(r => r.start_time))); const ids = new Set(rows.map(r => r.id)); return rows.concat((await page(after, old + 1, n + 1)).filter(r => !ids.has(r.id))); } return rows; };
     const subsP = People.loadSubs();
-    Data.evReady = Promise.all([subsP, revP]).then(([, rows]) => {
-      /* 5.8.1: older days read before the week arrived (her log 00:05:13: "older alerts 2344 from 10/07", then
-         "start alerts ready" replaced the list, so Oct 8–10 showed 0 and were never read again) are kept */
-      const fresh = this.mapReviews(rows), ids = new Set(fresh.map(e => e.id)), kept = (Data.events || []).filter(e => !ids.has(e.id) && !/^recent-/.test(e.id));
-      Data.events = fresh.concat(kept).sort((x, y) => y.t - x.t); Dbg.log('start alerts ready', fresh.length, 'kept older', kept.length, (Date.now() - t0) + 'ms'); })
-      .catch(e => Dbg.log('start alerts failed', e && e.message));
+    this.loadRev(t0, subsP);
     const cfg = await this.get('/api/config');
     Dbg.log('start config ready', (Date.now() - t0) + 'ms');
     fetch('ctl/litter?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.json() : null).then(st => { if (st) { Litter.st = st; Rel.sync(st); } }).catch(() => {});   /* 6.2.4: animals she re-marked */
@@ -2808,7 +2823,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.7.8 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.7.9 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4200,7 +4215,7 @@ function slowEvery(ms, slowMs, fn) { let last = 0; setInterval(() => { const t =
 const RevCache = {
   db() { return this._db || (this._db = new Promise((ok, no) => { try { const r = indexedDB.open('vh-cache', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); } catch (e) { no(e); } })); },
   async get() { try { const d = await this.db(); return await new Promise(ok => { const q = d.transaction('kv').objectStore('kv').get('reviews'); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); }); } catch (e) { return null; } },
-  async put(rows) { try { const d = await this.db(); d.transaction('kv', 'readwrite').objectStore('kv').put({ at: Date.now(), rows }, 'reviews'); } catch (e) {} }
+  async put(rows, from) { try { const d = await this.db(); d.transaction('kv', 'readwrite').objectStore('kv').put({ at: Date.now(), from, rows }, 'reviews'); } catch (e) {} }
 };
 const Roam = {
   who: store.get('roamwho', ''), all: store.get('roamall', { victoria: false, james: false }), net: store.get('roamnet', null), hd: false,
@@ -7392,7 +7407,7 @@ function modalSettings() {
       row('Roaming', seg('roam', Roam.on ? 'on' : 'off', [['off', 'Off'], ['on', 'On']])) : '') +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.7.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.7.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7685,7 +7700,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.7.8');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.7.9');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7702,7 +7717,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.7.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.7.9\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -9083,14 +9098,14 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   if (Data.source === 'frigate') {
     Diag.run();
     setInterval(() => Motion.ensure(), 3000); setInterval(() => Live.watch(), 2000);
-    document.addEventListener('visibilitychange', () => { if (document.hidden) Live.hidAt = now(); if (!document.hidden) { Motion.ensure(); Frigate.refresh(); LastMo.load(); if (now() - (Live.hidAt || 0) > 60000) Live.sweepStart('back to app'); HA.get(); Snz.get(); Wait.get(); } });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) Live.hidAt = now(); if (!document.hidden) { Motion.ensure(); Frigate.retryRev(); Frigate.refresh(); LastMo.load(); if (now() - (Live.hidAt || 0) > 60000) Live.sweepStart('back to app'); HA.get(); Snz.get(); Wait.get(); } });
     window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); slowEvery(10000, 30000, () => Frigate.refresh()); HA.get(); slowEvery(10000, 30000, () => HA.get()); Roam.load(); slowEvery(20000, 60000, () => Roam.load()); if (navigator.connection && navigator.connection.addEventListener) { let was = Roam.low(); navigator.connection.addEventListener('change', () => { Dbg.log('phone network', Roam.own() || 'unknown'); if (was !== Roam.low()) { was = Roam.low(); Roam.apply(); } }); } if (store.get('boxes', false)) Box.set(true); if (!Playback.native()) Playback.hls().catch(() => {}); Snz.get(); slowEvery(15000, 60000, () => Snz.get()); Wait.get(); slowEvery(15000, 60000, () => Wait.get()); if (!Roam.on) FpQ.run(); slowEvery(120000, 600000, () => FpQ.run());
     setInterval(() => { if (S.view === 'home' && !S.modal && (Snz.active() || Wait.active() || document.querySelector('.snzban'))) render(); }, 60000); slowEvery(30000, 120000, () => Diag.run()); Frigate.pollStats(); slowEvery(3000, 15000, Frigate.pollStats); Pic.poll(); slowEvery(15000, 60000, () => Pic.poll());
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.7.8';
+    const BUILD = '6.7.9';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
