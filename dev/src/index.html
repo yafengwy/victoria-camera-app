@@ -2045,7 +2045,18 @@ const Frigate = {
        now the week is read in pages of 2000 (older pages after the newest) */
     const page = async (after, before, n) => { const rows = await this.get('/api/review?limit=2000&after=' + after + (before ? '&before=' + before : ''));
       if (rows.length >= 2000 && n < 10) { const old = Math.floor(Math.min(...rows.map(r => r.start_time))); const ids = new Set(rows.map(r => r.id)); return rows.concat((await page(after, old + 1, n + 1)).filter(r => !ids.has(r.id))); } return rows; };
-    const subsP = People.loadSubs(), revP = page(Math.floor(this.from / 1000), 0, 0);
+    /* 6.7.8: Roaming on + this phone has the week saved: only alerts from 2 hours before the newest saved one are asked
+       for (open ones get their end), the rest comes from the copy; the copy is saved after every full or partial read */
+    const after0 = Math.floor(this.from / 1000);
+    const revP = (async () => {
+      const c = Roam.on ? await RevCache.get() : null, keep = c && Array.isArray(c.rows) ? c.rows.filter(r => r.start_time >= after0) : null;
+      if (keep && keep.length) {
+        const since = Math.max(after0, Math.floor(Math.max(...keep.map(r => r.start_time))) - 7200), news = await page(since, 0, 0), ids = new Set(news.map(r => r.id));
+        const rows = news.concat(keep.filter(r => !ids.has(r.id))); Dbg.log('alerts from saved copy', keep.length, 'new asked', news.length); RevCache.put(rows); return rows;
+      }
+      const rows = await page(after0, 0, 0); RevCache.put(rows); return rows;
+    })();
+    const subsP = People.loadSubs();
     Data.evReady = Promise.all([subsP, revP]).then(([, rows]) => {
       /* 5.8.1: older days read before the week arrived (her log 00:05:13: "older alerts 2344 from 10/07", then
          "start alerts ready" replaced the list, so Oct 8–10 showed 0 and were never read again) are kept */
@@ -2356,7 +2367,7 @@ const Snap = {
     this.focusTick(t);
     if (!PHONE_LIVE() || S.view !== 'home') return;
     for (const c of Data.cams) { const id = c.id;
-      if (!Ctl.on(id) || !this.on(id) || !Live.wantLive(id) || this.busy[id] || t - (this.at[id] || 0) < 950) continue;
+      if (!Ctl.on(id) || !this.on(id) || !Live.wantLive(id) || this.busy[id] || t - (this.at[id] || 0) < (Roam.on ? 4000 : 950)) continue;   /* 6.7.8: one picture every 4 s while Roaming is on */
       const im = document.getElementById('img-' + id); if (!im) continue;
       const r = im.getBoundingClientRect(); if (!(r.bottom > 0 && r.top < innerHeight && r.width > 0)) continue;
       this.busy[id] = 1; const u = this.url(id), pre = new Image(), t0 = performance.now();
@@ -2395,7 +2406,7 @@ const ObjVid = {
     if (ch) Dbg.log('object video', ids.join(', ') || 'none');
     this.set = nw; return ch;
   },
-  has(id) { return this.set.has(id); },
+  has(id) { return !Roam.on && this.set.has(id); },   /* 6.7.8: while Roaming is on, moving objects stay pictures (no video per card) */
   tick() { if (this.pick() && typeof Live !== 'undefined') Live.policy(); }
 };
 setInterval(() => { if (!document.hidden) ObjVid.tick(); }, 1000);
@@ -4182,6 +4193,15 @@ function modalSnooze() {
 /* 6.6.4: Victoria and James each have their own Roaming (input_boolean.camera_app_roaming / _james) and phone network
    (sensor.victorias_iphone_15_connection_type / sensor.jamess_iphone_16_connection_type). The app can't tell who holds
    the phone, so each place (home-screen app, Safari, Chrome…) is asked once — only while someone's Roaming is on */
+/* 6.7.8 her rule (abroad, the line to the house is slow): while Roaming is on (her switch, Wi-Fi or not), the app asks
+   the house for less: the regular checks run 3-5x less often, home cards with a moving object stay pictures, a picture
+   every 4 s instead of every second, and the week's alerts come from this phone's own copy plus only the newest ones */
+function slowEvery(ms, slowMs, fn) { let last = 0; setInterval(() => { const t = Date.now(); if (typeof Roam !== 'undefined' && Roam.on && t - last < slowMs - 500) return; last = t; try { fn(); } catch (e) {} }, ms); }
+const RevCache = {
+  db() { return this._db || (this._db = new Promise((ok, no) => { try { const r = indexedDB.open('vh-cache', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => ok(r.result); r.onerror = () => no(r.error); } catch (e) { no(e); } })); },
+  async get() { try { const d = await this.db(); return await new Promise(ok => { const q = d.transaction('kv').objectStore('kv').get('reviews'); q.onsuccess = () => ok(q.result || null); q.onerror = () => ok(null); }); } catch (e) { return null; } },
+  async put(rows) { try { const d = await this.db(); d.transaction('kv', 'readwrite').objectStore('kv').put({ at: Date.now(), rows }, 'reviews'); } catch (e) {} }
+};
 const Roam = {
   who: store.get('roamwho', ''), all: store.get('roamall', { victoria: false, james: false }), net: store.get('roamnet', null), hd: false,
   get on() { return !!(this.who && this.all[this.who]); },
@@ -9064,8 +9084,8 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
     Diag.run();
     setInterval(() => Motion.ensure(), 3000); setInterval(() => Live.watch(), 2000);
     document.addEventListener('visibilitychange', () => { if (document.hidden) Live.hidAt = now(); if (!document.hidden) { Motion.ensure(); Frigate.refresh(); LastMo.load(); if (now() - (Live.hidAt || 0) > 60000) Live.sweepStart('back to app'); HA.get(); Snz.get(); Wait.get(); } });
-    window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); setInterval(() => Frigate.refresh(), 10000); HA.get(); setInterval(() => HA.get(), 10000); Roam.load(); setInterval(() => Roam.load(), 20000); if (navigator.connection && navigator.connection.addEventListener) { let was = Roam.low(); navigator.connection.addEventListener('change', () => { Dbg.log('phone network', Roam.own() || 'unknown'); if (was !== Roam.low()) { was = Roam.low(); Roam.apply(); } }); } if (store.get('boxes', false)) Box.set(true); if (!Playback.native()) Playback.hls().catch(() => {}); Snz.get(); setInterval(() => Snz.get(), 15000); Wait.get(); setInterval(() => Wait.get(), 15000); FpQ.run(); setInterval(() => FpQ.run(), 120000);
-    setInterval(() => { if (S.view === 'home' && !S.modal && (Snz.active() || Wait.active() || document.querySelector('.snzban'))) render(); }, 60000); setInterval(() => Diag.run(), 30000); Frigate.pollStats(); setInterval(Frigate.pollStats, 3000); Pic.poll(); setInterval(() => Pic.poll(), 15000);
+    window.addEventListener('pageshow', () => Motion.ensure()); window.addEventListener('online', () => Motion.ensure()); slowEvery(10000, 30000, () => Frigate.refresh()); HA.get(); slowEvery(10000, 30000, () => HA.get()); Roam.load(); slowEvery(20000, 60000, () => Roam.load()); if (navigator.connection && navigator.connection.addEventListener) { let was = Roam.low(); navigator.connection.addEventListener('change', () => { Dbg.log('phone network', Roam.own() || 'unknown'); if (was !== Roam.low()) { was = Roam.low(); Roam.apply(); } }); } if (store.get('boxes', false)) Box.set(true); if (!Playback.native()) Playback.hls().catch(() => {}); Snz.get(); slowEvery(15000, 60000, () => Snz.get()); Wait.get(); slowEvery(15000, 60000, () => Wait.get()); if (!Roam.on) FpQ.run(); slowEvery(120000, 600000, () => FpQ.run());
+    setInterval(() => { if (S.view === 'home' && !S.modal && (Snz.active() || Wait.active() || document.querySelector('.snzban'))) render(); }, 60000); slowEvery(30000, 120000, () => Diag.run()); Frigate.pollStats(); slowEvery(3000, 15000, Frigate.pollStats); Pic.poll(); slowEvery(15000, 60000, () => Pic.poll());
     if (window.customElements) customElements.whenDefined('live-cam').then(() => Live.mount());
   }
   openLink(); window.addEventListener('hashchange', openLink);
