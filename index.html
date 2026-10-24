@@ -2823,7 +2823,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.7.10 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.8.1 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4371,8 +4371,18 @@ setTimeout(() => F360.tick(), 2500); setInterval(() => { if (document.visibility
 /* ===== State ===== */
 /* Served from the mini PC (home IP or victoriashome.app): talk to the real Frigate on the same address by default */
 const HOSTED = /^(192\.168\.|10\.|localhost$|frigate)|victoriashome\.app$/.test(location.hostname);
+/* 6.7.11 her rule (foldables: Huawei, Galaxy Fold, Surface Duo…): List / Per Row is kept separately for the folded
+   (small) and unfolded (big) screen of each phone, on that phone only. Big = the screen's short side is 560 px or more
+   (a turned normal phone stays small). A state never picked yet starts from the phone's earlier single choice. */
+const Fold = {
+  key() { return Math.min(innerWidth, innerHeight) >= 560 ? 'w' : 'n'; },
+  get(k, d) { const v = store.get(k + '.' + this.key(), undefined); return v === undefined ? store.get(k, d) : v; },
+  set(k, v) { store.set(k + '.' + this.key(), v); },
+  both() { return store.get('fold.seen.n', false) && store.get('fold.seen.w', false); }
+};
+store.set('fold.seen.' + Fold.key(), true); Fold.last = Fold.key();
 const S = {
-  view: 'home', fmode: store.get('fmode', 'C') === 'B' ? 'B' : 'C', markStyle: store.get('markStyle', 'a') === 'b' ? 'b' : 'a',   /* 6.2.3: Ring and Dot removed (she saw no difference); they become Badge */ cover: store.get('cover', 'auto'), look: store.get('look', 'auto'), colsPref: store.get('colsPref', 'auto'), forced: {}, mode: store.get('mode', 'home'), theme: ['glass', 'google', 'green', 'blue', 'noir'].includes(store.get('theme2', 'glass')) ? store.get('theme2', 'glass') : 'glass', layout: store.get('layout', 'list'),
+  view: 'home', fmode: store.get('fmode', 'C') === 'B' ? 'B' : 'C', markStyle: store.get('markStyle', 'a') === 'b' ? 'b' : 'a',   /* 6.2.3: Ring and Dot removed (she saw no difference); they become Badge */ cover: store.get('cover', 'auto'), look: store.get('look', 'auto'), colsPref: Fold.get('colsPref', 'auto'), forced: {}, mode: store.get('mode', 'home'), theme: ['glass', 'google', 'green', 'blue', 'noir'].includes(store.get('theme2', 'glass')) ? store.get('theme2', 'glass') : 'glass', layout: Fold.get('layout', 'list'),
   server: store.get('server', HOSTED ? location.origin : ''), demo: HOSTED ? false : store.get('demo', true),   /* 4.7.2: no Use Demo Data box any more; the real site never shows demo data */
   open: store.get('open', {}), expanded: null, camTime: camTimeObj(),
   winEnd: now(), pos: 1, win: store.get('win', 30 * MIN), playing: true, speed: 1, tab: 'events',
@@ -4547,6 +4557,9 @@ function placeSteps() {
   if (!v._ro && window.ResizeObserver) { v._ro = new ResizeObserver(() => placeSteps()); v._ro.observe(v); }
 }
 window.addEventListener('resize', () => placeSteps());
+/* 6.7.11: folding / unfolding switches to that screen's own List / Per Row */
+window.addEventListener('resize', () => { clearTimeout(Fold.rt); Fold.rt = setTimeout(() => { const k = Fold.key(); if (k === Fold.last) return; Fold.last = k; store.set('fold.seen.' + k, true);
+  const l = Fold.get('layout', 'list'), c = Fold.get('colsPref', 'auto'); if (l !== S.layout || c !== S.colsPref) { S.layout = l; S.colsPref = c; Dbg.log('screen', k === 'w' ? 'unfolded' : 'folded', l === 'list' ? 'list' : c + ' per row'); render(); } else if (S.modal === 'settings') render(); }, 200); });
 /* 5.4.6 her request: Back To Top. After scrolling down more than two screens on a long page (Cameras, Alerts, or a
    scrolling window such as 如厕记录 / 认猫 / People), a round ↑ button shows at the bottom right; one tap scrolls back to the top.
    It keeps clear of the Alerts hour column, the Duo cover strip and the Duo browser column. Works inside Home Assistant too
@@ -7401,13 +7414,13 @@ function modalSettings() {
     row('Style', seg('theme', S.theme, [['glass', 'Glass'], ['google', 'Google'], ['blue', 'Blue'], ['green', 'Teal'], ['noir', 'Noir']])) +
     row('Appearance', seg('look', S.look, [['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']])) +
     /* 4.7.9: List (one per row on a phone) lives here too; it was only in the … menu, so Auto looked the same as 2 */
-    row('Per Row', seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
+    row('Per Row' + (Fold.both() ? (Fold.key() === 'w' ? ' · Unfolded' : ' · Folded') : ''), seg('colspref', S.layout === 'list' ? 'list' : S.colsPref, [['list', 'List'], ['auto', 'Auto'], ['2', '2'], ['3', '3'], ['4', '4'], ['5', '5']], true)) +
     row('Camera View Alerts', seg('fmode', S.fmode, [['C', 'List'], ['B', 'Thumbnails']])) +
     (Roam.phone() ? row('This Phone', seg('roamwho', Roam.who, [['victoria', 'Victoria'], ['james', 'James']])) +
       row('Roaming', seg('roam', Roam.on ? 'on' : 'off', [['off', 'Off'], ['on', 'On']])) : '') +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.7.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.8.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7702,7 +7715,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.7.10');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.8.1');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7719,7 +7732,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.7.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.8.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -7741,10 +7754,10 @@ const ACT = {
   furbo360(d) { if (d.v !== F360.want) F360.set(d.v); },
   xrestart() { XR.go(); },
   look(d) { S.look = d.v; store.set('look', d.v); render(); },
-  colspref(d) { if (d.v === 'list') { S.layout = 'list'; store.set('layout', 'list'); render(); return; } S.colsPref = d.v; store.set('colsPref', d.v); if (S.layout !== 'grid') { S.layout = 'grid'; store.set('layout', 'grid'); } render(); },
+  colspref(d) { if (d.v === 'list') { S.layout = 'list'; Fold.set('layout', 'list'); render(); return; } S.colsPref = d.v; Fold.set('colsPref', d.v); if (S.layout !== 'grid') { S.layout = 'grid'; Fold.set('layout', 'grid'); } render(); },
   more() { S.more = !S.more; render(); },
   moreclose() { S.more = false; render(); },
-  layoutset(d) { S.layout = d.v; store.set('layout', S.layout); S.more = false; render(); },
+  layoutset(d) { S.layout = d.v; Fold.set('layout', S.layout); S.more = false; render(); },
   soon() { toast('Coming Soon'); },
   filtreset() { S.filt.objs = {}; S.filt.off = {}; S.filt.camTick = false; S.filt.zones = {}; S.filt.int = true; S.filt.unint = false; S.filt.motion = false; MotionList.n = 50; saveFilt(); render(); toast('Filters Reset'); },
   boxes() { Box.set(!Box.on); Dbg.log('boxes', Box.on ? 'on' : 'off', S.view); document.querySelectorAll('[data-act="boxes"]').forEach(b => b.setAttribute('aria-pressed', String(Box.on))); toast(Box.on ? 'Object Boxes On' : 'Object Boxes Off'); },
@@ -7995,7 +8008,7 @@ const ACT = {
   },
   async wtstop() { if (await Wait.put({ from: 0, until: 0, cos: [] })) { render(); toast('Stopped Waiting'); } },
   async snzresume() { if (await Snz.put({ until: 0, mode: 't', cams: [] })) { render(); toast('Notifications Back On'); } },
-  layout() { S.layout = S.layout === 'list' ? 'grid' : 'list'; store.set('layout', S.layout); render(); },
+  layout() { S.layout = S.layout === 'list' ? 'grid' : 'list'; Fold.set('layout', S.layout); render(); },
   group(d) { S.open[d.v] = S.open[d.v] === false; store.set('open', S.open); render(); },
   /* 6.1.11 her 10:55 report: Alert Settings opened from the turned full screen (phone upright, picture turned sideways)
      showed upright over it and her iPhone stopped taking taps (the first tap on × gave no click, later taps reached no
@@ -8007,9 +8020,11 @@ const ACT = {
      The next visit asks for the username and password again. */
   async signout() {
     if (!(S.soAsk && Date.now() - S.soAsk < 4000)) { S.soAsk = Date.now(); render(); setTimeout(() => { if (S.soAsk && Date.now() - S.soAsk >= 4000) { S.soAsk = 0; if (S.modal === 'settings') render(); } }, 4100); return; }   /* a second tap within 4 s */
-    Dbg.log('sign out');
-    try { await fetch('/signout', { cache: 'no-store', credentials: 'include' }); } catch (e) {}
-    try { await fetch('/version.txt?bye=' + Date.now(), { cache: 'no-store', credentials: 'omit', headers: { Authorization: 'Basic ' + btoa('signed-out:x') } }); } catch (e) {}
+    Dbg.log('sign out'); toast('Signing Out…');
+    /* 6.7.11 her report (China, slow line): waiting for the requests did nothing visible; now nothing is waited for
+       longer than 1.5 s — the Signed Out page itself forgets the sign-in */
+    const quick = (u, o) => Promise.race([fetch(u, o).catch(() => {}), new Promise(r => setTimeout(r, 1500))]);
+    await quick('/version.txt?bye=' + Date.now(), { cache: 'no-store', credentials: 'omit', headers: { Authorization: 'Basic ' + btoa('signed-out:x') } });
     try { localStorage.clear(); sessionStorage.clear(); } catch (e) {}
     try { indexedDB.deleteDatabase('vh-cache'); } catch (e) {}
     location.replace('/signout');
@@ -9119,7 +9134,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.7.10';
+    const BUILD = '6.8.1';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
