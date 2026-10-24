@@ -7441,7 +7441,7 @@ function modalSettings() {
     (Data.source === 'frigate' ? row('Frigate+', '<button class="btn" data-act="ppopen2">Pick Pictures</button>') : '') +
     (Data.source === 'frigate' ? row('猫砂盆', XR.busy() ? '<span class="wtnote" style="margin:0">Restarting · Within 1 Min</span>' : '<button class="btn" data-act="xrestart">Restart</button>') : '') +
     /* 6.7.10 her request: on someone else's phone she signs out after looking */
-    (HOSTED && /victoriashome\.app$/.test(location.hostname) ? row('Account', '<button class="btn" data-act="signout">' + (S.soAsk && Date.now() - S.soAsk < 4000 ? 'Tap Again To Sign Out' : 'Sign Out') + '</button>') : '') +
+    (HOSTED && /victoriashome\.app$/.test(location.hostname) ? row('Account', '<button class="btn" data-act="signout">Sign Out</button>') : '') +
     '</div></div></div>';
 }
 let toastTimer;
@@ -8015,11 +8015,10 @@ const ACT = {
      button). A window opened there now steps out of full screen first and goes back into it once the window closes. */
   modal(d) { fullStep(d.v); S.modal = d.v; render(); },
   close() { S.modal = null; render(); },
-  /* 6.7.10: the mini PC's /signout forgets the 1-year sign-in cookie; a request with a wrong password replaces the
+  /* 6.8.2 her rule: one tap signs out, nothing asked. 6.7.10: the mini PC's /signout forgets the 1-year sign-in cookie; a request with a wrong password replaces the
      password the browser keeps for this site; this site's saved data on the phone is cleared; then the Signed Out page.
      The next visit asks for the username and password again. */
   async signout() {
-    if (!(S.soAsk && Date.now() - S.soAsk < 4000)) { S.soAsk = Date.now(); render(); setTimeout(() => { if (S.soAsk && Date.now() - S.soAsk >= 4000) { S.soAsk = 0; if (S.modal === 'settings') render(); } }, 4100); return; }   /* a second tap within 4 s */
     Dbg.log('sign out'); toast('Signing Out…');
     /* 6.7.11 her report (China, slow line): waiting for the requests did nothing visible; now nothing is waited for
        longer than 1.5 s — the Signed Out page itself forgets the sign-in */
