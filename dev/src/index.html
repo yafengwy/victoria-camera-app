@@ -4372,10 +4372,10 @@ setTimeout(() => F360.tick(), 2500); setInterval(() => { if (document.visibility
 /* Served from the mini PC (home IP or victoriashome.app): talk to the real Frigate on the same address by default */
 const HOSTED = /^(192\.168\.|10\.|localhost$|frigate)|victoriashome\.app$/.test(location.hostname);
 /* 6.7.11 her rule (foldables: Huawei, Galaxy Fold, Surface Duo…): List / Per Row is kept separately for the folded
-   (small) and unfolded (big) screen of each phone, on that phone only. Big = the screen's short side is 560 px or more
+   (small) and unfolded (big) screen of each phone, on that phone only. Big = the page's short side is 500 px or more
    (a turned normal phone stays small). A state never picked yet starts from the phone's earlier single choice. */
 const Fold = {
-  key() { return Math.min(innerWidth, innerHeight) >= 560 ? 'w' : 'n'; },
+  key() { return Math.min(innerWidth, innerHeight) >= 500 ? 'w' : 'n'; },   /* 6.8.4: 500 (her iPhone Duo photos: unfolded Safari page ~1000x570, folded ~376x667; biggest normal phone 440) */
   get(k, d) { const v = store.get(k + '.' + this.key(), undefined); return v === undefined ? store.get(k, d) : v; },
   set(k, v) { store.set(k + '.' + this.key(), v); },
   both() { return store.get('fold.seen.n', false) && store.get('fold.seen.w', false); }

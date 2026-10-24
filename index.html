@@ -2823,7 +2823,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.8.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.8.4 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4372,10 +4372,10 @@ setTimeout(() => F360.tick(), 2500); setInterval(() => { if (document.visibility
 /* Served from the mini PC (home IP or victoriashome.app): talk to the real Frigate on the same address by default */
 const HOSTED = /^(192\.168\.|10\.|localhost$|frigate)|victoriashome\.app$/.test(location.hostname);
 /* 6.7.11 her rule (foldables: Huawei, Galaxy Fold, Surface Duo…): List / Per Row is kept separately for the folded
-   (small) and unfolded (big) screen of each phone, on that phone only. Big = the screen's short side is 560 px or more
+   (small) and unfolded (big) screen of each phone, on that phone only. Big = the page's short side is 500 px or more
    (a turned normal phone stays small). A state never picked yet starts from the phone's earlier single choice. */
 const Fold = {
-  key() { return Math.min(innerWidth, innerHeight) >= 560 ? 'w' : 'n'; },
+  key() { return Math.min(innerWidth, innerHeight) >= 500 ? 'w' : 'n'; },   /* 6.8.4: 500 (her iPhone Duo photos: unfolded Safari page ~1000x570, folded ~376x667; biggest normal phone 440) */
   get(k, d) { const v = store.get(k + '.' + this.key(), undefined); return v === undefined ? store.get(k, d) : v; },
   set(k, v) { store.set(k + '.' + this.key(), v); },
   both() { return store.get('fold.seen.n', false) && store.get('fold.seen.w', false); }
@@ -7420,7 +7420,7 @@ function modalSettings() {
       row('Roaming', seg('roam', Roam.on ? 'on' : 'off', [['off', 'Off'], ['on', 'On']])) : '') +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.8.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.8.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7715,7 +7715,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.8.3');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.8.4');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7732,7 +7732,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.8.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.8.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -9133,7 +9133,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.8.3';
+    const BUILD = '6.8.4';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
