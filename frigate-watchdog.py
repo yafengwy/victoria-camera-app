@@ -252,6 +252,17 @@ def storage_check(st):
     why = []
     if free < STORE_FREE:
         why.append('Disk Free %d%%' % (free * 100))
+    # 2026-11-02: the system disk (457 GB, holds ~/frigate, Docker, the app) filled to 100% around 10-29 while the
+    # recordings disk was fine: an old copy of recordings (~/frigate/storage.old, 378 GB, never cleaned by Frigate)
+    # plus something growing. Recordings, alerts, notification videos and app updates all stopped and nobody was told.
+    # The system disk is now checked too (alert under 10% free).
+    try:
+        sd = shutil.disk_usage('/'); sfree = sd.free / sd.total
+        s.update(sysfree=int(sfree * 100), sysgb=sd.free // 2**30)
+        if sfree < STORE_FREE:
+            why.append('System Disk Free %d%% (%d GB)' % (sfree * 100, sd.free // 2**30))
+    except Exception:
+        pass
     if now - s['since'] > (STORE_DAYS + 1) * 86400 and oldest < STORE_DAYS:
         why.append('Alerts Only Go Back %d Days' % oldest)
     if why and now - s.get('sent', 0) > 20 * 3600:

@@ -74,6 +74,7 @@ PY
   [ -f "$F" ] || docker logs frigate --since 2026-10-22T11:00:00Z --until 2026-10-22T13:10:00Z 2>&1 | grep -E 'ERROR|WARNING|CRITICAL|Killed|memory|Timeout|timed out' | grep -viE 'HandshakeError|ws4py' | sed -E 's#[^ /@]+:[^ /@]+@#***@#g' | tail -30 | cut -c1-200 > "$F"
   echo "FrozenLog $(tr '\n' ' ' < "$F")"
   echo "Cache $(docker exec frigate sh -c 'ls -t /tmp/cache 2>/dev/null | head -4 | tr "\n" " "; ls /tmp/cache 2>/dev/null | wc -l')"
+  echo "Disk $(df -h / "$D/storage" 2>/dev/null | tail -n +2 | awk '{printf "%s %s free (%s used) ", $6, $4, $5}')"
   echo "Started $(docker inspect -f '{{.State.StartedAt}} restarts {{.RestartCount}}' frigate)"
   echo "FrigateErr $(docker logs frigate --since 30m 2>&1 | grep -iE 'error|exception|timeout|stuck|unable' | sed -E 's#[^ /@]+:[^ /@]+@#***@#g' | tail -6 | cut -c1-220 | tr '\n' ' ')"
   echo "Watchdog $(tail -4 "$D/watchdog-log.txt" 2>/dev/null | tr '\n' ' ')"
