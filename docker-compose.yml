@@ -1,5 +1,14 @@
+# 2026-11-02: every container's log is capped (2 files of 50 MB). Docker keeps logs forever by default: the furbo
+# bridge's log had grown to 53 GB (Frigate 2 GB, app 1.9 GB) and, with an old recordings copy, filled the system disk.
+x-logging: &keep-logs-small
+  driver: json-file
+  options:
+    max-size: "50m"
+    max-file: "2"
+
 services:
   frigate:
+    logging: *keep-logs-small
     container_name: frigate
     image: ghcr.io/blakeblackshear/frigate:stable
     restart: unless-stopped
@@ -23,6 +32,7 @@ services:
       - "8555:8555/udp"
     env_file: .env
   app:
+    logging: *keep-logs-small
     container_name: vh-app
     image: nginx:alpine
     restart: unless-stopped
@@ -36,6 +46,7 @@ services:
       - ./ha-auth.conf:/etc/nginx/ha-auth.conf:ro
       - ./furbo-auth.conf:/etc/nginx/furbo-auth.conf:ro
   caddy:
+    logging: *keep-logs-small
     container_name: caddy
     image: caddy:2
     restart: unless-stopped
@@ -52,6 +63,7 @@ services:
     env_file: caddy.env
   # Short notification videos (mp4 or gif): waits until Frigate has saved the requested seconds, then passes the clip on
   clipwait:
+    logging: *keep-logs-small
     container_name: clipwait
     image: python:3.12-alpine
     restart: unless-stopped
@@ -65,6 +77,7 @@ services:
   # RTSP on 8564 for Frigate. Built on this machine from github.com/willbeeching/ha-furbo (furbo-bridge).
   # Settings and the Furbo login live in ./furbo-data/options.json on the mini PC only.
   furbo:
+    logging: *keep-logs-small
     container_name: furbo
     build: https://github.com/willbeeching/ha-furbo.git#main:furbo-bridge
     image: furbo-bridge:local
@@ -76,6 +89,7 @@ services:
   # Xiaomi cameras (Mi Home): go2rtc's xiaomi source needs the host network (its P2P replies don't come back through
   # Docker's bridge). Serves RTSP on 8574 for Frigate. Secrets from .env (XIAOMI_TOKEN, FRIGATE_CAM_PW).
   xiaomi:
+    logging: *keep-logs-small
     container_name: xiaomi
     image: alexxit/go2rtc:latest
     restart: unless-stopped
