@@ -119,7 +119,11 @@ def home_ip(ip):
     ip = (ip or '').strip()
     if not ip:
         return None
-    if ip.startswith(('192.168.', '10.', '127.', '::1', 'fe80', 'fd', 'fc')):
+    # 2026-11-07: 127.x / ::1 is Home Assistant itself; a phone coming in through Home Assistant Cloud (her HA app
+    # abroad) shows up that way, so it is not "home": the real place is unknown
+    if ip.startswith(('127.', '::1')):
+        return 'cloud'
+    if ip.startswith(('192.168.', '10.', 'fe80', 'fd', 'fc')):
         return True
     if ip.startswith('172.'):
         try:
@@ -158,7 +162,7 @@ def notify(t):
     ip = t.get('last_used_ip') or ''
     h = home_ip(ip)
     body = {'app': app_name(t).strip(), 'when': local(t.get('created_at') or ''), 'ip': ip or '不知道',
-            'where': '家里网络' if h else ('外网' if h is False else '不知道')}
+            'where': '远程（经 HA Cloud，来源看不到）' if h == 'cloud' else '家里网络' if h else ('外网' if h is False else '不知道')}
     req = urllib.request.Request('http://%s:%d%s' % (HA_HOST, HA_PORT, HOOK), data=json.dumps(body, ensure_ascii=False).encode(),
                                  headers={'Content-Type': 'application/json'}, method='POST')
     urllib.request.urlopen(req, timeout=10).read()
