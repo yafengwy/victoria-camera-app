@@ -146,7 +146,10 @@ def gif(body, keep=0):
                     skip = ['-ss', f'{dur - keep:.2f}']
             except Exception:
                 pass
-        vf = 'fps=8,scale=480:-2:flags=lanczos,split[x][y];[x]palettegen=stats_mode=diff[p];[y][p]paletteuse=dither=bayer:bayer_scale=4'
+        # 2026-11-06 (her: in China the notification shows no picture or moving picture although the phone downloaded
+        # both, the GIF was 2.37 MB): smaller GIF, 6 frames/s, 400 wide, 96 colours, only changed areas redrawn —
+        # about 55% smaller in a test (1.94 MB -> 0.86 MB), so the phone gets and opens it faster
+        vf = 'fps=6,scale=400:-2:flags=lanczos,split[x][y];[x]palettegen=max_colors=96:stats_mode=diff[p];[y][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle'
         # only the picture goes into the GIF (-map 0:v:0 -an): 2026-10-08 13:33 a Treat Feeder clip made ffmpeg fail with
         # "Error opening output file out.gif: Invalid argument" and the phone got 502; say which streams the clip had
         try:
