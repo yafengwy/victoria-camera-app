@@ -77,6 +77,11 @@ PY
   echo "Disk $(df -h / "$D/storage" 2>/dev/null | tail -n +2 | awk '{printf "%s %s free (%s used) ", $6, $4, $5}')"
   # 2026-11-02: the furbo bridge had written 53 GB of log; how many lines per 10 min, and the 3 most repeated ones
   echo "FurboLog $(docker logs furbo --since 10m 2>&1 | wc -l) lines/10min: $(docker logs furbo --since 10m 2>&1 | sed -E 's/[0-9]{4}-[0-9]{2}-[0-9]{2}[T ][0-9:.,]+Z?//g; s/[0-9]+/N/g' | cut -c1-140 | sort | uniq -c | sort -rn | head -3 | tr '\n' ' ')"
+  # 2026-11-06: abroad she gets the notification text (and the "· Video" update) but no picture or video. Did the phone
+  # ask the mini PC for them, and what did it get? (requests that came in through the secret notification link;
+  # browsers excluded; paths only, no key)
+  echo "NotifyPics $(docker logs vh-app --since 6h 2>&1 | grep -E 'GET /api/[^ ]+(latest|snapshot|thumbnail)\.jpg' | grep -v 'Mozilla' | tail -6 | sed -E 's/^([0-9.]+) - - \[([^]]+)\] "GET ([^ ]+) [^"]*" ([0-9]+) ([0-9]+) "[^"]*" "([^"]{0,40})[^"]*".*/\2 \4 \5B \3 \6 ;/' | tr '\n' ' ')"
+  echo "NotifyVideos $(docker logs clipwait --since 6h 2>&1 | grep -iE 'wait|sound|gif' | tail -6 | cut -c1-160 | tr '\n' ' ')"
   echo "Started $(docker inspect -f '{{.State.StartedAt}} restarts {{.RestartCount}}' frigate)"
   echo "FrigateErr $(docker logs frigate --since 30m 2>&1 | grep -iE 'error|exception|timeout|stuck|unable' | sed -E 's#[^ /@]+:[^ /@]+@#***@#g' | tail -6 | cut -c1-220 | tr '\n' ' ')"
   echo "Watchdog $(tail -4 "$D/watchdog-log.txt" 2>/dev/null | tr '\n' ' ')"
