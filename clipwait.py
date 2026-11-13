@@ -242,6 +242,44 @@ def plain(cam, s, e):
         subprocess.run(args, check=True, timeout=300)
         return open(out, 'rb').read()
 
+def spot_jpg(cam):
+    # the camera's latest picture cut to its spot (SPOTS)
+    x1, y1, x2, y2 = SPOTS[cam]
+    with urllib.request.urlopen(f'{FRIGATE}/api/{cam}/latest.jpg', timeout=15) as r:
+        src = r.read()
+    vf = f'crop=iw*{x2 - x1:.4f}:ih*{y2 - y1:.4f}:iw*{x1:.4f}:ih*{y1:.4f}'
+    body = subprocess.run(['ffmpeg', '-v', 'error', '-f', 'image2pipe', '-i', 'pipe:0', '-vf', vf, '-frames:v', '1',
+                           '-q:v', '3', '-f', 'image2', '-c:v', 'mjpeg', 'pipe:1'], input=src, capture_output=True, timeout=20).stdout
+    if not body: raise ValueError('empty crop')
+    return body
+
+# 2026-11-13 (her: the thumbnail on the right should be the zoomed-in thing, but pressing and holding should play the
+# normal moving picture; the iPhone uses one file for both, and its thumbnail is the GIF's first frame):
+# ?first=ev:<event id> or ?first=spot:<camera> puts that zoomed picture in as the GIF's first frame (1/6 s), then the
+# normal GIF. The zoomed picture is fitted into a square in the middle, which is the part the thumbnail shows.
+FIRST = re.compile(r'^(ev:[A-Za-z0-9.\-]+|spot:[a-z0-9_]+)$')
+
+def first_jpg(first):
+    kind, _, v = first.partition(':')
+    if kind == 'spot':
+        return spot_jpg(v)
+    with urllib.request.urlopen(f'{FRIGATE}/api/events/{v}/snapshot.jpg?crop=1&height=400&quality=85', timeout=10) as r:
+        return r.read()
+
+def with_first(gifbody, jpg):
+    with tempfile.TemporaryDirectory() as d:
+        g, j, o = os.path.join(d, 'in.gif'), os.path.join(d, 'first.jpg'), os.path.join(d, 'out.gif')
+        open(g, 'wb').write(gifbody); open(j, 'wb').write(jpg)
+        wh = subprocess.run(['ffprobe', '-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height',
+                             '-of', 'csv=p=0', g], capture_output=True, text=True, timeout=10).stdout.strip().split(',')
+        w, h = int(wh[0]), int(wh[1])
+        fc = (f'[0:v]scale={h}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=6,format=rgb24[a];'
+              f'[1:v]fps=6,setsar=1,format=rgb24[b];[a][b]concat=n=2:v=1:a=0,split[x][y];'
+              '[x]palettegen=max_colors=96:stats_mode=diff[p];[y][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle')
+        subprocess.run(['ffmpeg', '-v', 'error', '-loop', '1', '-t', '0.17', '-i', j, '-i', g, '-filter_complex', fc,
+                        '-loop', '0', o], check=True, timeout=30)
+        return open(o, 'rb').read()
+
 def make(path, cam, s, e, kind):
     t0 = time.time()
     ok = False
@@ -510,16 +548,9 @@ class H(BaseHTTPRequestHandler):
     def do_GET(self):
         sp = SPOT.match(self.path.split('?')[0])
         if sp and sp.group(1) in SPOTS:
-            x1, y1, x2, y2 = SPOTS[sp.group(1)]
             t0 = time.time()
             try:
-                with urllib.request.urlopen(f'{FRIGATE}/api/{sp.group(1)}/latest.jpg', timeout=15) as r:
-                    src = r.read()
-                vf = f'crop=iw*{x2 - x1:.4f}:ih*{y2 - y1:.4f}:iw*{x1:.4f}:ih*{y1:.4f}'
-                body = subprocess.run(['ffmpeg', '-v', 'error', '-f', 'image2pipe', '-i', 'pipe:0', '-vf', vf,
-                                       '-frames:v', '1', '-q:v', '3', '-f', 'image2', '-c:v', 'mjpeg', 'pipe:1'],
-                                      input=src, capture_output=True, timeout=20).stdout
-                if not body: raise ValueError('empty crop')
+                body = spot_jpg(sp.group(1))
                 self.send_response(200)
                 self.send_header('Content-Type', 'image/jpeg')
                 self.send_header('Content-Length', str(len(body)))
@@ -609,6 +640,24 @@ class H(BaseHTTPRequestHandler):
                 body, err = make('?a=1' if andro else '', cam, s, e, kind)
                 if body is not None:
                     CACHE[key] = (body, time.time()); disk_put(key, body)
+        first = (q.get('first') or [''])[0]
+        if body is not None and kind == 'clip.gif' and FIRST.match(first):
+            fkey = key + '?first=' + first
+            with LOCK:
+                flk = LOCKS.setdefault(fkey, threading.Lock())
+            with flk:
+                fhit = CACHE.get(fkey) or (lambda b0: b0 and (b0, time.time()))(disk_get(fkey))
+                if fhit:
+                    body = fhit[0]
+                else:
+                    try:
+                        t1 = time.time()
+                        body2 = with_first(body, first_jpg(first))
+                        CACHE[fkey] = (body2, time.time()); disk_put(fkey, body2)
+                        print('gif first frame', first, f'{time.time() - t1:.1f}s', len(body), '->', len(body2), flush=True)
+                        body = body2
+                    except Exception as x:
+                        print('gif first frame failed (normal GIF sent)', first, repr(x), flush=True)
         rng = re.match(r'bytes=(\d*)-(\d*)$', self.headers.get('Range', '') or '')
         print('wait', cam, kind, 'a=1' if andro else '', 'ready' if ready else 'phone', 'cached' if hit else 'made',
               f'{time.time() - t0:.1f}s', len(body) if body else 'FAILED', self.headers.get('Range', ''),
