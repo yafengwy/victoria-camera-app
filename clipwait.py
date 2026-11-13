@@ -19,6 +19,8 @@ PLAIN = re.compile(r'^/plain/([a-z0-9_]+)/([0-9]+)/([0-9]+)/clip\.mp4$')
 # 2026-11-13: /spot/<camera>.jpg = the camera's latest picture cut to one spot, for the notification thumbnail
 # (closet = the Poop Spot, the same box the Frigate model "Closet Cat Poop" looks at: x1, y1, x2, y2 as parts of the picture)
 SPOT = re.compile(r'^/spot/([a-z0-9_]+)\.jpg$')
+# 2026-11-14: /evpic/<event id>.jpg?h=300|500&cam=<camera> = the zoomed-in picture of that object, never 404 (see ev_jpg)
+EVPIC = re.compile(r'^/evpic/([A-Za-z0-9.\-]+)\.jpg$')
 SPOTS = {'closet': (0.635611071241558, 0.6002104269643417, 0.8557843630122213, 0.9916296123344097)}
 
 def covered(cam, s, e):
@@ -259,12 +261,33 @@ def spot_jpg(cam):
 # normal GIF. The zoomed picture is fitted into a square in the middle, which is the part the thumbnail shows.
 FIRST = re.compile(r'^(ev:[A-Za-z0-9.\-]+|spot:[a-z0-9_]+)$')
 
+def ev_jpg(ev, height=500, cam=None, wait=8):
+    # 2026-11-14 (log: Cat Names picture 404 "Live frame not available" — the cat's name came as the object was
+    # ending, after Frigate's tracker had let go of it and before the finished event was saved): ask again for up
+    # to `wait` seconds, then fall back to the event's thumbnail, then to the camera's latest picture.
+    t0 = time.time()
+    while True:
+        try:
+            with urllib.request.urlopen(f'{FRIGATE}/api/events/{ev}/snapshot.jpg?crop=1&height={height}&quality=80', timeout=10) as r:
+                return r.read(), 'snapshot'
+        except Exception:
+            if time.time() - t0 > wait: break
+            time.sleep(1)
+    try:
+        with urllib.request.urlopen(f'{FRIGATE}/api/events/{ev}/thumbnail.jpg', timeout=10) as r:
+            return r.read(), 'thumbnail'
+    except Exception:
+        pass
+    if cam:
+        with urllib.request.urlopen(f'{FRIGATE}/api/{cam}/latest.jpg' + ('?height=360' if height <= 300 else ''), timeout=10) as r:
+            return r.read(), 'latest'
+    raise ValueError('no picture for ' + ev)
+
 def first_jpg(first):
     kind, _, v = first.partition(':')
     if kind == 'spot':
         return spot_jpg(v)
-    with urllib.request.urlopen(f'{FRIGATE}/api/events/{v}/snapshot.jpg?crop=1&height=400&quality=85', timeout=10) as r:
-        return r.read()
+    return ev_jpg(v, 400, None, 6)[0]
 
 def with_first(gifbody, jpg):
     with tempfile.TemporaryDirectory() as d:
@@ -546,6 +569,26 @@ class H(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        ep = EVPIC.match(self.path.split('?')[0])
+        if ep:
+            q0 = urllib.parse.parse_qs(self.path.partition('?')[2])
+            h = 300 if q0.get('h') == ['300'] else 500
+            cam = (q0.get('cam') or [''])[0]
+            cam = cam if re.match(r'^[a-z0-9_]+$', cam) else None
+            t0 = time.time()
+            try:
+                body, how = ev_jpg(ep.group(1), h, cam)
+                self.send_response(200)
+                self.send_header('Content-Type', 'image/jpeg')
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                print('evpic', ep.group(1), how, f'{time.time() - t0:.1f}s', len(body), self.headers.get('User-Agent', '')[:40], flush=True)
+            except Exception as x:
+                print('evpic failed', self.path, repr(x), flush=True)
+                try: self.send_error(502)
+                except Exception: pass
+            return
         sp = SPOT.match(self.path.split('?')[0])
         if sp and sp.group(1) in SPOTS:
             t0 = time.time()

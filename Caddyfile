@@ -39,11 +39,11 @@ cam.victoriashome.app {
 	}
 	# 2026-11-13: the latest picture cut to one spot (closet = Poop Spot), for the poop notification thumbnails
 	@spot {
-		path_regexp spot ^/n/{$VH_NOTIFY}/spot/([a-z0-9_]+\.jpg)$
+		path_regexp spot ^/n/{$VH_NOTIFY}/((?:spot/[a-z0-9_]+|evpic/[A-Za-z0-9.\-]+)\.jpg)$
 		not path /n//*
 	}
 	handle @spot {
-		rewrite * /spot/{re.spot.1}
+		rewrite * /{re.spot.1}
 		reverse_proxy clipwait:8000
 	}
 	@remembered header Cookie *vh_session={$VH_COOKIE}*
