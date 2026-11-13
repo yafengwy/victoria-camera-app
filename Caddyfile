@@ -37,6 +37,15 @@ cam.victoriashome.app {
 		rewrite * /wait/{re.clipwait.1}
 		reverse_proxy clipwait:8000
 	}
+	# 2026-11-13: the latest picture cut to one spot (closet = Poop Spot), for the poop notification thumbnails
+	@spot {
+		path_regexp spot ^/n/{$VH_NOTIFY}/spot/([a-z0-9_]+\.jpg)$
+		not path /n//*
+	}
+	handle @spot {
+		rewrite * /spot/{re.spot.1}
+		reverse_proxy clipwait:8000
+	}
 	@remembered header Cookie *vh_session={$VH_COOKIE}*
 	handle @remembered {
 		reverse_proxy vh-app:80

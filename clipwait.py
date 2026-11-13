@@ -16,6 +16,10 @@ PATH = re.compile(r'^/wait/([a-z0-9_]+)/([0-9]+)/([0-9]+)/(clip\.mp4|clip\.gif|s
 STAMP = re.compile(r'^/stamp/([a-z0-9_]+)/([0-9]+)/([0-9]+)/(-?[0-9]+)/clip\.mp4$')
 # 2026-10-16: /plain/<camera>/<start>/<end>/clip.mp4 = Frigate's own clip, only re-labelled so Apple Photos takes it
 PLAIN = re.compile(r'^/plain/([a-z0-9_]+)/([0-9]+)/([0-9]+)/clip\.mp4$')
+# 2026-11-13: /spot/<camera>.jpg = the camera's latest picture cut to one spot, for the notification thumbnail
+# (closet = the Poop Spot, the same box the Frigate model "Closet Cat Poop" looks at: x1, y1, x2, y2 as parts of the picture)
+SPOT = re.compile(r'^/spot/([a-z0-9_]+)\.jpg$')
+SPOTS = {'closet': (0.635611071241558, 0.6002104269643417, 0.8557843630122213, 0.9916296123344097)}
 
 def covered(cam, s, e):
     try:
@@ -504,6 +508,30 @@ class H(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        sp = SPOT.match(self.path.split('?')[0])
+        if sp and sp.group(1) in SPOTS:
+            x1, y1, x2, y2 = SPOTS[sp.group(1)]
+            t0 = time.time()
+            try:
+                with urllib.request.urlopen(f'{FRIGATE}/api/{sp.group(1)}/latest.jpg', timeout=15) as r:
+                    src = r.read()
+                vf = f'crop=iw*{x2 - x1:.4f}:ih*{y2 - y1:.4f}:iw*{x1:.4f}:ih*{y1:.4f}'
+                body = subprocess.run(['ffmpeg', '-v', 'error', '-f', 'image2pipe', '-i', 'pipe:0', '-vf', vf,
+                                       '-frames:v', '1', '-q:v', '3', '-f', 'image2', '-c:v', 'mjpeg', 'pipe:1'],
+                                      input=src, capture_output=True, timeout=20).stdout
+                if not body: raise ValueError('empty crop')
+                self.send_response(200)
+                self.send_header('Content-Type', 'image/jpeg')
+                self.send_header('Content-Length', str(len(body)))
+                self.send_header('Cache-Control', 'no-store')
+                self.end_headers()
+                self.wfile.write(body)
+                print('spot', sp.group(1), f'{time.time() - t0:.1f}s', len(body), self.headers.get('User-Agent', '')[:40], flush=True)
+            except Exception as x:
+                print('spot failed', self.path, repr(x), flush=True)
+                try: self.send_error(502)
+                except Exception: pass
+            return
         lp = LOWP.match(self.path.split('?')[0])
         if lp:
             try: self.low_reply(200, low_playlist(lp.group(1), lp.group(2), lp.group(3)), 'application/vnd.apple.mpegurl')
