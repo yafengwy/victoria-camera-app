@@ -257,7 +257,7 @@ def spot_jpg(cam):
 
 # 2026-11-13 (her: the thumbnail on the right should be the zoomed-in thing, but pressing and holding should play the
 # normal moving picture; the iPhone uses one file for both, and its thumbnail is the GIF's first frame):
-# ?first=ev:<event id> or ?first=spot:<camera> puts that zoomed picture in as the GIF's first frame (1/6 s), then the
+# ?first=ev:<event id> or ?first=spot:<camera> puts that zoomed picture in as the GIF's first frames (0.8 s; was 1/6 s, too quick — her 11-14), then the
 # normal GIF. The zoomed picture is fitted into a square in the middle, which is the part the thumbnail shows.
 FIRST = re.compile(r'^(ev:[A-Za-z0-9.\-]+|spot:[a-z0-9_]+)$')
 
@@ -299,7 +299,7 @@ def with_first(gifbody, jpg):
         fc = (f'[0:v]scale={h}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=6,format=rgb24[a];'
               f'[1:v]fps=6,setsar=1,format=rgb24[b];[a][b]concat=n=2:v=1:a=0,split[x][y];'
               '[x]palettegen=max_colors=96:stats_mode=diff[p];[y][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle')
-        subprocess.run(['ffmpeg', '-v', 'error', '-loop', '1', '-t', '0.17', '-i', j, '-i', g, '-filter_complex', fc,
+        subprocess.run(['ffmpeg', '-v', 'error', '-loop', '1', '-t', '0.8', '-i', j, '-i', g, '-filter_complex', fc,
                         '-loop', '0', o], check=True, timeout=30)
         return open(o, 'rb').read()
 
@@ -685,7 +685,7 @@ class H(BaseHTTPRequestHandler):
                     CACHE[key] = (body, time.time()); disk_put(key, body)
         first = (q.get('first') or [''])[0]
         if body is not None and kind == 'clip.gif' and FIRST.match(first):
-            fkey = key + '?first=' + first
+            fkey = key + '?first08=' + first
             with LOCK:
                 flk = LOCKS.setdefault(fkey, threading.Lock())
             with flk:
