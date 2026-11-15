@@ -574,6 +574,7 @@ img.rf{opacity:0}
 .rvli.un b .lico{color:var(--sub)}
 .rvli small{display:block;font-size:12px;color:var(--sub);margin-top:2px;font-variant-numeric:tabular-nums}
 .rvli.cur{box-shadow:inset 0 0 0 2px var(--hot)}
+.rvli i.lt1,.rvli i.lt2{font-style:normal}.rvli i.lt2{display:none}
 .rvdock.l .rvz{display:none}
 .rvcams.big3.narrow .rvcam.feat{grid-column:1/-1;grid-row:span 1;aspect-ratio:16/9}
 .rvcams.big3 .rvcam.feat .nm{font-size:13px;padding:4px 10px}
@@ -1805,8 +1806,8 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
    so they show on dark pictures as well as on the white page; Review's filter row sits in the middle of its white band;
    the timeline / alert list area is shorter: the play row goes nearer the bottom (only 12 of the 34-pt home-bar space) */
 :root:root[data-cover][data-cover] .rvchips{padding-top:12px!important;padding-bottom:4px!important}
-:root:root[data-cover][data-cover] .rvdock{padding-bottom:max(0px,calc(env(safe-area-inset-bottom,0px) - 22px))!important}
-:root:root[data-cover][data-cover] .rvctl{padding-top:calc(4px + max(0px,calc(env(safe-area-inset-bottom,0px) - 22px)))!important;padding-bottom:4px!important}
+:root:root[data-cover][data-cover] .rvdock{padding-bottom:max(2px,calc(env(safe-area-inset-bottom,0px) - 28px))!important}
+:root:root[data-cover][data-cover] .rvctl{padding-top:2px!important;padding-bottom:2px!important}
 :root:root[data-cover][data-cover] .rvtop .rvbar > .dtwrap{width:32px!important;display:flex;justify-content:center}
 :root:root[data-cover][data-cover] .rvtop .rvbar .dtwrap button{width:32px!important;min-width:32px!important;height:34px!important;padding:0!important;background:transparent!important;color:#fff!important;filter:drop-shadow(0 0 1px rgba(0,0,0,.75)) drop-shadow(0 1px 2px rgba(0,0,0,.55))!important}
 /* 6.8.8 her 11-15 14:59 (Duo Preview): Review with the alert list keeps two full rows of cameras on top — the big picture
@@ -1814,8 +1815,32 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
    right side of the list instead of covering cameras. Filter row and play row sit in the middle of their white bands
    (the cameras' own 8-pt top gap and the 12-pt home-bar space are counted). Alerts pill lines up with the cards' right edge. */
 :root:root[data-cover][data-cover] .rvcams.l .rvcam.feat{grid-column:span 1!important;grid-row:span 1!important;aspect-ratio:16/9!important}
-:root:root[data-cover][data-cover] .rvdock.l .rvlist{height:calc(100vh - 54px - 8px - (100vw - 28px) * 9 / 16 - 8px - 56px)!important;min-height:150px}
-:root:root[data-cover][data-cover] body:has(.rvdock.l) .rvtop .rvbar{bottom:calc(56px + 8px)!important}
+/* 6.8.9 her 11-15 15:08: Review list on the cover screen — the list height is measured (render(): two whole camera rows
+   stay above it, nothing cut off); the alerts go two across so the right half isn't empty, leaving room on the right for the
+   glass pill; the play row is only as tall as its buttons (2-pt padding, 6 of the 34-pt home-bar space) */
+:root:root[data-cover][data-cover] .rvdock.l .rvlist{height:var(--rvlh,40vh)!important;display:grid!important;grid-template-columns:1fr 1fr;align-content:start;gap:6px!important;padding:4px 8px 4px 8px!important}
+:root:root[data-cover][data-cover] .rvdock.l .rvl-h{grid-column:1/-1;padding-top:2px}
+:root:root[data-cover][data-cover] .rvdock.l .rvli{gap:5px;padding:4px 6px 4px 4px;min-width:0}
+:root:root[data-cover][data-cover] .rvdock.l .rvli img{width:48px;height:36px;border-radius:7px}
+:root:root[data-cover][data-cover] .rvdock.l .rvli > span{min-width:0;flex:1}
+/* two across: line 1 = what + time (time pushed right), line 2 = camera · how long, so nothing is cut off */
+:root:root[data-cover][data-cover] .rvdock.l .rvli b{font-size:13px;gap:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+:root:root[data-cover][data-cover] .rvdock.l .rvli b .lico{vertical-align:-2px;margin-right:3px}
+:root:root[data-cover][data-cover] .rvdock.l .rvli b .lico svg{width:13px;height:13px}
+:root:root[data-cover][data-cover] .rvdock.l .rvli small{display:flex;gap:4px;font-size:11px;letter-spacing:-.1px;margin-top:1px;white-space:nowrap}
+:root:root[data-cover][data-cover] .rvdock.l .rvli small .lsx{min-width:0;overflow:hidden;text-overflow:ellipsis}
+:root:root[data-cover][data-cover] .rvdock.l .rvli i.lt2{display:inline;margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums;flex:none}
+:root:root[data-cover][data-cover] .rvdock.l .rvli i.lt1{display:none}
+/* 6.8.9: in light mode the pill can sit on the white list or page, so its glass gets a light grey smoke behind the white
+   icons (still see-through); dark mode keeps the clear glass */
+:root:root:not([data-dark])[data-cover][data-cover] .rvtop .rvbar,:root:root:not([data-dark])[data-cover][data-cover] .evtop .evbar,:root:root:not([data-dark])[data-cover][data-cover][data-view="home"] .rail{background:linear-gradient(165deg,rgba(255,255,255,.16),rgba(255,255,255,0) 50%,rgba(255,255,255,.06)),rgba(28,30,34,.28)!important}
+/* 6.8.9 her choice (option A): on the cover screen Review's buttons are one glass row at the top left — Back, Cameras,
+   Alert Types, Reset, Layout, List, Date, Boxes; the filter chips row is gone (its choices open from those icons, under
+   the row); the cameras start below the row; the iPhone's clock and camera hole stay clear on the right */
+:root:root[data-cover][data-cover] .rvtop{min-height:50px;box-sizing:border-box}
+:root:root[data-cover][data-cover] .rvtop .rvbar{flex-direction:row!important;top:max(8px,env(safe-area-inset-top,0px))!important;left:8px!important;right:auto!important;bottom:auto!important;padding:2px 4px!important}
+:root:root[data-cover][data-cover] .rvtop .rvbar > [data-act="go"]{order:0!important}
+:root:root[data-cover][data-cover] .rvtop .rvbar .rvtitle{display:none!important}
 </style>
 
 <div id="app" class="app"></div>
@@ -2870,7 +2895,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.8.8 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.8.9 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4688,12 +4713,30 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => EvFo
 })();
 document.addEventListener('scroll', () => ToTop.check(), { capture: true, passive: true });
 window.addEventListener('resize', () => ToTop.check());
+/* 6.8.9: iPhone Duo cover screen — Review with the alert list: two whole rows of cameras on top, the list takes exactly
+   the rest; the glass pill sits just above the timeline (--dockh) */
+function coverFit() {
+  const root = document.documentElement, dk = document.querySelector('.rvdock');
+  const ls = dk && dk.classList.contains('l') ? dk.querySelector('.rvlist') : null, c = document.querySelector('.rvcams');
+  if (ls && c) {
+    const t = c.querySelectorAll('.rvcam'), cb = c.getBoundingClientRect();
+    if (t.length) {
+      const rows = [...new Set([...t].map(e => Math.round(e.getBoundingClientRect().bottom)))].sort((a, b) => a - b);
+      const second = rows[Math.min(1, rows.length - 1)];                           /* bottom of the second row (the tiles flow densely, so not DOM order) */
+      const rowsBottom = (second - cb.top) + (c.offsetTop || cb.top) + 6;           /* page coordinates */
+      const other = dk.offsetHeight - ls.offsetHeight;                            /* play row + home-bar space */
+      const h = Math.max(140, Math.floor(innerHeight - rowsBottom - other));
+      if (Math.abs((parseFloat(root.style.getPropertyValue('--rvlh')) || 0) - h) > 1) root.style.setProperty('--rvlh', h + 'px');
+    }
+  }
+  if (dk && dk.offsetHeight) root.style.setProperty('--dockh', dk.offsetHeight + 'px');
+}
 function render() {
   TapLog.draws++;
   if (S.fullBack && !S.modal) { S.fullBack = false; if (S.focus) { S.full = true; } }   /* 6.5.8: back from Fix / Who? with the same buttons, list and place */
   if (fullLight()) { const _t1 = performance.now(); try { fullButtons(); paintFocus(); Playback.sync(); } catch (e) { Dbg.log('script error', 'full light', String(e && e.message || e)); } const ms = Math.round(performance.now() - _t1); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', 'full'); return; }
   const _t0 = performance.now();
-  try { render0(); placeSteps(); ToTop.check(); listFit(); EvFold.run(); Arrive.carriers(); if (COVER) { const dk = document.querySelector('.rvdock'); if (dk && dk.offsetHeight) document.documentElement.style.setProperty('--dockh', dk.offsetHeight + 'px'); } }   /* 6.8.6: cover-screen Review pill sits just above the timeline */ finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
+  try { render0(); placeSteps(); ToTop.check(); listFit(); EvFold.run(); Arrive.carriers(); if (COVER) coverFit(); }   /* 6.8.6: cover-screen Review pill sits just above the timeline */ finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
 }
 function render0() {
   if (S.filt.motion && S.moCtx && moCtx() !== S.moCtx) { S.filt.motion = false; S.moCtx = null; }
@@ -5792,10 +5835,11 @@ function popPlace() {
   const dd = document.querySelector('.rvdd'); if (!dd) return;
   const a = dd.dataset.anchor || (S.rv.pick ? 'rvpick' : S.rv.fopen ? 'rvfopen' : S.rv.colsOpen ? 'rvcolsopen' : '');
   const [act, v] = a.split(':'), btn = document.querySelector('[data-act="' + act + '"]' + (v ? '[data-v="' + v + '"]' : '')); if (!btn) return;
-  if (!COVER || btn.closest('.rvchips')) {   /* 5.5.2: cover-screen buttons in the top row open under themselves */
+  const topPill = COVER && !!btn.closest('.rvtop .rvbar');   /* 6.8.9: the cover Review pill is a row at the top */
+  if (!COVER || topPill || btn.closest('.rvchips')) {   /* 5.5.2: cover-screen buttons in the top row open under themselves */
     dd.classList.remove('pop'); dd.style.cssText = '';
     const p = dd.offsetParent; if (!p) return;
-    const edge = COVER ? (document.querySelector('.rvbar') || document.body).getBoundingClientRect().left || window.innerWidth : window.innerWidth;   /* cover: stay left of the side strip */
+    const edge = COVER && !topPill ? (document.querySelector('.rvbar') || document.body).getBoundingClientRect().left || window.innerWidth : window.innerWidth;   /* cover: stay left of the side strip */
     if (COVER) dd.style.maxWidth = (edge - 16) + 'px';
     const pr = p.getBoundingClientRect(), r = btn.getBoundingClientRect(), w = dd.offsetWidth;
     const left = Math.max(8, Math.min(r.left - pr.left, edge - pr.left - w - 8));
@@ -7130,7 +7174,7 @@ function rvListHtml(cams, end) {
     const dl = dayStart(e.t) === dayStart(now()) ? 'Today' : dayStart(e.t) === dayStart(now() - DAY) ? 'Yesterday' : dayLabel(e.t);
     if (dl !== lastDay) { h += '<div class="rvl-h">' + dl + '</div>'; lastDay = dl; }
     const c = Data.cam(e.cam), cur = t != null && t >= e.t - 3000 && t <= (e.end || e.t) + 3000, p = pick(e, S.rv.f);
-    h += '<button class="rvli' + (cur ? ' cur' : '') + (e.interesting ? '' : ' un') + '" data-act="rvlpick" data-t="' + p.t + '" data-e="' + esc(e.id) + '" data-id="' + e.cam + '"><img src="' + evImg(e, p) + '" alt="" loading="lazy"><span><b>' + (e.motion ? '<i class="modot"></i>Motion' : '<i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(lab(e, p).replace(/_/g, ' '))) + '</b><small>' + esc(c ? c.name : e.cam) + ' · ' + hm(p.t) + ' · ' + rvDur(e) + '</small></span></button>';
+    h += '<button class="rvli' + (cur ? ' cur' : '') + (e.interesting ? '' : ' un') + '" data-act="rvlpick" data-t="' + p.t + '" data-e="' + esc(e.id) + '" data-id="' + e.cam + '"><img src="' + evImg(e, p) + '" alt="" loading="lazy"><span><b>' + (e.motion ? '<i class="modot"></i>Motion' : '<i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(lab(e, p).replace(/_/g, ' '))) + '</b><small><span class="lsx">' + esc(c ? c.name : e.cam) + '<i class="lt1"> · ' + hm(p.t) + '</i> · ' + rvDur(e) + '</span><i class="lt2">' + hm(p.t) + '</i></small></span></button>';   /* 6.8.9: lt2 = the time at the right end of line 2, used when the list goes two across (Duo cover), so several objects on line 1 aren't crowded by it */
   });
   return h + '</div>';
 }
@@ -7147,11 +7191,15 @@ function viewReview() {
     '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + (S.rv.fopen ? I.up : I.down).replace(/22/g, '14') + '</button>';
   const ONE = !RVC && rvOneRow();
   let h = RVC ? rvBarCompact(st) : ONE ? rvBarOne(st) : '<div class="rvtop" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
+    (COVER ? '<button class="ic" data-act="rvpick" aria-pressed="' + (st !== 'all' || !!S.rv.pick) + '" aria-label="Cameras">' + I.camsel + '</button>' +
+      '<button class="ic" data-act="rvfopen" aria-pressed="' + (!!S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline">' + I.filter + '</button>' : '') +   /* 6.8.9 her design: cover-screen filters live in the glass pill */
     '<button class="chip sm rvib" data-act="rvreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
     (COVER ? '<button class="ic" data-act="rvcolsopen" aria-pressed="' + !!S.rv.colsOpen + '" aria-label="Layout">' + I.grid4 + '</button>'   /* 5.5.3 her rule: icons only in the cover strip */
       : '<button class="chip sm" data-act="rvcolsopen" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvLay() === 'big' ? 'Big' : rvLay() === 'top' ? 'Top' : rvCols()) + '</button>') +
     '<button class="ic' + (S.rv.list ? ' on' : '') + '" data-act="rvlist" aria-pressed="' + !!S.rv.list + '" aria-label="' + (S.rv.list ? 'Show Timeline' : 'Show Alert List') + '">' + (S.rv.list ? I.tline : I.bellO) + '</button>' +
-    dtOver('<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button>', 'rv') + '</div>' + (ONE ? '' : '<div class="rvchips">' + (COVER ? rvCoverRow(st) : camRow) + '</div>');
+    dtOver('<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button>', 'rv') +
+    (COVER && Data.source === 'frigate' ? '<button class="ic" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '</div>' +
+    (ONE || COVER ? '' : '<div class="rvchips">' + camRow + '</div>');
   if (S.rv.fopen || S.rv.pick || S.rv.colsOpen) h += rvDropdown();
   const nc = rvCols();
   const L = rvLay();
@@ -7469,7 +7517,7 @@ function modalSettings() {
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     row('Duo Preview', '<a class="btn" href="duo.html" aria-label="Open The iPhone Duo Cover Screen Preview">Open</a>') +   /* 6.8.6: the app at the Duo cover-screen size on this phone */
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.8.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.8.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7764,7 +7812,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.8.8');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.8.9');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7781,7 +7829,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.8.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.8.9\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -9182,7 +9230,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.8.8';
+    const BUILD = '6.8.9';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
