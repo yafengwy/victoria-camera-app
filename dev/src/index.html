@@ -1843,6 +1843,9 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 :root:root[data-cover][data-cover] .rvtop .rvbar > .dtwrap{height:30px}
 :root:root[data-cover][data-cover] body:has(.rvdock.l) .rvtop .rvbar{bottom:var(--rvpillb,64px)!important}
 :root:root:not([data-dark])[data-cover][data-cover] .rvtop .rvbar,:root:root:not([data-dark])[data-cover][data-cover] .evtop .evbar,:root:root:not([data-dark])[data-cover][data-cover][data-view="home"] .rail{background:linear-gradient(165deg,rgba(255,255,255,.14),rgba(255,255,255,0) 50%,rgba(255,255,255,.05)),rgba(28,30,34,.14)!important}
+/* 6.9.2 her: on the cover screen the cameras scroll only until the last row sits just above the timeline / list
+   (no empty space under them); with three rows or fewer nothing scrolls */
+:root:root[data-cover][data-cover] .rvcams{padding-bottom:calc(var(--dockh,125px) + 2px)!important}
 </style>
 
 <div id="app" class="app"></div>
@@ -5388,7 +5391,7 @@ const Arrive = {
       if (fl) { const st = fl.scrollTop, c = Data.cam(S.focus.cam); fl.innerHTML = fListRows(camEvents(c.id).filter(e => e.t <= now()).sort((a, b) => b.t - a.t).slice(0, 500), camT(c.id)); fl.scrollTop = st; fListDay(fl); }
       /* the camera view's cards and the Alerts list pick this up on their next redraw; redrawing whole pages from here
          made the iPhone stall while a video loaded */
-      if (S.view === 'review' && !S.focus) { if (rvBkArgs) rvBuckets(...rvBkArgs); rvDrawn = null; drawRvTrack(true); const l = document.getElementById('rvlist'); if (l) l.outerHTML = rvListHtml(rvCams(), rvBkArgs ? rvBkArgs[1] : now()); }
+      if (S.view === 'review' && !S.focus) { if (rvBkArgs) rvBuckets(...rvBkArgs); rvDrawn = null; drawRvTrack(true); const l = document.getElementById('rvlist'); if (l) { const x = rvListHtml(rvCams(), rvBkArgs ? rvBkArgs[1] : now()), inner = x.slice(x.indexOf('>') + 1, -6), st = l.scrollTop; if (l.innerHTML !== inner) { l.innerHTML = inner; l.scrollTop = st; } } }   /* 6.9.2: refill the list in place and keep its place — replacing the whole list (outerHTML) every time new alert objects arrived threw it back to the top, so it could not be scrolled */
     }, 400);
   }
 };
