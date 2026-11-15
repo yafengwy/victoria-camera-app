@@ -1834,13 +1834,16 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 /* 6.8.9: in light mode the pill can sit on the white list or page, so its glass gets a light grey smoke behind the white
    icons (still see-through); dark mode keeps the clear glass */
 :root:root:not([data-dark])[data-cover][data-cover] .rvtop .rvbar,:root:root:not([data-dark])[data-cover][data-cover] .evtop .evbar,:root:root:not([data-dark])[data-cover][data-cover][data-view="home"] .rail{background:linear-gradient(165deg,rgba(255,255,255,.16),rgba(255,255,255,0) 50%,rgba(255,255,255,.06)),rgba(28,30,34,.28)!important}
-/* 6.8.9 her choice (option A): on the cover screen Review's buttons are one glass row at the top left — Back, Cameras,
-   Alert Types, Reset, Layout, List, Date, Boxes; the filter chips row is gone (its choices open from those icons, under
-   the row); the cameras start below the row; the iPhone's clock and camera hole stay clear on the right */
-:root:root[data-cover][data-cover] .rvtop{min-height:50px;box-sizing:border-box}
-:root:root[data-cover][data-cover] .rvtop .rvbar{flex-direction:row!important;top:max(8px,env(safe-area-inset-top,0px))!important;left:8px!important;right:auto!important;bottom:auto!important;padding:2px 4px!important}
-:root:root[data-cover][data-cover] .rvtop .rvbar > [data-act="go"]{order:0!important}
-:root:root[data-cover][data-cover] .rvtop .rvbar .rvtitle{display:none!important}
+/* 6.8.10 her 11-15 15:32: Review's buttons go back into the glass pill on the right (it suits the Duo's rounded right
+   side better than a top row): Back, Cameras, Alert Types, Reset, Layout, List, Date, Boxes; as clear as it can be.
+   With the alert list open it sits on the right of the second camera row (bottom lined up with that row); with the
+   timeline it sits on the right just above the timeline. No filter row on top, so the cameras start at the top. */
+:root:root[data-cover][data-cover] .rvtop{min-height:0}
+:root:root[data-cover][data-cover] .rvcams{padding-top:8px}
+:root:root[data-cover][data-cover] .rvtop .rvbar button,:root:root[data-cover][data-cover] .rvtop .rvbar .rvib,:root:root[data-cover][data-cover] .rvtop .rvbar .dtwrap button{height:30px!important}
+:root:root[data-cover][data-cover] .rvtop .rvbar > .dtwrap{height:30px}
+:root:root[data-cover][data-cover] body:has(.rvdock.l) .rvtop .rvbar{bottom:var(--rvpillb,64px)!important}
+:root:root:not([data-dark])[data-cover][data-cover] .rvtop .rvbar,:root:root:not([data-dark])[data-cover][data-cover] .evtop .evbar,:root:root:not([data-dark])[data-cover][data-cover][data-view="home"] .rail{background:linear-gradient(165deg,rgba(255,255,255,.14),rgba(255,255,255,0) 50%,rgba(255,255,255,.05)),rgba(28,30,34,.14)!important}
 </style>
 
 <div id="app" class="app"></div>
@@ -4724,6 +4727,7 @@ function coverFit() {
       const rows = [...new Set([...t].map(e => Math.round(e.getBoundingClientRect().bottom)))].sort((a, b) => a - b);
       const second = rows[Math.min(1, rows.length - 1)];                           /* bottom of the second row (the tiles flow densely, so not DOM order) */
       const rowsBottom = (second - cb.top) + (c.offsetTop || cb.top) + 6;           /* page coordinates */
+      root.style.setProperty('--rvpillb', Math.max(8, Math.round(innerHeight - second)) + 'px');   /* pill's bottom = second camera row's bottom */
       const other = dk.offsetHeight - ls.offsetHeight;                            /* play row + home-bar space */
       const h = Math.max(140, Math.floor(innerHeight - rowsBottom - other));
       if (Math.abs((parseFloat(root.style.getPropertyValue('--rvlh')) || 0) - h) > 1) root.style.setProperty('--rvlh', h + 'px');
@@ -5835,7 +5839,7 @@ function popPlace() {
   const dd = document.querySelector('.rvdd'); if (!dd) return;
   const a = dd.dataset.anchor || (S.rv.pick ? 'rvpick' : S.rv.fopen ? 'rvfopen' : S.rv.colsOpen ? 'rvcolsopen' : '');
   const [act, v] = a.split(':'), btn = document.querySelector('[data-act="' + act + '"]' + (v ? '[data-v="' + v + '"]' : '')); if (!btn) return;
-  const topPill = COVER && !!btn.closest('.rvtop .rvbar');   /* 6.8.9: the cover Review pill is a row at the top */
+  const topPill = false;   /* 6.8.10: the cover Review pill is back on the right (6.8.9 had it as a top row) */
   if (!COVER || topPill || btn.closest('.rvchips')) {   /* 5.5.2: cover-screen buttons in the top row open under themselves */
     dd.classList.remove('pop'); dd.style.cssText = '';
     const p = dd.offsetParent; if (!p) return;
