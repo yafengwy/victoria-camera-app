@@ -1814,7 +1814,6 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
    becomes one of the two-across tiles, and the list takes the rest (about 4½ alerts); the glass pill moves down onto the
    right side of the list instead of covering cameras. Filter row and play row sit in the middle of their white bands
    (the cameras' own 8-pt top gap and the 12-pt home-bar space are counted). Alerts pill lines up with the cards' right edge. */
-:root:root[data-cover][data-cover] .rvcams.l .rvcam.feat{grid-column:span 1!important;grid-row:span 1!important;aspect-ratio:16/9!important}
 /* 6.8.9 her 11-15 15:08: Review list on the cover screen — the list height is measured (render(): two whole camera rows
    stay above it, nothing cut off); the alerts go two across so the right half isn't empty, leaving room on the right for the
    glass pill; the play row is only as tall as its buttons (2-pt padding, 6 of the 34-pt home-bar space) */
@@ -1839,7 +1838,7 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
    With the alert list open it sits on the right of the second camera row (bottom lined up with that row); with the
    timeline it sits on the right just above the timeline. No filter row on top, so the cameras start at the top. */
 :root:root[data-cover][data-cover] .rvtop{min-height:0}
-:root:root[data-cover][data-cover] .rvcams{padding-top:8px}
+:root:root[data-cover][data-cover] .rvcams{padding-top:max(46px,env(safe-area-inset-top,0px))}   /* 6.8.11: below the iPhone's clock and camera hole */
 :root:root[data-cover][data-cover] .rvtop .rvbar button,:root:root[data-cover][data-cover] .rvtop .rvbar .rvib,:root:root[data-cover][data-cover] .rvtop .rvbar .dtwrap button{height:30px!important}
 :root:root[data-cover][data-cover] .rvtop .rvbar > .dtwrap{height:30px}
 :root:root[data-cover][data-cover] body:has(.rvdock.l) .rvtop .rvbar{bottom:var(--rvpillb,64px)!important}
@@ -4724,10 +4723,12 @@ function coverFit() {
   if (ls && c) {
     const t = c.querySelectorAll('.rvcam'), cb = c.getBoundingClientRect();
     if (t.length) {
-      const rows = [...new Set([...t].map(e => Math.round(e.getBoundingClientRect().bottom)))].sort((a, b) => a - b);
-      const second = rows[Math.min(1, rows.length - 1)];                           /* bottom of the second row (the tiles flow densely, so not DOM order) */
-      const rowsBottom = (second - cb.top) + (c.offsetTop || cb.top) + 6;           /* page coordinates */
-      root.style.setProperty('--rvpillb', Math.max(8, Math.round(innerHeight - second)) + 'px');   /* pill's bottom = second camera row's bottom */
+      /* 6.8.11 her: three rows of small pictures' height for the cameras (Grid = 3 rows of 2; Big = the big one + 1 row) */
+      const hs = [...t].map(e => e.getBoundingClientRect()), th = Math.min(...hs.map(r => r.height)), gap = parseFloat(getComputedStyle(c).rowGap) || 6;
+      const top0 = Math.min(...hs.map(r => r.top));
+      const areaBottom = top0 + 3 * th + 2 * gap;                                  /* viewport coordinates */
+      root.style.setProperty('--rvpillb', Math.max(8, Math.round(innerHeight - areaBottom)) + 'px');   /* pill's bottom = the camera area's bottom */
+      const rowsBottom = (areaBottom - cb.top) + (c.offsetTop || cb.top) + 6;      /* page coordinates */
       const other = dk.offsetHeight - ls.offsetHeight;                            /* play row + home-bar space */
       const h = Math.max(140, Math.floor(innerHeight - rowsBottom - other));
       if (Math.abs((parseFloat(root.style.getPropertyValue('--rvlh')) || 0) - h) > 1) root.style.setProperty('--rvlh', h + 'px');
