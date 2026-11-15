@@ -1193,23 +1193,38 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
 :root[data-cover] .rvtop .rvbar button[aria-pressed="true"],:root[data-cover] .evtop .evbar button[aria-pressed="true"]{color:var(--hot)!important}
 :root[data-cover] .rvtop .rvbar > [data-act="go"],:root[data-cover] .evtop .evbar > [data-act="go"]{color:var(--head-fg)!important}
 .rvdd.pop .rvsevrow,:root[data-cover] .rvdd .rvsevrow{flex-wrap:wrap}
-/* 6.8.5 (her design 11-15, mockup "Duo Full Screen"): cover screen Cameras page is full screen — the pictures run under the
-   right edge and the bottom like TikTok, no side strip; the page buttons float bottom right as one clear-glass pill (iOS 27
-   look) in the colours of the chosen style, so the pictures behind still show; it keeps clear of the camera hole and the
-   59-pt rounded corners on the right */
-:root[data-cover][data-view="home"] .app{padding-right:0;padding-bottom:env(safe-area-inset-bottom,0px)}
-:root[data-cover][data-view="home"] .rail{top:auto!important;bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 18px);right:16px;left:auto;width:auto;height:auto;
-  padding:7px 6px;gap:4px;border-radius:32px;border:1px solid rgba(255,255,255,.38);justify-content:flex-start;
-  background:linear-gradient(165deg,rgba(255,255,255,.26),rgba(255,255,255,.05) 55%,rgba(255,255,255,.12)),color-mix(in srgb,var(--card) 16%,transparent)!important;
-  backdrop-filter:blur(5px) saturate(180%) brightness(1.06)!important;-webkit-backdrop-filter:blur(5px) saturate(180%) brightness(1.06)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.55),inset 0 -1px 0 rgba(0,0,0,.10),inset 0 0 12px rgba(255,255,255,.08),0 8px 26px rgba(0,0,0,.28)}
+/* 6.8.6 (her design 11-15, mockups "Duo Full Screen" and "Duo Thin Glass"): on the iPhone Duo cover screen every page is
+   full screen — no 84-pt side strip; the pictures, the Alerts list and the Review timeline run under the right edge. The page
+   buttons float as one thin clear-glass pill (iOS 27 look: almost no fill, a hairline white edge and a top highlight, a light
+   1.5 px blur) so the pictures behind show through: Cameras and Review at the right edge (Review above its timeline), Alerts
+   just left of the hour scale. Items at the top stay left of the iPhone's clock and camera hole (top right). */
+:root[data-cover]{--strip:0px}
+:root[data-cover] .app{padding-right:0!important}
+:root[data-cover][data-view="home"] .app{padding-bottom:env(safe-area-inset-bottom,0px)}
+:root[data-cover] .rvdock{right:0!important}
+:root[data-cover] .days{width:calc(100% - 120px)!important;box-sizing:border-box}
+:root[data-cover] .hours{padding-bottom:40px!important;box-sizing:border-box}
+:root[data-cover][data-view="home"] .main > .group:first-child .ghead{width:calc(100% - 120px)}
+:root[data-cover][data-view="home"] .rail,:root[data-cover] .rvtop .rvbar,:root[data-cover] .evtop .evbar{position:fixed!important;top:auto!important;left:auto!important;width:auto!important;height:auto!important;
+  flex-direction:column!important;justify-content:flex-start!important;align-items:center!important;padding:4px 3px!important;gap:1px!important;border-radius:22px!important;
+  border:.5px solid rgba(255,255,255,.45)!important;background:linear-gradient(165deg,rgba(255,255,255,.14),rgba(255,255,255,0) 50%,rgba(255,255,255,.06))!important;
+  backdrop-filter:blur(1.5px) saturate(160%)!important;-webkit-backdrop-filter:blur(1.5px) saturate(160%)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(255,255,255,.12),0 4px 14px rgba(0,0,0,.18)!important}
+:root[data-cover][data-view="home"] .rail{right:12px!important;bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 18px)!important}
+:root[data-cover] .rvtop .rvbar{right:12px!important;bottom:calc(var(--dockh,125px) + 12px)!important}
+:root[data-cover] .evtop .evbar{right:44px!important;bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 18px)!important}
 :root[data-cover][data-view="home"] .rail > div[style*="flex:1"]{display:none}
-:root[data-cover][data-view="home"] .main > .group:first-child .ghead{width:calc(100% - 120px)}   /* first section title stays left of the iPhone's clock and camera hole */
-:root[data-cover][data-view="home"] .rail .ic{width:46px;height:46px;border-radius:23px;background:transparent;color:#fff;filter:drop-shadow(0 1px 2px rgba(0,0,0,.55))}
-:root[data-cover][data-view="home"] .rail .ic[aria-current="page"]{background:color-mix(in srgb,var(--strong) 34%,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 rgba(255,255,255,.45)}
-:root[data-cover][data-view="home"] .rail .ic:active{background:rgba(255,255,255,.22)}
-:root:not([data-dark])[data-cover][data-view="home"] .rail .ic{color:var(--icon);filter:drop-shadow(0 0 2px rgba(255,255,255,.9)) drop-shadow(0 0 1px rgba(255,255,255,.9))}
-:root:not([data-dark])[data-cover][data-view="home"] .rail{border-color:rgba(255,255,255,.6);background:linear-gradient(165deg,rgba(255,255,255,.42),rgba(255,255,255,.14) 55%,rgba(255,255,255,.26)),color-mix(in srgb,var(--card) 20%,transparent)!important}
+:root[data-cover] .rvtop .rvbar > *,:root[data-cover] .evtop .evbar > *{margin:0!important}
+:root[data-cover] .rvtop .rvbar > [data-act="go"],:root[data-cover] .evtop .evbar > [data-act="go"]{order:-1}
+:root[data-cover][data-view="home"] .rail .ic,:root[data-cover] .rvtop .rvbar button,:root[data-cover] .evtop .evbar button,:root[data-cover] .rvtop .rvbar .rvib,:root[data-cover] .evtop .evbar .rvib{width:36px!important;min-width:36px!important;height:36px!important;min-height:0!important;padding:0!important;
+  border-radius:18px!important;background:transparent!important;box-shadow:none!important;color:#fff!important;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.7)) drop-shadow(0 0 3px rgba(0,0,0,.35))!important}
+:root[data-cover][data-view="home"] .rail .ic svg,:root[data-cover] .rvtop .rvbar button svg,:root[data-cover] .evtop .evbar button svg{width:20px!important;height:20px!important}
+:root[data-cover][data-view="home"] .rail .ic[aria-current="page"]{background:color-mix(in srgb,var(--strong) 35%,rgba(255,255,255,.16))!important}
+:root[data-cover] .rvtop .rvbar button[aria-pressed="true"],:root[data-cover] .evtop .evbar button[aria-pressed="true"]{color:var(--hot)!important}
+:root[data-cover][data-view="home"] .rail .ic:active,:root[data-cover] .rvtop .rvbar button:active,:root[data-cover] .evtop .evbar button:active{background:rgba(255,255,255,.22)!important}
+/* popovers open beside the pill, pointing at its button */
+:root[data-cover] .rvdd.pop{right:68px!important}
+:root[data-cover][data-view="events"] .rvdd.pop{right:100px!important}
 /* 5.4.6 Back To Top (every theme: card / line / head-fg tokens) */
 .totop{position:fixed;z-index:58;width:44px;height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;background:var(--card);color:var(--head-fg);border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.18)}
 .totop[hidden]{display:none}
@@ -4488,7 +4503,8 @@ function detectCover() {
   const standalone = navigator.standalone === true || !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches);
   /* 5.5.3 her rule: iPhone Duo only — never Samsung Fold / Flip or any other phone (they need the iPhone in the user agent) */
   const auto = standalone && iPhone && h > w && w < 600 && (sa.r >= 20 || (w / h >= 0.64 && w >= 420));
-  COVER = S.cover === 'on' ? true : S.cover === 'off' ? false : auto;
+  const duoSim = /[?&]duo=1(&|$)/.test(location.search);   /* 6.8.6: inside duo.html (the Duo cover-screen preview) */
+  COVER = duoSim ? true : S.cover === 'on' ? true : S.cover === 'off' ? false : auto;
   if (COVER) document.documentElement.setAttribute('data-cover', ''); else document.documentElement.removeAttribute('data-cover');
   /* Duo cover screen in a browser (or the notification's browser): phone layout, but if the page still gets the full
      width, keep the right 84 (camera, clock, browser bar) free so nothing sits under them */
@@ -4662,7 +4678,7 @@ function render() {
   if (S.fullBack && !S.modal) { S.fullBack = false; if (S.focus) { S.full = true; } }   /* 6.5.8: back from Fix / Who? with the same buttons, list and place */
   if (fullLight()) { const _t1 = performance.now(); try { fullButtons(); paintFocus(); Playback.sync(); } catch (e) { Dbg.log('script error', 'full light', String(e && e.message || e)); } const ms = Math.round(performance.now() - _t1); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', 'full'); return; }
   const _t0 = performance.now();
-  try { render0(); placeSteps(); ToTop.check(); listFit(); EvFold.run(); Arrive.carriers(); } finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
+  try { render0(); placeSteps(); ToTop.check(); listFit(); EvFold.run(); Arrive.carriers(); if (COVER) { const dk = document.querySelector('.rvdock'); if (dk && dk.offsetHeight) document.documentElement.style.setProperty('--dockh', dk.offsetHeight + 'px'); } }   /* 6.8.6: cover-screen Review pill sits just above the timeline */ finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
 }
 function render0() {
   if (S.filt.motion && S.moCtx && moCtx() !== S.moCtx) { S.filt.motion = false; S.moCtx = null; }
@@ -7437,6 +7453,7 @@ function modalSettings() {
       row('Roaming', seg('roam', Roam.on ? 'on' : 'off', [['off', 'Off'], ['on', 'On']])) : '') +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['b', 'Two Rows']])) +
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
+    row('Duo Preview', '<a class="btn" href="duo.html" aria-label="Open The iPhone Duo Cover Screen Preview">Open</a>') +   /* 6.8.6: the app at the Duo cover-screen size on this phone */
     '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version __VER__ · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */

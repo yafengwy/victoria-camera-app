@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Duo Preview</title>
+<style>
+/* iPhone Duo cover screen preview on an ordinary iPhone (her 11-15): the app at the Duo cover size (466 x 678 points,
+   corners 8 on the left and 59 on the right, camera hole and clock top right), scaled to fit; the rest is black */
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:-apple-system,system-ui,sans-serif;color:#fff}
+#wrap{position:absolute;left:50%;top:0;width:466px;height:678px;transform-origin:top center;border-radius:8px 59px 59px 8px;overflow:hidden;background:#000;box-shadow:0 0 0 1px #2a2a2a}
+#wrap iframe{position:absolute;inset:0;width:466px;height:678px;border:0;background:#000}
+#cam{position:absolute;right:20px;top:20px;width:38px;height:38px;border-radius:50%;background:#050505;box-shadow:0 0 0 2px #111;pointer-events:none;z-index:3}
+#clock{position:absolute;right:72px;top:27px;font-size:16px;font-weight:600;text-shadow:0 1px 3px rgba(0,0,0,.8);pointer-events:none;z-index:3;font-variant-numeric:tabular-nums}
+#home{position:absolute;left:50%;bottom:8px;width:130px;height:5px;margin-left:-65px;border-radius:3px;background:rgba(255,255,255,.8);pointer-events:none;z-index:3}
+#bar{position:absolute;left:0;right:0;display:flex;justify-content:center;gap:12px}
+#bar a,#bar span{font-size:15px;padding:10px 18px;border-radius:22px;background:#1c1c1e;color:#fff;text-decoration:none}
+#bar span{background:none;color:#8e8e93;padding:10px 4px}
+</style></head><body>
+<div id="wrap"><iframe id="app" src="./?duo=1" title="Victoria's Home At iPhone Duo Cover Size"></iframe><div id="cam"></div><div id="clock"></div><div id="home"></div></div>
+<div id="bar"><span>iPhone Duo Cover Screen · 466 × 678</span><a href="./">Close</a></div>
+<script>
+function fit() {
+  const w = document.getElementById('wrap'), top = 62, room = innerHeight - top - 90;
+  const k = Math.min(innerWidth / 466, room / 678, 1);
+  w.style.top = top + 'px'; w.style.transform = 'translateX(-50%) scale(' + k + ')';
+  document.getElementById('bar').style.top = (top + 678 * k + 18) + 'px';
+}
+function tick() { document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false, timeZone: 'America/Los_Angeles' }); }
+addEventListener('resize', fit); fit(); tick(); setInterval(tick, 10000);
+</script>
+</body></html>
