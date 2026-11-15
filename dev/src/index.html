@@ -1788,12 +1788,12 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
   box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(255,255,255,.12),0 4px 14px rgba(0,0,0,.18)!important}
 :root:root[data-cover][data-cover][data-view="home"] .rail{right:10px!important;bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 18px)!important}
 :root:root[data-cover][data-cover] .rvtop .rvbar{right:10px!important;bottom:calc(var(--dockh,125px) + 12px)!important}
-:root:root[data-cover][data-cover] .evtop .evbar{right:44px!important;bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 18px)!important}
+:root:root[data-cover][data-cover] .evtop .evbar{right:36px!important;bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 18px)!important}
 :root:root[data-cover][data-cover][data-view="home"] .rail > div[style*="flex:1"]{display:none}
 :root:root[data-cover][data-cover] .rvtop .rvbar > *,:root:root[data-cover][data-cover] .evtop .evbar > *{margin:0!important}
 :root:root[data-cover][data-cover] .rvtop .rvbar > [data-act="go"],:root:root[data-cover][data-cover] .evtop .evbar > [data-act="go"]{order:-1}
 :root:root[data-cover][data-cover][data-view="home"] .rail .ic,:root:root[data-cover][data-cover] .rvtop .rvbar button,:root:root[data-cover][data-cover] .evtop .evbar button,:root:root[data-cover][data-cover] .rvtop .rvbar .rvib,:root:root[data-cover][data-cover] .evtop .evbar .rvib{width:32px!important;min-width:32px!important;height:34px!important;min-height:0!important;padding:0!important;
-  border-radius:16px!important;background:transparent!important;box-shadow:none!important;color:#fff!important;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.7)) drop-shadow(0 0 3px rgba(0,0,0,.35))!important}
+  border-radius:16px!important;background:transparent!important;box-shadow:none!important;color:#fff!important;filter:drop-shadow(0 0 1px rgba(0,0,0,.75)) drop-shadow(0 1px 2px rgba(0,0,0,.55))!important}
 :root:root[data-cover][data-cover][data-view="home"] .rail .ic svg,:root:root[data-cover][data-cover] .rvtop .rvbar button svg,:root:root[data-cover][data-cover] .evtop .evbar button svg{width:19px!important;height:19px!important;color:inherit!important;stroke:currentColor!important}
 :root:root[data-cover][data-cover][data-view="home"] .rail .ic[aria-current="page"]{color:#FF9F0A!important}
 :root:root[data-cover][data-cover] .rvtop .rvbar button[aria-pressed="true"],:root:root[data-cover][data-cover] .evtop .evbar button[aria-pressed="true"],:root:root[data-cover][data-cover] .rvtop .rvbar button.on,:root:root[data-cover][data-cover] .evtop .evbar button.on{color:#FF9F0A!important}
@@ -1804,11 +1804,18 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 /* 6.8.7 her 11-15: icons in the pill are always white (orange for the page you are on, a pressed filter, or while tapping),
    so they show on dark pictures as well as on the white page; Review's filter row sits in the middle of its white band;
    the timeline / alert list area is shorter: the play row goes nearer the bottom (only 12 of the 34-pt home-bar space) */
-:root:root[data-cover][data-cover] .rvchips{padding-top:8px!important;padding-bottom:8px!important}
+:root:root[data-cover][data-cover] .rvchips{padding-top:12px!important;padding-bottom:4px!important}
 :root:root[data-cover][data-cover] .rvdock{padding-bottom:max(0px,calc(env(safe-area-inset-bottom,0px) - 22px))!important}
-:root:root[data-cover][data-cover] .rvctl{padding-top:0!important;padding-bottom:4px!important}
+:root:root[data-cover][data-cover] .rvctl{padding-top:calc(4px + max(0px,calc(env(safe-area-inset-bottom,0px) - 22px)))!important;padding-bottom:4px!important}
 :root:root[data-cover][data-cover] .rvtop .rvbar > .dtwrap{width:32px!important;display:flex;justify-content:center}
-:root:root[data-cover][data-cover] .rvtop .rvbar .dtwrap button{width:32px!important;min-width:32px!important;height:34px!important;padding:0!important;background:transparent!important;color:#fff!important;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.7)) drop-shadow(0 0 3px rgba(0,0,0,.35))!important}
+:root:root[data-cover][data-cover] .rvtop .rvbar .dtwrap button{width:32px!important;min-width:32px!important;height:34px!important;padding:0!important;background:transparent!important;color:#fff!important;filter:drop-shadow(0 0 1px rgba(0,0,0,.75)) drop-shadow(0 1px 2px rgba(0,0,0,.55))!important}
+/* 6.8.8 her 11-15 14:59 (Duo Preview): Review with the alert list keeps two full rows of cameras on top — the big picture
+   becomes one of the two-across tiles, and the list takes the rest (about 4½ alerts); the glass pill moves down onto the
+   right side of the list instead of covering cameras. Filter row and play row sit in the middle of their white bands
+   (the cameras' own 8-pt top gap and the 12-pt home-bar space are counted). Alerts pill lines up with the cards' right edge. */
+:root:root[data-cover][data-cover] .rvcams.l .rvcam.feat{grid-column:span 1!important;grid-row:span 1!important;aspect-ratio:16/9!important}
+:root:root[data-cover][data-cover] .rvdock.l .rvlist{height:calc(100vh - 54px - 8px - (100vw - 28px) * 9 / 16 - 8px - 56px)!important;min-height:150px}
+:root:root[data-cover][data-cover] body:has(.rvdock.l) .rvtop .rvbar{bottom:calc(56px + 8px)!important}
 </style>
 
 <div id="app" class="app"></div>
