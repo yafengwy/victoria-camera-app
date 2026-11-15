@@ -1193,38 +1193,6 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
 :root[data-cover] .rvtop .rvbar button[aria-pressed="true"],:root[data-cover] .evtop .evbar button[aria-pressed="true"]{color:var(--hot)!important}
 :root[data-cover] .rvtop .rvbar > [data-act="go"],:root[data-cover] .evtop .evbar > [data-act="go"]{color:var(--head-fg)!important}
 .rvdd.pop .rvsevrow,:root[data-cover] .rvdd .rvsevrow{flex-wrap:wrap}
-/* 6.8.6 (her design 11-15, mockups "Duo Full Screen" and "Duo Thin Glass"): on the iPhone Duo cover screen every page is
-   full screen — no 84-pt side strip; the pictures, the Alerts list and the Review timeline run under the right edge. The page
-   buttons float as one thin clear-glass pill (iOS 27 look: almost no fill, a hairline white edge and a top highlight, a light
-   1.5 px blur) so the pictures behind show through: Cameras and Review at the right edge (Review above its timeline), Alerts
-   just left of the hour scale. Items at the top stay left of the iPhone's clock and camera hole (top right). */
-:root[data-cover]{--strip:0px}
-:root[data-cover] .app{padding-right:0!important}
-:root[data-cover][data-view="home"] .app{padding-bottom:env(safe-area-inset-bottom,0px)}
-:root[data-cover] .rvdock{right:0!important}
-:root[data-cover] .days{width:calc(100% - 120px)!important;box-sizing:border-box}
-:root[data-cover] .hours{padding-bottom:40px!important;box-sizing:border-box}
-:root[data-cover][data-view="home"] .main > .group:first-child .ghead{width:calc(100% - 120px)}
-:root[data-cover][data-view="home"] .rail,:root[data-cover] .rvtop .rvbar,:root[data-cover] .evtop .evbar{position:fixed!important;top:auto!important;left:auto!important;width:auto!important;height:auto!important;
-  flex-direction:column!important;justify-content:flex-start!important;align-items:center!important;padding:4px 3px!important;gap:1px!important;border-radius:22px!important;
-  border:.5px solid rgba(255,255,255,.45)!important;background:linear-gradient(165deg,rgba(255,255,255,.14),rgba(255,255,255,0) 50%,rgba(255,255,255,.06))!important;
-  backdrop-filter:blur(1.5px) saturate(160%)!important;-webkit-backdrop-filter:blur(1.5px) saturate(160%)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(255,255,255,.12),0 4px 14px rgba(0,0,0,.18)!important}
-:root[data-cover][data-view="home"] .rail{right:12px!important;bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 18px)!important}
-:root[data-cover] .rvtop .rvbar{right:12px!important;bottom:calc(var(--dockh,125px) + 12px)!important}
-:root[data-cover] .evtop .evbar{right:44px!important;bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 18px)!important}
-:root[data-cover][data-view="home"] .rail > div[style*="flex:1"]{display:none}
-:root[data-cover] .rvtop .rvbar > *,:root[data-cover] .evtop .evbar > *{margin:0!important}
-:root[data-cover] .rvtop .rvbar > [data-act="go"],:root[data-cover] .evtop .evbar > [data-act="go"]{order:-1}
-:root[data-cover][data-view="home"] .rail .ic,:root[data-cover] .rvtop .rvbar button,:root[data-cover] .evtop .evbar button,:root[data-cover] .rvtop .rvbar .rvib,:root[data-cover] .evtop .evbar .rvib{width:36px!important;min-width:36px!important;height:36px!important;min-height:0!important;padding:0!important;
-  border-radius:18px!important;background:transparent!important;box-shadow:none!important;color:#fff!important;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.7)) drop-shadow(0 0 3px rgba(0,0,0,.35))!important}
-:root[data-cover][data-view="home"] .rail .ic svg,:root[data-cover] .rvtop .rvbar button svg,:root[data-cover] .evtop .evbar button svg{width:20px!important;height:20px!important}
-:root[data-cover][data-view="home"] .rail .ic[aria-current="page"]{background:color-mix(in srgb,var(--strong) 35%,rgba(255,255,255,.16))!important}
-:root[data-cover] .rvtop .rvbar button[aria-pressed="true"],:root[data-cover] .evtop .evbar button[aria-pressed="true"]{color:var(--hot)!important}
-:root[data-cover][data-view="home"] .rail .ic:active,:root[data-cover] .rvtop .rvbar button:active,:root[data-cover] .evtop .evbar button:active{background:rgba(255,255,255,.22)!important}
-/* popovers open beside the pill, pointing at its button */
-:root[data-cover] .rvdd.pop{right:68px!important}
-:root[data-cover][data-view="events"] .rvdd.pop{right:100px!important}
 /* 5.4.6 Back To Top (every theme: card / line / head-fg tokens) */
 .totop{position:fixed;z-index:58;width:44px;height:44px;border-radius:22px;display:flex;align-items:center;justify-content:center;background:var(--card);color:var(--head-fg);border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.18)}
 .totop[hidden]{display:none}
@@ -1801,6 +1769,46 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 .evwin b{font-weight:800}
 .evwin .btn{height:32px;padding:0 12px;font-size:12px}
 [data-app-theme="noir"] .evwin{border-radius:4px;background:transparent;box-shadow:inset 0 0 0 1px var(--line)}
+/* 6.8.6 (her design 11-15, mockups "Duo Full Screen" and "Duo Thin Glass"): on the iPhone Duo cover screen every page is
+   full screen — no 84-pt side strip; the pictures, the Alerts list and the Review timeline run under the right edge. The page
+   buttons float as one thin clear-glass pill (iOS 27 look: almost no fill, a hairline white edge and a top highlight, a light
+   1.5 px blur) so the pictures behind show through: Cameras and Review at the right edge (Review above its timeline), Alerts
+   just left of the hour scale. Items at the top stay left of the iPhone's clock and camera hole (top right). */
+:root:root[data-cover][data-cover]{--strip:0px}
+:root:root[data-cover][data-cover] .app{padding-right:0!important}
+:root:root[data-cover][data-cover][data-view="home"] .app{padding-bottom:env(safe-area-inset-bottom,0px)}
+:root:root[data-cover][data-cover] .rvdock{right:0!important}
+:root:root[data-cover][data-cover] .days{width:calc(100% - 120px)!important;box-sizing:border-box}
+:root:root[data-cover][data-cover] .hours{padding-bottom:40px!important;box-sizing:border-box}
+:root:root[data-cover][data-cover][data-view="home"] .main > .group:first-child .ghead{width:calc(100% - 120px)}
+:root:root[data-cover][data-cover][data-view="home"] .rail,:root:root[data-cover][data-cover] .rvtop .rvbar,:root:root[data-cover][data-cover] .evtop .evbar{position:fixed!important;top:auto!important;left:auto!important;width:auto!important;height:auto!important;
+  flex-direction:column!important;justify-content:flex-start!important;align-items:center!important;padding:3px 2px!important;gap:0!important;border-radius:20px!important;
+  border:.5px solid rgba(255,255,255,.45)!important;background:linear-gradient(165deg,rgba(255,255,255,.14),rgba(255,255,255,0) 50%,rgba(255,255,255,.06))!important;
+  backdrop-filter:blur(1.5px) saturate(160%)!important;-webkit-backdrop-filter:blur(1.5px) saturate(160%)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(255,255,255,.12),0 4px 14px rgba(0,0,0,.18)!important}
+:root:root[data-cover][data-cover][data-view="home"] .rail{right:10px!important;bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 18px)!important}
+:root:root[data-cover][data-cover] .rvtop .rvbar{right:10px!important;bottom:calc(var(--dockh,125px) + 12px)!important}
+:root:root[data-cover][data-cover] .evtop .evbar{right:44px!important;bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 18px)!important}
+:root:root[data-cover][data-cover][data-view="home"] .rail > div[style*="flex:1"]{display:none}
+:root:root[data-cover][data-cover] .rvtop .rvbar > *,:root:root[data-cover][data-cover] .evtop .evbar > *{margin:0!important}
+:root:root[data-cover][data-cover] .rvtop .rvbar > [data-act="go"],:root:root[data-cover][data-cover] .evtop .evbar > [data-act="go"]{order:-1}
+:root:root[data-cover][data-cover][data-view="home"] .rail .ic,:root:root[data-cover][data-cover] .rvtop .rvbar button,:root:root[data-cover][data-cover] .evtop .evbar button,:root:root[data-cover][data-cover] .rvtop .rvbar .rvib,:root:root[data-cover][data-cover] .evtop .evbar .rvib{width:32px!important;min-width:32px!important;height:34px!important;min-height:0!important;padding:0!important;
+  border-radius:16px!important;background:transparent!important;box-shadow:none!important;color:#fff!important;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.7)) drop-shadow(0 0 3px rgba(0,0,0,.35))!important}
+:root:root[data-cover][data-cover][data-view="home"] .rail .ic svg,:root:root[data-cover][data-cover] .rvtop .rvbar button svg,:root:root[data-cover][data-cover] .evtop .evbar button svg{width:19px!important;height:19px!important;color:inherit!important;stroke:currentColor!important}
+:root:root[data-cover][data-cover][data-view="home"] .rail .ic[aria-current="page"]{color:#FF9F0A!important}
+:root:root[data-cover][data-cover] .rvtop .rvbar button[aria-pressed="true"],:root:root[data-cover][data-cover] .evtop .evbar button[aria-pressed="true"],:root:root[data-cover][data-cover] .rvtop .rvbar button.on,:root:root[data-cover][data-cover] .evtop .evbar button.on{color:#FF9F0A!important}
+:root:root[data-cover][data-cover][data-view="home"] .rail .ic:active,:root:root[data-cover][data-cover] .rvtop .rvbar button:active,:root:root[data-cover][data-cover] .evtop .evbar button:active{color:#FF9F0A!important}
+/* popovers open beside the pill, pointing at its button */
+:root:root[data-cover][data-cover] .rvdd.pop{right:58px!important}
+:root:root[data-cover][data-cover][data-view="events"] .rvdd.pop{right:92px!important}
+/* 6.8.7 her 11-15: icons in the pill are always white (orange for the page you are on, a pressed filter, or while tapping),
+   so they show on dark pictures as well as on the white page; Review's filter row sits in the middle of its white band;
+   the timeline / alert list area is shorter: the play row goes nearer the bottom (only 12 of the 34-pt home-bar space) */
+:root:root[data-cover][data-cover] .rvchips{padding-top:8px!important;padding-bottom:8px!important}
+:root:root[data-cover][data-cover] .rvdock{padding-bottom:max(0px,calc(env(safe-area-inset-bottom,0px) - 22px))!important}
+:root:root[data-cover][data-cover] .rvctl{padding-top:0!important;padding-bottom:4px!important}
+:root:root[data-cover][data-cover] .rvtop .rvbar > .dtwrap{width:32px!important;display:flex;justify-content:center}
+:root:root[data-cover][data-cover] .rvtop .rvbar .dtwrap button{width:32px!important;min-width:32px!important;height:34px!important;padding:0!important;background:transparent!important;color:#fff!important;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.7)) drop-shadow(0 0 3px rgba(0,0,0,.35))!important}
 </style>
 
 <div id="app" class="app"></div>
