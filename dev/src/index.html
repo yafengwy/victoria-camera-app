@@ -3267,35 +3267,45 @@ function setImg(img, src) {
 /* Snooze lives in Home Assistant too (input_text.camera_snooze), so the notification automation can read it:
    "UNTIL|MODE|cam,cam" with UNTIL in seconds, MODE t (fixed time) or c (until no person for 10 minutes; Home
    Assistant pushes UNTIL forward while a person is still seen), cams "all" for every camera. Empty = nothing snoozed. */
+/* 6.9.4 her rule (11-16): Mute is per person. Victoria's is input_text.camera_snooze, James's input_text.camera_snooze_james
+   (read through /ha/snooze and /ha/snoozej). A mute quiets only that person's phones, and only the "Camera Notifications"
+   and "Camera Cat Names" automations, for every camera; Closet poop, Poop Spot, Waiting Delivery and Back Yard Gate always come.
+   The Mute 30 Min / 1 Hr / 2 Hr buttons on a notification mute the person whose phone was pressed (HA "Camera Mute Buttons"). */
+const SNZ_WHO = [['victoria', 'Victoria', '/ha/snooze', 'input_text.camera_snooze'], ['james', 'James', '/ha/snoozej', 'input_text.camera_snooze_james']];
 const Snz = {
-  st: { until: 0, mode: 't', cams: [] }, missing: false,
-  active() { return this.st.cams.length > 0 && this.st.until * 1000 > Date.now(); },
+  by: { victoria: { until: 0, mode: 't', cams: [] }, james: { until: 0, mode: 't', cams: [] } }, missing: false, miss: {},
+  me() { return Roam.who === 'james' ? 'james' : 'victoria'; },
+  get st() { return this.by[this.me()]; },
+  on(w) { const x = this.by[w]; return !!x && x.cams.length > 0 && x.until * 1000 > Date.now(); },
+  active() { return this.on(this.me()); },
   has(id) { return this.active() && (this.st.cams.includes('all') || this.st.cams.includes(id)); },
   parse(v) { const p = String(v || '').split('|'); return p.length === 3 ? { until: +p[0] || 0, mode: p[1] === 'c' ? 'c' : 't', cams: p[2].split(',').filter(Boolean) } : { until: 0, mode: 't', cams: [] }; },
   async get() {
     if (Data.source !== 'frigate') return;
-    try {
-      const r = await fetch(Frigate.base() + '/ha/snooze', { credentials: 'include', cache: 'no-store' });
-      if (r.status === 404) { this.missing = true; return; } if (!r.ok) return;
-      this.missing = false;
-      if (Date.now() - (this.setAt || 0) < 5000) return;
-      const n = this.parse((await r.json()).state), was = JSON.stringify(this.st);
-      this.st = n; if (JSON.stringify(n) !== was && S.view === 'home' && !S.modal) render();
-    } catch (e) {}
+    let changed = false;
+    for (const [w, , path] of SNZ_WHO) {
+      try {
+        const r = await fetch(Frigate.base() + path, { credentials: 'include', cache: 'no-store' });
+        if (r.status === 404) { this.miss[w] = true; continue; } if (!r.ok) continue;
+        this.miss[w] = false;
+        if (Date.now() - (this.setAt || 0) < 5000) continue;
+        const n = this.parse((await r.json()).state); if (JSON.stringify(n) !== JSON.stringify(this.by[w])) { this.by[w] = n; changed = true; }
+      } catch (e) {}
+    }
+    this.missing = !!this.miss.victoria;
+    if (changed && S.view === 'home' && !S.modal) render();
   },
-  async put(st) {
-    let cams = st.cams; if (cams.length && Data.cams.every(c => cams.includes(c.id))) cams = ['all'];
-    const v = cams.length ? Math.round(st.until) + '|' + st.mode + '|' + cams.join(',') : '';
-    if (v.length > 255) { toast('Too Many Cameras · Choose All Instead'); return false; }
+  async put(w, st) {
+    const ent = SNZ_WHO.find(x => x[0] === w)[3];
+    const v = st.cams.length ? Math.round(st.until) + '|' + st.mode + '|' + st.cams.join(',') : '';
     this.setAt = Date.now();
     try {
-      const r = await fetch(Frigate.base() + '/ha/snoozeset', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entity_id: 'input_text.camera_snooze', value: v }) });
-      if (!r.ok) { toast(r.status === 400 || r.status === 404 ? 'Snooze Is Not Set Up In Home Assistant Yet' : 'Could Not Reach Home Assistant'); return false; }
-      this.st = { until: st.until, mode: st.mode, cams }; return true;
+      const r = await fetch(Frigate.base() + '/ha/snoozeset', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entity_id: ent, value: v }) });
+      if (!r.ok) { toast(r.status === 400 || r.status === 404 ? (w === 'james' ? 'James\'s Mute Is Not Set Up In Home Assistant Yet' : 'Mute Is Not Set Up In Home Assistant Yet') : 'Could Not Reach Home Assistant'); return false; }
+      this.by[w] = { until: st.until, mode: st.mode, cams: st.cams.slice() }; return true;
     } catch (e) { toast('Could Not Reach Home Assistant'); return false; }
   },
-  left() { const m = Math.max(0, Math.round((this.st.until * 1000 - Date.now()) / 60000)); return m >= 60 ? Math.floor(m / 60) + 'h ' + (m % 60) + 'm' : m + 'm'; },
-  names() { const c = this.st.cams; if (c.includes('all')) return 'All Cameras'; const n = c.map(id => (Data.cam(id) || { name: id }).name); return n.length > 2 ? n.slice(0, 2).join(' · ') + ' +' + (n.length - 2) : n.join(' · '); }
+  left(w) { const x = this.by[w || this.me()], m = Math.max(0, Math.round((x.until * 1000 - Date.now()) / 60000)); return m >= 60 ? Math.floor(m / 60) + 'h ' + (m % 60) + 'm' : m + 'm'; }
 };
 /* Today's Waiting: expecting a delivery. Frigate+ tags a car with the company's logo (amazon, usps, ups, fedex, dhl) on
    Front Door, Driveway, Garage1 and Garage2. Normally that car is Uninteresting; while waiting, a car carrying a picked
@@ -4264,23 +4274,21 @@ function modalWait() {
     '</div></div></div>';
 }
 function snoozeBanner() {
-  if (!Snz.active()) return '';
-  const back = Snz.st.mode === 'c' ? 'Until Quiet For 10 Min' : 'Back On At ' + hm(Snz.st.until * 1000) + ' · ' + Snz.left() + ' Left';
-  return '<div class="snzban">' + I.snooze + '<div class="snzt"><b>' + esc(Snz.names()) + ' Snoozed</b><span>' + back + '</span></div><button data-act="snzresume">Resume</button></div>';
+  return SNZ_WHO.filter(x => Snz.on(x[0])).map(([w, nm]) => { const x = Snz.by[w];
+    const back = x.mode === 'c' ? 'Until Quiet For 10 Min' : 'Back On At ' + hm(x.until * 1000) + ' · ' + Snz.left(w) + ' Left';
+    return '<div class="snzban">' + I.snooze + '<div class="snzt"><b>' + nm + '\'s Notifications Muted</b><span>' + back + '</span></div><button data-act="snzresume" data-v="' + w + '">Resume</button></div>'; }).join('');
 }
+const SNZ_DUR = [['30', '30 Min']].concat([1, 2, 3, 4, 5, 6, 7, 8].map(h => [String(h * 60), h + (h === 1 ? ' Hour' : ' Hours')]));
 function modalSnooze() {
-  const pick = S.snzPick || {}, groups = []; Data.cams.forEach(c => { if (!groups.includes(c.group)) groups.push(c.group); });
-  const n = Data.cams.filter(c => pick[c.id]).length, dur = S.snzDur || '1';
-  const allIn = g => { const cs = Data.cams.filter(c => c.group === g); return cs.length && cs.every(c => pick[c.id]); };
-  return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm snzd" role="dialog" aria-label="Snooze Notifications" data-stop="1">' +
-    '<div class="dhead">Snooze Notifications<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
-    '<div class="lbl" style="margin-top:0">Cameras</div><div class="chips">' +
-    groups.map(g => '<button class="chip sm" data-act="snzgroup" data-v="' + esc(g) + '" aria-pressed="' + allIn(g) + '">All ' + esc(g) + '</button>').join('') + '</div><div class="chips">' +   /* 5.4.11 her rule: All Outside / All Inside on their own row */
-    Data.cams.map(c => '<button class="chip sm" data-act="snzcam" data-v="' + c.id + '" aria-pressed="' + !!pick[c.id] + '">' + esc(c.name) + '</button>').join('') + '</div>' +
-    '<div class="lbl">For</div><div class="snzdur">' +
-    [['1', '1 Hour', ''], ['2', '2 Hours', ''], ['at', 'Until…', dur === 'at' ? S.snzAt : 'Pick Time'], ['c', 'Until Clear', 'Quiet 10 Min']].map(o => '<button data-act="snzdur" data-v="' + o[0] + '" aria-pressed="' + (dur === o[0]) + '">' + o[1] + (o[2] ? '<small>' + o[2] + '</small>' : '') + '</button>').join('') + '</div>' +
-    (dur === 'at' ? '<label class="snzat">Snooze Until<input type="time" id="snzat" value="' + S.snzAt + '"></label>' : '') +
-    '<button class="btn solid snzgo" data-act="snzgo"' + (n ? '' : ' disabled') + '>' + (n ? 'Snooze ' + n + (n === 1 ? ' Camera' : ' Cameras') + ' · ' + (dur === 'c' ? 'Until Clear' : dur === 'at' ? 'Until ' + S.snzAt : dur === '1' ? '1 Hour' : '2 Hours') : 'Pick Cameras') + '</button>' +
+  const who = S.snzWho || Snz.me(), dur = S.snzDur || '60', dl = (SNZ_DUR.find(o => o[0] === dur) || SNZ_DUR[2])[1];
+  const st = SNZ_WHO.filter(x => Snz.on(x[0])).map(x => x[1] + ' Muted · ' + Snz.left(x[0]) + ' Left').join('<br>');
+  return '<div class="scrim" data-act="close" role="presentation"><div class="dialog sm snzd" role="dialog" aria-label="Mute Notifications" data-stop="1">' +
+    '<div class="dhead">Mute Notifications<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
+    '<div class="wtnote" style="margin:0 0 10px">Mutes Camera Notifications And Camera Cat Names, All Cameras. Closet Poop, Poop Spot, Waiting Delivery And Back Yard Gate Still Come.' + (st ? '<br><b>' + st + '</b>' : '') + '</div>' +
+    '<div class="lbl" style="margin-top:0">Mute For</div><div class="chips">' +
+    [['victoria', 'Victoria'], ['james', 'James'], ['both', 'Both']].map(o => '<button class="chip sm" data-act="snzwho" data-v="' + o[0] + '" aria-pressed="' + (who === o[0]) + '">' + o[1] + '</button>').join('') + '</div>' +
+    '<div class="lbl">How Long</div><select class="field" id="snzsel">' + SNZ_DUR.map(o => '<option value="' + o[0] + '"' + (o[0] === dur ? ' selected' : '') + '>' + o[1] + '</option>').join('') + '</select>' +
+    '<button class="btn solid snzgo" data-act="snzgo">Mute ' + (who === 'both' ? 'Both' : who === 'james' ? 'James' : 'Victoria') + ' · ' + dl + '</button>' +
     '</div></div></div>';
 }
 
@@ -4542,7 +4550,7 @@ function applyLook() {
   if (dark) root.setAttribute('data-dark', ''); else root.removeAttribute('data-dark');
 }
 if (darkMQ && darkMQ.addEventListener) darkMQ.addEventListener('change', () => applyLook());
-document.addEventListener('change', e => { if (e.target && e.target.id === 'snzat' && e.target.value) { S.snzAt = e.target.value; render(); } });
+document.addEventListener('change', e => { if (e.target && e.target.id === 'snzsel' && e.target.value) { S.snzDur = e.target.value; render(); } });
 /* iPhone Duo cover screen: opened from the home screen icon, upright, under 600 wide, and either iOS reports a right-side safe area
    (the strip with the camera and clock) or, on an iPhone, the squat cover-screen shape (~466x678, ratio >= 0.64). */
 let COVER = false;
@@ -4907,7 +4915,7 @@ function bar() {
 /* Things used now and then live behind one button: layout, snooze, temporary rules */
 function moreMenu() {
   return '<div class="rvscrim" data-act="moreclose"></div><div class="moredd" role="dialog" aria-label="More">' +
-    '<button class="mrow mbtn" data-act="snzopen">' + I.snooze + '<span class="mlbl">Snooze Notifications</span>' + (Snz.active() ? '<span class="msoon on">' + Snz.left() + '</span>' : '') + '</button>' +
+    '<button class="mrow mbtn" data-act="snzopen">' + I.snooze + '<span class="mlbl">Mute Notifications</span>' + (Snz.active() ? '<span class="msoon on">' + Snz.left() + '</span>' : '') + '</button>' +
     '<button class="mrow mbtn" data-act="ppopen">' + ICON_SVG.person.replace('viewBox', 'width="20" height="20" viewBox') + '<span class="mlbl">People</span></button>' +
     (Data.source === 'frigate' && CatFix.model ? '<button class="mrow mbtn" data-act="cathub">' + ICON_SVG.cat.replace('viewBox', 'width="20" height="20" viewBox') + '<span class="mlbl">Cats</span></button>' : '') +
     '<button class="mrow mbtn" data-act="wpick">' + I.grid4.replace(/22/g, '20') + '<span class="mlbl">Watch Cameras</span></button>' +
@@ -7600,6 +7608,7 @@ function modalSettings() {
     (Roam.phone() ? row('This Phone', seg('roamwho', Roam.who, [['victoria', 'Victoria'], ['james', 'James']])) +
       row('Roaming', seg('roam', Roam.on ? 'on' : 'off', [['off', 'Off'], ['on', 'On']])) : '') +
     row('Alert Icons', seg('markstyle', S.markStyle, [['a', 'Badge'], ['b', 'Two Rows']])) +
+    row('Mute Notifications', '<button class="btn" data-act="snzopen">' + (SNZ_WHO.some(x => Snz.on(x[0])) ? SNZ_WHO.filter(x => Snz.on(x[0])).map(x => x[1] + ' ' + Snz.left(x[0])).join(' · ') : 'Open') + '</button>') +   /* 6.9.4 per person, 30 Min to 8 Hours */
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     row('Duo Preview', '<a class="btn" href="duo.html" aria-label="Open The iPhone Duo Cover Screen Preview">Open</a>') +   /* 6.8.6: the app at the Duo cover-screen size on this phone */
     '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version __VER__ · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
@@ -7944,25 +7953,14 @@ const ACT = {
   filtreset() { S.filt.objs = {}; S.filt.off = {}; S.filt.camTick = false; S.filt.zones = {}; S.filt.int = true; S.filt.unint = false; S.filt.motion = false; MotionList.n = 50; saveFilt(); render(); toast('Filters Reset'); },
   boxes() { Box.set(!Box.on); Dbg.log('boxes', Box.on ? 'on' : 'off', S.view); document.querySelectorAll('[data-act="boxes"]').forEach(b => b.setAttribute('aria-pressed', String(Box.on))); toast(Box.on ? 'Object Boxes On' : 'Object Boxes Off'); },
   snzopen() {
-    S.more = false; S.snzPick = {}; if (Snz.active()) (Snz.st.cams.includes('all') ? Data.cams.map(c => c.id) : Snz.st.cams).forEach(id => { S.snzPick[id] = true; });
-    S.snzDur = S.snzDur || '1'; S.modal = 'snooze'; render(); if (Snz.missing) toast('Snooze Is Not Set Up In Home Assistant Yet');
+    S.more = false; S.snzWho = Snz.me(); S.snzDur = S.snzDur || '60'; S.modal = 'snooze'; render(); if (Snz.missing) toast('Mute Is Not Set Up In Home Assistant Yet');
   },
-  snzcam(d) { S.snzPick[d.v] = !S.snzPick[d.v]; render(); },
-  snzgroup(d) { const cs = Data.cams.filter(c => c.group === d.v), on = !cs.every(c => S.snzPick[c.id]); cs.forEach(c => { S.snzPick[c.id] = on; }); render(); },
-  snzdur(d) {
-    S.snzDur = d.v;
-    if (d.v === 'at' && !S.snzAt) { const t = new Date(Date.now() + 3 * 3600e3); S.snzAt = pad(t.getHours()) + ':00'; }
-    render();
-  },
+  snzwho(d) { S.snzWho = d.v; render(); },
   async snzgo() {
-    const cams = Data.cams.filter(c => S.snzPick[c.id]).map(c => c.id); if (!cams.length) return;
-    let secs = S.snzDur === '2' ? 7200 : S.snzDur === 'c' ? 600 : 3600;
-    if (S.snzDur === 'at') {          /* a clock time: today, or tomorrow if that time has already passed */
-      const [hh, mm] = (S.snzAt || '').split(':').map(Number); if (isNaN(hh)) return;
-      const d = new Date(); d.setHours(hh, mm || 0, 0, 0); if (d.getTime() <= Date.now() + 60000) d.setDate(d.getDate() + 1);
-      secs = (d.getTime() - Date.now()) / 1000;
-    }
-    if (await Snz.put({ until: Date.now() / 1000 + secs, mode: S.snzDur === 'c' ? 'c' : 't', cams })) { S.modal = null; render(); toast('Notifications Snoozed'); }
+    const who = S.snzWho || Snz.me(), mins = +(S.snzDur || '60'), until = Date.now() / 1000 + mins * 60;
+    const ws = who === 'both' ? ['victoria', 'james'] : [who]; let ok = true;
+    for (const w of ws) ok = (await Snz.put(w, { until, mode: 't', cams: ['all'] })) && ok;
+    if (ok) { S.modal = null; render(); toast((who === 'both' ? 'Both' : who === 'james' ? 'James' : 'Victoria') + ' Muted'); } else render();
   },
   evdelask(d) { S.delId = d.v; S.modal = 'del'; render(); },
   async evdel() {
@@ -8189,7 +8187,7 @@ const ACT = {
     if (await Wait.put({ from, until: end.getTime() / 1000, cos })) { S.modal = null; render(); toast('Waiting For ' + cos.map(coName).join(' · ')); }
   },
   async wtstop() { if (await Wait.put({ from: 0, until: 0, cos: [] })) { render(); toast('Stopped Waiting'); } },
-  async snzresume() { if (await Snz.put({ until: 0, mode: 't', cams: [] })) { render(); toast('Notifications Back On'); } },
+  async snzresume(d) { const w = (d && d.v) || Snz.me(); if (await Snz.put(w, { until: 0, mode: 't', cams: [] })) { render(); toast((w === 'james' ? 'James' : 'Victoria') + '\'s Notifications Back On'); } },
   layout() { S.layout = S.layout === 'list' ? 'grid' : 'list'; Fold.set('layout', S.layout); render(); },
   group(d) { S.open[d.v] = S.open[d.v] === false; store.set('open', S.open); render(); },
   /* 6.1.11 her 10:55 report: Alert Settings opened from the turned full screen (phone upright, picture turned sideways)
