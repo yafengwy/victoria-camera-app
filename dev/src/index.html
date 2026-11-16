@@ -1846,6 +1846,17 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 /* 6.9.2 her: on the cover screen the cameras scroll only until the last row sits just above the timeline / list
    (no empty space under them); with three rows or fewer nothing scrolls */
 :root:root[data-cover][data-cover] .rvcams{padding-bottom:calc(var(--dockh,125px) + 2px)!important}
+/* 6.9.3: hour scale slide preview */
+.hours{touch-action:none}
+.hours .hr.scrub{color:#FF9F0A!important}
+#scrubpv{position:fixed;z-index:60;pointer-events:none;opacity:0;transform:scale(.96);transition:opacity .12s,transform .12s;background:var(--card);border-radius:16px;overflow:hidden;box-shadow:0 12px 34px rgba(0,0,0,.35),0 0 0 .5px rgba(255,255,255,.25)}
+#scrubpv.on{opacity:1;transform:none}
+#scrubpv img{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:#111}
+#scrubpv .spv-t{padding:8px 11px 10px;display:flex;flex-direction:column;gap:2px}
+#scrubpv .spv-t b{font-size:15px;display:flex;align-items:center;gap:5px;color:var(--text)}
+#scrubpv .spv-t b .lico svg{width:15px;height:15px}
+#scrubpv .spv-t span{font-size:12.5px;color:var(--sub)}
+#scrubpv .spv-none{padding:12px 14px;font-size:14px;color:var(--sub)}
 </style>
 
 <div id="app" class="app"></div>
@@ -4718,6 +4729,69 @@ if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => EvFo
 })();
 document.addEventListener('scroll', () => ToTop.check(), { capture: true, passive: true });
 window.addEventListener('resize', () => ToTop.check());
+/* 6.9.3 (her idea from a Duo app video, 11-15): slide a finger up and down the Alerts page's hour scale and a big preview
+   of the alert under the finger pops up beside it (picture, what, when, which camera); within an hour, higher on its row
+   = later. Let go and the list goes to that alert. A plain tap still jumps to the hour as before. */
+const Scrub = {
+  rows: {}, on: false, id: null, y0: 0, x: 0, cur: null, hold: 0, noClick: 0, el: null,
+  pv() {
+    if (!this.el) { this.el = document.createElement('div'); this.el.id = 'scrubpv'; this.el.setAttribute('aria-hidden', 'true'); document.body.appendChild(this.el); }
+    return this.el;
+  },
+  pick(y) {
+    const rail = document.querySelector('.hours'); if (!rail) return null;
+    const rr = rail.getBoundingClientRect(), b = document.elementFromPoint(rr.left + rr.width / 2, y), hr = b && b.closest && b.closest('.hours .hr');
+    if (!hr) return null;
+    const list = this.rows[+hr.dataset.v]; if (!list || !list.length) return { hr: +hr.dataset.v, item: null, rail: rr };
+    const r = hr.getBoundingClientRect(), f = Math.min(0.999, Math.max(0, (y - r.top) / Math.max(1, r.height)));
+    return { hr: +hr.dataset.v, item: list[Math.floor(f * list.length)], n: list.length, i: Math.floor(f * list.length), rail: rr };
+  },
+  show(y) {
+    const at = this.pick(y), pv = this.pv(); if (!at) return;
+    const w = Math.min(300, at.rail.left - 24);
+    if (!at.item) { pv.innerHTML = '<div class="spv-none">' + pad(at.hr) + ':00 · No Alerts</div>'; }
+    else if (!this.cur || this.cur.k !== at.item.k) {
+      const it = at.item;
+      pv.innerHTML = '<img src="' + it.img + '" alt=""><div class="spv-t"><b>' + it.icn + esc(it.ttl) + '</b><span>' + hms(it.t) + ' · ' + esc(it.cam) + (at.n > 1 ? ' · ' + (at.i + 1) + ' Of ' + at.n : '') + '</span></div>';
+    }
+    this.cur = at.item;
+    pv.style.width = w + 'px'; pv.style.right = (innerWidth - at.rail.left + 10) + 'px';
+    const h = pv.offsetHeight || 200; pv.style.top = Math.max(8, Math.min(innerHeight - h - 8, y - h / 2)) + 'px';
+    pv.classList.add('on'); document.querySelectorAll('.hours .hr.scrub').forEach(n => n.classList.remove('scrub'));
+    const hb = document.getElementById('hr-' + at.hr); if (hb) hb.classList.add('scrub');
+  },
+  end(go) {
+    clearTimeout(this.hold); const it = this.cur, was = this.on;
+    this.on = false; this.id = null; this.cur = null;
+    if (this.el) this.el.classList.remove('on');
+    document.querySelectorAll('.hours .hr.scrub').forEach(n => n.classList.remove('scrub'));
+    if (!was) return;
+    this.noClick = Date.now() + 500;   /* the tap that ends a slide is not also an hour tap */
+    if (!go || !it) return;
+    const m = document.getElementById('evm-' + it.k), card = m && m.closest('article');
+    if (card) {
+      const hr = new Date(it.t).getHours(); hourLock = hr; setCur(hr); clearTimeout(lockTimer); lockTimer = setTimeout(() => { hourLock = null; }, 1200);
+      const maxY = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight) - innerHeight;
+      window.scrollTo({ top: Math.max(0, Math.min(maxY, window.scrollY + card.getBoundingClientRect().top - evTopPx() - 6)), behavior: 'smooth' });
+    }
+  },
+  init() {
+    document.addEventListener('pointerdown', e => {
+      if (S.view !== 'events' || !e.target.closest || !e.target.closest('.hours')) return;
+      this.id = e.pointerId; this.y0 = e.clientY; this.on = false;
+      clearTimeout(this.hold); this.hold = setTimeout(() => { if (this.id != null && !this.on) { this.on = true; this.show(this.y0); } }, 260);   /* press and hold also starts it */
+    }, true);
+    document.addEventListener('pointermove', e => {
+      if (this.id == null || e.pointerId !== this.id) return;
+      if (!this.on && Math.abs(e.clientY - this.y0) > 6) { this.on = true; clearTimeout(this.hold); }
+      if (this.on) { e.preventDefault(); this.show(e.clientY); }
+    }, { capture: true, passive: false });
+    document.addEventListener('pointerup', e => { if (this.id != null && e.pointerId === this.id) this.end(true); }, true);
+    document.addEventListener('pointercancel', e => { if (this.id != null && e.pointerId === this.id) this.end(false); }, true);
+    document.addEventListener('click', e => { if (Date.now() < this.noClick && e.target.closest && e.target.closest('.hours')) { e.stopPropagation(); e.preventDefault(); } }, true);
+  }
+};
+Scrub.init();
 /* 6.8.9: iPhone Duo cover screen — Review with the alert list: two whole rows of cameras on top, the list takes exactly
    the rest; the glass pill sits just above the timeline (--dockh) */
 function coverFit() {
@@ -5748,10 +5822,12 @@ function viewEvents() {
   } else h += '<div class="evwrap"><div class="evlist">';
   if (moWait) h += '<div class="molo">Loading Motion…</div>';
   if (!cards.length && !wide && !moWait) h += '<div class="empty">No alerts on this day with the current filters.</div>';
+  const scrubRows = {};   /* 6.9.3: what the hour scale's slide preview shows (Scrub) */
   Object.keys(byHour).map(Number).sort((a, b) => b - a).forEach(hr => {
     h += '<div class="hourh" id="hour-' + hr + '"></div>';
     byHour[hr].forEach(cd => {
       const e = cd.e, k = cd.k, cam = Data.cam(e.cam), p = evP(k, f), ttl = cd.g ? labGroup(cd.g) : e.motion ? 'Motion' : labAll(e, p, f), icn = e.motion ? '<i class="modot"></i>' : '<i class="lico">' + objIcon(ico(e, p)) + '</i>';
+      (scrubRows[hr] = scrubRows[hr] || []).push({ k, img: evImg(e, p), ttl, icn, t: p.t, cam: cam ? cam.name : e.cam });
       const dur = cd.g ? (s => s >= 60 ? Math.floor(s / 60) + ' min ' + (s % 60) + ' sec' : s + ' sec')(Math.max(1, Math.round((cd.g.en - cd.g.t) / 1000))) : durLabel(e);
       if (wide) {
         h += '<article class="evrow' + (e.interesting || e.motion ? '' : ' dim') + (S.evSel === k ? ' sel' : '') + '" data-act="evsel" data-v="' + esc(k) + '"><img src="' + evImg(e, p) + '" alt="" loading="lazy">' +
@@ -5772,6 +5848,7 @@ function viewEvents() {
         '<div class="evmedia' + (e.cam === 'nest_doorbell' ? ' door' : '') + ctlOn('ev~' + k) + '" id="evm-' + esc(k) + '" data-act="evtap" data-v="' + esc(k) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(e, p)) + ' At ' + hms(p.t) + ' Full Screen">' + evMedia(e, k) + '</div><div class="evbarh" id="evb-' + esc(k) + '">' + evBar(e, k) + '</div></article>';
     });
   });
+  Scrub.rows = scrubRows;
   if (moLeft) h += '<button class="btn momore" data-act="momore">Load More Motion · ' + moLeft + ' Left</button>';
   const maxN = Math.max(1, ...Object.values(byHour).map(v => v.length));
   h += '</div><div class="hours">';
