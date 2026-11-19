@@ -675,3 +675,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 - Her rule: on a phone nothing plays by itself while scrolling; a tap (picture or Play) plays it, and that card spans the whole row. Computer (evWide) keeps auto play.
 - Phone's own screen: Alerts three across (cover stays two across), newest first left to right, then the next row. Three across shows only icon + time (span .evty hides "Type At"); the camera name sits above the buttons.
 - Same CSS block as 6.9.6, now on :root:root[data-view="events"] .evwrap:not(.wide).
+
+## 6.9.8 — 2026-11-19 Duo cover Review spacing
+- Cameras start 34px from the top (was max(46px, safe top)), so the last row's camera names clear the timeline.
+- List mode with 3 or 4 cameras a row: the pill's top stays below the iPhone's sleep / battery badge (176px from the top); coverFit caps --rvpillb, so the pill moves down over the list.

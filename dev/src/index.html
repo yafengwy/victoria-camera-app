@@ -1838,7 +1838,7 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
    With the alert list open it sits on the right of the second camera row (bottom lined up with that row); with the
    timeline it sits on the right just above the timeline. No filter row on top, so the cameras start at the top. */
 :root:root[data-cover][data-cover] .rvtop{min-height:0}
-:root:root[data-cover][data-cover] .rvcams{padding-top:max(46px,env(safe-area-inset-top,0px))}   /* 6.8.11: below the iPhone's clock and camera hole */
+:root:root[data-cover][data-cover] .rvcams{padding-top:34px}   /* 6.9.8 her: a little higher than 6.8.11's 46px, so the last row's camera names clear the timeline */
 :root:root[data-cover][data-cover] .rvtop .rvbar button,:root:root[data-cover][data-cover] .rvtop .rvbar .rvib,:root:root[data-cover][data-cover] .rvtop .rvbar .dtwrap button{height:30px!important}
 :root:root[data-cover][data-cover] .rvtop .rvbar > .dtwrap{height:30px}
 :root:root[data-cover][data-cover] body:has(.rvdock.l) .rvtop .rvbar{bottom:var(--rvpillb,64px)!important}
@@ -4836,7 +4836,10 @@ function coverFit() {
       const hs = [...t].map(e => e.getBoundingClientRect()), th = Math.min(...hs.map(r => r.height)), gap = parseFloat(getComputedStyle(c).rowGap) || 6;
       const top0 = Math.min(...hs.map(r => r.top));
       const areaBottom = top0 + 3 * th + 2 * gap;                                  /* viewport coordinates */
-      root.style.setProperty('--rvpillb', Math.max(8, Math.round(innerHeight - areaBottom)) + 'px');   /* pill's bottom = the camera area's bottom */
+      /* 6.9.8 her: with 3 or 4 small cameras a row the pill rose under the iPhone's sleep / battery badge (top right, about
+         172px tall): its top now stays below that, so it moves down over the list instead */
+      const pill = document.querySelector('.rvtop .rvbar'), ph = pill ? pill.offsetHeight : 0;
+      root.style.setProperty('--rvpillb', Math.max(8, Math.min(Math.round(innerHeight - areaBottom), Math.round(innerHeight - 176 - ph))) + 'px');   /* pill's bottom = the camera area's bottom */
       const rowsBottom = (areaBottom - cb.top) + (c.offsetTop || cb.top) + 6;      /* page coordinates */
       const other = dk.offsetHeight - ls.offsetHeight;                            /* play row + home-bar space */
       const h = Math.max(140, Math.floor(innerHeight - rowsBottom - other));
