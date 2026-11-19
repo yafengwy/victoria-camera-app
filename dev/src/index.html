@@ -1905,6 +1905,10 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 :root[data-badge]:not([data-cover]) .moredd{right:104px!important}
 :root[data-badge]:not([data-cover]) .evtop,:root[data-badge]:not([data-cover]) .rvtop{padding-right:88px!important;box-sizing:border-box}
 :root[data-badge]:not([data-cover]) .focus>.fctl{padding-right:88px!important;box-sizing:border-box}
+/* 6.10.6 her (Duo inner screen sideways only): the hour scale on the right twice as wide, so the alerts (and a playing
+   alert's Pause / Sound buttons) sit further left of iOS's badge; camera names in the grid sit in the picture's bottom-left */
+:root[data-badge]:not([data-cover]) .hours{width:68px!important;padding-left:36px!important;box-sizing:border-box}
+:root:root[data-badge]:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evnm{bottom:6px!important;left:6px!important;max-width:calc(100% - 100px);font-size:10.5px}
 </style>
 
 <div id="app" class="app"></div>
@@ -9332,17 +9336,28 @@ function fullRot() { return vpH() > vpW() && vpW() < 560; }
 function setVp() { document.documentElement.style.setProperty('--vpw', vpW() + 'px'); document.documentElement.style.setProperty('--vph', vpH() + 'px'); }
 setVp(); window.addEventListener('resize', setVp);
 function isLand() { return vpW() > vpH() && vpH() < 560; }
+/* 6.10.3 / 6.10.6: her Duo log - sideways the page got 951 x 587 while the screen is 951 x 669: iOS kept the upright screen's
+   82-point top inset as an empty band above the page (outside it: the band takes the page's background colour, so no style
+   can fill it). Nudge WebKit to size the page again by re-setting the viewport tag - after turning, and (6.10.6) also when
+   the app opens or comes back already sideways - once per screen size, and log whether it took. */
+let shortKey = '';
+function fixShort(why) {
+  const short = Math.min(screen.width, screen.height), sh = window.innerHeight, k = window.innerWidth + 'x' + sh;
+  if (!/iPhone/.test(navigator.userAgent) || window.innerWidth <= sh || short - sh <= 20 || shortKey === k) return;
+  shortKey = k;
+  const m = document.querySelector('meta[name="viewport"]'), c = m && m.getAttribute('content');
+  Dbg.log('screen short', why, k, 'screen ' + screen.width + 'x' + screen.height, 'retry viewport');
+  if (m) { m.setAttribute('content', c.replace(', viewport-fit=cover', '')); requestAnimationFrame(() => { m.setAttribute('content', c); window.scrollTo(0, window.scrollY); setTimeout(() => Dbg.log('screen after retry', window.innerWidth + 'x' + window.innerHeight), 400); }); }
+}
+window.addEventListener('pageshow', () => setTimeout(() => fixShort('shown'), 300));
+document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(() => fixShort('back'), 300); });
+setTimeout(() => fixShort('opened'), 600);
 window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => {
   { const sa = safeArea(), k = vpW() + 'x' + vpH(); if (k !== window._lastVp) { window._lastVp = k; Dbg.log('screen turned', k, 'safe T' + sa.t + ' R' + sa.r + ' B' + sa.b + ' L' + sa.l, 'scroll ' + Math.round(window.scrollY)); } }
   /* 6.10.3: her Duo log - sideways the page got 951 x 587 while the screen is 951 x 669: iOS kept the upright screen's 82-point
      top inset as an empty band above the page (outside it, so no style can paint it). Nudge WebKit to size the page again by
      re-setting the viewport tag, then log whether it took. */
-  { const short = Math.min(screen.width, screen.height), sh = window.innerHeight;
-    if (/iPhone/.test(navigator.userAgent) && window.innerWidth > sh && short - sh > 20) {
-      const m = document.querySelector('meta[name="viewport"]'), c = m && m.getAttribute('content');
-      Dbg.log('screen short', window.innerWidth + 'x' + sh, 'screen ' + screen.width + 'x' + screen.height, 'retry viewport');
-      if (m) { m.setAttribute('content', c.replace(', viewport-fit=cover', '')); requestAnimationFrame(() => { m.setAttribute('content', c); window.scrollTo(0, window.scrollY); setTimeout(() => Dbg.log('screen after retry', window.innerWidth + 'x' + window.innerHeight), 400); }); }
-    } }   /* 6.9.12: to explain an empty band at the top after turning / unfolding */
+  fixShort('turned');   /* 6.9.12: to explain an empty band at the top after turning / unfolding */
   if (S.focus) {
     if (isLand() && !S.full) { S.full = true; S.autoFull = true; S.fui = false; S.fpanel = false; render(); }
     else if (!isLand() && S.full && S.autoFull) { S.full = false; S.autoFull = false; S.fpanel = false; render(); }

@@ -706,3 +706,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 - Cover: every dialog (.scrim) keeps 80px free on the right, so a tall dialog's close / back button and top rows (Litter "如厕记录" / merge bar, Settings) sit left of the badge (x 390-446, y 0-168).
 - Phone sideways (data-badge): dialogs keep 96px each side; More menu right 104; Alerts / Review top bars and the camera view's right column get 88px right padding (their close / bell / Big buttons were under the badge).
 - Checked with a badge overlay: cover home, Alerts, Review, camera view, Watch, Settings, People, Watch Cameras, Today's Waiting, Mute; sideways the same.
+
+## 6.10.6 — 2026-11-19 Sideways (Duo inner): wider hour scale, names bottom-left; band retry on open
+- Only data-badge (iPhone sideways). Alerts hour scale 68px (was 34; numbers stay at the right), so a playing alert's Pause / Sound clear iOS's badge and the pictures get a little shorter. Grid camera names sit in the picture's bottom-left (were raised above the buttons).
+- Empty top band: her light-theme screenshot shows the band in the page colour = canvas outside the 587-tall viewport. fixShort() now also runs when the app opens / comes back already sideways (pageshow, visibilitychange, 600 ms after start), once per size, logging "screen short <why>" and "screen after retry".
