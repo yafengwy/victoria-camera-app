@@ -4851,6 +4851,10 @@ function coverFit() {
       const other = dk.offsetHeight - ls.offsetHeight;                            /* play row + home-bar space */
       const h = Math.max(140, Math.floor(innerHeight - rowsBottom - other));
       if (Math.abs((parseFloat(root.style.getPropertyValue('--rvlh')) || 0) - h) > 1) root.style.setProperty('--rvlh', h + 'px');
+      /* 6.9.10 her rule: the list's top sits right under the second (or third) row, so no sliver of the next row peeks out:
+         measure where the list really starts and grow it by the difference */
+      const want = Math.ceil(areaBottom) + 1, got = dk.getBoundingClientRect().top;
+      if (got - want > 1) root.style.setProperty('--rvlh', (parseFloat(root.style.getPropertyValue('--rvlh')) + Math.round(got - want)) + 'px');
     }
   }
   if (dk && dk.offsetHeight) root.style.setProperty('--dockh', dk.offsetHeight + 'px');

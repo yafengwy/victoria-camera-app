@@ -682,3 +682,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 6.9.9 — 2026-11-19 Duo cover Review list: bigger pictures ("C")
 - Her pick from Duo Review List Options.png: cover list stays two across; pictures 92x69 (was 48x36); three lines: what / camera · how long / time. CSS only at the end of the last <style>.
+
+## 6.9.10 — 2026-11-19 Duo cover Review list starts right under the camera rows
+- Her rule: no sliver of the next camera row may peek above the list. coverFit now measures the list's real top and grows --rvlh so it starts 1px under the last full row.
