@@ -713,3 +713,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 6.10.7 — 2026-11-19 Tap empty space closes the playing alert
 - Her rule, every phone screen (upright, sideways, cover): on the Alerts grid a tap on empty space (grid gaps, empty cells, page margins; not cards, hour scale, top bar, menus, buttons) stops the playing alert (evStop) and it shrinks back. Logged "alert closed by tapping empty space". Computer (evWide) unchanged.
+
+## 6.10.8 — 2026-11-19 Cover camera view: "B", more room for the timeline list
+- Her pick (Duo Camera View B.png). Cover only. The bar keeps fixed room (5.10.7 rule) but 38 high: object icons 14px; the two times sit (absolute, no taps) at the ends of the Today row, which is 32 high and centred: Today · Download · Bell (buttons 28). The list starts at 376 (was about 445).
