@@ -1894,6 +1894,8 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 /* 6.9.12 iPhone sideways: after turning or unfolding, iOS at times still reports the upright screen's top inset (about 60),
    which left a big empty band above the header; sideways there is no top inset, so the headers stick at the very top */
 :root[data-badge]:not([data-cover]) .top,:root[data-badge]:not([data-cover]) .evtop,:root[data-badge]:not([data-cover]) .rvtop{top:0!important}
+/* 6.10.4 cover: More opens beside the side pill, from its bottom up (the top right belongs to iOS's badge) */
+:root:root[data-cover][data-cover] .moredd{top:auto!important;right:58px!important;bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 18px)!important;max-height:calc(100dvh - 110px);overflow:auto}
 </style>
 
 <div id="app" class="app"></div>
@@ -2948,7 +2950,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.10.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.10.4 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4950,7 +4952,8 @@ function objQRestore() {
 }
 function rail() {
   const b = (v, icon, label) => '<button class="ic" data-act="go" data-v="' + v + '" aria-label="' + label + '"' + (S.view === v ? ' aria-current="page"' : '') + '>' + icon + '</button>';
-  const lay = COVER && S.view === 'home' ? '<button class="ic" data-act="layout" aria-label="' + (S.layout === 'list' ? 'Show Side By Side' : 'Show One Per Row') + '">' + (S.layout === 'list' ? I.grid4 : I.rows) + '</button>' : '';
+  /* 6.10.4 her: on the cover screen the button above Settings is More (litter box, faces, Mute...), not the layout switch */
+  const lay = COVER && S.view === 'home' ? '<button class="ic" data-act="more" aria-label="More" aria-expanded="' + !!S.more + '">' + I.extras + '</button>' : '';
   return '<nav class="rail" aria-label="Main"><div class="rlogo" style="color:var(--icon);margin-bottom:8px">' + I.logo + '</div>' + b('home', I.home, 'Cameras') + b('events', I.bellO, 'Alerts') + b('review', I.review, 'Review All Cameras') +
     '<div style="flex:1"></div>' + lay + '<button class="ic" data-act="modal" data-v="settings" aria-label="Settings">' + I.gear + '</button></nav>';
 }
@@ -7660,7 +7663,7 @@ function modalSettings() {
     row('Mute Notifications', '<button class="btn" data-act="snzopen">' + (SNZ_WHO.some(x => Snz.on(x[0])) ? SNZ_WHO.filter(x => Snz.on(x[0])).map(x => x[1] + ' ' + Snz.left(x[0])).join(' · ') : 'Open') + '</button>') +   /* 6.9.4 per person, 30 Min to 8 Hours */
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     row('Duo Preview', '<a class="btn" href="duo.html" aria-label="Open The iPhone Duo Cover Screen Preview">Open</a>') +   /* 6.8.6: the app at the Duo cover-screen size on this phone */
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.10.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.10.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7955,7 +7958,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.10.3');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.10.4');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7972,7 +7975,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.10.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.10.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -9372,7 +9375,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.10.3';
+    const BUILD = '6.10.4';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

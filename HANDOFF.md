@@ -698,3 +698,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 6.10.3 — 2026-11-19 nginx fix; sideways empty band
 - nginx had refused the whole file since 6.9.4/6.9.5 (log: "proxy_pass cannot have URI part in location given by regular expression", line 136 /ha/net). The old config kept running, so /ha/snoozej (James's Mute) and the list-based /ha/net never went live. Fixed with rewrite ^ /api/template break + proxy_pass without a path.
 - Her Duo log: sideways the page is 951x587 but the screen 951x669 (82 = the upright top inset); the band is outside the page. On resize, if an iPhone sideways page is >20 shorter than the screen, the viewport tag is re-set once and "screen short" / "screen after retry" are logged.
+
+## 6.10.4 — 2026-11-19 Cover: More replaces the layout switch
+- Her: on the cover home pill the button above Settings is now More (···), not Show Side By Side / One Per Row. The More menu opens beside the pill, bottom up (top right is iOS's badge).
