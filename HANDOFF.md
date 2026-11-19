@@ -710,3 +710,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 6.10.6 — 2026-11-19 Sideways (Duo inner): wider hour scale, names bottom-left; band retry on open
 - Only data-badge (iPhone sideways). Alerts hour scale 68px (was 34; numbers stay at the right), so a playing alert's Pause / Sound clear iOS's badge and the pictures get a little shorter. Grid camera names sit in the picture's bottom-left (were raised above the buttons).
 - Empty top band: her light-theme screenshot shows the band in the page colour = canvas outside the 587-tall viewport. fixShort() now also runs when the app opens / comes back already sideways (pageshow, visibilitychange, 600 ms after start), once per size, logging "screen short <why>" and "screen after retry".
+
+## 6.10.7 — 2026-11-19 Tap empty space closes the playing alert
+- Her rule, every phone screen (upright, sideways, cover): on the Alerts grid a tap on empty space (grid gaps, empty cells, page margins; not cards, hour scale, top bar, menus, buttons) stops the playing alert (evStop) and it shrinks back. Logged "alert closed by tapping empty space". Computer (evWide) unchanged.

@@ -5811,6 +5811,13 @@ document.addEventListener('pointerdown', e => { const bar = e.target.closest && 
 document.addEventListener('pointermove', e => { if (EvDrag.on) evDragTo(e.clientX, false); }, true);
 ['pointerup', 'pointercancel'].forEach(n => document.addEventListener(n, e => { if (!EvDrag.on) return; EvDrag.on = false; if (n === 'pointerup') evDragTo(e.clientX, true); EvDrag.bar = null; }, true));
 document.addEventListener('click', e => { if (e.target.closest && e.target.closest('.evseek, .evbt')) { TapLog.ran = Date.now(); e.stopPropagation(); } }, true);
+/* 6.10.7 her rule (every screen, upright / sideways / cover): on a phone's Alerts grid, a tap on empty space stops the playing
+   alert and shrinks it back to its small card */
+document.addEventListener('click', e => {
+  if (S.view !== 'events' || !S.evPlay || S.modal || evWide() || !e.target.closest) return;
+  if (!e.target.closest('.evwrap') || e.target.closest('.evcard, .hours, .evtop, .rvdd, .moredd, button, a, input, select, label')) return;
+  Dbg.log('alert closed by tapping empty space', S.evPlay); evStop(); render();
+});
 function evPaused(k) { const m = document.getElementById('evm-' + k), v = m && m.querySelector('video.evv'); return !!(v && v._up); }
 function evIcons() { document.querySelectorAll('.evcard .ic[data-act="evplay"]').forEach(b => { const m = b.dataset.v === S.evPlay && document.getElementById('evm-' + b.dataset.v), v = m && m.querySelector('video.evv'); b.innerHTML = b.dataset.v === S.evPlay && !(v && v._up) ? I.pause : I.playO; }); }
 function wireEvPreviews() {
