@@ -670,3 +670,8 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 - Her pick from mockups (Duo Alerts Options 2.png): on the cover screen, Alerts is a 2-column grid. Card = "Type At hh:mm:ss" on top, picture, Download / Delete / Play over the picture bottom (camera name bottom-left).
 - Fix, Who?, All Cameras and Sound are hidden until the alert plays; the playing card (:has(.evv/.evprog)) spans both columns with the full header as before.
 - CSS only, at the end of the last <style>, doubled-specificity cover selectors with [data-view="events"].
+
+## 6.9.7 — 2026-11-19 Alerts grid on the phone too; no auto play
+- Her rule: on a phone nothing plays by itself while scrolling; a tap (picture or Play) plays it, and that card spans the whole row. Computer (evWide) keeps auto play.
+- Phone's own screen: Alerts three across (cover stays two across), newest first left to right, then the next row. Three across shows only icon + time (span .evty hides "Type At"); the camera name sits above the buttons.
+- Same CSS block as 6.9.6, now on :root:root[data-view="events"] .evwrap:not(.wide).

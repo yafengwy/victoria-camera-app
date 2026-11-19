@@ -1857,22 +1857,30 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 #scrubpv .spv-t b .lico svg{width:15px;height:15px}
 #scrubpv .spv-t span{font-size:12.5px;color:var(--sub)}
 #scrubpv .spv-none{padding:12px 14px;font-size:14px;color:var(--sub)}
-/* 6.9.6 her choice (Duo cover, 11-19, "A2"): Alerts two across. Each card: Type At Time on top, the picture, and Download /
-   Delete / Play over the picture's bottom; Fix, Who?, All Cameras and Sound show while that alert plays, when it spans both columns. */
-:root:root[data-cover][data-cover][data-view="events"] .evlist{display:grid!important;grid-template-columns:1fr 1fr;gap:5px!important;align-content:start}
-:root:root[data-cover][data-cover][data-view="events"] .evlist > :not(.evcard){grid-column:1/-1}
-:root:root[data-cover][data-cover][data-view="events"] .evcard{position:relative;min-width:0}
-:root:root[data-cover][data-cover][data-view="events"] .evcard:has(.evv,.evprog){grid-column:1/-1}
-:root:root[data-cover][data-cover][data-view="events"] .evcard:not(:has(.evv,.evprog)) .evh{height:26px;padding:0 6px!important}
-:root:root[data-cover][data-cover][data-view="events"] .evcard:not(:has(.evv,.evprog)) .evt b{font-size:11.5px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-:root:root[data-cover][data-cover][data-view="events"] .evcard:not(:has(.evv,.evprog)) .evt b .lico svg{width:14px;height:14px}
-:root:root[data-cover][data-cover][data-view="events"] .evcard:not(:has(.evv,.evprog)) .evx{position:absolute;right:30px;bottom:2px;z-index:4;display:flex}
-:root:root[data-cover][data-cover][data-view="events"] .evcard:not(:has(.evv,.evprog)) .evx > :not([data-act="evdl"]):not([data-act="evdelask"]){display:none!important}
-:root:root[data-cover][data-cover][data-view="events"] .evcard:not(:has(.evv,.evprog)) .evh > [data-act="evplay"]{position:absolute;right:2px;bottom:2px;z-index:4}
-:root:root[data-cover][data-cover][data-view="events"] .evcard:not(:has(.evv,.evprog)) .evh .ic{width:30px!important;height:28px!important;color:#fff!important;filter:drop-shadow(0 1px 2px rgba(0,0,0,.8))}
-:root:root[data-cover][data-cover][data-view="events"] .evcard:not(:has(.evv,.evprog)) .evh .ic svg{width:17px!important;height:17px!important}
-:root:root[data-cover][data-cover][data-view="events"] .evcard:not(:has(.evv,.evprog))::after{content:"";position:absolute;left:0;right:0;bottom:0;height:34px;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.6));pointer-events:none;z-index:2}
-:root:root[data-cover][data-cover][data-view="events"] .evcard:not(:has(.evv,.evprog)) .evnm{height:20px;line-height:20px;font-size:10.5px;padding:0 7px;max-width:calc(100% - 100px)}
+/* 6.9.6 her choice (Duo cover, 11-19, "A2"), 6.9.7 the phone's own screen too, three across (cover: two across).
+   Newest first, left to right, then the next row. Card = Type At Time on top, the picture, and Download / Delete / Play
+   over the picture's bottom; Fix, Who?, All Cameras and Sound show while that alert plays, when it spans the whole row.
+   Nothing plays by itself any more: a tap plays it (6.9.7 her rule). */
+:root:root[data-view="events"] .evwrap:not(.wide) .evlist{display:grid!important;grid-template-columns:1fr 1fr 1fr;gap:5px!important;align-content:start}
+:root:root[data-cover][data-cover][data-view="events"] .evwrap:not(.wide) .evlist{grid-template-columns:1fr 1fr}
+:root:root[data-view="events"] .evwrap:not(.wide) .evlist > :not(.evcard){grid-column:1/-1}
+:root:root[data-view="events"] .evwrap:not(.wide) .evcard{position:relative;min-width:0}
+:root:root[data-view="events"] .evwrap:not(.wide) .evcard:has(.evv,.evprog){grid-column:1/-1}
+:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evh{height:26px;padding:0 6px!important}
+:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evt b{font-size:11.5px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evt b .lico svg{width:14px;height:14px}
+:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evx{position:absolute;right:28px;bottom:2px;z-index:4;display:flex}
+:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evx > :not([data-act="evdl"]):not([data-act="evdelask"]){display:none!important}
+:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evh > [data-act="evplay"]{position:absolute;right:2px;bottom:2px;z-index:4}
+:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evh .ic{width:28px!important;height:28px!important;color:#fff!important;filter:drop-shadow(0 1px 2px rgba(0,0,0,.8))}
+:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evh .ic svg{width:17px!important;height:17px!important}
+:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog))::after{content:"";position:absolute;left:0;right:0;bottom:0;height:34px;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.6));pointer-events:none;z-index:2}
+:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evnm{height:20px;line-height:20px;font-size:10.5px;padding:0 7px;max-width:calc(100% - 92px)}
+:root:root:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evt b{font-size:12px}
+:root:root:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evty{display:none}   /* three across: the icon tells the type, so the exact time fits */
+:root:root:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evh .ic{width:24px!important}
+:root:root:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evx{right:24px}
+:root:root:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evnm{bottom:30px!important;max-width:calc(100% - 8px);font-size:10px}
 </style>
 
 <div id="app" class="app"></div>
@@ -2927,7 +2935,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.9.6 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.9.7 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -5859,7 +5867,7 @@ function viewEvents() {
           '<button class="ic" aria-label="Download" data-act="evdl" data-v="' + esc(k) + '">' + I.dl + '</button></article>';
         return;
       }
-      h += '<article class="evcard' + (e.interesting || e.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + icn + (e.motion ? esc(ttl) : ttlHtml(k, ttl)) + ' At ' + hms(p.t) + '</b></div><span class="evx">' +
+      h += '<article class="evcard' + (e.interesting || e.motion ? '' : ' dim') + '"><div class="evh"><div class="evt"><b>' + icn + '<span class="evty">' + (e.motion ? esc(ttl) : ttlHtml(k, ttl)) + ' At </span>' + hms(p.t) + '</b></div><span class="evx">' +
         (e.motion && Data.source === 'frigate' ? '<button class="whob" data-act="mofixopen" data-v="' + esc(k) + '">Fix</button>' : '') +   /* 6.6.7: motion Fix → Frigate+ */
         (isPet(e, k) ? '<button class="whob" data-act="fixopen" data-v="' + esc(k) + '">Fix</button>' : (coOf(e) && Data.source === 'frigate' && !e.motion) || hasPkg(e) ? '<button class="whob" data-act="cofixopen" data-v="' + esc(k) + '">Fix</button>' : '') +
         (hasPerson(e) && Data.source === 'frigate' ? '<button class="whob" data-act="whoopen" data-v="' + esc(e.id) + '">' + (e.who ? 'Edit Name' : 'Who?') + '</button>' : '') +
@@ -7627,7 +7635,7 @@ function modalSettings() {
     row('Mute Notifications', '<button class="btn" data-act="snzopen">' + (SNZ_WHO.some(x => Snz.on(x[0])) ? SNZ_WHO.filter(x => Snz.on(x[0])).map(x => x[1] + ' ' + Snz.left(x[0])).join(' · ') : 'Open') + '</button>') +   /* 6.9.4 per person, 30 Min to 8 Hours */
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     row('Duo Preview', '<a class="btn" href="duo.html" aria-label="Open The iPhone Duo Cover Screen Preview">Open</a>') +   /* 6.8.6: the app at the Duo cover-screen size on this phone */
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.9.6 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.9.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7922,7 +7930,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.9.6');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.9.7');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -7939,7 +7947,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.9.6\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.9.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -9134,7 +9142,7 @@ function setCur(hr) {
   document.querySelectorAll('.hr.cur').forEach(n => n.classList.remove('cur'));
   const b = document.getElementById('hr-' + hr); if (b) { b.classList.add('cur'); const r = b.parentNode; if (r && r.scrollHeight > r.clientHeight + 2) { const y = b.offsetTop - r.offsetTop; if (y < r.scrollTop || y + b.offsetHeight > r.scrollTop + r.clientHeight) r.scrollTop = y - r.clientHeight / 2; } }
 }
-/* Alerts page: the alert at the top of the screen plays by itself (one at a time, so the phone stays smooth) */
+/* Alerts page: on a computer the chosen alert plays by itself; on a phone only a tap plays one (6.9.7) */
 let evAutoT = 0;
 function relVideo(v) { try { v.pause(); if (v._hls) { v._hls.destroy(); v._hls = null; } v.removeAttribute('src'); v.load(); } catch (e) {} }
 function relIn(n) { if (n) n.querySelectorAll('video').forEach(relVideo); }
@@ -9150,7 +9158,7 @@ function evAutoPlay() {
       if (r && (r.bottom <= top || r.top >= h)) { const k = S.evPlay, e = evE(k); evStop(); relIn(pm); if (e) pm.innerHTML = evMedia(e, k); evIcons(); Dbg.log('alert clip scrolled away', k); }
       return; }
     const id = card.id.slice(4);
-    if (S.evPlay !== id) ACT.evplay({ v: id });
+    if (S.evPlay !== id && evWide()) ACT.evplay({ v: id });   /* 6.9.7 her rule: on a phone (both screens) nothing plays by itself; a tap plays it */
   }, 600);
 }
 function onEvScroll() {
@@ -9329,7 +9337,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.9.6';
+    const BUILD = '6.9.7';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
