@@ -701,3 +701,8 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 6.10.4 — 2026-11-19 Cover: More replaces the layout switch
 - Her: on the cover home pill the button above Settings is now More (···), not Show Side By Side / One Per Row. The More menu opens beside the pill, bottom up (top right is iOS's badge).
+
+## 6.10.5 — 2026-11-19 Nothing under iOS's top-right badge
+- Cover: every dialog (.scrim) keeps 80px free on the right, so a tall dialog's close / back button and top rows (Litter "如厕记录" / merge bar, Settings) sit left of the badge (x 390-446, y 0-168).
+- Phone sideways (data-badge): dialogs keep 96px each side; More menu right 104; Alerts / Review top bars and the camera view's right column get 88px right padding (their close / bell / Big buttons were under the badge).
+- Checked with a badge overlay: cover home, Alerts, Review, camera view, Watch, Settings, People, Watch Cameras, Today's Waiting, Mute; sideways the same.

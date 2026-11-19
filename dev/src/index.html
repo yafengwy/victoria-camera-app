@@ -1896,6 +1896,15 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 :root[data-badge]:not([data-cover]) .top,:root[data-badge]:not([data-cover]) .evtop,:root[data-badge]:not([data-cover]) .rvtop{top:0!important}
 /* 6.10.4 cover: More opens beside the side pill, from its bottom up (the top right belongs to iOS's badge) */
 :root:root[data-cover][data-cover] .moredd{top:auto!important;right:58px!important;bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 18px)!important;max-height:calc(100dvh - 110px);overflow:auto}
+/* 6.10.5 her rule: nothing she taps may sit under iOS's top-right badge. Cover screen: the badge spans about x 390-446,
+   y 0-168: every dialog stays left of it (a tall dialog's rows reach the top, not just its header). Phone sideways
+   (data-badge): dialogs stay out of the right 96. */
+:root:root[data-cover][data-cover] .scrim{padding-right:80px!important;padding-left:10px!important}
+:root:root[data-cover][data-cover] .rvdd.pop{max-width:calc(100vw - 100px)}
+:root[data-badge]:not([data-cover]) .scrim{padding-left:96px!important;padding-right:96px!important}
+:root[data-badge]:not([data-cover]) .moredd{right:104px!important}
+:root[data-badge]:not([data-cover]) .evtop,:root[data-badge]:not([data-cover]) .rvtop{padding-right:88px!important;box-sizing:border-box}
+:root[data-badge]:not([data-cover]) .focus>.fctl{padding-right:88px!important;box-sizing:border-box}
 </style>
 
 <div id="app" class="app"></div>
