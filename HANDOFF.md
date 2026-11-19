@@ -685,3 +685,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 6.9.10 — 2026-11-19 Duo cover Review list starts right under the camera rows
 - Her rule: no sliver of the next camera row may peek above the list. coverFit now measures the list's real top and grows --rvlh so it starts 1px under the last full row.
+
+## 6.9.11 — 2026-11-19 iPhone sideways (Duo inner landscape): clear the iOS badge
+- iOS keeps a sleep / battery badge in the top-right corner (about 705-750 x 12-88 pt on the Duo inner screen, sideways).
+- detectCover sets data-badge when iPhone && w > h && 700 <= w < 1000; the top bar gets 88px right padding and the first group's header 80px, so Alerts / Review / Settings icons and the collapse arrow sit left of it.

@@ -1888,6 +1888,9 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 :root:root[data-cover][data-cover] .rvdock.l .rvlist .rvli small{display:block!important;font-size:11.5px!important}
 :root:root[data-cover][data-cover] .rvdock.l .rvlist .rvli small .lsx{display:block;white-space:nowrap}
 :root:root[data-cover][data-cover] .rvdock.l .rvlist .rvli small i.lt2{display:block!important;margin:1px 0 0!important;font-size:12.5px;font-weight:700}
+/* 6.9.11 iPhone sideways: keep clear of iOS's top-right badge */
+:root[data-badge]:not([data-cover]) .top{padding-right:max(88px,env(safe-area-inset-right,0px))!important}
+:root[data-badge]:not([data-cover]) .main > .group:first-child .ghead{padding-right:80px;box-sizing:border-box}
 </style>
 
 <div id="app" class="app"></div>
@@ -4600,6 +4603,10 @@ function detectCover() {
   const auto = standalone && iPhone && h > w && w < 600 && (sa.r >= 20 || (w / h >= 0.64 && w >= 420));
   const duoSim = /[?&]duo=1(&|$)/.test(location.search);   /* 6.8.6: inside duo.html (the Duo cover-screen preview) */
   COVER = duoSim ? true : S.cover === 'on' ? true : S.cover === 'off' ? false : auto;
+  /* 6.9.11 her: iPhone sideways (Duo inner screen) - iOS keeps its sleep / battery badge in the top-right corner, about 80 wide
+     and 90 tall, so the top icons and the first group's arrow move left of it */
+  const land = iPhone && w > h && w >= 700 && w < 1000;
+  if (land) document.documentElement.setAttribute('data-badge', ''); else document.documentElement.removeAttribute('data-badge');
   if (COVER) document.documentElement.setAttribute('data-cover', ''); else document.documentElement.removeAttribute('data-cover');
   /* Duo cover screen in a browser (or the notification's browser): phone layout, but if the page still gets the full
      width, keep the right 84 (camera, clock, browser bar) free so nothing sits under them */
