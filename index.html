@@ -1911,12 +1911,13 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 :root:root[data-badge]:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evnm{bottom:6px!important;left:6px!important;max-width:calc(100% - 100px);font-size:10.5px}
 /* 6.10.8 her choice "B" (cover camera view): more room for the timeline list. The bar's room stays fixed (5.10.7 rule) but
    is lower: smaller object icons; the two times move down into the Today row, which is smaller and centred:
-   start time · Today · Download · Bell · end time. One row less, so the list starts about 70 higher. */
+   start time · Today ... Download · Bell · end time. One row less, so the list starts about 70 higher. */
 :root:root[data-cover][data-cover] .focus>.fseek{min-height:38px;position:relative}
 :root:root[data-cover][data-cover] .fseek .evmk svg{width:14px!important;height:14px!important}:root:root[data-cover][data-cover] .fseek .evmk{height:16px!important}
-:root:root[data-cover][data-cover] .fseek .evbt{position:absolute;left:12px;right:12px;top:100%;margin:0!important;height:32px;align-items:center;pointer-events:none;z-index:2;font-size:11px}
-:root:root[data-cover][data-cover] .focus>.fctl{height:32px;justify-content:center;gap:6px;padding:0 70px}
-:root:root[data-cover][data-cover] .focus>.fctl > div[style*="flex:1"]{display:none}
+:root:root[data-cover][data-cover] .fseek .evbt{position:absolute;left:12px;right:12px;top:calc(100% - 8px);margin:0!important;height:32px;align-items:center;pointer-events:none;z-index:2;font-size:11px}
+/* 6.10.9 her: Today right after the start time, Download / Bell right before the end time; the row 8 closer to the icons */
+:root:root[data-cover][data-cover] .focus>.fctl{height:32px;gap:6px;padding:0 64px;margin-top:-8px}
+:root:root[data-cover][data-cover] .focus>.fctl{pointer-events:none;position:relative;z-index:3}:root:root[data-cover][data-cover] .focus>.fctl>*{pointer-events:auto}
 :root:root[data-cover][data-cover] .focus>.fctl .dk{width:28px!important;height:28px!important;flex-shrink:0}:root:root[data-cover][data-cover] .focus>.fctl .dk svg{width:16px;height:16px}
 :root:root[data-cover][data-cover] .focus .fday{height:28px!important;padding:0 10px!important;font-size:12px!important;gap:5px!important}:root:root[data-cover][data-cover] .focus .fday svg{width:15px;height:15px}
 </style>
@@ -2973,7 +2974,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 6.10.8 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 6.10.9 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -7693,7 +7694,7 @@ function modalSettings() {
     row('Mute Notifications', '<button class="btn" data-act="snzopen">' + (SNZ_WHO.some(x => Snz.on(x[0])) ? SNZ_WHO.filter(x => Snz.on(x[0])).map(x => x[1] + ' ' + Snz.left(x[0])).join(' · ') : 'Open') + '</button>') +   /* 6.9.4 per person, 30 Min to 8 Hours */
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     row('Duo Preview', '<a class="btn" href="duo.html" aria-label="Open The iPhone Duo Cover Screen Preview">Open</a>') +   /* 6.8.6: the app at the Duo cover-screen size on this phone */
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.10.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 6.10.9 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7988,7 +7989,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.10.8');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 6.10.9');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -8005,7 +8006,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 6.10.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 6.10.9\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -9416,7 +9417,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '6.10.8';
+    const BUILD = '6.10.9';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

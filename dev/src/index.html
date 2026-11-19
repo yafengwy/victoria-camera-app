@@ -1911,12 +1911,13 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 :root:root[data-badge]:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evnm{bottom:6px!important;left:6px!important;max-width:calc(100% - 100px);font-size:10.5px}
 /* 6.10.8 her choice "B" (cover camera view): more room for the timeline list. The bar's room stays fixed (5.10.7 rule) but
    is lower: smaller object icons; the two times move down into the Today row, which is smaller and centred:
-   start time · Today · Download · Bell · end time. One row less, so the list starts about 70 higher. */
+   start time · Today ... Download · Bell · end time. One row less, so the list starts about 70 higher. */
 :root:root[data-cover][data-cover] .focus>.fseek{min-height:38px;position:relative}
 :root:root[data-cover][data-cover] .fseek .evmk svg{width:14px!important;height:14px!important}:root:root[data-cover][data-cover] .fseek .evmk{height:16px!important}
-:root:root[data-cover][data-cover] .fseek .evbt{position:absolute;left:12px;right:12px;top:100%;margin:0!important;height:32px;align-items:center;pointer-events:none;z-index:2;font-size:11px}
-:root:root[data-cover][data-cover] .focus>.fctl{height:32px;justify-content:center;gap:6px;padding:0 70px}
-:root:root[data-cover][data-cover] .focus>.fctl > div[style*="flex:1"]{display:none}
+:root:root[data-cover][data-cover] .fseek .evbt{position:absolute;left:12px;right:12px;top:calc(100% - 8px);margin:0!important;height:32px;align-items:center;pointer-events:none;z-index:2;font-size:11px}
+/* 6.10.9 her: Today right after the start time, Download / Bell right before the end time; the row 8 closer to the icons */
+:root:root[data-cover][data-cover] .focus>.fctl{height:32px;gap:6px;padding:0 64px;margin-top:-8px}
+:root:root[data-cover][data-cover] .focus>.fctl{pointer-events:none;position:relative;z-index:3}:root:root[data-cover][data-cover] .focus>.fctl>*{pointer-events:auto}
 :root:root[data-cover][data-cover] .focus>.fctl .dk{width:28px!important;height:28px!important;flex-shrink:0}:root:root[data-cover][data-cover] .focus>.fctl .dk svg{width:16px;height:16px}
 :root:root[data-cover][data-cover] .focus .fday{height:28px!important;padding:0 10px!important;font-size:12px!important;gap:5px!important}:root:root[data-cover][data-cover] .focus .fday svg{width:15px;height:15px}
 </style>

@@ -716,3 +716,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 6.10.8 — 2026-11-19 Cover camera view: "B", more room for the timeline list
 - Her pick (Duo Camera View B.png). Cover only. The bar keeps fixed room (5.10.7 rule) but 38 high: object icons 14px; the two times sit (absolute, no taps) at the ends of the Today row, which is 32 high and centred: Today · Download · Bell (buttons 28). The list starts at 376 (was about 445).
+
+## 6.10.9 — 2026-11-19 Cover camera view row: Today left, buttons right, 8 closer
+- Her: Today right after the start time, Download / Bell right before the end time (fctl padding 64, spacer back); the row is pulled 8 up toward the icons (times follow), list starts at 368. The row lets taps through to the icons outside its buttons.
