@@ -659,3 +659,9 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 - Victoria = input_text.camera_snooze, James = input_text.camera_snooze_james (new helper, max 255). nginx /ha/snoozej reads James's.
 - App: Mute Notifications dialog (More menu and Settings row): Mute For Victoria / James / Both, How Long 30 Min, 1–8 Hours. Writes "UNTIL|t|all". Banner per muted person with its own Resume. Old per-camera / Until… / Until Clear choices removed.
 - HA: the four automations send to both lists (CN and Cat Names skip a muted person's phones). Buttons Mute 30 Min / 1 Hr / 2 Hr carry CAMMUTE|min|cam|v|j by the phone pressed; "Camera Mute Buttons" writes that person's helper with cams=all, keeping the longer end.
+
+## 6.9.5 — 2026-11-18 Never name a phone
+- Her standing rule: Home Assistant notifications go only to the phones in input_text.phone_notification_list (Victoria) and input_text.james_phone_notification_list (James). Never write a phone name anywhere.
+- She switched to iPhone Duo (mobile_app_victorias_iphone_duo, in her list with the Samsung).
+- Automations: Roaming low-data list now built from both lists (each phone's sensor.<name>_connection_type; a missing/unknown sensor counts as not roaming). Gardener loops over her list without the Samsung.
+- nginx /ha/net/<who> now POSTs a fixed template to /api/template: the first phone of that person's list (Victoria: not the Samsung), its connection_type. App reads plain text.

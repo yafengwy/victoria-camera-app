@@ -4299,10 +4299,10 @@ function modalSnooze() {
    HD. On: on Wi-Fi still HD; on the phone's network everything is low-data — live in the light stream, recordings made
    small by the mini PC (/low/vod/, ~12x smaller), and her iPhone's notifications without the moving picture (Home
    Assistant reads the same switch). The iPhone's network comes from the Home Assistant app
-   (sensor.victorias_iphone_15_connection_type); only her iPhone follows it, a computer always gets HD. In the camera
+   (her phone's connection_type sensor, the first phone in her Phone Notification List); only her iPhone follows it, a computer always gets HD. In the camera
    view and full screen a Low / HD button lets her pick HD for a while (until she leaves the camera). */
 /* 6.6.4: Victoria and James each have their own Roaming (input_boolean.camera_app_roaming / _james) and phone network
-   (sensor.victorias_iphone_15_connection_type / sensor.jamess_iphone_16_connection_type). The app can't tell who holds
+   (each person's first phone in their Phone Notification List, its connection_type sensor). The app can't tell who holds
    the phone, so each place (home-screen app, Safari, Chrome…) is asked once — only while someone's Roaming is on */
 /* 6.7.8 her rule (abroad, the line to the house is slow): while Roaming is on (her switch, Wi-Fi or not), the app asks
    the house for less: the regular checks run 3-5x less often, home cards with a moving object stay pictures, a picture
@@ -4332,7 +4332,7 @@ const Roam = {
     const was = this.low();
     await Promise.all(['victoria', 'james'].map(async p => { try { const r = await fetch(Frigate.base() + '/ha/roaming/' + p, { credentials: 'include', cache: 'no-store' }); if (r.ok && Date.now() - (this.setAt || 0) > 5000) this.all[p] = (await r.json()).state === 'on'; } catch (e) {} }));
     store.set('roamall', this.all);
-    if (this.on && this.phone() && !this.own()) try { const r = await fetch(Frigate.base() + '/ha/net/' + this.who, { credentials: 'include', cache: 'no-store' }); if (r.ok) { const n = (await r.json()).state; if (n !== this.net) Dbg.log('roaming network', this.who, n); this.net = n; store.set('roamnet', n); } } catch (e) {}
+    if (this.on && this.phone() && !this.own()) try { const r = await fetch(Frigate.base() + '/ha/net/' + this.who, { credentials: 'include', cache: 'no-store' }); if (r.ok) { const t = (await r.text()).trim(); let n = t; try { const j = JSON.parse(t); if (j && j.state != null) n = j.state; } catch (x) {}   /* 6.9.5 plain text from the template API */ if (n !== this.net) Dbg.log('roaming network', this.who, n); this.net = n; store.set('roamnet', n); } } catch (e) {}
     this.ask();
     if (was !== this.low()) this.apply();
   },
