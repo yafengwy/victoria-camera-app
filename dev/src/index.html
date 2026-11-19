@@ -9321,7 +9321,16 @@ function setVp() { document.documentElement.style.setProperty('--vpw', vpW() + '
 setVp(); window.addEventListener('resize', setVp);
 function isLand() { return vpW() > vpH() && vpH() < 560; }
 window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => {
-  { const sa = safeArea(), k = vpW() + 'x' + vpH(); if (k !== window._lastVp) { window._lastVp = k; Dbg.log('screen turned', k, 'safe T' + sa.t + ' R' + sa.r + ' B' + sa.b + ' L' + sa.l, 'scroll ' + Math.round(window.scrollY)); } }   /* 6.9.12: to explain an empty band at the top after turning / unfolding */
+  { const sa = safeArea(), k = vpW() + 'x' + vpH(); if (k !== window._lastVp) { window._lastVp = k; Dbg.log('screen turned', k, 'safe T' + sa.t + ' R' + sa.r + ' B' + sa.b + ' L' + sa.l, 'scroll ' + Math.round(window.scrollY)); } }
+  /* 6.10.3: her Duo log - sideways the page got 951 x 587 while the screen is 951 x 669: iOS kept the upright screen's 82-point
+     top inset as an empty band above the page (outside it, so no style can paint it). Nudge WebKit to size the page again by
+     re-setting the viewport tag, then log whether it took. */
+  { const short = Math.min(screen.width, screen.height), sh = window.innerHeight;
+    if (/iPhone/.test(navigator.userAgent) && window.innerWidth > sh && short - sh > 20) {
+      const m = document.querySelector('meta[name="viewport"]'), c = m && m.getAttribute('content');
+      Dbg.log('screen short', window.innerWidth + 'x' + sh, 'screen ' + screen.width + 'x' + screen.height, 'retry viewport');
+      if (m) { m.setAttribute('content', c.replace(', viewport-fit=cover', '')); requestAnimationFrame(() => { m.setAttribute('content', c); window.scrollTo(0, window.scrollY); setTimeout(() => Dbg.log('screen after retry', window.innerWidth + 'x' + window.innerHeight), 400); }); }
+    } }   /* 6.9.12: to explain an empty band at the top after turning / unfolding */
   if (S.focus) {
     if (isLand() && !S.full) { S.full = true; S.autoFull = true; S.fui = false; S.fpanel = false; render(); }
     else if (!isLand() && S.full && S.autoFull) { S.full = false; S.autoFull = false; S.fpanel = false; render(); }
