@@ -665,3 +665,8 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 - She switched to iPhone Duo (mobile_app_victorias_iphone_duo, in her list with the Samsung).
 - Automations: Roaming low-data list now built from both lists (each phone's sensor.<name>_connection_type; a missing/unknown sensor counts as not roaming). Gardener loops over her list without the Samsung.
 - nginx /ha/net/<who> now POSTs a fixed template to /api/template: the first phone of that person's list (Victoria: not the Samsung), its connection_type. App reads plain text.
+
+## 6.9.6 — 2026-11-19 Duo cover: Alerts two across ("A2")
+- Her pick from mockups (Duo Alerts Options 2.png): on the cover screen, Alerts is a 2-column grid. Card = "Type At hh:mm:ss" on top, picture, Download / Delete / Play over the picture bottom (camera name bottom-left).
+- Fix, Who?, All Cameras and Sound are hidden until the alert plays; the playing card (:has(.evv/.evprog)) spans both columns with the full header as before.
+- CSS only, at the end of the last <style>, doubled-specificity cover selectors with [data-view="events"].
