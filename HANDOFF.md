@@ -689,3 +689,8 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 6.9.11 — 2026-11-19 iPhone sideways (Duo inner landscape): clear the iOS badge
 - iOS keeps a sleep / battery badge in the top-right corner (about 705-750 x 12-88 pt on the Duo inner screen, sideways).
 - detectCover sets data-badge when iPhone && w > h && 700 <= w < 1000; the top bar gets 88px right padding and the first group's header 80px, so Alerts / Review / Settings icons and the collapse arrow sit left of it.
+
+## 6.9.12 — 2026-11-19 iPhone sideways: Auto = 4 a row; no empty band on top
+- cols(): Auto on an iPhone sideways (700 <= width < 1000, Duo inner screen) = 4 a row.
+- After turning / unfolding iOS at times keeps the upright top inset; sideways (data-badge) .top / .evtop / .rvtop stick at top:0.
+- Dbg logs "screen turned <w>x<h> safe T R B L scroll" on every size change, to explain a band if it still shows.

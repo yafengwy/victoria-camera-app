@@ -1891,6 +1891,9 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 /* 6.9.11 iPhone sideways: keep clear of iOS's top-right badge */
 :root[data-badge]:not([data-cover]) .top{padding-right:max(88px,env(safe-area-inset-right,0px))!important}
 :root[data-badge]:not([data-cover]) .main > .group:first-child .ghead{padding-right:80px;box-sizing:border-box}
+/* 6.9.12 iPhone sideways: after turning or unfolding, iOS at times still reports the upright screen's top inset (about 60),
+   which left a big empty band above the header; sideways there is no top inset, so the headers stick at the very top */
+:root[data-badge]:not([data-cover]) .top,:root[data-badge]:not([data-cover]) .evtop,:root[data-badge]:not([data-cover]) .rvtop{top:0!important}
 </style>
 
 <div id="app" class="app"></div>
@@ -4574,6 +4577,7 @@ function cols() {
   const w = window.innerWidth;
   if (S.layout === 'list') return w >= 1100 ? 3 : w >= 560 ? 2 : 1;
   if (S.colsPref !== 'auto') return +S.colsPref;
+  if (/iPhone/.test(navigator.userAgent) && w > window.innerHeight && w >= 700 && w < 1000) return 4;   /* 6.9.12 her: iPhone sideways (Duo inner screen), Auto = 4 a row */
   return w >= 1300 ? 5 : w >= 1100 ? 4 : w >= 560 ? 3 : 2;
 }
 const darkMQ = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
@@ -9317,6 +9321,7 @@ function setVp() { document.documentElement.style.setProperty('--vpw', vpW() + '
 setVp(); window.addEventListener('resize', setVp);
 function isLand() { return vpW() > vpH() && vpH() < 560; }
 window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => {
+  { const sa = safeArea(), k = vpW() + 'x' + vpH(); if (k !== window._lastVp) { window._lastVp = k; Dbg.log('screen turned', k, 'safe T' + sa.t + ' R' + sa.r + ' B' + sa.b + ' L' + sa.l, 'scroll ' + Math.round(window.scrollY)); } }   /* 6.9.12: to explain an empty band at the top after turning / unfolding */
   if (S.focus) {
     if (isLand() && !S.full) { S.full = true; S.autoFull = true; S.fui = false; S.fpanel = false; render(); }
     else if (!isLand() && S.full && S.autoFull) { S.full = false; S.autoFull = false; S.fpanel = false; render(); }
