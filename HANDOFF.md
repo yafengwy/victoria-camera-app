@@ -679,3 +679,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 6.9.8 — 2026-11-19 Duo cover Review spacing
 - Cameras start 34px from the top (was max(46px, safe top)), so the last row's camera names clear the timeline.
 - List mode with 3 or 4 cameras a row: the pill's top stays below the iPhone's sleep / battery badge (176px from the top); coverFit caps --rvpillb, so the pill moves down over the list.
+
+## 6.9.9 — 2026-11-19 Duo cover Review list: bigger pictures ("C")
+- Her pick from Duo Review List Options.png: cover list stays two across; pictures 92x69 (was 48x36); three lines: what / camera · how long / time. CSS only at the end of the last <style>.

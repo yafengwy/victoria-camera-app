@@ -1881,6 +1881,13 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 :root:root:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evh .ic{width:24px!important}
 :root:root:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evx{right:24px}
 :root:root:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evnm{bottom:30px!important;max-width:calc(100% - 8px);font-size:10px}
+/* 6.9.9 her choice (mockup "C"): cover list pictures about twice as big (92x69); three lines: what / camera · how long / time */
+:root:root[data-cover][data-cover] .rvdock.l .rvlist .rvli{gap:7px!important;padding:4px!important;align-items:center}
+:root:root[data-cover][data-cover] .rvdock.l .rvlist .rvli img{width:92px!important;height:69px!important;flex:none}
+:root:root[data-cover][data-cover] .rvdock.l .rvlist .rvli b{font-size:13.5px!important}
+:root:root[data-cover][data-cover] .rvdock.l .rvlist .rvli small{display:block!important;font-size:11.5px!important}
+:root:root[data-cover][data-cover] .rvdock.l .rvlist .rvli small .lsx{display:block;white-space:nowrap}
+:root:root[data-cover][data-cover] .rvdock.l .rvlist .rvli small i.lt2{display:block!important;margin:1px 0 0!important;font-size:12.5px;font-weight:700}
 </style>
 
 <div id="app" class="app"></div>
