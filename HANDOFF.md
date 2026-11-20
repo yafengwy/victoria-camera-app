@@ -762,3 +762,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 7.2.1 — 2026-11-20 Duo header: theme colour band upright; title level with the badge sideways
 - Upright: band sometimes black = data-duoup missed (needed exactly 669 x 930+); now any iPhone with short side >= 500 held upright. Title row 44 high right under the band (starts at sbar-6), OUTSIDE right below.
 - Sideways (data-badge): Home top bar 112 high, so title + icons sit level with iOS's badge (middle ~56) and OUTSIDE starts under it.
+
+## 7.2.2 — 2026-11-20 Duo upright 6 higher; sideways title bigger
+- Upright title row starts sbar-12 (38 + sbar tall). Sideways .brand 26px, logo 30px.

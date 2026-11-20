@@ -1930,10 +1930,11 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
    under it like everywhere else; only the header's colour reaches up into the band (no black strip there - iOS's clock
    has its own bubble), with the title and buttons centred in the row under it. */
 :root[data-duoup] body::before{display:none}
-:root[data-duoup] .top{margin-top:calc(0px - var(--sbar,0px));padding-top:max(0px,calc(var(--sbar,0px) - 6px))!important;height:calc(44px + var(--sbar,0px))!important;top:0!important;box-sizing:border-box}
+:root[data-duoup] .top{margin-top:calc(0px - var(--sbar,0px));padding-top:max(0px,calc(var(--sbar,0px) - 12px))!important;height:calc(38px + var(--sbar,0px))!important;top:0!important;box-sizing:border-box}
 /* 7.1.11 her: upright, the title row sits right under iOS's clock bubble (it ends about 75 down), not a whole row lower;
    sideways, the title row is level with iOS's badge on the right (about 15-110 down, middle about 56) and OUTSIDE starts under it */
 :root[data-badge]:not([data-cover]) .top{height:112px!important}
+:root[data-badge]:not([data-cover]) .top .brand{font-size:26px!important;gap:10px}:root[data-badge]:not([data-cover]) .top .brand svg{width:30px;height:30px}   /* 7.2.2 her: sideways title bigger */
 </style>
 
 <div id="app" class="app"></div>
