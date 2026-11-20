@@ -802,3 +802,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.3.3 — 2026-11-20 Camera view zoom stays inside the picture box
 - Her screenshot: zoomed picture spilled over the top buttons and the timeline. FZF.vars clips each zoomed layer of .focus .fvid (clip-path inset in its own coordinates, from offset / --zx / --zy / --zs) to the box; the top buttons (fov, above the box) stay visible.
+
+## 7.3.4 — 2026-11-20 Cover home: pull to refresh from the first row
+- The cover hides header.top (since 6.8.5), and the pull only started on header.top / .evbar / .rvbar, so the cover home had no pull. On the cover it now also starts on the first group row (OUTSIDE), made 20% taller (41 px).

@@ -1962,6 +1962,8 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 :root:is([data-cover],[data-coverweb]) .focus .fstep{height:38px!important;min-width:46px!important;padding:0 9px!important;font-size:13px!important;border-radius:19px}
 :root:is([data-cover],[data-coverweb]) .focus .fstep.fpp{width:40px!important;min-width:40px!important}:root:is([data-cover],[data-coverweb]) .focus .fstep.fpp svg{width:17px;height:17px}
 :root:is([data-cover],[data-coverweb]) .focus .fsteps .livepill{height:38px!important;padding:0 14px!important;font-size:13px!important}
+/* 7.3.4 her: cover home - the first row (OUTSIDE) 20% taller, where the pull to refresh starts */
+:root:root[data-cover][data-cover][data-view="home"] .main .group:first-child .ghead{min-height:41px;box-sizing:border-box}
 </style>
 
 <div id="app" class="app"></div>
@@ -9035,7 +9037,9 @@ document.addEventListener('click', e => {
   document.addEventListener('touchstart', e => {
     stop();
     if (S.focus || S.modal || window.scrollY > 0 || e.touches.length !== 1) return;
-    if (!e.target.closest('header.top,.evbar,.rvbar') || e.target.closest('input,select')) return;
+    /* 7.3.4 her: the cover screen hides the top bar, so there the pull starts on the first row (OUTSIDE) instead */
+    const gh = COVER && e.target.closest('.ghead'), firstRow = gh && gh === document.querySelector('.main .ghead');
+    if ((!e.target.closest('header.top,.evbar,.rvbar') && !firstRow) || e.target.closest('input,select')) return;
     t0 = Date.now(); window.__ptr = true;
     y0 = e.touches[0].clientY; x0 = e.touches[0].clientX;
     tgt = e.target; tgt.addEventListener('touchmove', move, { passive: true }); tgt.addEventListener('touchend', end, { passive: true }); tgt.addEventListener('touchcancel', cancel, { passive: true });
