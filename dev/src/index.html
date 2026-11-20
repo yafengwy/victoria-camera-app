@@ -1979,6 +1979,8 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 .fline .flinex{position:absolute;top:-11px;width:22px;height:22px;border-radius:11px;background:var(--dark-accent);color:#0f1114;display:flex;align-items:center;justify-content:center;pointer-events:auto;padding:0;z-index:3}
 .fline .flinex svg{width:13px;height:13px;stroke-width:3}
 .fline .flinex::before{content:"";position:absolute;inset:-10px}
+/* 7.3.11 her: Duo / foldable screens - the −10s / pause / Live / +10s row sits at the very bottom */
+:root:is([data-cover],[data-coverweb],[data-foldup],[data-foldside]) .focus>.fsteps{bottom:2px!important}
 </style>
 
 <div id="app" class="app"></div>

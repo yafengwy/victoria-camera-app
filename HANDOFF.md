@@ -823,3 +823,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.3.10 — 2026-11-20 × on the blue line closes an opened group
 - Her (every phone / screen): while S.focus.og is open, .fline holds a 22 px × (data-act fstripx) where the blue line crosses the grey rail (fPaintLine places it), clear of the icons. Tap folds the group.
+
+## 7.4.1 — 2026-11-20 Duo camera view: bottom buttons at the very bottom
+- cover / coverweb / foldup / foldside: .focus>.fsteps bottom 2 (was max(10, safe-14) = 20 on the cover). Normal phones unchanged.
