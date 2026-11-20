@@ -734,3 +734,9 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 7.1.3 — 2026-11-20 Band fix: reload once when the Duo page comes back short
 - Her log (7.1.1, 01:09): viewport-tag retry did nothing (678x384 before and after); screen.width/height always 466x678. Fresh opens get full size (466x678, 669x869, 951x669); only coming back after fold / turn is 82 short (466x596, 951x587, 678x384).
 - fixShort(): DUO_FULL {466:678, 678:466, 669:869, 951:669}; if the page is 40+ shorter than the full height for its width (on open, shown, back, turned) → location.reload() once; never again within 20 s (sessionStorage shortReload). Logs "screen short ... reloading" / "still short after reload, leaving it". Tested: one reload, no loop.
+
+## 7.1.4 — 2026-11-20 Draw under the status bar; Duo upright header moves up
+- Her: the Duo inside screen upright had an 82-high empty band (iOS status bar; only its clock bubble at the top right). Other screens / phones must look as before.
+- meta apple-mobile-web-app-status-bar-style = black-translucent. All 17 env(safe-area-inset-top) uses (not .sprobe) became var(--sbar); detectCover sets --sbar = measured top inset, but 0 on the Duo cover (COVER_HINT 440-500 wide), sideways (land) and Duo upright (data-duoup, 669 wide and taller). body padding-top: var(--sbar); a black strip (body::before) sits behind the status bar (iOS's text is white with this setting, so light pages need it).
+- data-duoup: header / Alerts / Review top bars and the camera view's top row keep 150px free on the right for iOS's clock bubble; dialogs and the More menu start 84 down. DUO_FULL no longer lists 669 (its height changes with this setting).
+- iOS may only pick up the meta after the app is closed and opened again (or re-added to the Home Screen).

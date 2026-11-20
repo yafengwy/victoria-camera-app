@@ -6,6 +6,7 @@
 <meta name="apple-mobile-web-app-title" content="Victoria's Home">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -46,7 +47,7 @@ img.rf{opacity:0}
 .app{min-height:100%;display:flex;flex-direction:column}
 
 /* Header */
-.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;height:60px;background:var(--card);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 8px}
+.top{position:sticky;top:var(--sbar,0px);z-index:20;height:60px;background:var(--card);border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 8px}
 .brand{flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding-left:6px;font-size:18px;font-weight:800;color:var(--head-fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .topicons{display:flex;align-items:center;gap:2px;flex-shrink:0}
 .main{flex:1;width:100%;max-width:1500px;margin:0 auto;padding:10px 10px 40px;display:flex;flex-direction:column;gap:12px}
@@ -208,7 +209,7 @@ img.rf{opacity:0}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(24px + env(safe-area-inset-bottom,0px));z-index:60;background:#16191B;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;font-weight:700;max-width:90vw}
 
 /* Events page */
-.evtop{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--card)}
+.evtop{position:sticky;top:var(--sbar,0px);z-index:20;background:var(--card)}
 .evbar{height:60px;display:flex;align-items:center;padding:0 6px 0 16px;background:var(--chip);font-size:20px;font-weight:800;color:var(--head-fg)}
 .fbtn{width:100%;height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 14px 0 16px;font-size:16px;font-weight:800;border-bottom:1px solid var(--line)}
 .fpanel{padding:12px 16px 16px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--line);background:var(--card)}
@@ -233,7 +234,7 @@ img.rf{opacity:0}
 .hr.has{background:var(--chip);color:var(--head-fg);font-weight:800}
 
 /* Focus view (dark, Google Home style) */
-.focus{position:fixed;inset:0;z-index:40;background:var(--dark-bg);color:var(--dark-fg);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+.focus{position:fixed;inset:0;z-index:40;background:var(--dark-bg);color:var(--dark-fg);display:flex;flex-direction:column;padding-top:var(--sbar,0px)}
 .fvid{position:relative;flex-shrink:0;width:100%;max-width:900px;margin:0 auto;aspect-ratio:16/9;background:#000}
 .fvid img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .fvid{min-height:0;overflow:hidden}   /* 3.3.3: a 4:3 camera (Treat Feeder) gets a 4:3 box; nothing spills over the buttons under it */
@@ -351,7 +352,7 @@ img.rf{opacity:0}
 .full.rot{inset:auto;top:0;left:var(--vpw,100vw);width:var(--vph,100vh);height:var(--vpw,100vw);transform-origin:0 0;transform:rotate(90deg)}
 /* 5.6.1: filling the screen (edges cut off) is for a phone held sideways only; a computer shows the whole picture */
 /* 6.4.9 her rule: full screen never cuts the picture (was: cover on a phone held sideways with the buttons hidden) */
-.full .fov{top:calc(12px + env(safe-area-inset-top,0px))}
+.full .fov{top:calc(12px + var(--sbar,0px))}
 .full .fbot{position:absolute;left:0;right:0;bottom:calc(18px + env(safe-area-inset-bottom,0px));text-align:center;font-size:12px;font-weight:600;color:#B8C0C7}
 .hidden-date{position:absolute;opacity:0;pointer-events:none;width:1px;height:1px}
 .dtwrap{position:relative;display:inline-flex;flex:none}
@@ -454,13 +455,13 @@ img.rf{opacity:0}
      screen's height, --vr = its shape), 420-450 px (40% of a small screen); was 270-300 px. 6.3.11 her request: at most
      450 px (half the screen made the cards 40% too long, empty on the right). 6.4.2 her request: cards 30% shorter than
      6.3.10 instead (~363 px) and 50 px more room for the icons left of the rail: up to 540 px */
-  .focus{--fw:clamp(min(470px,42vw),calc(100vw - (100vh - env(safe-area-inset-top,0px) - 142px) * var(--vr,1.7778) - 32px),540px);display:grid;grid-template-columns:minmax(0,1fr) var(--fw);grid-template-rows:68px minmax(0,1fr)}
+  .focus{--fw:clamp(min(470px,42vw),calc(100vw - (100vh - var(--sbar,0px) - 142px) * var(--vr,1.7778) - 32px),540px);display:grid;grid-template-columns:minmax(0,1fr) var(--fw);grid-template-rows:68px minmax(0,1fr)}
   /* 5.5.9: the width follows the camera's own shape (--R): a 4:3 camera (Treat Feeder) was sized as 16:9, so it came
      out taller than the screen and covered −10s / Live / +10s */
   /* 5.9.8: room for the alert bar too: with it, −10s … +10s fell off the bottom of her computer screen. 5.9.9 her
      request: less room (142 px, was 160) so the picture is bigger and the bar and buttons sit lower */
-  .focus>.fvid{grid-column:1;grid-row:1/3;align-self:center;justify-self:center;max-width:none;width:min(calc(100% - 32px),calc((100vh - env(safe-area-inset-top,0px) - 142px) * min(var(--R,1.7778),1.7778)));margin:0 16px 110px;border-radius:14px;overflow:hidden}
-  .focus>.fvid.tall{width:min(calc(100% - 32px),calc((100vh - env(safe-area-inset-top,0px) - 142px) * var(--ar)))}
+  .focus>.fvid{grid-column:1;grid-row:1/3;align-self:center;justify-self:center;max-width:none;width:min(calc(100% - 32px),calc((100vh - var(--sbar,0px) - 142px) * min(var(--R,1.7778),1.7778)));margin:0 16px 110px;border-radius:14px;overflow:hidden}
+  .focus>.fvid.tall{width:min(calc(100% - 32px),calc((100vh - var(--sbar,0px) - 142px) * var(--ar)))}
   .focus>.fctl{grid-column:2;grid-row:1;max-width:none;border-left:1px solid var(--dark-line)}
   .focus>.fscroll{grid-column:2;grid-row:2;max-width:none;border-left:1px solid var(--dark-line)}
   .focus .pullhint{display:none}
@@ -521,7 +522,7 @@ img.rf{opacity:0}
 .dk.on{background:#B9CCFF;color:#13223F}
 
 /* ---- v2: review all cameras ---- */
-.rvtop{position:sticky;top:env(safe-area-inset-top,0px);z-index:35;background:var(--card);border-bottom:1px solid var(--line)}
+.rvtop{position:sticky;top:var(--sbar,0px);z-index:35;background:var(--card);border-bottom:1px solid var(--line)}
 .rvbar{height:56px;display:flex;align-items:center;gap:6px;padding:0 8px}
 .rvtitle{flex:1;font-size:18px;font-weight:800;color:var(--head-fg)}
 .rvchips{display:flex;gap:6px;flex-wrap:wrap;padding:0 12px 10px}
@@ -647,7 +648,7 @@ img.rf{opacity:0}
 .grid.compact .chead{display:none}
 .grid.compact .cam{border-radius:10px;background:#1E2226}
 .watchv{position:fixed;inset:0;z-index:60;background:#000;overflow:hidden}
-.watchv .wgrid{position:absolute;inset:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);display:grid;gap:3px}
+.watchv .wgrid{position:absolute;inset:var(--sbar,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px);display:grid;gap:3px}
 .watchv.land .wgrid{grid-template-columns:repeat(var(--wc),1fr);grid-template-rows:repeat(var(--wr),1fr)}
 .watchv.port .wgrid{display:flex;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:56px 0 20px}
 .watchv.port .wgrid > .wt:first-child{margin-top:auto}.watchv.port .wgrid > .wt:last-child{margin-bottom:auto}
@@ -658,7 +659,7 @@ img.rf{opacity:0}
 .watchv.port.big .wt:not(:first-child) .cnm{font-size:10px;padding:2px 6px}
 .watchv.port.big .wt:not(:first-child) .ctm{display:none}
 .watchv.port.big .wt:not(:first-child) .wbd{height:18px;font-size:9px;padding:0 6px;top:4px;right:4px;gap:3px}
-.wlay{position:absolute;z-index:5;left:calc(60px + env(safe-area-inset-left,0px));top:calc(8px + env(safe-area-inset-top,0px));height:40px;display:flex;border-radius:20px;background:rgba(40,44,52,.85);padding:3px}
+.wlay{position:absolute;z-index:5;left:calc(60px + env(safe-area-inset-left,0px));top:calc(8px + var(--sbar,0px));height:40px;display:flex;border-radius:20px;background:rgba(40,44,52,.85);padding:3px}
 .wlay button{display:flex;align-items:center;gap:5px;padding:0 12px;border-radius:17px;color:#C9D1DC;font-size:13px;font-weight:700;background:transparent;border:0}
 .wlay button svg{width:15px;height:15px}
 .wlay button[aria-pressed="true"]{background:#fff;color:#16202F}
@@ -669,7 +670,7 @@ img.rf{opacity:0}
 .wt .hit{touch-action:pan-y}
 .wt .ctm,.wt .wbd,.wt .cnm{z-index:3}
 .wbd{position:absolute;top:6px;right:6px;height:24px;padding:0 9px;border-radius:12px;background:rgba(18,22,24,.72);color:#fff;font-size:11px;font-weight:800;display:flex;align-items:center;gap:5px;pointer-events:none}
-.wx{position:absolute;z-index:5;left:calc(10px + env(safe-area-inset-left,0px));top:calc(8px + env(safe-area-inset-top,0px));width:40px;height:40px;border-radius:20px;background:rgba(40,44,52,.85);color:#fff;display:flex;align-items:center;justify-content:center;border:0}
+.wx{position:absolute;z-index:5;left:calc(10px + env(safe-area-inset-left,0px));top:calc(8px + var(--sbar,0px));width:40px;height:40px;border-radius:20px;background:rgba(40,44,52,.85);color:#fff;display:flex;align-items:center;justify-content:center;border:0}
 .watchv.land .wx{top:auto;left:auto;right:calc(10px + env(safe-area-inset-right,0px));bottom:calc(10px + env(safe-area-inset-bottom,0px))}
 .wpc .wk{display:inline-flex;width:18px;height:18px;border-radius:9px;background:var(--accent,#233A6E);color:#fff;font-size:11px;align-items:center;justify-content:center;margin-right:6px}
 .frame{--bt:8px;--bh:30px}
@@ -851,7 +852,7 @@ img.rf{opacity:0}
 @media (min-width:1000px){.rvdock.v .rvctl{right:calc(104px + (100vw - 162px) / 2)}}
 .rvcams.v{padding:8px 112px calc(76px + env(safe-area-inset-bottom,0px)) 8px}
 
-:root[data-cover] .main{padding-top:max(8px,env(safe-area-inset-top,0px))}
+:root[data-cover] .main{padding-top:max(8px,var(--sbar,0px))}
 .dbg{font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums;line-height:1.5}
 .dbg .btn{padding:3px 10px;font-size:11px;min-height:0;height:auto;margin-left:4px}
 .logrows{display:flex;flex-direction:column;gap:4px;margin:2px 0 6px 12px}
@@ -1011,7 +1012,7 @@ input,select,textarea{font-size:16px}
 .pflist.pfrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .pfrow .pfp{flex-direction:column;gap:4px;text-align:center}
 .pfrow .pfp span{align-items:center}
-.moredd{position:fixed;right:8px;top:calc(env(safe-area-inset-top,0px) + 56px);z-index:41;width:min(320px,calc(100vw - 16px));background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.22);padding:6px}
+.moredd{position:fixed;right:8px;top:calc(var(--sbar,0px) + 56px);z-index:41;width:min(320px,calc(100vw - 16px));background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.22);padding:6px}
 .mrow{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 10px;width:100%;border:0;background:none;color:var(--head-fg);font:inherit;text-align:left;border-radius:10px}
 .mrow + .mrow{border-top:1px solid var(--line);border-radius:0}
 .mrow svg{flex:none;color:var(--icon)}
@@ -1059,7 +1060,7 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
 .evprog i{display:block;height:100%;background:var(--strong)}
 .evclock{position:absolute;right:8px;top:8px;padding:2px 8px;border-radius:6px;background:rgba(18,22,24,.66);color:#fff;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
 
-.dialog.set{max-width:420px;max-height:calc(100dvh - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));border-radius:14px}
+.dialog.set{max-width:420px;max-height:calc(100dvh - 24px - var(--sbar,0px) - env(safe-area-inset-bottom,0px));border-radius:14px}
 .dialog.set .dhead{position:sticky;top:0;z-index:1;font-size:15px;padding:2px 2px 2px 14px}
 .dialog.set .dbody{padding:10px 12px 12px;gap:8px}
 .srow{display:flex;align-items:center;gap:8px}
@@ -1072,7 +1073,7 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
 .dialog.set .srow .check{flex:1;min-height:34px;font-size:13px}
 .dialog.set .srow .box{width:20px;height:20px;border-radius:5px}
 .dialog.set .btn{height:34px;padding:0 18px;font-size:13px}
-.scrim{padding:calc(12px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px))}
+.scrim{padding:calc(12px + var(--sbar,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px))}
 
 /* ---- v29: Glass style — frosted panels; light: pale blue wash, dark: deep blue-black ---- */
 :root[data-app-theme="glass"]{
@@ -1108,9 +1109,9 @@ html.ios .evmedia .skip5.b10,html.ios .evmedia .skip5.f10{display:none}html.ios 
 .full{flex-direction:row;align-items:stretch;justify-content:stretch}
 .fvw{position:relative;flex:1;min-width:0;display:flex;align-items:center;justify-content:center;background:#000}
 .fvw img{width:100%;height:100%;object-fit:contain}
-.fuitop{position:absolute;top:calc(10px + env(safe-area-inset-top,0px));left:calc(10px + env(safe-area-inset-left,0px));right:10px;display:flex;align-items:center;gap:8px}
+.fuitop{position:absolute;top:calc(10px + var(--sbar,0px));left:calc(10px + env(safe-area-inset-left,0px));right:10px;display:flex;align-items:center;gap:8px}
 .fuitop .dk{background:rgba(0,0,0,.55);color:#fff}
-.fside{flex:0 0 92px;display:flex;flex-direction:column;background:#101318;border-left:1px solid rgba(255,255,255,.08);padding:calc(8px + env(safe-area-inset-top,0px)) env(safe-area-inset-right,0px) calc(8px + env(safe-area-inset-bottom,0px)) 0;transition:flex-basis .2s}
+.fside{flex:0 0 92px;display:flex;flex-direction:column;background:#101318;border-left:1px solid rgba(255,255,255,.08);padding:calc(8px + var(--sbar,0px)) env(safe-area-inset-right,0px) calc(8px + env(safe-area-inset-bottom,0px)) 0;transition:flex-basis .2s}
 .fside.wide{flex-basis:150px}
 .fsh,.fsb{display:flex;justify-content:center;gap:6px;padding:0 6px}
 .fsb{padding-top:8px}
@@ -1920,6 +1921,16 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 :root:root[data-cover][data-cover] .focus>.fctl{pointer-events:none;position:relative;z-index:3}:root:root[data-cover][data-cover] .focus>.fctl>*{pointer-events:auto}
 :root:root[data-cover][data-cover] .focus>.fctl .dk{width:28px!important;height:28px!important;flex-shrink:0}:root:root[data-cover][data-cover] .focus>.fctl .dk svg{width:16px;height:16px}
 :root:root[data-cover][data-cover] .focus .fday{height:28px!important;padding:0 10px!important;font-size:12px!important;gap:5px!important}:root:root[data-cover][data-cover] .focus .fday svg{width:15px;height:15px}
+/* 7.1.4 status bar: iOS now lets the app draw under it, so every screen keeps the room it had (--sbar) and a dark strip
+   sits behind the status bar (iOS's clock is white then, so a light page needs the dark strip to read it) */
+body{padding-top:var(--sbar,0px)}
+body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0px);background:#000;z-index:9999;pointer-events:none}
+.full{top:0}
+/* Duo inside screen upright: the header sits in iOS's band, left of its clock bubble (about x 540-645, y 15-75) */
+:root[data-duoup] .top,:root[data-duoup] .evtop,:root[data-duoup] .rvtop{padding-right:150px!important;box-sizing:border-box}
+:root[data-duoup] .focus .fov{padding-right:150px;box-sizing:border-box}
+:root[data-duoup] .scrim{padding-top:84px!important}
+:root[data-duoup] .moredd{top:84px!important}
 </style>
 
 <div id="app" class="app"></div>
@@ -4624,6 +4635,7 @@ function safeArea() {
   const cs = getComputedStyle(p);
   return { t: parseFloat(cs.paddingTop) || 0, r: parseFloat(cs.paddingRight) || 0, b: parseFloat(cs.paddingBottom) || 0, l: parseFloat(cs.paddingLeft) || 0 };
 }
+function COVER_HINT(w, h) { return w >= 440 && w <= 500 && /iPhone/.test(navigator.userAgent); }   /* the Duo cover screen (466 wide) */
 function detectCover() {
   const w = window.innerWidth, h = window.innerHeight, sa = safeArea();
   const iPhone = /iPhone/.test(navigator.userAgent);
@@ -4636,6 +4648,14 @@ function detectCover() {
   /* 6.9.11 her: iPhone sideways (Duo inner screen) - iOS keeps its sleep / battery badge in the top-right corner, about 80 wide
      and 90 tall, so the top icons and the first group's arrow move left of it */
   const land = iPhone && w > h && w >= 700 && w < 1000;
+  /* 7.1.4 her: the Duo's inside screen held upright lost an 82-high band to iOS's status bar. The app now draws under the
+     status bar (black-translucent); --sbar is how far each screen keeps clear of it (what env(top) used to be: nothing was
+     drawn there before). Every screen keeps exactly its old room - except the Duo inside screen upright (data-duoup), where
+     the header moves up into that band, left of iOS's clock bubble. Cover and sideways keep 0 as before. */
+  const duoUp = iPhone && w === 669 && h > w;
+  if (duoUp) document.documentElement.setAttribute('data-duoup', ''); else document.documentElement.removeAttribute('data-duoup');
+  { const sb = (duoUp || land || (COVER_HINT(w, h))) ? 0 : Math.round(safeArea().t);
+    if (document.documentElement.style.getPropertyValue('--sbar') !== sb + 'px') document.documentElement.style.setProperty('--sbar', sb + 'px'); }
   if (land) document.documentElement.setAttribute('data-badge', ''); else document.documentElement.removeAttribute('data-badge');
   if (COVER) document.documentElement.setAttribute('data-cover', ''); else document.documentElement.removeAttribute('data-cover');
   /* Duo cover screen in a browser (or the notification's browser): phone layout, but if the page still gets the full
@@ -9364,7 +9384,7 @@ let shortKey = '';
    (cover 466x678, inside 669x869 / 951x669), and only coming back after a fold / turn gets 82 short. So: the Duo's four
    full sizes are known; when the page comes back 40+ shorter than the full height for its width, reload it once (it then
    opens like a fresh start, about half a second). Never twice within 20 s, so it can't loop. */
-const DUO_FULL = { 466: 678, 678: 466, 669: 869, 951: 669 };
+const DUO_FULL = { 466: 678, 678: 466, 951: 669 };   /* 7.1.4: upright inside (669 wide) left out: its height changes with the status bar setting */
 function fixShort(why) {
   const w = window.innerWidth, sh = window.innerHeight, full = DUO_FULL[w], k = w + 'x' + sh;
   if (!/iPhone/.test(navigator.userAgent) || !full || full - sh < 40 || shortKey === k) return;
