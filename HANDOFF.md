@@ -826,3 +826,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.4.1 — 2026-11-20 Duo camera view: bottom buttons at the very bottom
 - cover / coverweb / foldup / foldside: .focus>.fsteps bottom 2 (was max(10, safe-14) = 20 on the cover). Normal phones unchanged.
+
+## 7.4.2 — 2026-11-20 × shows only while the blue line is over the opened box
+- fLineX() (from fPaintLine and the list's scroll): places the × on the rail and hides it unless the line's y is within the opened group (its card + .fsub). Tested: in box shown, scrolled away hidden, back shown.
