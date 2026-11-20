@@ -727,3 +727,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 7.1.1 — 2026-11-19 Doorbell stays first when off
 - Her: Home keeps the Doorbell first in Outside even when it is turned off (other off cameras still go to the end of their group).
 - Doorbell investigation: go2rtc restart 05:05 UTC → stream negotiates H264 + Opus but 0 bytes; Google Home also had no picture at 21:09. Experiment running: Doorbell off in the app for 10 min, then check Google Home (our requests every 2 min + warm-up every 5 min vs. doorbell power).
+
+## 7.1.2 — 2026-11-20 Cover screen band after unfold / fold
+- Her: after using the inner screen (or turning it) and folding, the cover screen also shows an empty band on top. Her earlier log: cover 466x596 (screen is 466x678: 82 short, same iOS bug). fixShort() also retries when an iPhone page is 440-500 wide and under 650 tall; logs "screen short <why> cover|sideways".

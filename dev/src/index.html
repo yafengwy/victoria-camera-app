@@ -9361,10 +9361,13 @@ function isLand() { return vpW() > vpH() && vpH() < 560; }
 let shortKey = '';
 function fixShort(why) {
   const short = Math.min(screen.width, screen.height), sh = window.innerHeight, k = window.innerWidth + 'x' + sh;
-  if (!/iPhone/.test(navigator.userAgent) || window.innerWidth <= sh || short - sh <= 20 || shortKey === k) return;
+  /* 7.1.2 her: the same band shows on the cover screen after unfolding / turning and folding again: her log had 466x596 there
+     (the cover is 466x678, so again 82 short) */
+  const side = window.innerWidth > sh && short - sh > 20, cover = window.innerWidth >= 440 && window.innerWidth <= 500 && sh < 650;
+  if (!/iPhone/.test(navigator.userAgent) || !(side || cover) || shortKey === k) return;
   shortKey = k;
   const m = document.querySelector('meta[name="viewport"]'), c = m && m.getAttribute('content');
-  Dbg.log('screen short', why, k, 'screen ' + screen.width + 'x' + screen.height, 'retry viewport');
+  Dbg.log('screen short', why, cover ? 'cover' : 'sideways', k, 'screen ' + screen.width + 'x' + screen.height, 'retry viewport');
   if (m) { m.setAttribute('content', c.replace(', viewport-fit=cover', '')); requestAnimationFrame(() => { m.setAttribute('content', c); window.scrollTo(0, window.scrollY); setTimeout(() => Dbg.log('screen after retry', window.innerWidth + 'x' + window.innerHeight), 400); }); }
 }
 window.addEventListener('pageshow', () => setTimeout(() => fixShort('shown'), 300));
