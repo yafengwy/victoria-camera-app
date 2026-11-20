@@ -752,3 +752,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.1.8 — 2026-11-20 Per Row kept apart: unfolded upright / unfolded sideways / folded
 - Her: upright and sideways must not share Per Row; nor with the cover. Fold.key() is now 'n' (folded / cover), 'w' (unfolded upright), 'l' (unfolded sideways); 'l' falls back to the old 'w' value only if never set. One-time start (fold.split78): upright 3, sideways 4, both grid. Settings label: Per Row · Unfolded Upright / · Unfolded Sideways / · Folded. Tested: turning switches 3 ↔ 4, cover keeps its own.
+
+## 7.1.9 — 2026-11-20 Duo upright: buttons back under iOS's band
+- Her: in 7.1.7 nothing in the header could be tapped (iOS's status bar takes taps in its band, about 0-82). The Duo upright now uses --sbar like other phones (everything starts under the band); only the Home header's colour reaches up into the band (no black strip there), with title and buttons centred in the 60 row under it.
