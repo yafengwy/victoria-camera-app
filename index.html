@@ -2974,7 +2974,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 7.1.2 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 7.1.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -7694,7 +7694,7 @@ function modalSettings() {
     row('Mute Notifications', '<button class="btn" data-act="snzopen">' + (SNZ_WHO.some(x => Snz.on(x[0])) ? SNZ_WHO.filter(x => Snz.on(x[0])).map(x => x[1] + ' ' + Snz.left(x[0])).join(' · ') : 'Open') + '</button>') +   /* 6.9.4 per person, 30 Min to 8 Hours */
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     /* 6.10.10 her: Duo Preview row removed (she has the Duo now); duo.html stays for testing */
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 7.1.2 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 7.1.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -7989,7 +7989,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 7.1.2');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 7.1.3');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -8006,7 +8006,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 7.1.2\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 7.1.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -9359,16 +9359,21 @@ function isLand() { return vpW() > vpH() && vpH() < 560; }
    can fill it). Nudge WebKit to size the page again by re-setting the viewport tag - after turning, and (6.10.6) also when
    the app opens or comes back already sideways - once per screen size, and log whether it took. */
 let shortKey = '';
+/* 7.1.3 her Duo log 11-20 01:09: re-setting the viewport tag did nothing (678x384 before and after), and screen.width /
+   height always give the cover's 466x678, so they can't tell. What the log does show: a fresh open always gets the full size
+   (cover 466x678, inside 669x869 / 951x669), and only coming back after a fold / turn gets 82 short. So: the Duo's four
+   full sizes are known; when the page comes back 40+ shorter than the full height for its width, reload it once (it then
+   opens like a fresh start, about half a second). Never twice within 20 s, so it can't loop. */
+const DUO_FULL = { 466: 678, 678: 466, 669: 869, 951: 669 };
 function fixShort(why) {
-  const short = Math.min(screen.width, screen.height), sh = window.innerHeight, k = window.innerWidth + 'x' + sh;
-  /* 7.1.2 her: the same band shows on the cover screen after unfolding / turning and folding again: her log had 466x596 there
-     (the cover is 466x678, so again 82 short) */
-  const side = window.innerWidth > sh && short - sh > 20, cover = window.innerWidth >= 440 && window.innerWidth <= 500 && sh < 650;
-  if (!/iPhone/.test(navigator.userAgent) || !(side || cover) || shortKey === k) return;
+  const w = window.innerWidth, sh = window.innerHeight, full = DUO_FULL[w], k = w + 'x' + sh;
+  if (!/iPhone/.test(navigator.userAgent) || !full || full - sh < 40 || shortKey === k) return;
   shortKey = k;
-  const m = document.querySelector('meta[name="viewport"]'), c = m && m.getAttribute('content');
-  Dbg.log('screen short', why, cover ? 'cover' : 'sideways', k, 'screen ' + screen.width + 'x' + screen.height, 'retry viewport');
-  if (m) { m.setAttribute('content', c.replace(', viewport-fit=cover', '')); requestAnimationFrame(() => { m.setAttribute('content', c); window.scrollTo(0, window.scrollY); setTimeout(() => Dbg.log('screen after retry', window.innerWidth + 'x' + window.innerHeight), 400); }); }
+  let last = 0; try { last = +sessionStorage.getItem('shortReload') || 0; } catch (x) {}
+  if (Date.now() - last < 20000) { Dbg.log('screen short', why, k, 'full ' + w + 'x' + full, 'still short after reload, leaving it'); return; }
+  Dbg.log('screen short', why, k, 'full ' + w + 'x' + full, 'reloading');
+  try { sessionStorage.setItem('shortReload', String(Date.now())); } catch (x) {}
+  setTimeout(() => location.reload(), 50);
 }
 window.addEventListener('pageshow', () => setTimeout(() => fixShort('shown'), 300));
 document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(() => fixShort('back'), 300); });
@@ -9420,7 +9425,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '7.1.2';
+    const BUILD = '7.1.3';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

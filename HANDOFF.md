@@ -730,3 +730,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.1.2 — 2026-11-20 Cover screen band after unfold / fold
 - Her: after using the inner screen (or turning it) and folding, the cover screen also shows an empty band on top. Her earlier log: cover 466x596 (screen is 466x678: 82 short, same iOS bug). fixShort() also retries when an iPhone page is 440-500 wide and under 650 tall; logs "screen short <why> cover|sideways".
+
+## 7.1.3 — 2026-11-20 Band fix: reload once when the Duo page comes back short
+- Her log (7.1.1, 01:09): viewport-tag retry did nothing (678x384 before and after); screen.width/height always 466x678. Fresh opens get full size (466x678, 669x869, 951x669); only coming back after fold / turn is 82 short (466x596, 951x587, 678x384).
+- fixShort(): DUO_FULL {466:678, 678:466, 669:869, 951:669}; if the page is 40+ shorter than the full height for its width (on open, shown, back, turned) → location.reload() once; never again within 20 s (sessionStorage shortReload). Logs "screen short ... reloading" / "still short after reload, leaving it". Tested: one reload, no loop.
