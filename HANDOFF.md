@@ -723,3 +723,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 6.10.10 — 2026-11-19 Settings: Duo Preview row removed
 - Her: she has the Duo now. duo.html itself stays (deployed, unused by the app).
 - Doorbell (weeks without picture): Google Home shows it live; Frigate ffmpeg crashes every second; watchdog warm-up times out with 0 bytes since about late Oct. Suspect the go2rtc nest source (device id changed / SDM stream refused). Diagnostic sent: compare the config's nest device ids with the SDM device list.
+
+## 7.1.1 — 2026-11-19 Doorbell stays first when off
+- Her: Home keeps the Doorbell first in Outside even when it is turned off (other off cameras still go to the end of their group).
+- Doorbell investigation: go2rtc restart 05:05 UTC → stream negotiates H264 + Opus but 0 bytes; Google Home also had no picture at 21:09. Experiment running: Doorbell off in the app for 10 min, then check Google Home (our requests every 2 min + warm-up every 5 min vs. doorbell power).

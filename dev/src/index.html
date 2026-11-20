@@ -5052,7 +5052,7 @@ function viewHome() {
     '<button class="ic" data-act="modal" data-v="settings" aria-label="Settings">' + I.gear + '</button></div></header>' + (S.more ? moreMenu() : '') + '<main class="main">' + snoozeBanner() + waitBanner();
   groups.forEach(g => {
     /* cameras that are off go to the end of their group; the rest keep their order */
-    const rank = c => F360.away(c.id) ? 2 : Ctl.on(c.id) ? 0 : 1;   /* 4.6.7: handed to the Furbo app = very last */
+    const rank = c => c.id === 'nest_doorbell' ? 0 : F360.away(c.id) ? 2 : Ctl.on(c.id) ? 0 : 1;   /* 4.6.7: handed to the Furbo app = very last; 6.10.11 her: the Doorbell stays first even when off */
     const cams = Data.cams.filter(c => c.group === g).sort((a, b) => rank(a) - rank(b));
     const open = S.open[g] !== false;
     h += '<section class="group bare"><button class="ghead" data-act="group" data-v="' + esc(g) + '" aria-expanded="' + open + '"><span class="gname">' + esc(g) + '</span><span class="gline"></span>' +
