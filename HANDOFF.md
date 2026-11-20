@@ -774,3 +774,8 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.2.5 — 2026-11-20 Alerts grid only on the Duo inside screen
 - Her: cover (and any other phone, incl. the Safari view opened from a notification) back to one per row (the old list). Duo inside: upright 2 a row (data-duoup), sideways 3 (data-badge). Removed the narrow 3-across tweaks (hidden "Type At", names above buttons).
+
+## 7.2.6 — 2026-11-20 Duo inside camera view: opened group rows "A"; drag rule
+- Her standing rule (11-20): since the Duo, her changes are for the Duo only (cover, inside upright, inside sideways); normal phones must not change.
+- data-badge / data-duoup: opened group rows (.fsr) one big picture each (RH 102, picture 96 high, icon + time on its bottom-left).
+- Duo only (data-badge / data-duoup / data-cover): a touch drag inside .fsubin that has nothing to scroll is cancelled (no longer moves the timeline); outside the box, or folded, it moves the timeline.
