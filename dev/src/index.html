@@ -1949,6 +1949,8 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 :root[data-foldup]:not([data-cover]) .focus .fsubin{display:grid;grid-template-columns:1fr 1fr;column-gap:4px;align-content:start}
 :root[data-foldup]:not([data-cover]) .focus .fsr{height:104px!important}
 :root[data-foldup]:not([data-cover]) .focus .fsr img{height:98px!important}
+/* 7.2.10 her: a box whose pictures all show is not a scroller at all, so a finger dragging in it moves the timeline */
+.fsubin.fit{overflow:hidden;touch-action:auto;overscroll-behavior:auto}
 </style>
 
 <div id="app" class="app"></div>
@@ -6376,7 +6378,7 @@ function viewFocus() {
       if (S.focus.foldKey !== k) { S.focus.foldKey = k; S.focus.subTop = 0; }
       S.focus.subTop = Math.max(0, Math.min(S.focus.subTop || 0, NR * RH + 8 - boxH));
       S.focus.fold = { top: og.y + CB, ids: list.map(r => r.e.id), ts: list.map(r => r.t), te: list.map(r => Math.max(r.t, r.e.end || now())), boxH, end, RH, C: FC };
-      fFoldMap(); fold = { g: og, list, top: og.y + CB, boxH };
+      fFoldMap(); fold = { g: og, list, top: og.y + CB, boxH, fit: NR <= (FU ? 3 : 5) };
     }
     const height = FTOP + span / MIN * FPX + 400 + (S.focus.fmap ? S.focus.fmap[S.focus.fmap.length - 1][1] : 0);
     let rows = '';
@@ -6403,7 +6405,7 @@ function viewFocus() {
         const sub = hm(ep.t) + ' · ' + (n === 1 ? durLabel(e) : n + ' Alerts');
         rows += '<button class="fev' + (open ? ' open' : '') + '" style="top:' + (y - 32) + 'px" data-act="fgrp" data-g="' + gi + '"><img src="' + evImg(e, ep) + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(ico(e, ep)) + '</i>' + esc(title) + '</b><small>' + sub + '</small></span>' + (open ? '<span class="fcx" aria-hidden="true">' + I.x + '</span>' : '') + '</button>';
       }
-      if (open) rows += '<div class="fsub" style="top:' + fold.top + 'px;height:' + fold.boxH + 'px"><div class="fsubin" id="fsubin">' + fold.list.map(r => { const ri = rowIco(r.e, r.p); return '<button class="fsr' + (ri.hot ? ' hot' : ' un') + (FSeek.key === r.e.id ? ' cur' : '') + '" data-act="fjump" data-t="' + r.t + '" data-id="' + esc(r.e.id) + '"><b>' + hms(r.t) + '</b><i class="lico">' + objIcon(ri.L) + '</i><img src="' + evImg(r.e, r.p) + '" alt="" loading="lazy" draggable="false"><span>' + esc(rowNames(r.e, ri.L)) + '</span></button>'; }).join('') + '</div></div>';
+      if (open) rows += '<div class="fsub" style="top:' + fold.top + 'px;height:' + fold.boxH + 'px"><div class="fsubin' + (fold.fit ? ' fit' : '') + '" id="fsubin">' + fold.list.map(r => { const ri = rowIco(r.e, r.p); return '<button class="fsr' + (ri.hot ? ' hot' : ' un') + (FSeek.key === r.e.id ? ' cur' : '') + '" data-act="fjump" data-t="' + r.t + '" data-id="' + esc(r.e.id) + '"><b>' + hms(r.t) + '</b><i class="lico">' + objIcon(ri.L) + '</i><img src="' + evImg(r.e, r.p) + '" alt="" loading="lazy" draggable="false"><span>' + esc(rowNames(r.e, ri.L)) + '</span></button>'; }).join('') + '</div></div>';
     });
     body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px;margin-top:' + fPad() + 'px"><div class="frail">' + railState(c.id, end, span) + '</div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + (S.focus.lineY || FTOP) + 'px"></div>';
   }

@@ -790,3 +790,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.2.9 — 2026-11-20 Upright group box 20% narrower; drag rule undone
 - data-foldup .fsub width (100% - 52px) * .8, right 8. The 7.2.6 touchmove rule removed: a drag in a box with nothing to scroll moves the timeline again (as before).
+
+## 7.2.10 — 2026-11-20 Full group box lets drags through to the timeline
+- Her: dragging in a box that shows everything still did not move the timeline (the box stayed a scroll container with overscroll contain). fold.fit → .fsubin.fit: overflow hidden, touch-action auto, so the drag chains to the timeline.
