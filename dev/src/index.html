@@ -6130,7 +6130,9 @@ function checkRow(k, label, on) {
 }
 
 /* ===== Focus view (double tap) ===== */
-const FPX = 2; /* pixels per minute on the vertical timeline */
+/* pixels per minute on the vertical timeline. 7.3.5 her: on the iPhone Duo / foldables 3.5 (an hour 210 px), so alerts
+   share one card only within about 20 minutes (one card is ~70 px); normal phones keep 2 (about 35 minutes) */
+const FPXf = () => (typeof isDuoScreen === 'function' && isDuoScreen()) ? 3.5 : 2;
 const FTOP = 24;
 /* 5.3.4: the alert on screen at time t (the one the camera view frames: t within 3 s of it), a real alert before a
    motion piece, the latest one if two overlap */
@@ -6207,7 +6209,7 @@ const FBack = {
    down. The list's time-to-height rule then has a fold in it: fmap holds [time, extra px] points (newest first); times
    between points slide smoothly, so each row's alert sits exactly on its row and everything older moves down by the
    height of the rows. Without an opened group fmap is empty and nothing changes. */
-function fYb(t, end) { return FTOP + (end - t) / MIN * FPX; }
+function fYb(t, end) { return FTOP + (end - t) / MIN * FPXf(); }
 function fD(t) {
   const m = S.focus && S.focus.fmap; if (!m || !m.length) return 0;
   if (t >= m[0][0]) return m[0][1]; const l = m[m.length - 1]; if (t <= l[0]) return l[1];
@@ -6217,7 +6219,7 @@ function fD(t) {
 function fY(t, end) { return fYb(t, end == null ? focusEnd() : end) + fD(t); }
 function fT(y, end) {
   end = end == null ? focusEnd() : end;
-  if (!(S.focus && S.focus.fmap && S.focus.fmap.length)) return end - (y - FTOP) / FPX * MIN;
+  if (!(S.focus && S.focus.fmap && S.focus.fmap.length)) return end - (y - FTOP) / FPXf() * MIN;
   let lo = end - 60 * DAY, hi = end + HOUR;
   for (let i = 0; i < 60; i++) { const mid = (lo + hi) / 2; if (fY(mid, end) > y) lo = mid; else hi = mid; }
   return (lo + hi) / 2;
@@ -6397,7 +6399,7 @@ function viewFocus() {
       S.focus.fold = { top: og.y + CB, ids: list.map(r => r.e.id), ts: list.map(r => r.t), te: list.map(r => Math.max(r.t, r.e.end || now())), boxH, end, RH, C: FC };
       fFoldMap(); fold = { g: og, list, top: og.y + CB, boxH, fit: NR <= (FU ? 3 : 5) };
     }
-    const height = FTOP + span / MIN * FPX + 400 + (S.focus.fmap ? S.focus.fmap[S.focus.fmap.length - 1][1] : 0);
+    const height = FTOP + span / MIN * FPXf() + 400 + (S.focus.fmap ? S.focus.fmap[S.focus.fmap.length - 1][1] : 0);
     let rows = '';
     for (let k = Math.floor(end / HOUR) * HOUR; k > end - span; k -= HOUR)
       rows += '<div class="fhr' + (new Date(k).getHours() === 0 ? ' fday0' : '') + '" style="top:' + (fY(k, end) - 8) + 'px">' + (new Date(k).getHours() === 0 && k < dayStart(now()) + 1 ? '<span class="fdl">' + dayLabel(k) + '</span>' : '') + pad(new Date(k).getHours()) + (new Date(k).getHours() === 0 ? ':00' : '') + '</div>';

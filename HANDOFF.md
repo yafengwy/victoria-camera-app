@@ -805,3 +805,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.3.4 — 2026-11-20 Cover home: pull to refresh from the first row
 - The cover hides header.top (since 6.8.5), and the pull only started on header.top / .evbar / .rvbar, so the cover home had no pull. On the cover it now also starts on the first group row (OUTSIDE), made 20% taller (41 px).
+
+## 7.3.5 — 2026-11-20 Camera view timeline: alerts merge within ~20 min on the Duo
+- Cards merge when closer than one card (70 px). FPX (px per minute) is now FPXf(): 3.5 on Duo / foldable screens (isDuoScreen), so ~20 min; normal phones keep 2 (~35 min).
