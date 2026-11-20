@@ -817,3 +817,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.3.8 — 2026-11-20 Duo cover camera view: cards fill from the icons to the right edge
 - Her "A": cover / coverweb .fev and .fsub left 122 → right 8 (were 230 wide pinned right, empty middle).
+
+## 7.3.9 — 2026-11-20 Duo cover camera view: top-right buttons left of the iOS badge
+- data-cover .focus .fov right 80 (row ends at 386; badge from ~390).

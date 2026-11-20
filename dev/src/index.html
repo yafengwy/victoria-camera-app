@@ -1972,6 +1972,8 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 /* 7.3.8 her "A" (Duo cover only, app and notification browser): the camera view's cards start just right of the icons
    and reach the right edge (no empty middle) */
 :root:is([data-cover],[data-coverweb]) .focus .fev,:root:is([data-cover],[data-coverweb]) .focus .fsub{left:122px!important;width:auto!important;right:8px!important}
+/* 7.3.9 her: Duo cover camera view - the top-right buttons (Fix, Who?, Alerts, Big, Sound) sit just left of iOS's badge */
+:root:root[data-cover][data-cover] .focus .fov{right:80px!important}
 </style>
 
 <div id="app" class="app"></div>
