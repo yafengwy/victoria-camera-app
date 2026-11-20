@@ -719,3 +719,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 6.10.9 — 2026-11-19 Cover camera view row: Today left, buttons right, 8 closer
 - Her: Today right after the start time, Download / Bell right before the end time (fctl padding 64, spacer back); the row is pulled 8 up toward the icons (times follow), list starts at 368. The row lets taps through to the icons outside its buttons.
+
+## 6.10.10 — 2026-11-19 Settings: Duo Preview row removed
+- Her: she has the Duo now. duo.html itself stays (deployed, unused by the app).
+- Doorbell (weeks without picture): Google Home shows it live; Frigate ffmpeg crashes every second; watchdog warm-up times out with 0 bytes since about late Oct. Suspect the go2rtc nest source (device id changed / SDM stream refused). Diagnostic sent: compare the config's nest device ids with the SDM device list.
