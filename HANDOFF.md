@@ -768,3 +768,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.2.3 — 2026-11-20 Duo upright Alerts: camera names bottom-left
 - data-duoup: grid .evnm at bottom 6 / left 6 beside the buttons (was raised above them, the narrow-phone rule).
+
+## 7.2.4 — 2026-11-20 Duo sideways camera view: right column 30% narrower
+- data-badge: .focus --fw 280 (was ~400); timeline lanes pulled left (marks 40, frail 74, cards / sub rows from 90) so the cards keep text room.

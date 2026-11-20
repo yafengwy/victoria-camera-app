@@ -1937,6 +1937,10 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 :root[data-badge]:not([data-cover]) .top .brand{font-size:26px!important;gap:10px}:root[data-badge]:not([data-cover]) .top .brand svg{width:30px;height:30px}   /* 7.2.2 her: sideways title bigger */
 /* 7.2.3 her: Duo inside screen upright too - grid camera names sit in the picture's bottom-left, beside the buttons */
 :root:root[data-duoup]:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evnm{bottom:6px!important;left:6px!important;max-width:calc(100% - 100px);font-size:11px}
+/* 7.2.4 her: Duo inside screen sideways - the camera view's right column (Today / list) 30% narrower (about 400 -> 280), the picture gets the room */
+:root[data-badge]:not([data-cover]) .focus{--fw:280px!important}
+:root[data-badge]:not([data-cover]) .focus .frail{left:74px!important}:root[data-badge]:not([data-cover]) .focus .fcmk{left:58px!important}:root[data-badge]:not([data-cover]) .focus .fmark.ico.dim{left:42px!important}:root[data-badge]:not([data-cover]) .focus .fmark.ico:not(.dim){left:40px!important}
+:root[data-badge]:not([data-cover]) .focus .fev,:root[data-badge]:not([data-cover]) .focus .fsub{left:90px!important}   /* lanes pulled left so the cards keep their room in the narrower column */
 </style>
 
 <div id="app" class="app"></div>
