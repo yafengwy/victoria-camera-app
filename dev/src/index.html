@@ -1964,6 +1964,11 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 :root:is([data-cover],[data-coverweb]) .focus .fsteps .livepill{height:38px!important;padding:0 14px!important;font-size:13px!important}
 /* 7.3.4 her: cover home - the first row (OUTSIDE) 20% taller, where the pull to refresh starts */
 :root:root[data-cover][data-cover][data-view="home"] .main .group:first-child .ghead{min-height:41px;box-sizing:border-box}
+/* 7.3.7 her: on the cover the bar's room was 38 empty but 50 with the bar, so the list jumped 12 each time the bar came
+   and went. Fixed 38 both ways: the icon row and the bar are a little shorter */
+:root:is([data-cover],[data-coverweb]) .focus>.fseek{height:38px!important;min-height:0!important;padding-top:0!important;overflow:visible}
+:root:is([data-cover],[data-coverweb]) .focus>.fseek .evseek{height:22px!important;min-height:0!important}
+:root:is([data-cover],[data-coverweb]) .focus>.fseek .evmks{height:16px!important;min-height:0!important}
 </style>
 
 <div id="app" class="app"></div>

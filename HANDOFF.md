@@ -811,3 +811,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.3.6 — 2026-11-20 ~20 min merge on every phone
 - Her: normal phones too. FPXf() = 3.5 everywhere.
+
+## 7.3.7 — 2026-11-20 Cover camera view: list no longer jumps when the bar shows / hides
+- Measured: cover bar room 38 empty, 50 with the bar (icons 24 + bar 28) → list jumped 12. Cover / coverweb .fseek fixed height 38 (icon row 16, bar 22). Phones measured 64 both ways (unchanged).
