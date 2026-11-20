@@ -820,3 +820,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.3.9 — 2026-11-20 Duo cover camera view: top-right buttons left of the iOS badge
 - data-cover .focus .fov right 80 (row ends at 386; badge from ~390).
+
+## 7.3.10 — 2026-11-20 × on the blue line closes an opened group
+- Her (every phone / screen): while S.focus.og is open, .fline holds a 22 px × (data-act fstripx) where the blue line crosses the grey rail (fPaintLine places it), clear of the icons. Tap folds the group.

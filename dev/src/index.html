@@ -1974,6 +1974,11 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 :root:is([data-cover],[data-coverweb]) .focus .fev,:root:is([data-cover],[data-coverweb]) .focus .fsub{left:122px!important;width:auto!important;right:8px!important}
 /* 7.3.9 her: Duo cover camera view - the top-right buttons (Fix, Who?, Alerts, Big, Sound) sit just left of iOS's badge */
 :root:root[data-cover][data-cover] .focus .fov{right:80px!important}
+/* 7.3.10 her (every phone, every screen): while a group is opened, a small × sits on the blue line where it crosses the
+   grey rail; a tap folds the box back to the normal timeline */
+.fline .flinex{position:absolute;top:-11px;width:22px;height:22px;border-radius:11px;background:var(--dark-accent);color:#0f1114;display:flex;align-items:center;justify-content:center;pointer-events:auto;padding:0;z-index:3}
+.fline .flinex svg{width:13px;height:13px;stroke-width:3}
+.fline .flinex::before{content:"";position:absolute;inset:-10px}
 </style>
 
 <div id="app" class="app"></div>
@@ -6314,6 +6319,7 @@ function fPaintLine() {
   const LY = S.focus.lineAt != null ? S.focus.lineAt : Math.max(FTOP, Math.round(sc.clientHeight * 0.10));
   if (!busy && fPad() !== LY - FTOP) fSetPad(sc, LY - FTOP);
   S.focus.lineY = LY; if (ln.style.top !== LY + 'px') ln.style.top = LY + 'px';
+  { const x = ln.querySelector('.flinex'), rl = document.querySelector('.focus .frail'); if (x && rl) { const r = rl.getBoundingClientRect(), l = Math.round(r.left + r.width / 2 - ln.getBoundingClientRect().left - 11) + 'px'; if (x.style.left !== l) x.style.left = l; } }   /* 7.3.10 her: the × sits where the blue line crosses the grey rail (clear of the icons) */
   if (!busy) { const want = t == null ? 0 : Math.max(0, Math.round(fLineY(t) - FTOP)); if (isFinite(want) && Math.abs(sc.scrollTop - want) > 1) { S.focus.progTop = want; sc.scrollTop = want; } }
 }
 /* 5.5.7: a swipe repaints the picture and times at most once a frame and every 120 ms (each scroll event used to
@@ -6436,7 +6442,7 @@ function viewFocus() {
       }
       if (open) rows += '<div class="fsub" style="top:' + fold.top + 'px;height:' + fold.boxH + 'px"><div class="fsubin' + (fold.fit ? ' fit' : '') + '" id="fsubin">' + fold.list.map(r => { const ri = rowIco(r.e, r.p); return '<button class="fsr' + (ri.hot ? ' hot' : ' un') + (FSeek.key === r.e.id ? ' cur' : '') + '" data-act="fjump" data-t="' + r.t + '" data-id="' + esc(r.e.id) + '"><b>' + hms(r.t) + '</b><i class="lico">' + objIcon(ri.L) + '</i><img src="' + evImg(r.e, r.p) + '" alt="" loading="lazy" draggable="false"><span>' + esc(rowNames(r.e, ri.L)) + '</span></button>'; }).join('') + '</div></div>';
     });
-    body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px;margin-top:' + fPad() + 'px"><div class="frail">' + railState(c.id, end, span) + '</div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + (S.focus.lineY || FTOP) + 'px"></div>';
+    body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px;margin-top:' + fPad() + 'px"><div class="frail">' + railState(c.id, end, span) + '</div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + (S.focus.lineY || FTOP) + 'px">' + (S.focus.og ? '<button class="flinex" data-act="fstripx" aria-label="Close The Opened Alerts">' + I.x + '</button>' : '') + '</div>';
   }
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
   const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk ftm" id="ftm">' + dtHdr(shownT(c.id, c.id)) + '</div>' + qualBtn() + '<div style="flex:1"></div><span id="ffix" class="ffixw">' + focusFix(c.id) + '</span>' +
