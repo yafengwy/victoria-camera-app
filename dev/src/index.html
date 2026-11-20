@@ -9389,11 +9389,9 @@ function fixShort(why) {
   const w = window.innerWidth, sh = window.innerHeight, full = DUO_FULL[w], k = w + 'x' + sh;
   if (!/iPhone/.test(navigator.userAgent) || !full || full - sh < 40 || shortKey === k) return;
   shortKey = k;
-  let last = 0; try { last = +sessionStorage.getItem('shortReload') || 0; } catch (x) {}
-  if (Date.now() - last < 20000) { Dbg.log('screen short', why, k, 'full ' + w + 'x' + full, 'still short after reload, leaving it'); return; }
-  Dbg.log('screen short', why, k, 'full ' + w + 'x' + full, 'reloading');
-  try { sessionStorage.setItem('shortReload', String(Date.now())); } catch (x) {}
-  setTimeout(() => location.reload(), 50);
+  /* 7.1.6: her log 01:34 - a reload came back just as short (678x384 before and after), so iOS's frame itself is wrong and
+     nothing in the page fixes it; only closing the app does. Log only (no reload flash). */
+  Dbg.log('screen short', why, k, 'full ' + w + 'x' + full, '(iOS frame; close and reopen the app)');
 }
 window.addEventListener('pageshow', () => setTimeout(() => fixShort('shown'), 300));
 document.addEventListener('visibilitychange', () => { if (!document.hidden) setTimeout(() => fixShort('back'), 300); });

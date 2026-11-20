@@ -743,3 +743,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.1.5 — 2026-11-20 Duo upright: header moves only once iOS gives the band
 - Her 01:35 screenshot: 7.1.4 loaded (icons moved left) but iOS still kept the band (page 669x869): the status-bar meta is only read when the Home Screen app is added. data-duoup now needs a page 930+ tall, so nothing moves until then.
+
+## 7.1.6 — 2026-11-20 Short-page reload removed (it does not help)
+- Her log 01:34: 678x384 → reload → still 678x384. The 82 short is iOS's own frame (the old status-bar inset applied stale); a page reload cannot change it, only closing the app. fixShort now only logs. Hope: once the app is re-added with black-translucent (no status-bar inset at all), iOS has nothing stale to subtract.
