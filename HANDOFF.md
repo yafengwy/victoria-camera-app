@@ -765,3 +765,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.2.2 — 2026-11-20 Duo upright 6 higher; sideways title bigger
 - Upright title row starts sbar-12 (38 + sbar tall). Sideways .brand 26px, logo 30px.
+
+## 7.2.3 — 2026-11-20 Duo upright Alerts: camera names bottom-left
+- data-duoup: grid .evnm at bottom 6 / left 6 beside the buttons (was raised above them, the narrow-phone rule).

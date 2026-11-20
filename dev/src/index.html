@@ -1935,6 +1935,8 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
    sideways, the title row is level with iOS's badge on the right (about 15-110 down, middle about 56) and OUTSIDE starts under it */
 :root[data-badge]:not([data-cover]) .top{height:112px!important}
 :root[data-badge]:not([data-cover]) .top .brand{font-size:26px!important;gap:10px}:root[data-badge]:not([data-cover]) .top .brand svg{width:30px;height:30px}   /* 7.2.2 her: sideways title bigger */
+/* 7.2.3 her: Duo inside screen upright too - grid camera names sit in the picture's bottom-left, beside the buttons */
+:root:root[data-duoup]:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evnm{bottom:6px!important;left:6px!important;max-width:calc(100% - 100px);font-size:11px}
 </style>
 
 <div id="app" class="app"></div>
