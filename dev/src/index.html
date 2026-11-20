@@ -1969,6 +1969,9 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 :root:is([data-cover],[data-coverweb]) .focus>.fseek{height:38px!important;min-height:0!important;padding-top:0!important;overflow:visible}
 :root:is([data-cover],[data-coverweb]) .focus>.fseek .evseek{height:22px!important;min-height:0!important}
 :root:is([data-cover],[data-coverweb]) .focus>.fseek .evmks{height:16px!important;min-height:0!important}
+/* 7.3.8 her "A" (Duo cover only, app and notification browser): the camera view's cards start just right of the icons
+   and reach the right edge (no empty middle) */
+:root:is([data-cover],[data-coverweb]) .focus .fev,:root:is([data-cover],[data-coverweb]) .focus .fsub{left:122px!important;width:auto!important;right:8px!important}
 </style>
 
 <div id="app" class="app"></div>

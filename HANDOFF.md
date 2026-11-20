@@ -814,3 +814,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.3.7 — 2026-11-20 Cover camera view: list no longer jumps when the bar shows / hides
 - Measured: cover bar room 38 empty, 50 with the bar (icons 24 + bar 28) → list jumped 12. Cover / coverweb .fseek fixed height 38 (icon row 16, bar 22). Phones measured 64 both ways (unchanged).
+
+## 7.3.8 — 2026-11-20 Duo cover camera view: cards fill from the icons to the right edge
+- Her "A": cover / coverweb .fev and .fsub left 122 → right 8 (were 230 wide pinned right, empty middle).
