@@ -758,3 +758,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.1.10 — 2026-11-20 Duo inside screen: an opened camera's panel is 3 cameras wide
 - Her: Home, tapping a camera opens its panel 2 cameras wide; on the Duo inside screen (upright 3 a row, sideways 4 a row) it is now 3 wide: the whole row upright; sideways 3 of 4 over the opened camera (start col max(1, min(k+1, n-2))). Beside the tall Doorbell the panel fills the side. panel(c, col, span). Other phones / cover unchanged.
+
+## 7.2.1 — 2026-11-20 Duo header: theme colour band upright; title level with the badge sideways
+- Upright: band sometimes black = data-duoup missed (needed exactly 669 x 930+); now any iPhone with short side >= 500 held upright. Title row 44 high right under the band (starts at sbar-6), OUTSIDE right below.
+- Sideways (data-badge): Home top bar 112 high, so title + icons sit level with iOS's badge (middle ~56) and OUTSIDE starts under it.

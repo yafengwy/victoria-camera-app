@@ -1930,7 +1930,10 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
    under it like everywhere else; only the header's colour reaches up into the band (no black strip there - iOS's clock
    has its own bubble), with the title and buttons centred in the row under it. */
 :root[data-duoup] body::before{display:none}
-:root[data-duoup] .top{margin-top:calc(0px - var(--sbar,0px));padding-top:var(--sbar,0px)!important;height:calc(60px + var(--sbar,0px))!important;top:0!important;box-sizing:border-box}
+:root[data-duoup] .top{margin-top:calc(0px - var(--sbar,0px));padding-top:max(0px,calc(var(--sbar,0px) - 6px))!important;height:calc(44px + var(--sbar,0px))!important;top:0!important;box-sizing:border-box}
+/* 7.1.11 her: upright, the title row sits right under iOS's clock bubble (it ends about 75 down), not a whole row lower;
+   sideways, the title row is level with iOS's badge on the right (about 15-110 down, middle about 56) and OUTSIDE starts under it */
+:root[data-badge]:not([data-cover]) .top{height:112px!important}
 </style>
 
 <div id="app" class="app"></div>
@@ -4657,7 +4660,7 @@ function detectCover() {
      status bar (black-translucent); --sbar is how far each screen keeps clear of it (what env(top) used to be: nothing was
      drawn there before). Every screen keeps exactly its old room - except the Duo inside screen upright (data-duoup), where
      the header moves up into that band, left of iOS's clock bubble. Cover and sideways keep 0 as before. */
-  const duoUp = iPhone && w === 669 && h >= 930;   /* 7.1.5: only once iOS really gives the band (951 tall); until then (869) nothing moves */
+  const duoUp = iPhone && Math.min(w, h) >= 500 && h > w;   /* 7.1.11: any unfolded iPhone held upright (7.1.5's exact 669 x 930+ missed at times, leaving the band black) */
   if (duoUp) document.documentElement.setAttribute('data-duoup', ''); else document.documentElement.removeAttribute('data-duoup');
   { const sb = (land || (COVER_HINT(w, h))) ? 0 : Math.round(safeArea().t);   /* 7.1.9: the Duo upright keeps clear of the band too (iOS takes taps there) */
     if (document.documentElement.style.getPropertyValue('--sbar') !== sb + 'px') document.documentElement.style.setProperty('--sbar', sb + 'px'); }
