@@ -749,3 +749,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.1.7 — 2026-11-20 Duo upright header lines up with iOS's clock bubble
 - Re-adding the Home Screen app made black-translucent take effect (her 01:38 screenshot). Her: the header sat too high; title and icons should be level with iOS's bubble, cameras start just under it. data-duoup .top: 84 high with 12 top padding (row middle about 48, bubble about 21-75).
+
+## 7.1.8 — 2026-11-20 Per Row kept apart: unfolded upright / unfolded sideways / folded
+- Her: upright and sideways must not share Per Row; nor with the cover. Fold.key() is now 'n' (folded / cover), 'w' (unfolded upright), 'l' (unfolded sideways); 'l' falls back to the old 'w' value only if never set. One-time start (fold.split78): upright 3, sideways 4, both grid. Settings label: Per Row · Unfolded Upright / · Unfolded Sideways / · Folded. Tested: turning switches 3 ↔ 4, cover keeps its own.
