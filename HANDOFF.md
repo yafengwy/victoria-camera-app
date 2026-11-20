@@ -782,3 +782,8 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.2.7 — 2026-11-20 Normal phones: Alerts auto play again
 - Her rule: Duo-only changes. isDuoScreen() = data-cover / data-badge / data-duoup. evAutoPlay plays the top alert while scrolling on normal phones again (as before 11-18); tap-to-play and tap-empty-to-close stay Duo only. (Demo data can't test auto play: it needs Frigate.)
+
+## 7.2.8 — 2026-11-20 Foldables share the inside-screen layouts; upright group box "A"
+- Her rule: inside-screen layout rules are for every foldable opened (Galaxy Fold too); only iOS clock bubble / badge clearances are Duo-only.
+- New data-foldup / data-foldside: iPhone or Android Mobile UA, short side >= 500, long side < 1300 (no iPads / Android tablets). Moved to them: Alerts grid (2 / 3 a row) and names, camera view --fw 280 and lanes sideways, big-picture group rows, Home Auto 4 sideways, opened-camera panel 3 wide, isDuoScreen (tap to play, drag rule). data-duoup / data-badge keep header / badge offsets.
+- data-foldup camera view: opened group box spans from left 44 to right 8, two pictures a row (104 rows, 3 rows show); fold map / scroll use row = floor(i / C).
