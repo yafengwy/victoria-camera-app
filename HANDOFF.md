@@ -796,3 +796,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.3.1 — 2026-11-20 Duo cover in the notification browser: compact camera view
 - data-coverweb: iPhone, not the Home Screen app (COVER off), screen reports 466 (the Duo cover) and the page is under 500 wide (HA notification's browser, ~382). It gets the cover "B" camera-view rules (compact bar, times in the Today row, small Today / Download / Bell). Cover app and coverweb: bottom −10s / pause / Live / +10s buttons 38 high (were 52). Normal phones unchanged (checked).
+
+## 7.3.2 — 2026-11-20 Camera view pinch zoom on every phone
+- Her: reverses her 4.8.5 rule. FZF.can() is now any camera view outside full screen (upright phones too, all phones). Zoom happens on the phone only; no mini PC load.

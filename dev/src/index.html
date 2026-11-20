@@ -6763,12 +6763,12 @@ const WZ = {
   }
 };
 /* 4.8.8: the computer's camera view (picture on the left, timeline on the right) zooms its picture the same way; the
-   timeline never moves. On a phone held upright (timeline under the picture) the camera view does not zoom. */
+   timeline never moves. 7.3.2 her: a phone held upright (timeline under the picture) zooms too. */
 const FZF = mkZoom({
   host: () => document.querySelector('.focus .fvid'), root: () => document.querySelector('.focus .fvid'),
   keep: n => ['fov', 'fnmbr', 'tag', 'offv', 'pillk'].some(k => n.classList.contains(k)),
   side: e => !!(e.target.closest && e.target.closest('.fov')) && !(e.touches && e.touches.length > 1),
-  can: () => { if (S.full) return false; const v = document.querySelector('.focus .fvid'), sc = document.querySelector('.focus .fscroll'); if (!v || !sc) return false; return sc.getBoundingClientRect().left >= v.getBoundingClientRect().right - 4; }
+  can: () => !S.full && !!document.querySelector('.focus .fvid')   /* 7.3.2 her: every phone, upright too (was only with the timeline beside the picture) */
 });
 /* behave like an app, not a web page: the page itself never zooms (pinch, double tap, or tapping a text box) and never
    slides sideways; the app's own pinches (timelines, full-screen zoom) use touch events and keep working */
