@@ -4652,7 +4652,7 @@ function detectCover() {
      status bar (black-translucent); --sbar is how far each screen keeps clear of it (what env(top) used to be: nothing was
      drawn there before). Every screen keeps exactly its old room - except the Duo inside screen upright (data-duoup), where
      the header moves up into that band, left of iOS's clock bubble. Cover and sideways keep 0 as before. */
-  const duoUp = iPhone && w === 669 && h > w;
+  const duoUp = iPhone && w === 669 && h >= 930;   /* 7.1.5: only once iOS really gives the band (951 tall); until then (869) nothing moves */
   if (duoUp) document.documentElement.setAttribute('data-duoup', ''); else document.documentElement.removeAttribute('data-duoup');
   { const sb = (duoUp || land || (COVER_HINT(w, h))) ? 0 : Math.round(safeArea().t);
     if (document.documentElement.style.getPropertyValue('--sbar') !== sb + 'px') document.documentElement.style.setProperty('--sbar', sb + 'px'); }

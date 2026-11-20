@@ -740,3 +740,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 - meta apple-mobile-web-app-status-bar-style = black-translucent. All 17 env(safe-area-inset-top) uses (not .sprobe) became var(--sbar); detectCover sets --sbar = measured top inset, but 0 on the Duo cover (COVER_HINT 440-500 wide), sideways (land) and Duo upright (data-duoup, 669 wide and taller). body padding-top: var(--sbar); a black strip (body::before) sits behind the status bar (iOS's text is white with this setting, so light pages need it).
 - data-duoup: header / Alerts / Review top bars and the camera view's top row keep 150px free on the right for iOS's clock bubble; dialogs and the More menu start 84 down. DUO_FULL no longer lists 669 (its height changes with this setting).
 - iOS may only pick up the meta after the app is closed and opened again (or re-added to the Home Screen).
+
+## 7.1.5 — 2026-11-20 Duo upright: header moves only once iOS gives the band
+- Her 01:35 screenshot: 7.1.4 loaded (icons moved left) but iOS still kept the band (page 669x869): the status-bar meta is only read when the Home Screen app is added. data-duoup now needs a page 930+ tall, so nothing moves until then.
