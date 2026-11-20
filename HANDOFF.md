@@ -755,3 +755,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.1.9 — 2026-11-20 Duo upright: buttons back under iOS's band
 - Her: in 7.1.7 nothing in the header could be tapped (iOS's status bar takes taps in its band, about 0-82). The Duo upright now uses --sbar like other phones (everything starts under the band); only the Home header's colour reaches up into the band (no black strip there), with title and buttons centred in the 60 row under it.
+
+## 7.1.10 — 2026-11-20 Duo inside screen: an opened camera's panel is 3 cameras wide
+- Her: Home, tapping a camera opens its panel 2 cameras wide; on the Duo inside screen (upright 3 a row, sideways 4 a row) it is now 3 wide: the whole row upright; sideways 3 of 4 over the opened camera (start col max(1, min(k+1, n-2))). Beside the tall Doorbell the panel fills the side. panel(c, col, span). Other phones / cover unchanged.

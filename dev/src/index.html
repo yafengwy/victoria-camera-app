@@ -5086,6 +5086,7 @@ function viewHome() {
       /* 3 or more per row (wide screens): the panel is only 2 columns wide, right under the opened camera, and the
          next cameras fill the rest of that row (dense flow); 1–2 per row it spans the whole row as before */
       const half = n >= 3 && cams.some(c => c.id === S.expanded), anyTall = cams.some(isTall);
+      const duoIn = /iPhone/.test(navigator.userAgent) && Math.min(innerWidth, innerHeight) >= 500;   /* the Duo opened (inside screen) */
       h += '<div class="grid' + (S.layout === 'grid' ? ' compact' : '') + (half || (anyTall && n >= 3) ? ' dense' : '') + '" style="--cols:' + n + '">';
       /* an upright camera (the Doorbell): 1–2 per row it shares a row with the next camera, both the same height, so its
          picture is whole with no grey sides; 3 or more per row it is two rows tall */
@@ -5116,13 +5117,16 @@ function viewHome() {
           const side = row.cams.slice(1), m = n - 1, sk = k - 1, after = sk >= 0 ? Math.min(side.length, (Math.floor(sk / m) + 1) * m) : -1;
           let inner = '';
           /* 3 or more beside it: the panel is 2 cameras wide, under the opened camera's pair (like the other rows) */
-          const pc = m >= 3 && sk >= 0 ? Math.min(Math.floor((sk % m) / 2) * 2 + 1, m - 1) : 0;
+          const pc = !duoIn && m >= 3 && sk >= 0 ? Math.min(Math.floor((sk % m) / 2) * 2 + 1, m - 1) : 0;   /* 7.1.10: Duo inside screen - the panel fills the side (3 wide) */
           side.forEach((c, i) => { inner += camCard(c); if (i + 1 === after) inner += panel(Data.cam(S.expanded), pc); });
           h += '<div class="tallblock' + (after > 0 ? ' haspanel' : '') + '" style="--tcols:' + m + ';--ar:' + row.cams[0].ar.toFixed(4) + '">' + camCard(row.cams[0]) + '<div class="grid tbgrid' + (S.layout === 'grid' ? ' compact' : '') + (pc ? ' dense' : '') + '" style="--cols:' + m + '">' + inner + '</div></div>';
         }
         else if (row.pair) h += '<div class="pairrow">' + row.cams.map(c => camCard(c, isTall(c) ? c.ar : 16 / 9)).join('') + '</div>';
         else row.cams.forEach(c => { h += camCard(c, 0, n >= 3 && isTall(c)); });
-        if (k >= 0 && !(row.block && k > 0)) h += panel(Data.cam(S.expanded), half && !row.block ? Math.min(Math.floor(k / 2) * 2 + 1, n - 1) : half && row.block ? 1 : 0);   /* 3.5.9: the tall Doorbell's panel is 2 cameras wide too, not the whole screen */   /* cameras pair up: 1–2 → columns 1–2, 3–4 → 3–4 */
+        /* 7.1.10 her (Duo inside screen, upright and sideways): the opened camera's panel is 3 cameras wide - the whole row
+           upright (3 a row), 3 of the 4 sideways, over the opened camera's column */
+        if (k >= 0 && !(row.block && k > 0)) h += duoIn && half ? panel(Data.cam(S.expanded), row.block ? 1 : Math.max(1, Math.min(k + 1, n - 2)), 3)
+          : panel(Data.cam(S.expanded), half && !row.block ? Math.min(Math.floor(k / 2) * 2 + 1, n - 1) : half && row.block ? 1 : 0);   /* 3.5.9: the tall Doorbell's panel is 2 cameras wide too, not the whole screen */   /* cameras pair up: 1–2 → columns 1–2, 3–4 → 3–4 */
       });
       h += '</div>';
     }
@@ -5354,7 +5358,7 @@ const Dev = {
     const cam = S.expanded; setTimeout(() => this.load(cam), 1500); setTimeout(() => this.load(cam), 6000); setTimeout(() => this.load(cam), 20000);
   }
 };
-function panel(c, col) {
+function panel(c, col, span) {
   const t = camT(c.id), live = t == null;
   const start = S.winEnd - S.win;
   const evs = camEvents(c.id);
@@ -5378,7 +5382,7 @@ function panel(c, col) {
       '<button class="cbtn dark" data-act="clipsave" data-v="dl" aria-label="Download Clip">' + I.dl + '</button></div>' +
       '<div class="cliptxt">' + (cl.a ? 'Start ' + hms(cl.a) : 'Start —') + ' · ' + (cl.b ? 'End ' + hms(cl.b) : 'End —') + '</div>';
   }
-  return '<div class="panel' + (col ? ' half' : '') + '" id="panel"' + (col ? ' style="grid-column:' + col + ' / span 2"' : '') + '>' +
+  return '<div class="panel' + (col ? ' half' : '') + '" id="panel"' + (col ? ' style="grid-column:' + col + ' / span ' + (span || 2) + '"' : '') + '>' +
     '<div class="pctl g3"><span class="psp pl"></span>' +
     '<div class="trio">' +
     '<button data-act="pstep" data-v="-5" aria-label="Back 5 Seconds">' + I.back5 + '</button>' +   /* 3.10.4: −5 s / +5 s beside Pause */
