@@ -6623,7 +6623,15 @@ function mkZoom(cfg) { return {
      moves or grows with the picture. A wide foldable opened flat is already landscape, so it gets the same full screen
      without turning. */
   can: cfg.can,
-  vars(w) { w.style.setProperty('--zs', this.s); w.style.setProperty('--zx', this.x + 'px'); w.style.setProperty('--zy', this.y + 'px'); w.classList.toggle('zoomed', this.s > 1.01); },
+  vars(w) { w.style.setProperty('--zs', this.s); w.style.setProperty('--zx', this.x + 'px'); w.style.setProperty('--zy', this.y + 'px'); w.classList.toggle('zoomed', this.s > 1.01);
+    /* 7.3.3 her: in the camera view (timeline under the picture) the zoomed picture must stay inside its own box, not spill over
+       the top buttons and the timeline: each zoomed layer is clipped, in its own coordinates, to the box */
+    if (w.matches('.focus .fvid')) { const W = w.clientWidth, H = w.clientHeight, z = this.s;
+      for (const n of w.children) { if (this.keep(n)) continue;
+        if (z <= 1.01) { n.style.clipPath = ''; continue; }
+        const ol = n.offsetLeft, ot = n.offsetTop, cw = n.offsetWidth, ch = n.offsetHeight;
+        const l = -this.x / z - ol, t = -this.y / z - ot, r = cw - ((W - this.x) / z - ol), b = ch - ((H - this.y) / z - ot);
+        n.style.clipPath = 'inset(' + Math.max(0, t).toFixed(1) + 'px ' + Math.max(0, r).toFixed(1) + 'px ' + Math.max(0, b).toFixed(1) + 'px ' + Math.max(0, l).toFixed(1) + 'px)'; } } },
   /* every layer zooms around the same point (the picture box's corner); read once per gesture, not on every move
      (reading the layout on every finger move is what made the zoom stutter) */
   prep(w) { for (const n of w.children) { if (this.keep(n)) continue;

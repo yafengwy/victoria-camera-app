@@ -799,3 +799,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.3.2 — 2026-11-20 Camera view pinch zoom on every phone
 - Her: reverses her 4.8.5 rule. FZF.can() is now any camera view outside full screen (upright phones too, all phones). Zoom happens on the phone only; no mini PC load.
+
+## 7.3.3 — 2026-11-20 Camera view zoom stays inside the picture box
+- Her screenshot: zoomed picture spilled over the top buttons and the timeline. FZF.vars clips each zoomed layer of .focus .fvid (clip-path inset in its own coordinates, from offset / --zx / --zy / --zs) to the box; the top buttons (fov, above the box) stay visible.
