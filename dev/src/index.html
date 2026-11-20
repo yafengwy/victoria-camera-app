@@ -1945,7 +1945,7 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 :root:is([data-foldside],[data-foldup]):not([data-cover]) .focus .fsr span{display:none}
 :root:is([data-foldside],[data-foldup]):not([data-cover]) .focus .fsr.cur img{outline:2px solid var(--dark-accent);outline-offset:-2px}
 /* 7.2.8 her choice "A" (any foldable opened upright): the opened group's box reaches left over the empty space, two big pictures a row */
-:root[data-foldup]:not([data-cover]) .focus .fsub{left:44px!important;width:auto!important;right:8px!important}
+:root[data-foldup]:not([data-cover]) .focus .fsub{left:auto!important;width:calc((100% - 52px) * .8)!important;right:8px!important}   /* 7.2.9 her: 20% narrower */
 :root[data-foldup]:not([data-cover]) .focus .fsubin{display:grid;grid-template-columns:1fr 1fr;column-gap:4px;align-content:start}
 :root[data-foldup]:not([data-cover]) .focus .fsr{height:104px!important}
 :root[data-foldup]:not([data-cover]) .focus .fsr img{height:98px!important}
@@ -9312,13 +9312,7 @@ function hoverPreview(el, id, timeAt, repaint, line) {
   el.addEventListener('pointerleave', () => { if (!S.hov) return; off(); repaint(); });
   el.addEventListener('pointerdown', () => { if (!S.hov) return; off(); });
 }
-/* 7.2.6 her rule (iPhone Duo only - cover, inside upright and sideways): a finger dragging inside an opened group's rows box moves only those rows; when they all show already
-   (nothing to scroll) the drag does nothing - it no longer falls through to the timeline. Outside the box it moves the timeline. */
-document.addEventListener('touchmove', e => {
-  const box = e.target.closest && e.target.closest('.fsubin'); if (!box) return;
-  const r = document.documentElement; if (!isDuoScreen()) return;   /* her rule: only the Duo; normal phones unchanged */
-  if (box.scrollHeight <= box.clientHeight + 1) e.preventDefault();
-}, { passive: false });
+/* 7.2.9 her: the 7.2.6 rule (a drag in a box with nothing to scroll does nothing) is undone - such a drag moves the timeline again */
 function dragScroll(el, vertical) {
   if (!el || el._drag) return; el._drag = true;
   let st = null;
