@@ -1862,26 +1862,21 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
    Newest first, left to right, then the next row. Card = Type At Time on top, the picture, and Download / Delete / Play
    over the picture's bottom; Fix, Who?, All Cameras and Sound show while that alert plays, when it spans the whole row.
    Nothing plays by itself any more: a tap plays it (6.9.7 her rule). */
-:root:root[data-view="events"] .evwrap:not(.wide) .evlist{display:grid!important;grid-template-columns:1fr 1fr 1fr;gap:5px!important;align-content:start}
-:root:root[data-cover][data-cover][data-view="events"] .evwrap:not(.wide) .evlist{grid-template-columns:1fr 1fr}
-:root:root[data-view="events"] .evwrap:not(.wide) .evlist > :not(.evcard){grid-column:1/-1}
-:root:root[data-view="events"] .evwrap:not(.wide) .evcard{position:relative;min-width:0}
-:root:root[data-view="events"] .evwrap:not(.wide) .evcard:has(.evv,.evprog){grid-column:1/-1}
-:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evh{height:26px;padding:0 6px!important}
-:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evt b{font-size:11.5px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evt b .lico svg{width:14px;height:14px}
-:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evx{position:absolute;right:28px;bottom:2px;z-index:4;display:flex}
-:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evx > :not([data-act="evdl"]):not([data-act="evdelask"]){display:none!important}
-:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evh > [data-act="evplay"]{position:absolute;right:2px;bottom:2px;z-index:4}
-:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evh .ic{width:28px!important;height:28px!important;color:#fff!important;filter:drop-shadow(0 1px 2px rgba(0,0,0,.8))}
-:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evh .ic svg{width:17px!important;height:17px!important}
-:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog))::after{content:"";position:absolute;left:0;right:0;bottom:0;height:34px;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.6));pointer-events:none;z-index:2}
-:root:root[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evnm{height:20px;line-height:20px;font-size:10.5px;padding:0 7px;max-width:calc(100% - 92px)}
-:root:root:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evt b{font-size:12px}
-:root:root:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evty{display:none}   /* three across: the icon tells the type, so the exact time fits */
-:root:root:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evh .ic{width:24px!important}
-:root:root:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evx{right:24px}
-:root:root:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evnm{bottom:30px!important;max-width:calc(100% - 8px);font-size:10px}
+:root:root:is([data-duoup],[data-badge]):not([data-cover])[data-view="events"] .evwrap:not(.wide) .evlist{display:grid!important;grid-template-columns:1fr 1fr;gap:5px!important;align-content:start}
+:root:root[data-badge]:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evlist{grid-template-columns:1fr 1fr 1fr}   /* 7.2.5 her: sideways 3 a row, upright 2; the cover and other phones one per row again */
+:root:root:is([data-duoup],[data-badge]):not([data-cover])[data-view="events"] .evwrap:not(.wide) .evlist > :not(.evcard){grid-column:1/-1}
+:root:root:is([data-duoup],[data-badge]):not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard{position:relative;min-width:0}
+:root:root:is([data-duoup],[data-badge]):not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:has(.evv,.evprog){grid-column:1/-1}
+:root:root:is([data-duoup],[data-badge]):not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evh{height:26px;padding:0 6px!important}
+:root:root:is([data-duoup],[data-badge]):not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evt b{font-size:11.5px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+:root:root:is([data-duoup],[data-badge]):not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evt b .lico svg{width:14px;height:14px}
+:root:root:is([data-duoup],[data-badge]):not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evx{position:absolute;right:28px;bottom:2px;z-index:4;display:flex}
+:root:root:is([data-duoup],[data-badge]):not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evx > :not([data-act="evdl"]):not([data-act="evdelask"]){display:none!important}
+:root:root:is([data-duoup],[data-badge]):not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evh > [data-act="evplay"]{position:absolute;right:2px;bottom:2px;z-index:4}
+:root:root:is([data-duoup],[data-badge]):not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evh .ic{width:28px!important;height:28px!important;color:#fff!important;filter:drop-shadow(0 1px 2px rgba(0,0,0,.8))}
+:root:root:is([data-duoup],[data-badge]):not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evh .ic svg{width:17px!important;height:17px!important}
+:root:root:is([data-duoup],[data-badge]):not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog))::after{content:"";position:absolute;left:0;right:0;bottom:0;height:34px;background:linear-gradient(rgba(0,0,0,0),rgba(0,0,0,.6));pointer-events:none;z-index:2}
+:root:root:is([data-duoup],[data-badge]):not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evnm{height:20px;line-height:20px;font-size:10.5px;padding:0 7px;max-width:calc(100% - 92px)}
 /* 6.9.9 her choice (mockup "C"): cover list pictures about twice as big (92x69); three lines: what / camera · how long / time */
 :root:root[data-cover][data-cover] .rvdock.l .rvlist .rvli{gap:7px!important;padding:4px!important;align-items:center}
 :root:root[data-cover][data-cover] .rvdock.l .rvlist .rvli img{width:92px!important;height:69px!important;flex:none}
@@ -1909,7 +1904,7 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 /* 6.10.6 her (Duo inner screen sideways only): the hour scale on the right twice as wide, so the alerts (and a playing
    alert's Pause / Sound buttons) sit further left of iOS's badge; camera names in the grid sit in the picture's bottom-left */
 :root[data-badge]:not([data-cover]) .hours{width:68px!important;padding-left:36px!important;box-sizing:border-box}
-:root:root[data-badge]:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evnm{bottom:6px!important;left:6px!important;max-width:calc(100% - 100px);font-size:10.5px}
+:root:root[data-badge]:not([data-cover])[data-view="events"] .evwrap:not(.wide) .evcard:not(:has(.evv,.evprog)) .evnm{bottom:6px!important;left:6px!important;max-width:calc(100% - 100px);font-size:11px}
 /* 6.10.8 her choice "B" (cover camera view): more room for the timeline list. The bar's room stays fixed (5.10.7 rule) but
    is lower: smaller object icons; the two times move down into the Today row, which is smaller and centred:
    start time · Today ... Download · Bell · end time. One row less, so the list starts about 70 higher. */

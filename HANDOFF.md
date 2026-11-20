@@ -771,3 +771,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.2.4 — 2026-11-20 Duo sideways camera view: right column 30% narrower
 - data-badge: .focus --fw 280 (was ~400); timeline lanes pulled left (marks 40, frail 74, cards / sub rows from 90) so the cards keep text room.
+
+## 7.2.5 — 2026-11-20 Alerts grid only on the Duo inside screen
+- Her: cover (and any other phone, incl. the Safari view opened from a notification) back to one per row (the old list). Duo inside: upright 2 a row (data-duoup), sideways 3 (data-badge). Removed the narrow 3-across tweaks (hidden "Type At", names above buttons).
