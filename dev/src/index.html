@@ -6131,8 +6131,8 @@ function checkRow(k, label, on) {
 
 /* ===== Focus view (double tap) ===== */
 /* pixels per minute on the vertical timeline. 7.3.5 her: on the iPhone Duo / foldables 3.5 (an hour 210 px), so alerts
-   share one card only within about 20 minutes (one card is ~70 px); normal phones keep 2 (about 35 minutes) */
-const FPXf = () => (typeof isDuoScreen === 'function' && isDuoScreen()) ? 3.5 : 2;
+   share one card only within about 20 minutes (one card is ~70 px); 7.3.6: every phone and the computer */
+const FPXf = () => 3.5;   /* 7.3.6 her: normal phones too */
 const FTOP = 24;
 /* 5.3.4: the alert on screen at time t (the one the camera view frames: t within 3 s of it), a real alert before a
    motion piece, the latest one if two overlap */

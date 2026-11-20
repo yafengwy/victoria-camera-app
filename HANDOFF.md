@@ -808,3 +808,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.3.5 — 2026-11-20 Camera view timeline: alerts merge within ~20 min on the Duo
 - Cards merge when closer than one card (70 px). FPX (px per minute) is now FPXf(): 3.5 on Duo / foldable screens (isDuoScreen), so ~20 min; normal phones keep 2 (~35 min).
+
+## 7.3.6 — 2026-11-20 ~20 min merge on every phone
+- Her: normal phones too. FPXf() = 3.5 everywhere.
