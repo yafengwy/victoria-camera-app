@@ -746,3 +746,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.1.6 — 2026-11-20 Short-page reload removed (it does not help)
 - Her log 01:34: 678x384 → reload → still 678x384. The 82 short is iOS's own frame (the old status-bar inset applied stale); a page reload cannot change it, only closing the app. fixShort now only logs. Hope: once the app is re-added with black-translucent (no status-bar inset at all), iOS has nothing stale to subtract.
+
+## 7.1.7 — 2026-11-20 Duo upright header lines up with iOS's clock bubble
+- Re-adding the Home Screen app made black-translucent take effect (her 01:38 screenshot). Her: the header sat too high; title and icons should be level with iOS's bubble, cameras start just under it. data-duoup .top: 84 high with 12 top padding (row middle about 48, bubble about 21-75).
