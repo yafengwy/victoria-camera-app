@@ -793,3 +793,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.2.10 — 2026-11-20 Full group box lets drags through to the timeline
 - Her: dragging in a box that shows everything still did not move the timeline (the box stayed a scroll container with overscroll contain). fold.fit → .fsubin.fit: overflow hidden, touch-action auto, so the drag chains to the timeline.
+
+## 7.3.1 — 2026-11-20 Duo cover in the notification browser: compact camera view
+- data-coverweb: iPhone, not the Home Screen app (COVER off), screen reports 466 (the Duo cover) and the page is under 500 wide (HA notification's browser, ~382). It gets the cover "B" camera-view rules (compact bar, times in the Today row, small Today / Download / Bell). Cover app and coverweb: bottom −10s / pause / Live / +10s buttons 38 high (were 52). Normal phones unchanged (checked).

@@ -1951,6 +1951,17 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 :root[data-foldup]:not([data-cover]) .focus .fsr img{height:98px!important}
 /* 7.2.10 her: a box whose pictures all show is not a scroller at all, so a finger dragging in it moves the timeline */
 .fsubin.fit{overflow:hidden;touch-action:auto;overscroll-behavior:auto}
+:root:root[data-coverweb][data-coverweb] .focus>.fseek{min-height:38px;position:relative}
+:root:root[data-coverweb][data-coverweb] .fseek .evmk svg{width:14px!important;height:14px!important}:root:root[data-coverweb][data-coverweb] .fseek .evmk{height:16px!important}
+:root:root[data-coverweb][data-coverweb] .fseek .evbt{position:absolute;left:12px;right:12px;top:calc(100% - 8px);margin:0!important;height:32px;align-items:center;pointer-events:none;z-index:2;font-size:11px}
+:root:root[data-coverweb][data-coverweb] .focus>.fctl{height:32px;gap:6px;padding:0 64px;margin-top:-8px}
+:root:root[data-coverweb][data-coverweb] .focus>.fctl{pointer-events:none;position:relative;z-index:3}:root:root[data-coverweb][data-coverweb] .focus>.fctl>*{pointer-events:auto}
+:root:root[data-coverweb][data-coverweb] .focus>.fctl .dk{width:28px!important;height:28px!important;flex-shrink:0}:root:root[data-coverweb][data-coverweb] .focus>.fctl .dk svg{width:16px;height:16px}
+/* 7.2.11 her: on the Duo cover (app and notification browser) the bottom skip / pause / Live buttons are smaller */
+:root:is([data-cover],[data-coverweb]) .focus .fsteps{gap:7px}
+:root:is([data-cover],[data-coverweb]) .focus .fstep{height:38px!important;min-width:46px!important;padding:0 9px!important;font-size:13px!important;border-radius:19px}
+:root:is([data-cover],[data-coverweb]) .focus .fstep.fpp{width:40px!important;min-width:40px!important}:root:is([data-cover],[data-coverweb]) .focus .fstep.fpp svg{width:17px;height:17px}
+:root:is([data-cover],[data-coverweb]) .focus .fsteps .livepill{height:38px!important;padding:0 14px!important;font-size:13px!important}
 </style>
 
 <div id="app" class="app"></div>
@@ -3005,7 +3016,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 7.2.10 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 7.3.1 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -4671,6 +4682,10 @@ function detectCover() {
   const auto = standalone && iPhone && h > w && w < 600 && (sa.r >= 20 || (w / h >= 0.64 && w >= 420));
   const duoSim = /[?&]duo=1(&|$)/.test(location.search);   /* 6.8.6: inside duo.html (the Duo cover-screen preview) */
   COVER = duoSim ? true : S.cover === 'on' ? true : S.cover === 'off' ? false : auto;
+  /* 7.2.11 her: the Duo cover screen inside the Home Assistant notification's browser (not the Home Screen app): the page is
+     ~382 wide and the phone's screen reports the cover's 466 x 678; it keeps the phone layout but gets the cover's compact
+     camera view (smaller buttons, bar and Today row) */
+  document.documentElement.toggleAttribute('data-coverweb', !COVER && iPhone && Math.min(screen.width, screen.height) === 466 && w < 500);
   /* 6.9.11 her: iPhone sideways (Duo inner screen) - iOS keeps its sleep / battery badge in the top-right corner, about 80 wide
      and 90 tall, so the top icons and the first group's arrow move left of it */
   const land = iPhone && w > h && w >= 700 && w < 1000;
@@ -7749,7 +7764,7 @@ function modalSettings() {
     row('Mute Notifications', '<button class="btn" data-act="snzopen">' + (SNZ_WHO.some(x => Snz.on(x[0])) ? SNZ_WHO.filter(x => Snz.on(x[0])).map(x => x[1] + ' ' + Snz.left(x[0])).join(' · ') : 'Open') + '</button>') +   /* 6.9.4 per person, 30 Min to 8 Hours */
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     /* 6.10.10 her: Duo Preview row removed (she has the Duo now); duo.html stays for testing */
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 7.2.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 7.3.1 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -8044,7 +8059,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 7.2.10');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 7.3.1');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -8061,7 +8076,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 7.2.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 7.3.1\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -9479,7 +9494,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '7.2.10';
+    const BUILD = '7.3.1';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

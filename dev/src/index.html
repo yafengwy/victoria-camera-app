@@ -1951,6 +1951,17 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 :root[data-foldup]:not([data-cover]) .focus .fsr img{height:98px!important}
 /* 7.2.10 her: a box whose pictures all show is not a scroller at all, so a finger dragging in it moves the timeline */
 .fsubin.fit{overflow:hidden;touch-action:auto;overscroll-behavior:auto}
+:root:root[data-coverweb][data-coverweb] .focus>.fseek{min-height:38px;position:relative}
+:root:root[data-coverweb][data-coverweb] .fseek .evmk svg{width:14px!important;height:14px!important}:root:root[data-coverweb][data-coverweb] .fseek .evmk{height:16px!important}
+:root:root[data-coverweb][data-coverweb] .fseek .evbt{position:absolute;left:12px;right:12px;top:calc(100% - 8px);margin:0!important;height:32px;align-items:center;pointer-events:none;z-index:2;font-size:11px}
+:root:root[data-coverweb][data-coverweb] .focus>.fctl{height:32px;gap:6px;padding:0 64px;margin-top:-8px}
+:root:root[data-coverweb][data-coverweb] .focus>.fctl{pointer-events:none;position:relative;z-index:3}:root:root[data-coverweb][data-coverweb] .focus>.fctl>*{pointer-events:auto}
+:root:root[data-coverweb][data-coverweb] .focus>.fctl .dk{width:28px!important;height:28px!important;flex-shrink:0}:root:root[data-coverweb][data-coverweb] .focus>.fctl .dk svg{width:16px;height:16px}
+/* 7.2.11 her: on the Duo cover (app and notification browser) the bottom skip / pause / Live buttons are smaller */
+:root:is([data-cover],[data-coverweb]) .focus .fsteps{gap:7px}
+:root:is([data-cover],[data-coverweb]) .focus .fstep{height:38px!important;min-width:46px!important;padding:0 9px!important;font-size:13px!important;border-radius:19px}
+:root:is([data-cover],[data-coverweb]) .focus .fstep.fpp{width:40px!important;min-width:40px!important}:root:is([data-cover],[data-coverweb]) .focus .fstep.fpp svg{width:17px;height:17px}
+:root:is([data-cover],[data-coverweb]) .focus .fsteps .livepill{height:38px!important;padding:0 14px!important;font-size:13px!important}
 </style>
 
 <div id="app" class="app"></div>
@@ -4671,6 +4682,10 @@ function detectCover() {
   const auto = standalone && iPhone && h > w && w < 600 && (sa.r >= 20 || (w / h >= 0.64 && w >= 420));
   const duoSim = /[?&]duo=1(&|$)/.test(location.search);   /* 6.8.6: inside duo.html (the Duo cover-screen preview) */
   COVER = duoSim ? true : S.cover === 'on' ? true : S.cover === 'off' ? false : auto;
+  /* 7.2.11 her: the Duo cover screen inside the Home Assistant notification's browser (not the Home Screen app): the page is
+     ~382 wide and the phone's screen reports the cover's 466 x 678; it keeps the phone layout but gets the cover's compact
+     camera view (smaller buttons, bar and Today row) */
+  document.documentElement.toggleAttribute('data-coverweb', !COVER && iPhone && Math.min(screen.width, screen.height) === 466 && w < 500);
   /* 6.9.11 her: iPhone sideways (Duo inner screen) - iOS keeps its sleep / battery badge in the top-right corner, about 80 wide
      and 90 tall, so the top icons and the first group's arrow move left of it */
   const land = iPhone && w > h && w >= 700 && w < 1000;
