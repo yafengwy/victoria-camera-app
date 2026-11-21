@@ -1985,6 +1985,10 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
    the band like Home; with the list open, the list starts under the second camera row */
 :root[data-duoup] .rvtop,:root[data-duoup] .evtop{top:0!important;margin-top:calc(0px - var(--sbar,0px));padding-top:max(0px,calc(var(--sbar,0px) - 12px))}
 :root[data-foldup]:not([data-cover]) .rvdock.l .rvlist{height:var(--rvfl,38vh)}
+/* 7.4.6 her: foldable upright Review list two across */
+:root[data-foldup]:not([data-cover]) .rvdock.l .rvlist{display:grid!important;grid-template-columns:1fr 1fr;align-content:start;column-gap:6px}
+:root[data-foldup]:not([data-cover]) .rvdock.l .rvlist > :not(.rvli){grid-column:1/-1}
+:root[data-foldup]:not([data-cover]) .rvdock.l .rvli{min-width:0}
 </style>
 
 <div id="app" class="app"></div>

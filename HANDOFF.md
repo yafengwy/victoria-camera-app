@@ -840,3 +840,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 - data-duoup: .rvtop / .evtop pull up into iOS's band like Home (padding sbar-12, band takes the bar colour).
 - data-foldup with the list open: rvFoldFit() sets --rvfl so the list starts under the second camera row.
 - Foldable inside screens: the Boxes button leaves the chips row and sits in the top icons after Layout (reset, layout, boxes, list, date). Cover / normal phones unchanged.
+
+## 7.4.6 — 2026-11-21 Foldable upright Review list two across
+- data-foldup: .rvdock.l .rvlist grid 2 columns; day headers span both.
