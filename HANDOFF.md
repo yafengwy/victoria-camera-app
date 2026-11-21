@@ -829,3 +829,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.4.2 — 2026-11-20 × shows only while the blue line is over the opened box
 - fLineX() (from fPaintLine and the list's scroll): places the × on the rail and hides it unless the line's y is within the opened group (its card + .fsub). Tested: in box shown, scrolled away hidden, back shown.
+
+## 7.4.3 — 2026-11-21 Duo cover Alerts: two across ("C")
+- Her pick (Duo Cover Alerts Options 3.png): the foldable Alerts grid rules now also cover data-cover / data-coverweb: 2 a row, names bottom-left, playing card spans the row, tap to play. Other phones one per row.
