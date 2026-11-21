@@ -843,3 +843,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.4.6 — 2026-11-21 Foldable upright Review list two across
 - data-foldup: .rvdock.l .rvlist grid 2 columns; day headers span both.
+
+## 2026-11-21 13:15 Camera Mode Auto uses person.victoria / person.james
+- Indoor cameras (entry_room, upstairs_living, upstairs_furbo) recorded nothing while she was out: Camera Mode stayed At Home because Camera Mode Auto watched device_tracker.victoria_iphone (old phone left at home). Her person.victoria also tracked Victoria's iPhone, Samsung Z Flip, iPhone 15 Apple Watch (all at home) plus the Duo.
+- New Camera Mode Auto.yaml (outputs): triggers and home checks use person.victoria / person.james; logic unchanged. She removes the at-home trackers from People → Victoria (keeps the Duo). New phone later = edit People only; no helper (her OK).
