@@ -847,3 +847,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 2026-11-21 13:15 Camera Mode Auto uses person.victoria / person.james
 - Indoor cameras (entry_room, upstairs_living, upstairs_furbo) recorded nothing while she was out: Camera Mode stayed At Home because Camera Mode Auto watched device_tracker.victoria_iphone (old phone left at home). Her person.victoria also tracked Victoria's iPhone, Samsung Z Flip, iPhone 15 Apple Watch (all at home) plus the Duo.
 - New Camera Mode Auto.yaml (outputs): triggers and home checks use person.victoria / person.james; logic unchanged. She removes the at-home trackers from People → Victoria (keeps the Duo). New phone later = edit People only; no helper (her OK).
+
+## 7.4.7 (2026-11-21) Duo cover: Fix dialog Save without scrolling (her choice B)
+- On the cover (data-cover / data-coverweb) the cat Fix dialog: It Is A chips on one row (.chips.fixis nowrap, padding 8), the two checks side by side (.fixchk, "Teach Cats Model" short label via .fxlong/.fxshort), explanation notes hidden (.wtnote.fixnote, also in the company Fix dialog). Normal phones and inner screens unchanged.
+- Test fx.js: cover (screen 466×678, 382×603) It Is A 30 px high, no overflow, Save bottom 545 of 603; phone 393 unchanged (two rows, notes shown).

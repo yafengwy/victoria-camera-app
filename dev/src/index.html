@@ -911,6 +911,13 @@ img.rf{opacity:0}
 .msoon.wt{background:#E8F1FF;color:#1F4E9A}
 :root[data-dark] .msoon.wt{background:#14263F;color:#CFE0FB}
 .wtnote{font-size:12px;color:var(--sub);margin:10px 2px 0;line-height:1.4}
+/* 7.4.7 her choice B (Duo cover): Fix dialog — It Is A on one row, the two checks side by side, no explanation text, so Save shows without scrolling */
+:root:is([data-cover],[data-coverweb]) .chips.fixis{flex-wrap:nowrap;gap:5px}
+:root:is([data-cover],[data-coverweb]) .chips.fixis .chip.sm{padding:0 8px;flex:none}
+:root:is([data-cover],[data-coverweb]) .fixchk{display:flex;gap:10px;white-space:nowrap}
+:root:is([data-cover],[data-coverweb]) .fixchk .check{gap:7px;font-size:14px;padding-left:0;padding-right:0;margin-left:0;margin-right:0}
+:root:is([data-cover],[data-coverweb]) .snzd .wtnote.fixnote{display:none}
+.fxshort{display:none}:root:is([data-cover],[data-coverweb]) .fxlong{display:none}:root:is([data-cover],[data-coverweb]) .fxshort{display:inline}
 #objl1[hidden],#objl2[hidden],#objl1 > [hidden],#objl2 > [hidden],#objl3 > [hidden]{display:none !important}
 .objchips{display:flex;flex-wrap:wrap;gap:6px;padding:6px 2px}
 .objchips .chip{font-size:12px;padding:6px 10px;min-height:0;border-radius:10px}
@@ -3961,11 +3968,12 @@ function modalFix() {
     '<div class="dhead">Fix This Alert<button class="ic" style="color:var(--head-fg)" data-act="close" aria-label="Close">' + I.x + '</button></div><div class="dbody">' +
     '<img class="whoimg crop" src="' + evImg(e, p) + '" alt="">' +
     '<div class="lbl" style="margin-top:6px">Which Cat Is It?</div><div class="chips">' + names.map(n => chip(n, niceName(n))).join('') + chip('0', 'Not Ours') + (S.fixKinds || []).map(l => chip('-' + l, 'Not ' + objName(l))).join('') + '</div>' +
-    (cur && cur[0] === '-' && isAnimal(cur.slice(1)) ? '<div class="lbl">It Is A</div><div class="chips">' + FIX_ANIMALS.filter(l => l !== cur.slice(1)).map(l => '<button class="chip sm" data-act="fixis" data-v="' + l + '" aria-pressed="' + (S.fixIs === l) + '">' + esc(objName(l)) + '</button>').join('') + '</div>' : '') +
-    '<div class="lbl">Or Just</div><div class="chips">' + chip('^plus', 'Send To Frigate+') + '</div>' + (cur === '^plus' ? '<div class="wtnote" style="margin:6px 0 0">Send To Frigate+: Nothing Changes Here · One Picture Waits In Frigate+ For You To Verify</div>' : '') +
-    (cur === '^plus' ? '' : '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Teach The Cats Model</button>') +
-    (cur === '0' ? '<div class="wtnote" style="margin:6px 0 0">Not Ours: A Real Animal, But Not 胖胖 Or 团团 · Name Removed, Taught To The Cats Model As None · The Alert Stays</div>' : '') +
-    (cur && cur[0] === '-' ? '<button class="check" role="checkbox" aria-checked="' + (S.fixPlus !== false) + '" data-act="fixplus"><span class="box">' + (S.fixPlus !== false ? I.check : '') + '</span>Send To Frigate+</button>' + '<div class="wtnote" style="margin:6px 0 0">Not ' + esc(objName(cur.slice(1))) + ': Wrong Animal Or Not An Animal · ' + (S.fixPlus !== false ? 'Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) + ' (Draw What It Really Is When You Verify There)' : 'Hidden In This App Only · Nothing Sent Or Learned') + ' · This Alert Goes Away</div>' : '') +
+    (cur && cur[0] === '-' && isAnimal(cur.slice(1)) ? '<div class="lbl">It Is A</div><div class="chips fixis">' + FIX_ANIMALS.filter(l => l !== cur.slice(1)).map(l => '<button class="chip sm" data-act="fixis" data-v="' + l + '" aria-pressed="' + (S.fixIs === l) + '">' + esc(objName(l)) + '</button>').join('') + '</div>' : '') +
+    '<div class="lbl">Or Just</div><div class="chips">' + chip('^plus', 'Send To Frigate+') + '</div>' + (cur === '^plus' ? '<div class="wtnote fixnote" style="margin:6px 0 0">Send To Frigate+: Nothing Changes Here · One Picture Waits In Frigate+ For You To Verify</div>' : '') +
+    '<div class="fixchk">' + (cur === '^plus' ? '' : '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span><span class="fxlong">Teach The Cats Model</span><span class="fxshort">Teach Cats Model</span></button>') +
+    (cur && cur[0] === '-' ? '<button class="check" role="checkbox" aria-checked="' + (S.fixPlus !== false) + '" data-act="fixplus"><span class="box">' + (S.fixPlus !== false ? I.check : '') + '</span>Send To Frigate+</button>' : '') + '</div>' +
+    (cur === '0' ? '<div class="wtnote fixnote" style="margin:6px 0 0">Not Ours: A Real Animal, But Not 胖胖 Or 团团 · Name Removed, Taught To The Cats Model As None · The Alert Stays</div>' : '') +
+    (cur && cur[0] === '-' ? '<div class="wtnote fixnote" style="margin:6px 0 0">Not ' + esc(objName(cur.slice(1))) + ': Wrong Animal Or Not An Animal · ' + (S.fixPlus !== false ? 'Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) + ' (Draw What It Really Is When You Verify There)' : 'Hidden In This App Only · Nothing Sent Or Learned') + ' · This Alert Goes Away</div>' : '') +
     '<button class="btn solid snzgo" data-act="fixsave"' + (cur ? '' : ' disabled') + '>' + (S.fixBusy ? 'Saving…' : 'Save') + '</button>' +
     '</div></div></div>';
 }
@@ -3980,12 +3988,12 @@ function modalCoFix() {
     (car ? '<div class="lbl" style="margin-top:6px">Which Company?</div><div class="chips">' + CoFix.all().map(n => chip(n, isLogo(n) ? coName(n) : n)).join('') + (CoFix.model ? chip('+', '＋ New Company') : '') + '</div>' : '') +
     (cur === '+' ? '<input id="conew" class="field" type="text" placeholder="Company Name, E.g. Instacart" autocomplete="off" value="' + esc(S.coNew || '') + '">' : '') +
     '<div class="lbl"' + (car ? '' : ' style="margin-top:6px"') + '>' + (car ? 'Or' : 'This Is Wrong') + '</div><div class="chips">' + (car ? chip('=car', 'Mark As Car') : '') + (S.fixKinds || []).map(l => chip('-' + l, 'Not ' + objName(l))).join('') + '</div>' +
-    '<div class="lbl">Or Just</div><div class="chips">' + chip('^plus', 'Send To Frigate+') + '</div>' + (cur === '^plus' ? '<div class="wtnote" style="margin:6px 0 0">Send To Frigate+: Nothing Changes Here · One Picture Waits In Frigate+ For You To Verify</div>' : '') +
+    '<div class="lbl">Or Just</div><div class="chips">' + chip('^plus', 'Send To Frigate+') + '</div>' + (cur === '^plus' ? '<div class="wtnote fixnote" style="margin:6px 0 0">Send To Frigate+: Nothing Changes Here · One Picture Waits In Frigate+ For You To Verify</div>' : '') +
     (plus ? '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Send To Frigate+</button>' : '') +
     (cur && cur[0] !== '-' && cur[0] !== '^' && cur !== '=car' && !plus && CoFix.model ? '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Teach The Car Model</button>' : '') +
     (cur && cur[0] === '-' ? '<button class="check" role="checkbox" aria-checked="' + (S.fixTeach !== false) + '" data-act="fixteach"><span class="box">' + (S.fixTeach !== false ? I.check : '') + '</span>Send To Frigate+</button>' : '') +
-    (cur === '+' ? '<div class="wtnote" style="margin:6px 0 0">' + (S.fixTeach !== false ? 'Adds This Company To Your Car Model In Frigate And Teaches It With This Car' : 'Renamed In The App Only · Your Car Model Learns Nothing') + '</div>' : '') +
-    (cur && cur !== '+' && cur !== '=car' && cur !== '^plus' ? '<div class="wtnote" style="margin:6px 0 0">' + (cur[0] === '-' ? 'Not ' + esc(objName(cur.slice(1))) + ': ' + (S.fixTeach !== false ? 'Marked Wrong In Frigate And Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) : 'Hidden In This App Only · Nothing Sent Or Learned') + ' · This Alert Goes Away'
+    (cur === '+' ? '<div class="wtnote fixnote" style="margin:6px 0 0">' + (S.fixTeach !== false ? 'Adds This Company To Your Car Model In Frigate And Teaches It With This Car' : 'Renamed In The App Only · Your Car Model Learns Nothing') + '</div>' : '') +
+    (cur && cur !== '+' && cur !== '=car' && cur !== '^plus' ? '<div class="wtnote fixnote" style="margin:6px 0 0">' + (cur[0] === '-' ? 'Not ' + esc(objName(cur.slice(1))) + ': ' + (S.fixTeach !== false ? 'Marked Wrong In Frigate And Sent To Frigate+ As A Wrong ' + esc(objName(cur.slice(1))) : 'Hidden In This App Only · Nothing Sent Or Learned') + ' · This Alert Goes Away'
       : plus ? esc(coName(cur)) + ': Frigate Renames It Now' + (S.fixTeach !== false ? ' · The Picture Waits In Frigate+ For You To Verify' : '')
       : esc(cur) + ': Frigate Renames It Now' + (S.fixTeach !== false ? ' · Your Car Model Learns It Right Away' : ' · Your Car Model Learns Nothing')) + '</div>' : '') +
     '<button class="btn solid snzgo" data-act="cofixsave"' + (cur ? '' : ' disabled') + '>' + (S.fixBusy ? 'Saving…' : 'Save') + '</button>' +
