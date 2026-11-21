@@ -1981,6 +1981,10 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 .fline .flinex::before{content:"";position:absolute;inset:-10px}
 /* 7.3.11 her: Duo / foldable screens - the −10s / pause / Live / +10s row sits at the very bottom */
 :root:is([data-cover],[data-coverweb],[data-foldup],[data-foldside]) .focus>.fsteps{bottom:2px!important}
+/* 7.4.5 her (Duo / foldable upright): Review and Alerts top bars start right under iOS's clock bubble, their colour filling
+   the band like Home; with the list open, the list starts under the second camera row */
+:root[data-duoup] .rvtop,:root[data-duoup] .evtop{top:0!important;margin-top:calc(0px - var(--sbar,0px));padding-top:max(0px,calc(var(--sbar,0px) - 12px))}
+:root[data-foldup]:not([data-cover]) .rvdock.l .rvlist{height:var(--rvfl,38vh)}
 </style>
 
 <div id="app" class="app"></div>
@@ -4956,6 +4960,15 @@ const Scrub = {
 Scrub.init();
 /* 6.8.9: iPhone Duo cover screen — Review with the alert list: two whole rows of cameras on top, the list takes exactly
    the rest; the glass pill sits just above the timeline (--dockh) */
+/* 7.4.5 her: foldable upright Review with the list open - the list starts right under the second row of cameras */
+function rvFoldFit() {
+  const r = document.documentElement; if (S.view !== 'review' || !S.rv.list || !r.hasAttribute('data-foldup')) { if (r.style.getPropertyValue('--rvfl')) r.style.removeProperty('--rvfl'); return; }
+  const cs = [...document.querySelectorAll('.rvcams .rvcam')], dock = document.querySelector('.rvdock.l'), lst = dock && dock.querySelector('.rvlist'); if (cs.length < 3 || !dock || !lst) return;
+  const sy = window.scrollY, tops = [...new Set(cs.map(c => Math.round(c.getBoundingClientRect().top + sy)))].sort((a, b) => a - b); if (tops.length < 2) return;
+  const row2 = cs.find(c => Math.round(c.getBoundingClientRect().top + sy) === tops[1]), b2 = row2.getBoundingClientRect().bottom + sy - sy;
+  const extra = dock.getBoundingClientRect().height - lst.getBoundingClientRect().height, h = Math.max(160, Math.round(innerHeight - (row2.getBoundingClientRect().bottom + 4) - extra));
+  if (r.style.getPropertyValue('--rvfl') !== h + 'px') r.style.setProperty('--rvfl', h + 'px');
+}
 function coverFit() {
   const root = document.documentElement, dk = document.querySelector('.rvdock');
   const ls = dk && dk.classList.contains('l') ? dk.querySelector('.rvlist') : null, c = document.querySelector('.rvcams');
@@ -4987,7 +5000,7 @@ function render() {
   if (S.fullBack && !S.modal) { S.fullBack = false; if (S.focus) { S.full = true; } }   /* 6.5.8: back from Fix / Who? with the same buttons, list and place */
   if (fullLight()) { const _t1 = performance.now(); try { fullButtons(); paintFocus(); Playback.sync(); } catch (e) { Dbg.log('script error', 'full light', String(e && e.message || e)); } const ms = Math.round(performance.now() - _t1); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', 'full'); return; }
   const _t0 = performance.now();
-  try { render0(); placeSteps(); ToTop.check(); listFit(); EvFold.run(); Arrive.carriers(); if (COVER) coverFit(); }   /* 6.8.6: cover-screen Review pill sits just above the timeline */ finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
+  try { render0(); placeSteps(); ToTop.check(); listFit(); EvFold.run(); Arrive.carriers(); if (COVER) coverFit(); else rvFoldFit(); }   /* 6.8.6: cover-screen Review pill sits just above the timeline */ finally { const ms = Math.round(performance.now() - _t0); if (ms > Jank.slow) Jank.slow = ms; if (ms > 300 && ms < 60000) Dbg.log('slow redraw', ms + 'ms', S.view);   /* a minute or more = the phone had the app asleep, not a slow redraw */ }
 }
 function render0() {
   if (S.filt.motion && S.moCtx && moCtx() !== S.moCtx) { S.filt.motion = false; S.moCtx = null; }
@@ -7468,19 +7481,21 @@ function viewReview() {
   const groups = [...new Set(Data.cams.map(c => c.group))];
   const st = rvGroupState();
   const RVC = rvCompact();
-  const camRow = (Data.source === 'frigate' ? '<button class="chip sm bxchip" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
+  const camRow = (Data.source === 'frigate' && !(!COVER && (document.documentElement.hasAttribute('data-foldup') || document.documentElement.hasAttribute('data-foldside'))) ? '<button class="chip sm bxchip" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
     '<button class="chip sm" data-act="rvgroup" data-v="all" aria-pressed="' + (st === 'all') + '">All Cameras</button>' +
     groups.map(g => '<button class="chip sm" data-act="rvgroup" data-v="' + esc(g) + '" aria-pressed="' + (st === g) + '">' + esc(g) + ' Only</button>').join('') +
     '<button class="chip sm" data-act="rvpick" aria-pressed="' + (st === 'custom' || S.rv.pick) + '">Choose' + (S.rv.pick ? I.up : I.down).replace(/22/g, '14') + '</button>' +
     /* 5.7.1 her rule: Objects after (right of) the camera chips, never above them */
     '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + (S.rv.fopen ? I.up : I.down).replace(/22/g, '14') + '</button>';
   const ONE = !RVC && rvOneRow();
+  const FOLDIN = !COVER && (document.documentElement.hasAttribute('data-foldup') || document.documentElement.hasAttribute('data-foldside'));   /* 7.4.5 her: foldable inside screen - Boxes in the top icons, third */
   let h = RVC ? rvBarCompact(st) : ONE ? rvBarOne(st) : '<div class="rvtop" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
     (COVER ? '<button class="ic" data-act="rvpick" aria-pressed="' + (st !== 'all' || !!S.rv.pick) + '" aria-label="Cameras">' + I.camsel + '</button>' +
       '<button class="ic" data-act="rvfopen" aria-pressed="' + (!!S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline">' + I.filter + '</button>' : '') +   /* 6.8.9 her design: cover-screen filters live in the glass pill */
     '<button class="chip sm rvib" data-act="rvreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
     (COVER ? '<button class="ic" data-act="rvcolsopen" aria-pressed="' + !!S.rv.colsOpen + '" aria-label="Layout">' + I.grid4 + '</button>'   /* 5.5.3 her rule: icons only in the cover strip */
       : '<button class="chip sm" data-act="rvcolsopen" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvLay() === 'big' ? 'Big' : rvLay() === 'top' ? 'Top' : rvCols()) + '</button>') +
+    (FOLDIN && Data.source === 'frigate' ? '<button class="ic" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
     '<button class="ic' + (S.rv.list ? ' on' : '') + '" data-act="rvlist" aria-pressed="' + !!S.rv.list + '" aria-label="' + (S.rv.list ? 'Show Timeline' : 'Show Alert List') + '">' + (S.rv.list ? I.tline : I.bellO) + '</button>' +
     dtOver('<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button>', 'rv') +
     (COVER && Data.source === 'frigate' ? '<button class="ic" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '</div>' +

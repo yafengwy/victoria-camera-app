@@ -835,3 +835,8 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.4.4 — 2026-11-21 Review layout kept apart per screen
 - Her: Review Layout (Big / Grid / per row) and List are saved per Fold.key (cover 'n', unfolded upright 'w', sideways 'l'); unset keys fall back to the old shared value. Turning / folding reloads them. Tested 2 / 4 / Big kept apart.
+
+## 7.4.5 — 2026-11-21 Duo upright Review: header up, two camera rows, Boxes in the top icons
+- data-duoup: .rvtop / .evtop pull up into iOS's band like Home (padding sbar-12, band takes the bar colour).
+- data-foldup with the list open: rvFoldFit() sets --rvfl so the list starts under the second camera row.
+- Foldable inside screens: the Boxes button leaves the chips row and sits in the top icons after Layout (reset, layout, boxes, list, date). Cover / normal phones unchanged.
