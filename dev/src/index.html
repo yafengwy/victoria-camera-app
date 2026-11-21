@@ -4613,7 +4613,7 @@ const S = {
   winEnd: now(), pos: 1, win: store.get('win', 30 * MIN), playing: true, speed: 1, tab: 'events',
   filt: store.get('filt3', { int: true, unint: false, objs: { Person: true, Car: true, Cat: true, Dog: true, Package: true }, off: {}, zones: {} }),
   ddObj: false, ddCam: false, zoneOpen: null,
-  objOpen: false, rv: { sel: null, pick: false, t: null, cols: store.get('rvcols', 0), lay: store.get('rvlay', store.get('rvbig', true) ? 'big' : 'grid'), feat: null, autoFeat: null, span: store.get('rvspan', 2 * HOUR), f: store.get('rvf', { int: true, unint: false, objs: {} }), zones: store.get('rvzones', {}), fopen: false, zopen: null, colsOpen: false, list: store.get('rvlist', false) }, flist: false,
+  objOpen: false, rv: { sel: null, pick: false, t: null, cols: Fold.get('rvcols', 0), lay: Fold.get('rvlay', store.get('rvbig', true) ? 'big' : 'grid'),   /* 7.4.4 her: Review layout kept apart for cover / upright / sideways */ feat: null, autoFeat: null, span: store.get('rvspan', 2 * HOUR), f: store.get('rvf', { int: true, unint: false, objs: {} }), zones: store.get('rvzones', {}), fopen: false, zopen: null, colsOpen: false, list: Fold.get('rvlist', false) }, flist: false,
   evDay: 0, filtersOpen: false, modal: null, focus: null, full: false, dragging: false
 };
 function passes(e) {
@@ -4809,6 +4809,7 @@ function placeSteps() {
 window.addEventListener('resize', () => placeSteps());
 /* 6.7.11: folding / unfolding switches to that screen's own List / Per Row */
 window.addEventListener('resize', () => { clearTimeout(Fold.rt); Fold.rt = setTimeout(() => { const k = Fold.key(); if (k === Fold.last) return; Fold.last = k; store.set('fold.seen.' + k, true);
+  { const rc = Fold.get('rvcols', 0), rl = Fold.get('rvlay', 'big'), rli = Fold.get('rvlist', S.rv.list); if (rc !== S.rv.cols || rl !== S.rv.lay || rli !== S.rv.list) { S.rv.cols = rc; S.rv.lay = rl; S.rv.list = rli; if (S.view === 'review') render(); } }   /* 7.4.4 */
   const l = Fold.get('layout', 'list'), c = Fold.get('colsPref', 'auto'); if (l !== S.layout || c !== S.colsPref) { S.layout = l; S.colsPref = c; Dbg.log('screen', k === 'w' ? 'unfolded' : 'folded', l === 'list' ? 'list' : c + ' per row'); render(); } else if (S.modal === 'settings') render(); }, 200); });
 /* 5.4.6 her request: Back To Top. After scrolling down more than two screens on a long page (Cameras, Alerts, or a
    scrolling window such as 如厕记录 / 认猫 / People), a round ↑ button shows at the bottom right; one tap scrolls back to the top.
@@ -8759,7 +8760,7 @@ const ACT = {
        to two live streams, and the live picture froze 7.5 s); going back to the recording loads it fresh */
     { const p = Playback.st[id]; if (p && p.h) { try { p.h.stopLoad(); } catch (x) {} p.win = null; p.loading = false; p.lastSet = null; Dbg.log('recording download stopped for live', id); } } setTimeout(() => Playback.sync(), 0); S.focus.dayEnd = null; render(); const sc = document.getElementById('fsc'); if (sc) fGoLive(sc); const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
   flist() { S.flist = !S.flist; render(); fShow(camT(S.focus.cam)); },
-  rvlist() { S.rv.list = !S.rv.list; store.set('rvlist', S.rv.list); S.rv.fopen = S.rv.pick = S.rv.colsOpen = false; render(); requestAnimationFrame(() => { const c = document.querySelector('#rvlist .rvli.cur'); if (c) c.scrollIntoView({ block: 'center' }); }); },
+  rvlist() { S.rv.list = !S.rv.list; Fold.set('rvlist', S.rv.list); S.rv.fopen = S.rv.pick = S.rv.colsOpen = false; render(); requestAnimationFrame(() => { const c = document.querySelector('#rvlist .rvli.cur'); if (c) c.scrollIntoView({ block: 'center' }); }); },
   rvlpick(d, e) {   /* an alert in the list: every camera goes to that moment, the alert's camera comes first */
     S.rv.t = +d.t - 3000; S.playing = true; S.rv.feat = d.id; S.rv.autoFeat = null;   /* 4.2.6: from 3 s before */
     /* the picked alert's camera stays first (big picture) while the line is inside that alert, even with no recording */
@@ -8792,8 +8793,8 @@ const ACT = {
   rvstep(d) { const cur = S.rv.t == null ? now() : S.rv.t; let t = clamp(cur + (+d.v) * 1000, now() - RSPAN, now()); S.rv.t = t >= now() - 1000 ? null : t; rvScrollTo(S.rv.t); paintReview(); },
   rvspeed() { const sp = [1, 2, 4, 8]; S.speed = sp[(sp.indexOf(S.speed) + 1) % sp.length] || 1; render(); },
   /* layout chip: Big (one big picture + small ones) → 1 → 2 → … per row → Big */
-  rvlay(d) { S.rv.lay = d.v; store.set('rvlay', d.v); if (d.v !== 'grid') S.rv.colsOpen = false; render(); },
-  rvcols(d) { S.rv.lay = 'grid'; store.set('rvlay', 'grid'); S.rv.cols = +d.v || 2; store.set('rvcols', S.rv.cols); S.rv.colsOpen = false; render(); },
+  rvlay(d) { S.rv.lay = d.v; Fold.set('rvlay', d.v); if (d.v !== 'grid') S.rv.colsOpen = false; render(); },
+  rvcols(d) { S.rv.lay = 'grid'; Fold.set('rvlay', 'grid'); S.rv.cols = +d.v || 2; Fold.set('rvcols', S.rv.cols); S.rv.colsOpen = false; render(); },
   rvcolsopen() { S.rv.colsOpen = !S.rv.colsOpen; S.rv.fopen = false; S.rv.pick = false; render(); },
   rvzopen(d) { S.rv.zopen = S.rv.zopen === d.v ? null : d.v; render(); },
   rvzone(d) { const z = S.rv.zones; let cur = z[d.id] || []; cur = !d.v ? [] : cur.includes(d.v) ? cur.filter(x => x !== d.v) : cur.concat(d.v); if (cur.length) z[d.id] = cur; else delete z[d.id]; store.set('rvzones', z); render(); },

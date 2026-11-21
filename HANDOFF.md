@@ -832,3 +832,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.4.3 — 2026-11-21 Duo cover Alerts: two across ("C")
 - Her pick (Duo Cover Alerts Options 3.png): the foldable Alerts grid rules now also cover data-cover / data-coverweb: 2 a row, names bottom-left, playing card spans the row, tap to play. Other phones one per row.
+
+## 7.4.4 — 2026-11-21 Review layout kept apart per screen
+- Her: Review Layout (Big / Grid / per row) and List are saved per Fold.key (cover 'n', unfolded upright 'w', sideways 'l'); unset keys fall back to the old shared value. Turning / folding reloads them. Tested 2 / 4 / Big kept apart.
