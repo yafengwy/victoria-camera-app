@@ -7776,6 +7776,19 @@ function rvSnap() {
   S.rv.t = Math.min(best.t + 1000, best.end || now());   /* the start of the alert shows what arrived */
   S.rvLock = true; rvScrollTo(S.rv.t); drawRvTrack(false); paintReview(); requestAnimationFrame(() => { S.rvLock = false; });
 }
+/* 7.4.9 her: a date / time picked with the calendar also moves the alert list under the cameras to about that time
+   (the alerts there before stayed at the newest). The list's own scroll moves, never the page; newest first, so the
+   alert closest to the picked time is put at the top. Now (t null) = back to the top. All screens. */
+function rvListAt(t) {
+  const go = () => { const l = document.getElementById('rvlist'); if (!l) return;
+    if (t == null) { l.scrollTop = 0; return; }
+    let best = null, bd = Infinity; l.querySelectorAll('.rvli').forEach(n => { const d = Math.abs(+n.dataset.t - t); if (d < bd) { bd = d; best = n; } });
+    if (!best) return;
+    const h = best.previousElementSibling && best.previousElementSibling.classList.contains('rvl-h') && best.previousElementSibling.offsetTop >= best.offsetTop - 40 ? best.previousElementSibling : best;   /* keep the day heading above it in view */
+    l.scrollTop = Math.max(0, h.getBoundingClientRect().top - l.getBoundingClientRect().top + l.scrollTop - 4);
+    Dbg.log('review list to', hm(t), 'alert', hm(+best.dataset.t), best.dataset.id); };
+  requestAnimationFrame(() => requestAnimationFrame(go));
+}
 function rvScrollTo(t) { const sc = document.getElementById('rvsc'); if (!sc) return; if (RVV) sc.scrollTop = t == null ? 0 : (rvEnd - t) / MIN * rvPx(); else sc.scrollLeft = t == null ? sc.scrollWidth : rvTW() - (rvEnd - t) / MIN * rvPx(); }
 
 /* ===== Dialogs ===== */
@@ -8960,7 +8973,7 @@ function dtGo(kind) {
   /* camera view Today button: same as picking a date there before (the iPhone needs the finger on the date box itself) */
   if (kind === 'focus') return v => { if (!S.focus) return;
     if (S.flist) { fListGo(v); return; }   /* alert list: scroll to that day and time instead of cutting the list to one day */ const d0 = dayStart(v); S.focus.back = 0; S.focus.dayEnd = d0 === dayStart(now()) ? null : d0 + DAY; S.camTime[S.focus.cam] = v >= now() - 1000 ? null : v; render(); };
-  if (kind === 'rv') return v => { S.rv.t = v >= now() - 1000 ? null : Math.max(rvEnd - RSPAN, v); S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); paintReview(); };
+  if (kind === 'rv') return v => { S.rv.t = v >= now() - 1000 ? null : Math.max(rvEnd - RSPAN, v); S.rvLock = true; drawRvTrack(true); rvScrollTo(S.rv.t); requestAnimationFrame(() => { S.rvLock = false; }); paintReview(); rvListAt(S.rv.t); };
   return v => {
     if (S.expanded) { if (v >= now() - 1000) { S.camTime[S.expanded] = null; S.winEnd = now(); S.pos = 1; } else { S.winEnd = Math.min(now(), v + S.win / 2); seek(S.expanded, v); S.pos = (v - (S.winEnd - S.win)) / S.win; } }
     render();

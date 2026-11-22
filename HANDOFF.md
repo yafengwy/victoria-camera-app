@@ -860,3 +860,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 - Her (Duo cover, Fix dialog): the dialog "moves around". Since 7.4.7 the cover Fix dialog fits, so a swipe on it went to the page behind (Alerts list) and iOS moved the dimmed layer + dialog with it (screenshot: scrim and hour rail shifted up together).
 - Fix: document touchmove (passive:false): while a .scrim is open, preventDefault unless the touch is in an element that can scroll itself (overflow auto/scroll with room) or an input/canvas/video; .scrim and .scrim .dialog get overscroll-behavior:contain. All screens (her: "当然是所有屏幕").
 - Test lock.js (CDP touch swipes): old 7.4.7 page scrollY 901→0 behind the Fix dialog; 7.4.8 stays 901, dialog top unchanged; a dialog made scrollable still scrolls (scrollTop 126) without moving the page.
+
+## 7.4.9 (2026-11-22) Review: calendar pick also moves the alert list
+- Her (cover Review, list under the cameras): picking a past date/time moved the cameras/timeline but the list stayed at the newest. dtGo('rv') now calls rvListAt(t): the #rvlist's own scroll puts the alert closest to t at the top (keeps its day heading if right above); Now → top. Log line "review list to HH:MM alert HH:MM cam". All screens.
+- Test rvl.js: pick 00:17 Nov 21 → list top = 00:16 Nov 21 alert, page scrollY 0; Now → scrollTop 0.
