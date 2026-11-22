@@ -327,8 +327,10 @@ def make(path, cam, s, e, kind):
             t2 = time.time()
             # 2026-10-08 13:33 Treat Feeder: Frigate's clip had only sound, no picture, so the GIF failed and the phone got
             # 502. A clip with no picture counts as failed: the wider window, then the live stream, are tried next.
-            if kind != 'sound.mp4' and 'video' not in streams(body):
-                raise RuntimeError('clip has no picture: ' + streams(body))
+            # 2026-11-22 12:54 Living Room: the sound clip for the iPhone came back from Frigate empty (0 bytes; the Samsung's,
+            # asked a few seconds later, was fine). Sound clips are checked too now, so the wider window is tried 2 s later.
+            if not body or 'video' not in streams(body):
+                raise RuntimeError(f'clip has no picture ({len(body or b"")} bytes): ' + streams(body or b''))
             if kind == 'sound.mp4':
                 print('sound clip from Frigate', cam, a, b, 'streams:', streams(body), flush=True)
             n0, raw0 = len(body), body
@@ -681,6 +683,8 @@ class H(BaseHTTPRequestHandler):
                 body, err = hit[0], None
             else:
                 body, err = make('?a=1' if andro else '', cam, s, e, kind)
+                if not body:   # an empty clip is never kept or sent (the phone said "zero length" and lost the picture)
+                    body, err = None, err or 'empty clip'
                 if body is not None:
                     CACHE[key] = (body, time.time()); disk_put(key, body)
         first = (q.get('first') or [''])[0]
