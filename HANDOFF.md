@@ -855,3 +855,8 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 2026-11-22 clipwait: empty sound clips are retried, never cached or sent
 - 12:54 Living Room meow: the iPhone's sound.mp4 (ready request) got an empty clip from Frigate; sound clips skipped the "has a picture" check, so b'' was cached ("phone cached 0.0s FAILED") and the phone got 0 bytes ("Failed to load attachment … zero length"), replacing the picture. The Samsung's a=1 copy, asked later, was fine (210 KB).
 - Fix: every kind (sound too) raises on an empty / no-picture Frigate clip → the wider window (s-1, e+3) is tried 2 s later; make() result b'' becomes a failure (not cached). No added load. HA automations unchanged.
+
+## 7.4.8 (2026-11-22) Dialogs stay in the middle: page behind never moves (all screens)
+- Her (Duo cover, Fix dialog): the dialog "moves around". Since 7.4.7 the cover Fix dialog fits, so a swipe on it went to the page behind (Alerts list) and iOS moved the dimmed layer + dialog with it (screenshot: scrim and hour rail shifted up together).
+- Fix: document touchmove (passive:false): while a .scrim is open, preventDefault unless the touch is in an element that can scroll itself (overflow auto/scroll with room) or an input/canvas/video; .scrim and .scrim .dialog get overscroll-behavior:contain. All screens (her: "当然是所有屏幕").
+- Test lock.js (CDP touch swipes): old 7.4.7 page scrollY 901→0 behind the Fix dialog; 7.4.8 stays 901, dialog top unchanged; a dialog made scrollable still scrolls (scrollTop 126) without moving the page.

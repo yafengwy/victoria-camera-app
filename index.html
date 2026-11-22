@@ -195,6 +195,7 @@ img.rf{opacity:0}
 /* Overlays */
 .scrim{position:fixed;inset:0;z-index:50;background:rgba(12,16,14,.5);display:flex;align-items:center;justify-content:center;padding:20px}
 .dialog{width:100%;max-width:440px;max-height:90vh;overflow:auto;background:var(--card);border-radius:18px}
+.scrim,.scrim .dialog{overscroll-behavior:contain}   /* 7.4.8: a dialog's own scrolling never moves the page behind */
 .dhead{display:flex;align-items:center;justify-content:space-between;padding:8px 8px 8px 18px;background:var(--chip);font-size:17px;font-weight:800;color:var(--head-fg)}
 .dbody{padding:16px 18px 18px;display:flex;flex-direction:column;gap:12px}
 .lbl{font-size:13px;font-weight:800;color:var(--sub)}
@@ -3050,7 +3051,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 7.4.7 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 7.4.8 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -7830,7 +7831,7 @@ function modalSettings() {
     row('Mute Notifications', '<button class="btn" data-act="snzopen">' + (SNZ_WHO.some(x => Snz.on(x[0])) ? SNZ_WHO.filter(x => Snz.on(x[0])).map(x => x[1] + ' ' + Snz.left(x[0])).join(' · ') : 'Open') + '</button>') +   /* 6.9.4 per person, 30 Min to 8 Hours */
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     /* 6.10.10 her: Duo Preview row removed (she has the Duo now); duo.html stays for testing */
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 7.4.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 7.4.8 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -8125,7 +8126,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 7.4.7');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 7.4.8');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -8142,7 +8143,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 7.4.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 7.4.8\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -9028,6 +9029,21 @@ document.addEventListener('touchstart', e => { const t = e.touches[0]; TG.t0 = t
      hears about it (a removed element's events don't reach the page) */
   if (a) { const tg = e.target; tg.addEventListener('touchend', ev => lostTap(ev, tg), { once: true, passive: true }); } }, { capture: true, passive: true });
 document.addEventListener('touchmove', e => { const t = e.touches[0]; if (e.touches.length > 1 || (TG.t0 && t && Math.hypot(t.clientX - TG.t0[0], t.clientY - TG.t0[1]) > 10)) TG.mv = true; }, { capture: true, passive: true });
+/* 7.4.8 her (2026-11-22, Duo cover, Fix dialog): an open dialog always stays in the middle of the screen. Since the
+   cover's Fix dialog fits (7.4.7) a swipe on it had nothing to scroll and went to the page behind; iOS then moved the
+   dimmed layer and the dialog with it. While a dialog is open the page behind never moves (all screens): a swipe only
+   moves a part of the dialog that can scroll itself (big lists), and that stops at its ends (overscroll-behavior). */
+document.addEventListener('touchmove', e => {
+  if (e.touches.length > 1 || !e.cancelable || !document.querySelector('.scrim')) return;
+  let n = e.target;
+  if (n && n.closest && n.closest('input,textarea,select,canvas,video')) return;
+  for (; n && n.nodeType === 1 && n !== document.body; n = n.parentElement) {
+    const st = getComputedStyle(n);
+    if ((/auto|scroll/.test(st.overflowY) && n.scrollHeight > n.clientHeight + 1) || (/auto|scroll/.test(st.overflowX) && n.scrollWidth > n.clientWidth + 1)) return;
+    if (n.classList.contains('scrim')) break;
+  }
+  e.preventDefault();
+}, { passive: false });
 document.addEventListener('touchend', e => { if (!e.touches.length) { TG.end = Date.now(); TapLog.end(); } }, { capture: true, passive: true });
 /* 5.2.5: the page redraws every few seconds; when the button under the finger was replaced by its new copy before
    the finger lifted, the phone sends no tap at all (More needed ~5 taps, 2026-10-11 02:42). Such a tap is logged
@@ -9562,7 +9578,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '7.4.7';
+    const BUILD = '7.4.8';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

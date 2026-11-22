@@ -195,6 +195,7 @@ img.rf{opacity:0}
 /* Overlays */
 .scrim{position:fixed;inset:0;z-index:50;background:rgba(12,16,14,.5);display:flex;align-items:center;justify-content:center;padding:20px}
 .dialog{width:100%;max-width:440px;max-height:90vh;overflow:auto;background:var(--card);border-radius:18px}
+.scrim,.scrim .dialog{overscroll-behavior:contain}   /* 7.4.8: a dialog's own scrolling never moves the page behind */
 .dhead{display:flex;align-items:center;justify-content:space-between;padding:8px 8px 8px 18px;background:var(--chip);font-size:17px;font-weight:800;color:var(--head-fg)}
 .dbody{padding:16px 18px 18px;display:flex;flex-direction:column;gap:12px}
 .lbl{font-size:13px;font-weight:800;color:var(--sub)}
@@ -9028,6 +9029,21 @@ document.addEventListener('touchstart', e => { const t = e.touches[0]; TG.t0 = t
      hears about it (a removed element's events don't reach the page) */
   if (a) { const tg = e.target; tg.addEventListener('touchend', ev => lostTap(ev, tg), { once: true, passive: true }); } }, { capture: true, passive: true });
 document.addEventListener('touchmove', e => { const t = e.touches[0]; if (e.touches.length > 1 || (TG.t0 && t && Math.hypot(t.clientX - TG.t0[0], t.clientY - TG.t0[1]) > 10)) TG.mv = true; }, { capture: true, passive: true });
+/* 7.4.8 her (2026-11-22, Duo cover, Fix dialog): an open dialog always stays in the middle of the screen. Since the
+   cover's Fix dialog fits (7.4.7) a swipe on it had nothing to scroll and went to the page behind; iOS then moved the
+   dimmed layer and the dialog with it. While a dialog is open the page behind never moves (all screens): a swipe only
+   moves a part of the dialog that can scroll itself (big lists), and that stops at its ends (overscroll-behavior). */
+document.addEventListener('touchmove', e => {
+  if (e.touches.length > 1 || !e.cancelable || !document.querySelector('.scrim')) return;
+  let n = e.target;
+  if (n && n.closest && n.closest('input,textarea,select,canvas,video')) return;
+  for (; n && n.nodeType === 1 && n !== document.body; n = n.parentElement) {
+    const st = getComputedStyle(n);
+    if ((/auto|scroll/.test(st.overflowY) && n.scrollHeight > n.clientHeight + 1) || (/auto|scroll/.test(st.overflowX) && n.scrollWidth > n.clientWidth + 1)) return;
+    if (n.classList.contains('scrim')) break;
+  }
+  e.preventDefault();
+}, { passive: false });
 document.addEventListener('touchend', e => { if (!e.touches.length) { TG.end = Date.now(); TapLog.end(); } }, { capture: true, passive: true });
 /* 5.2.5: the page redraws every few seconds; when the button under the finger was replaced by its new copy before
    the finger lifted, the phone sends no tap at all (More needed ~5 taps, 2026-10-11 02:42). Such a tap is logged
