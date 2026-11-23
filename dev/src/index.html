@@ -196,6 +196,11 @@ img.rf{opacity:0}
 .scrim{position:fixed;inset:0;z-index:50;background:rgba(12,16,14,.5);display:flex;align-items:center;justify-content:center;padding:20px}
 .dialog{width:100%;max-width:440px;max-height:90vh;overflow:auto;background:var(--card);border-radius:18px}
 .scrim,.scrim .dialog{overscroll-behavior:contain}   /* 7.4.8: a dialog's own scrolling never moves the page behind */
+/* 7.4.10 her: the picked day's date. Phones / inside screens: in the title's place (narrow phones hid the title; the
+   date shows there, same row, nothing moves). Duo cover (her choice B): a small pill over the empty band above the cameras. */
+.rvbar .rvtitle.rvdate{font-size:15px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rvdpill{display:none}
+:root[data-cover] .rvdpill.on{display:block;position:fixed;top:4px;left:10px;z-index:37;pointer-events:none;background:rgba(0,0,0,.6);color:#fff;font-size:13px;font-weight:700;line-height:1;padding:6px 11px;border-radius:13px;white-space:nowrap}
 .dhead{display:flex;align-items:center;justify-content:space-between;padding:8px 8px 8px 18px;background:var(--chip);font-size:17px;font-weight:800;color:var(--head-fg)}
 .dbody{padding:16px 18px 18px;display:flex;flex-direction:column;gap:12px}
 .lbl{font-size:13px;font-weight:800;color:var(--sub)}
@@ -7029,7 +7034,7 @@ function rvOneRow() { return window.innerWidth >= 900; }
 function rvBarOne(st) {
   const sel = S.rv.sel, camLab = st === 'all' ? 'All Cameras' : st !== 'custom' ? st + ' Only' : sel.length + (sel.length === 1 ? ' Camera' : ' Cameras');
   const dd = on => (on ? I.up : I.down).replace(/22/g, '14');
-  return '<div class="rvtop one" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
+  return '<div class="rvtop one" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle' + (S.rv.t != null ? ' rvdate' : '') + '">' + rvTitle() + '</div>' +
     '<button class="chip sm rvib" data-act="rvreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
     '<button class="chip sm rvf" data-act="rvpick" aria-pressed="' + (st !== 'all' || S.rv.pick) + '" aria-label="Cameras"><span>' + esc(camLab) + '</span>' + dd(S.rv.pick) + '</button>' +
     '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + dd(S.rv.fopen) + '</button>' +
@@ -7052,7 +7057,7 @@ function rvCoverRow(st) {
 function rvBarCompact(st) {
   const ib = (act, on, label, icon, extra) => '<button class="chip sm rvib" data-act="' + act + '" aria-pressed="' + on + '" aria-label="' + label + '" title="' + label + '">' + icon + (extra || '') + '</button>';
   const n = S.rv.sel == null ? '' : '<span class="rvibn">' + S.rv.sel.length + '</span>';
-  return '<div class="rvtop c1" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
+  return '<div class="rvtop c1" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle' + (S.rv.t != null ? ' rvdate' : '') + '">' + rvTitle() + '</div>' +
     '<button class="chip sm rvib" data-act="rvreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
     ib('rvpick', st !== 'all' || S.rv.pick, 'Cameras', I.camsel, n) +
     ib('rvfopen', S.rv.fopen || !rvFDefault(), 'Alert Types On Timeline', I.filter) +
@@ -7464,7 +7469,10 @@ function rvBuckets(ids, end) {
 }
 function rvListEvents(cams, end) {
   const ids = cams.map(c => c.id);
-  return Data.events.filter(e => ids.includes(e.cam) && e.t > end - RSPAN && e.t <= end && rvPass(e)).concat(rvMotion(ids, end)).sort((a, b) => b.t - a.t).slice(0, 300);
+  /* 7.4.10 her: with a date / time picked, the list holds that whole day (newest first), so it can be scrolled through
+     the day; before, it was always the newest 300 alerts of the week and an older day was never reached */
+  const t = S.rv.t, lo = t == null ? end - RSPAN : dayStart(t), hi = t == null ? end : Math.min(end, dayStart(t) + DAY);
+  return Data.events.filter(e => ids.includes(e.cam) && e.t > lo && e.t <= hi && rvPass(e)).concat(rvMotion(ids, end).filter(m => m.t > lo && m.t <= hi)).sort((a, b) => b.t - a.t).slice(0, t == null ? 300 : 3000);
 }
 /* 4.4.5 Review → Alert Level → Motion (her ask): plain motion with no alert, same pieces as the Alerts page and camera
    view (Frigate's motion record). Only the day being looked at (and the 3 h before it) is loaded, not all 7 days. */
@@ -7502,7 +7510,7 @@ function viewReview() {
     '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + (S.rv.fopen ? I.up : I.down).replace(/22/g, '14') + '</button>';
   const ONE = !RVC && rvOneRow();
   const FOLDIN = !COVER && (document.documentElement.hasAttribute('data-foldup') || document.documentElement.hasAttribute('data-foldside'));   /* 7.4.5 her: foldable inside screen - Boxes in the top icons, third */
-  let h = RVC ? rvBarCompact(st) : ONE ? rvBarOne(st) : '<div class="rvtop" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle">Review</div>' +
+  let h = '<div class="rvdpill' + (t != null ? ' on' : '') + '" id="rvdpill">' + (t != null ? rvTitle() : '') + '</div>' + (RVC ? rvBarCompact(st) : ONE ? rvBarOne(st) : '<div class="rvtop" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle' + (S.rv.t != null ? ' rvdate' : '') + '">' + rvTitle() + '</div>' +
     (COVER ? '<button class="ic" data-act="rvpick" aria-pressed="' + (st !== 'all' || !!S.rv.pick) + '" aria-label="Cameras">' + I.camsel + '</button>' +
       '<button class="ic" data-act="rvfopen" aria-pressed="' + (!!S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline">' + I.filter + '</button>' : '') +   /* 6.8.9 her design: cover-screen filters live in the glass pill */
     '<button class="chip sm rvib" data-act="rvreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
@@ -7512,7 +7520,7 @@ function viewReview() {
     '<button class="ic' + (S.rv.list ? ' on' : '') + '" data-act="rvlist" aria-pressed="' + !!S.rv.list + '" aria-label="' + (S.rv.list ? 'Show Timeline' : 'Show Alert List') + '">' + (S.rv.list ? I.tline : I.bellO) + '</button>' +
     dtOver('<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button>', 'rv') +
     (COVER && Data.source === 'frigate' ? '<button class="ic" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '</div>' +
-    (ONE || COVER ? '' : '<div class="rvchips">' + camRow + '</div>');
+    (ONE || COVER ? '' : '<div class="rvchips">' + camRow + '</div>'));
   if (S.rv.fopen || S.rv.pick || S.rv.colsOpen) h += rvDropdown();
   const nc = rvCols();
   const L = rvLay();
@@ -7674,7 +7682,7 @@ const RZ = {
 };
 RZ.wire();
 function paintReview() {
-  RZ.apply(); RVid.mount();
+  RZ.apply(); RVid.mount(); rvDayCheck();
   const t = S.rv.t, ht = S.hov && S.hov.id === 'rv' ? S.hov.t : undefined;
   /* 5.5.8: Review sent a picture request for every tile at once (each one is a video decode on the mini PC, 4K on
      some cameras), and kept adding new ones every 3 s even when the old ones had not come back. Her log: the big
@@ -7779,6 +7787,19 @@ function rvSnap() {
 /* 7.4.9 her: a date / time picked with the calendar also moves the alert list under the cameras to about that time
    (the alerts there before stayed at the newest). The list's own scroll moves, never the page; newest first, so the
    alert closest to the picked time is put at the top. Now (t null) = back to the top. All screens. */
+/* 7.4.10 her: which day is being looked at. A picked past time shows its date where the title "Review" was; on the
+   Duo cover (no title there) it sits in the empty band above the cameras, over nothing, so nothing moves. */
+const rvTitle = () => S.rv.t == null ? 'Review' : new Date(S.rv.t).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+let rvListDay = null;
+function rvDayCheck() {
+  const ti = document.querySelector('#rvtop .rvtitle'); if (ti) { const x = rvTitle(); if (ti.textContent !== x) ti.textContent = x; ti.classList.toggle('rvdate', S.rv.t != null); }
+  const dp = document.getElementById('rvdpill'); if (dp) { const x = S.rv.t == null ? '' : rvTitle(); if (dp.textContent !== x) dp.textContent = x; dp.classList.toggle('on', S.rv.t != null); }
+  const k = S.rv.t == null ? 'now' : dayStart(S.rv.t), l = document.getElementById('rvlist');
+  if (!l) { rvListDay = k; return; }
+  if (rvListDay === null) { rvListDay = k; return; }
+  if (k === rvListDay) return;
+  rvListDay = k; const x = rvListHtml(rvCams(), now()); l.innerHTML = x.slice(x.indexOf('>') + 1, -6); rvListAt(S.rv.t);   /* another day: that day's list, at the time */
+}
 function rvListAt(t) {
   const go = () => { const l = document.getElementById('rvlist'); if (!l) return;
     if (t == null) { l.scrollTop = 0; return; }

@@ -864,3 +864,8 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 7.4.9 (2026-11-22) Review: calendar pick also moves the alert list
 - Her (cover Review, list under the cameras): picking a past date/time moved the cameras/timeline but the list stayed at the newest. dtGo('rv') now calls rvListAt(t): the #rvlist's own scroll puts the alert closest to t at the top (keeps its day heading if right above); Now → top. Log line "review list to HH:MM alert HH:MM cam". All screens.
 - Test rvl.js: pick 00:17 Nov 21 → list top = 00:16 Nov 21 alert, page scrollY 0; Now → scrollTop 0.
+
+## 7.4.10 (2026-11-22) Review: picked day's list + date shown (her choice B)
+- Bug she hit: the list was always the newest 300 alerts of the week, so a picked older day (Nov 18 17:24) was never in it; the list stopped at the oldest of those 300 and could not go further.
+- rvListEvents: with S.rv.t set, the list = that whole day (dayStart(t)..+DAY, ≤ now, motion too), newest first, cap 3000; Now (t null) unchanged (week, newest 300). rvDayCheck() in paintReview: when the day changes (pick, scrub, play past midnight) the list is refilled and rvListAt(t) scrolls to the time. No "Earlier" button (her: it would cover thumbnails). Thumbnails still lazy, no added mini PC load.
+- Date: rvTitle() "Wed, Nov 18" replaces "Review" when a past time is picked (narrow phones, which hid the title, show it 15 px in that same empty spot). Duo cover (her B): #rvdpill fixed top 4 / left 10 over the empty band above the cameras, pointer-events none; cameras and list keep their places (test: camsTop/listTop identical before/after).
