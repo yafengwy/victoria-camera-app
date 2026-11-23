@@ -200,6 +200,17 @@ img.rf{opacity:0}
    date shows there, same row, nothing moves). Duo cover (her choice B): a small pill over the empty band above the cameras. */
 .rvbar .rvtitle.rvdate{font-size:15px!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rvdpill{display:none}
+/* 7.5.1 Review Fix: the camera's object label is a button (bigger invisible touch area); hold ring on the list */
+.rvcam .tag.rvtagfx{cursor:pointer}
+.rvcam .tag.rvtagfx::after{content:'';position:absolute;inset:-9px -9px -9px -6px}
+.rvli[data-lp],.rvli[data-lp] img{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.rvring{position:fixed;z-index:60;width:64px;height:64px;margin:-32px 0 0 -32px;border-radius:50%;pointer-events:none;
+  background:conic-gradient(rgba(255,255,255,.95) calc(var(--p,0) * 1%),rgba(255,255,255,.18) 0);
+  -webkit-mask:radial-gradient(circle,transparent 25px,#000 26px);mask:radial-gradient(circle,transparent 25px,#000 26px);
+  box-shadow:0 0 0 2px rgba(0,0,0,.25);animation:rvring .5s linear forwards}
+@property --p{syntax:'<number>';inherits:false;initial-value:0}
+@keyframes rvring{from{--p:0}to{--p:100}}
+
 :root[data-cover] .rvdpill.on{display:block;position:fixed;top:4px;left:10px;z-index:37;pointer-events:none;background:rgba(0,0,0,.6);color:#fff;font-size:13px;font-weight:700;line-height:1;padding:6px 11px;border-radius:13px;white-space:nowrap}
 .dhead{display:flex;align-items:center;justify-content:space-between;padding:8px 8px 8px 18px;background:var(--chip);font-size:17px;font-weight:800;color:var(--head-fg)}
 .dbody{padding:16px 18px 18px;display:flex;flex-direction:column;gap:12px}
@@ -7493,7 +7504,7 @@ function rvListHtml(cams, end) {
     const dl = dayStart(e.t) === dayStart(now()) ? 'Today' : dayStart(e.t) === dayStart(now() - DAY) ? 'Yesterday' : dayLabel(e.t);
     if (dl !== lastDay) { h += '<div class="rvl-h">' + dl + '</div>'; lastDay = dl; }
     const c = Data.cam(e.cam), cur = t != null && t >= e.t - 3000 && t <= (e.end || e.t) + 3000, p = pick(e, S.rv.f);
-    h += '<button class="rvli' + (cur ? ' cur' : '') + (e.interesting ? '' : ' un') + '" data-act="rvlpick" data-t="' + p.t + '" data-e="' + esc(e.id) + '" data-id="' + e.cam + '"><img src="' + evImg(e, p) + '" alt="" loading="lazy"><span><b>' + (e.motion ? '<i class="modot"></i>Motion' : '<i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(lab(e, p).replace(/_/g, ' '))) + '</b><small><span class="lsx">' + esc(c ? c.name : e.cam) + '<i class="lt1"> · ' + hm(p.t) + '</i> · ' + rvDur(e) + '</span><i class="lt2">' + hm(p.t) + '</i></small></span></button>';   /* 6.8.9: lt2 = the time at the right end of line 2, used when the list goes two across (Duo cover), so several objects on line 1 aren't crowded by it */
+    h += '<button class="rvli' + (cur ? ' cur' : '') + (e.interesting ? '' : ' un') + '" data-act="rvlpick" data-lp="rvlfix" data-t="' + p.t + '" data-e="' + esc(e.id) + '" data-id="' + e.cam + '"><img src="' + evImg(e, p) + '" alt="" loading="lazy"><span><b>' + (e.motion ? '<i class="modot"></i>Motion' : '<i class="lico">' + objIcon(ico(e, p)) + '</i>' + esc(lab(e, p).replace(/_/g, ' '))) + '</b><small><span class="lsx">' + esc(c ? c.name : e.cam) + '<i class="lt1"> · ' + hm(p.t) + '</i> · ' + rvDur(e) + '</span><i class="lt2">' + hm(p.t) + '</i></small></span></button>';   /* 6.8.9: lt2 = the time at the right end of line 2, used when the list goes two across (Duo cover), so several objects on line 1 aren't crowded by it */
   });
   return h + '</div>';
 }
@@ -7529,7 +7540,7 @@ function viewReview() {
   cams.forEach(c => {
     const f = Data.frame(c, t);
     const e = rvAt(c, t);
-    h += '<div class="rvcam' + (e ? (e.interesting ? ' hot' : ' uhot') : '') + '" id="rv-' + c.id + '" data-act="rvopen" data-id="' + c.id + '"><img data-ld="1"' + (Data.source !== 'frigate' || t == null || RecMap.has(c.id, t) === true ? ' src="' + f.img + '"' : '') + ' alt=""><div class="nm">' + esc(c.name) + '</div><div class="tm" data-act="rvsync" data-id="' + c.id + '" role="button" aria-label="Show All Cameras At This Time" hidden></div><div class="tag' + (e && !e.interesting ? ' un' : '') + '" id="rvtag-' + c.id + '"' + (e ? '' : ' hidden') + '>' + (e ? objIcon(ico(e)) + '<span>' + esc(lab(e)) + '</span>' : '') + '</div></div>';
+    h += '<div class="rvcam' + (e ? (e.interesting ? ' hot' : ' uhot') : '') + '" id="rv-' + c.id + '" data-act="rvopen" data-id="' + c.id + '"><img data-ld="1"' + (Data.source !== 'frigate' || t == null || RecMap.has(c.id, t) === true ? ' src="' + f.img + '"' : '') + ' alt=""><div class="nm">' + esc(c.name) + '</div><div class="tm" data-act="rvsync" data-id="' + c.id + '" role="button" aria-label="Show All Cameras At This Time" hidden></div><div class="tag rvtagfx' + (e && !e.interesting ? ' un' : '') + '" id="rvtag-' + c.id + '" data-act="rvtagfix" data-id="' + c.id + '" role="button" aria-label="Fix This Alert"' + (e ? '' : ' hidden') + '>' + (e ? objIcon(ico(e)) + '<span>' + esc(lab(e)) + '</span>' : '') + '</div></div>';
   });
   rvEnd = end;
   RVV = rvVert();
@@ -7800,6 +7811,25 @@ function rvDayCheck() {
   if (k === rvListDay) return;
   rvListDay = k; const x = rvListHtml(rvCams(), now()); l.innerHTML = x.slice(x.indexOf('>') + 1, -6); rvListAt(S.rv.t);   /* another day: that day's list, at the time */
 }
+/* 7.5.1: which Fix an alert gets — same choice as its Alerts card (cat → Fix, person → Who?, delivery → company Fix,
+   motion → Frigate+). Nothing to fix → null (the tap does what it did before). */
+function rvFixAct(e) {
+  if (Data.source !== 'frigate') return null;
+  if (e.motion) return 'mofixopen';
+  const pet = isPet(e, e.id), per = hasPerson(e);
+  if (per && (!pet || /^person$/i.test(e.label))) return 'whoopen';
+  if (pet) return 'fixopen';
+  if (coOf(e) || hasPkg(e)) return 'cofixopen';
+  return null;
+}
+/* the ring that fills under the finger while an alert in the list is held (0.5 s, the long press time) */
+const RvRing = { el: null,
+  on(x, y) { this.off(); const r = document.createElement('div'); r.className = 'rvring'; r.style.left = x + 'px'; r.style.top = y + 'px'; document.body.appendChild(r); this.el = r; },
+  off() { if (this.el) { this.el.remove(); this.el = null; } } };
+document.addEventListener('pointerdown', e => { const el = e.target.closest && e.target.closest('.rvli[data-lp]'); if (el) RvRing.on(e.clientX, e.clientY); }, { passive: true });
+['pointerup', 'pointercancel'].forEach(n => document.addEventListener(n, () => RvRing.off(), { passive: true, capture: true }));
+document.addEventListener('scroll', () => RvRing.off(), { passive: true, capture: true });
+document.addEventListener('pointermove', e => { if (RvRing.el && Math.hypot(e.clientX - parseFloat(RvRing.el.style.left), e.clientY - parseFloat(RvRing.el.style.top)) > 10) RvRing.off(); }, { passive: true });
 function rvListAt(t) {
   const go = () => { const l = document.getElementById('rvlist'); if (!l) return;
     if (t == null) { l.scrollTop = 0; return; }
@@ -8823,6 +8853,10 @@ const ACT = {
     { const p = Playback.st[id]; if (p && p.h) { try { p.h.stopLoad(); } catch (x) {} p.win = null; p.loading = false; p.lastSet = null; Dbg.log('recording download stopped for live', id); } } setTimeout(() => Playback.sync(), 0); S.focus.dayEnd = null; render(); const sc = document.getElementById('fsc'); if (sc) fGoLive(sc); const fl = document.getElementById('flist'); if (fl) fl.scrollTop = 0; },
   flist() { S.flist = !S.flist; render(); fShow(camT(S.focus.cam)); },
   rvlist() { S.rv.list = !S.rv.list; Fold.set('rvlist', S.rv.list); S.rv.fopen = S.rv.pick = S.rv.colsOpen = false; render(); requestAnimationFrame(() => { const c = document.querySelector('#rvlist .rvli.cur'); if (c) c.scrollIntoView({ block: 'center' }); }); },
+  /* 7.5.1 her: Fix from Review — tap the object label on a camera (the rest of the picture still opens it big), or
+     press and hold an alert in the list (a tap still plays that moment). Same Fix as that alert has on the Alerts page. */
+  rvtagfix(d) { const c = Data.cam(d.id), e = c && rvAt(c, S.rv.t), a = e && rvFixAct(e); if (!a) { ACT.rvopen(d); return; } Dbg.log('review fix', a, e.cam, hm(e.t)); ACT[a]({ v: e.id }); },
+  rvlfix(d) { const e = evE(d.e), a = e && rvFixAct(e); RvRing.off(); if (!a) return; if (navigator.vibrate) try { navigator.vibrate(15); } catch (x) { } Dbg.log('review fix', a, e.cam, hm(e.t), 'held'); ACT[a]({ v: e.id }); },
   rvlpick(d, e) {   /* an alert in the list: every camera goes to that moment, the alert's camera comes first */
     S.rv.t = +d.t - 3000; S.playing = true; S.rv.feat = d.id; S.rv.autoFeat = null;   /* 4.2.6: from 3 s before */
     /* the picked alert's camera stays first (big picture) while the line is inside that alert, even with no recording */
