@@ -5488,9 +5488,11 @@ function panel(c, col, span) {
   return '<div class="panel' + (col ? ' half' : '') + '" id="panel"' + (col ? ' style="grid-column:' + col + ' / span ' + (span || 2) + '"' : '') + '>' +
     '<div class="pctl g3"><span class="psp pl"></span>' +
     '<div class="trio">' +
+    '<button data-act="pstep" data-v="-10" aria-label="Back 10 Seconds">' + I.back10c + '</button>' +   /* 7.5.2 her: −10 s / +10 s outside −5 / +5, all screens */
     '<button data-act="pstep" data-v="-5" aria-label="Back 5 Seconds">' + I.back5 + '</button>' +   /* 3.10.4: −5 s / +5 s beside Pause */
     '<button data-act="playpause" aria-label="' + (S.playing ? 'Pause' : 'Play') + '">' + (S.playing ? I.pause : I.play) + '</button>' +
     '<button data-act="pstep" data-v="5" aria-label="Forward 5 Seconds">' + I.fwd5 + '</button>' +
+    '<button data-act="pstep" data-v="10" aria-label="Forward 10 Seconds">' + I.fwd10c + '</button>' +
     '</div>' +
     /* 4.10.10 (her layout, same on phone and computer): Power, Boxes at the left | −5 Pause +5 in the exact middle |
        Sound, Live at the right (Live last) */

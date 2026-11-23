@@ -875,3 +875,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 - B: press and hold an alert in the list (data-lp="rvlfix", existing 500 ms longPress, its click guard keeps the tap from also playing) → Fix; a white ring (.rvring) fills under the finger while holding; a tap still plays that moment.
 - rvFixAct(e) picks the same Fix as the Alerts card: motion → mofixopen, person (label Person) → whoopen, cat → fixopen, delivery / package → cofixopen. Log "review fix <act> <cam> HH:MM [held]". All screens.
 - Test rfx.js (Data.source forced frigate): tag tap → modal who; hold → ring shown, modal who, rvlpick ran 0; tap → rvlpick ran 1. (Version went 7.4.10 → 7.5.1 by build.py.)
+
+## 7.5.2 (2026-11-23) Home camera panel: −10 s / +10 s
+- Her (mockup approved): the opened camera's middle group is now −10, −5, Pause, +5, +10 (pstep -10 / 10, icons back10c / fwd10c). All screens. Layout test: phone 393 trio 114–284 (left group with Fix ends 108), cover trio 148–318; −10 click moves camT by −10 s.
