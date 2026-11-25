@@ -2334,7 +2334,7 @@ const Frigate = {
     Dbg.log('start config ready', (Date.now() - t0) + 'ms');
     fetch('ctl/litter?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.json() : null).then(st => { if (st) { Litter.st = st; Rel.sync(st); } }).catch(() => {});   /* 6.2.4: animals she re-marked */
     const groups = cfg.camera_groups || {};
-    const groupOf = id => { for (const g in groups) if ((groups[g].cameras || []).includes(id)) return g; return 'Cameras'; };
+    const groupOf = id => { for (const g in groups) if ((groups[g].cameras || []).includes(id)) return g; return id === 'doorbell' ? 'Outside' : 'Cameras'; };   /* 7.5.5 her: the Reolink doorbell is Outside (first) even before it is in Frigate's Outside group */
     this.streams = {}; Object.keys((cfg.go2rtc && cfg.go2rtc.streams) || {}).forEach(k => { this.streams[k] = 1; });
     Object.keys(cfg.cameras).forEach(id => { const cc = cfg.cameras[id], st = Ctl.get(id);
       Object.values((cc.live && cc.live.streams) || {}).forEach(k => { this.streams[k] = 1; });
@@ -5259,6 +5259,7 @@ const sndC = id => Snd.btn('ic', id).replace('aria-pressed="' + Snd.on + '"', 'a
 function trueAr(c) {
   if (!c) return 16 / 9;
   if (c.id === 'nest_doorbell') return 0.75;
+  if (c.id === 'doorbell' && c.ar) return c.ar;   /* 7.5.5 her: the Reolink doorbell keeps its own 4:3 shape (never stretched to 16:9); the tile's sides stay dark */
   if (c.one && c.ar >= 1.2 && c.ar < 1.7) return c.ar;
   return c.ar && (c.ar < 1.2 || (c.ar >= 1.7 && c.ar <= 2.6)) ? c.ar : 16 / 9;
 }
