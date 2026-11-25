@@ -928,3 +928,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 7.6.5 — Duo cover Review strip: below the iOS pill, same order as Alerts
 - Her screenshot: on the cover Review page the right strip started under the iOS pill (Back and Cameras hidden), and its order differed from the Alerts strip.
 - Cover only: `.rvtop .rvbar{top:246px;bottom:auto}`; order Back, Reset, Cameras, Objects (rvfopen), Boxes — as Alerts — then the Review-only Layout, Alert List, Date.
+
+## 7.6.6 — Duo cover Review strip not squeezed in list view
+- Her screenshot (Review with the alert list open): 7.6.5's `top:246px` plus the list view's `bottom:var(--rvpillb)` squeezed the strip so its icons overlapped. In list view too the strip is `top:246px;bottom:auto` (8 buttons × 30 px, 250–490).

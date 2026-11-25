@@ -1890,6 +1890,9 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
 :root:root[data-cover][data-cover] .rvtop .rvbar button,:root:root[data-cover][data-cover] .rvtop .rvbar .rvib,:root:root[data-cover][data-cover] .rvtop .rvbar .dtwrap button{height:30px!important}
 :root:root[data-cover][data-cover] .rvtop .rvbar > .dtwrap{height:30px}
 :root:root[data-cover][data-cover] body:has(.rvdock.l) .rvtop .rvbar{bottom:var(--rvpillb,64px)!important}
+/* 7.6.6 her: with the alert list open, that bottom and 7.6.5's top squeezed the strip (icons on top of each other);
+   the strip keeps its own height below the iOS pill in list view too */
+:root:root[data-cover][data-cover] body:has(.rvdock.l) .rvtop .rvbar{top:246px!important;bottom:auto!important}
 :root:root:not([data-dark])[data-cover][data-cover] .rvtop .rvbar,:root:root:not([data-dark])[data-cover][data-cover] .evtop .evbar,:root:root:not([data-dark])[data-cover][data-cover][data-view="home"] .rail{background:linear-gradient(165deg,rgba(255,255,255,.14),rgba(255,255,255,0) 50%,rgba(255,255,255,.05)),rgba(28,30,34,.14)!important}
 /* 6.9.2 her: on the cover screen the cameras scroll only until the last row sits just above the timeline / list
    (no empty space under them); with three rows or fewer nothing scrolls */
