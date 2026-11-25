@@ -878,3 +878,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.5.2 (2026-11-23) Home camera panel: −10 s / +10 s
 - Her (mockup approved): the opened camera's middle group is now −10, −5, Pause, +5, +10 (pstep -10 / 10, icons back10c / fwd10c). All screens. Layout test: phone 393 trio 114–284 (left group with Fix ends 108), cover trio 148–318; −10 click moves camT by −10 s.
+
+## 7.5.3 (2026-11-24) Camera view: −5s / +5s on every phone, row at the very bottom
+- Her: the camera view (picture + list) bottom row now −10s −5s Pause Live +5s +10s on all phones (f5 shown; buttons 48 high, min 50, Live 15 px; gap 6) and sits at bottom 2 px like the Duo (was floating ~10 px + safe area above). Wide / landscape and Duo cover rules unchanged (they come later in the CSS). Test t.js: 375 px bar 7–368, 393 px 16–377, cover 58–408; bottom 2 px.

@@ -447,6 +447,13 @@ img.rf{opacity:0}
 .fsteps{position:absolute;left:50%;transform:translateX(-50%);bottom:max(10px, calc(env(safe-area-inset-bottom,0px) - 14px));z-index:5;display:flex;align-items:center;gap:12px}
 .fsteps .livepill{position:static;transform:none}
 .fsteps .fstep.f5{display:none}
+/* 7.5.3 her: the camera view (picture + list) gets −5s / +5s on every phone too (−10 −5 Pause Live +5 +10, a bit
+   smaller to fit a 375 px phone), and the row sits at the very bottom like on the Duo (no longer floating) */
+.focus>.fsteps{gap:6px;bottom:2px}
+.focus>.fsteps .fstep.f5{display:inline-block}
+.focus>.fsteps .fstep{height:48px;min-width:50px;padding:0 8px;font-size:14px}
+.focus>.fsteps .fstep.fpp{min-width:46px;width:46px;padding:0}
+.focus>.fsteps .livepill{height:48px;padding:0 12px;font-size:15px}
 .fstep.fal{display:inline-flex;align-items:center;justify-content:center}.fstep.fal svg{width:20px;height:20px}.fstep.fal:disabled{opacity:.35}
 .fstep.fpp{min-width:52px;width:52px;padding:0;display:flex;align-items:center;justify-content:center}.fstep.fpp[hidden]{display:none}.fstep.fpp svg{width:22px;height:22px}
 /* 6.1.7 her rule: on a phone the camera view keeps only −10s, Pause, Live, +10s at the bottom (the ‹ › for the
