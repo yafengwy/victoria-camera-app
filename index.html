@@ -2216,6 +2216,7 @@ function objToggle(f, o) {
   if (!Object.values(f.objs).includes(false)) OBJS().forEach(x => { f.objs[x] = true; });   /* leaving "all": fix the list first */
   f.objs[o] = !objOn(f, o);
 }
+const HIDE_CAMS = new Set(['nest_doorbell']);   /* 7.5.4 her: the old Nest doorbell is hidden in the app */
 const Data = {
   cams: [], events: [], source: 'demo',
   async load() {
@@ -2305,7 +2306,7 @@ const Frigate = {
       /* 5.8.1: older days read before the week arrived (her log 00:05:13: "older alerts 2344 from 10/07", then
          "start alerts ready" replaced the list, so Oct 8–10 showed 0 and were never read again) are kept */
       const fresh = this.mapReviews(rows), ids = new Set(fresh.map(e => e.id)), kept = (Data.events || []).filter(e => !ids.has(e.id) && !/^recent-/.test(e.id));
-      Data.events = fresh.concat(kept).sort((x, y) => y.t - x.t); this.revOk = true; Dbg.log('start alerts ready', fresh.length, 'kept older', kept.length, (Date.now() - t0) + 'ms'); })
+      Data.events = fresh.concat(kept).filter(x => !HIDE_CAMS.has(x.cam)).sort((x, y) => y.t - x.t); this.revOk = true; Dbg.log('start alerts ready', fresh.length, 'kept older', kept.length, (Date.now() - t0) + 'ms'); })
       .catch(e => { this.revFail = Date.now(); Dbg.log('start alerts failed', e && e.message); });
     return Data.evReady;
   },
@@ -2367,11 +2368,14 @@ const Frigate = {
       aoff: +(((cfg.cameras[id].detect || {}).annotation_offset) || 0)
     }));
     /* Victoria's order; cameras not listed keep Frigate's order after these */
-    const ORDER = ['nest_doorbell', 'front_door', 'driveway', 'right_yard_front', 'right_yard_back', 'nest_backyard', 'left_yard', 'california_room',
+    const ORDER = ['doorbell', 'nest_doorbell', 'front_door', 'driveway', 'right_yard_front', 'right_yard_back', 'nest_backyard', 'left_yard', 'california_room',
       'garage1', 'garage2', 'closet', 'entry_room', 'nest_entry_room', 'prep_kitchen', 'living_room', 'treat_feeder', 'upstairs_living', 'upstairs_furbo',
       'bedroom_furbo', 'nest_master_bedroom', 'fishtofu_furbo', 'riceball_furbo', 'litter_box'];
     const rank = c => { const i = ORDER.indexOf(c.id); return i < 0 ? ORDER.length + Data.cams.indexOf(c) : i; };
     Data.cams = Data.cams.slice().sort((a, b) => rank(a) - rank(b));
+    /* 7.5.4 her: the new Reolink doorbell (doorbell) comes first; the old Google Nest doorbell is hidden from the app for
+       now (it stays in Frigate until she decides to remove it). Its alerts are left out too (HIDE_CAMS). */
+    Data.cams = Data.cams.filter(c => !HIDE_CAMS.has(c.id));
     /* the Doorbell's picture is upright 3:4. Nest's stream carries a wrong "stretch sideways" flag, so browsers show
        the live video 4:3 and squashed; the .door class stretches it back to 3:4 (img and video fill the 3:4 box). */
     Data.cams.forEach(c => { if (c.id === 'nest_doorbell') c.ar = 0.75; });
@@ -2450,7 +2454,7 @@ const Frigate = {
     let changed = false;
     fresh.forEach(e => { const o = old.get(e.id); if (!o || sig(o) !== sig(e)) { old.set(e.id, e); changed = true; } });
     if (!changed) return;
-    Data.events = [...old.values()].sort((a, b) => b.t - a.t);
+    Data.events = [...old.values()].filter(x => !HIDE_CAMS.has(x.cam)).sort((a, b) => b.t - a.t);
     if (S.view === 'events' && !S.modal && !S.evPlay) render();
     else if (S.expanded && S.view === 'home' && !S.dragging) refreshTrack();
   },
@@ -3074,7 +3078,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 7.5.3 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 7.5.4 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -3478,7 +3482,7 @@ const Snz = {
 const WAIT_CO = [['amazon', 'Amazon'], ['fedex', 'FedEx'], ['ups', 'UPS'], ['usps', 'USPS'], ['dhl', 'DHL']];
 /* 3.3.1: on Front Door, Driveway and Doorbell any of the five carriers is Interesting (shown, no phone notification;
    Today's Waiting still notifies through HA "Camera Waiting Delivery") */
-const CO_CAMS = ['front_door', 'driveway', 'nest_doorbell'];
+const CO_CAMS = ['front_door', 'driveway', 'nest_doorbell', 'doorbell'];   /* 7.5.4: + the Reolink doorbell */
 const coCam = (cam, subs) => CO_CAMS.includes(cam) && (subs || []).some(x => isLogo(x));
 /* 6.4.3 her rule: zones that make an object Interesting in this app only. Frigate keeps them out of its alerts (not in
    Review's required zones), so Home Assistant sends no notification, but here anything that enters them is orange
@@ -5187,7 +5191,7 @@ function viewHome() {
     '<button class="ic" data-act="modal" data-v="settings" aria-label="Settings">' + I.gear + '</button></div></header>' + (S.more ? moreMenu() : '') + '<main class="main">' + snoozeBanner() + waitBanner();
   groups.forEach(g => {
     /* cameras that are off go to the end of their group; the rest keep their order */
-    const rank = c => c.id === 'nest_doorbell' ? 0 : F360.away(c.id) ? 2 : Ctl.on(c.id) ? 0 : 1;   /* 4.6.7: handed to the Furbo app = very last; 6.10.11 her: the Doorbell stays first even when off */
+    const rank = c => (c.id === 'doorbell' || c.id === 'nest_doorbell') ? 0 : F360.away(c.id) ? 2 : Ctl.on(c.id) ? 0 : 1;   /* 4.6.7: handed to the Furbo app = very last; 6.10.11 her: the Doorbell stays first even when off */
     const cams = Data.cams.filter(c => c.group === g).sort((a, b) => rank(a) - rank(b));
     const open = S.open[g] !== false;
     h += '<section class="group bare"><button class="ghead" data-act="group" data-v="' + esc(g) + '" aria-expanded="' + open + '"><span class="gname">' + esc(g) + '</span><span class="gline"></span>' +
@@ -5393,6 +5397,7 @@ const DEV_FRONT = [
 ];
 const DEV = {
   nest_doorbell: DEV_FRONT,
+  doorbell: DEV_FRONT,   /* 7.5.4: the Reolink doorbell gets the front door lock / lights too */
   front_door: DEV_FRONT,
   driveway: [DEV_GATE, { type: 'lights', items: [{ e: 'light.front_yard_light', name: 'Front Yard Light', on: 'fy_light_on', off: 'fy_light_off' }] }],
   nest_backyard: [{ type: 'lights', items: [{ e: 'light.back_yard_light', name: 'Back Yard Light', on: 'by_light_on', off: 'by_light_off' }, { e: 'light.philips_hue_outdoor_wall', name: 'Outdoor Wall', on: 'hue_wall_on', off: 'hue_wall_off', hue: { bri: 'hue_wall', scenes: [
@@ -7904,7 +7909,7 @@ function modalSettings() {
     row('Mute Notifications', '<button class="btn" data-act="snzopen">' + (SNZ_WHO.some(x => Snz.on(x[0])) ? SNZ_WHO.filter(x => Snz.on(x[0])).map(x => x[1] + ' ' + Snz.left(x[0])).join(' · ') : 'Open') + '</button>') +   /* 6.9.4 per person, 30 Min to 8 Hours */
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     /* 6.10.10 her: Duo Preview row removed (she has the Duo now); duo.html stays for testing */
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 7.5.3 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 7.5.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -8199,7 +8204,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 7.5.3');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 7.5.4');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -8216,7 +8221,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 7.5.3\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 7.5.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -9655,7 +9660,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '7.5.3';
+    const BUILD = '7.5.4';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

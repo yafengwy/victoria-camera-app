@@ -881,3 +881,8 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.5.3 (2026-11-24) Camera view: −5s / +5s on every phone, row at the very bottom
 - Her: the camera view (picture + list) bottom row now −10s −5s Pause Live +5s +10s on all phones (f5 shown; buttons 48 high, min 50, Live 15 px; gap 6) and sits at bottom 2 px like the Duo (was floating ~10 px + safe area above). Wide / landscape and Duo cover rules unchanged (they come later in the CSS). Test t.js: 375 px bar 7–368, 393 px 16–377, cover 58–408; bottom 2 px.
+
+## 7.5.4 (2026-11-24) Reolink doorbell `doorbell` first, Nest doorbell hidden
+- New Frigate camera `doorbell` (Reolink Video Doorbell WiFi D340W, 192.168.1.80, added with the Frigate wizard: http-flv main = record + audio, channel0_ext 896×672 = detect, compatibility mode on, reduce connections on). Its picture is 4:3 landscape (black D340W; the white one was 3:4) — no .door / 0.75 treatment.
+- App: ORDER starts with doorbell; rank keeps doorbell first even when off; CO_CAMS + doorbell (delivery company names); DEV doorbell = DEV_FRONT (lock / lights). HIDE_CAMS = {nest_doorbell}: removed from Data.cams and its alerts dropped (Data.events filters) — Nest stays in Frigate until she decides.
+- HA (delivered): Camera Notifications, Camera Cat Names, Camera Sound Notify, Camera Waiting Delivery get 'doorbell' next to 'nest_doorbell' (name 'Doorbell', outdoor lists for Gardener quiet / sub labels). New Doorbell Press Notification (Reolink binary_sensor.doorbell_visitor → both lists, iPhone camera.doorbell_clear entity / Samsung camera_proxy image, time-sensitive, silent when binary_sensor.<phone>_focus on, tap opens #cam=doorbell).
