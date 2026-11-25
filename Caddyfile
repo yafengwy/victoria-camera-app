@@ -14,7 +14,7 @@ cam.victoriashome.app {
 		respond `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Signed Out</title><style>body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;font:17px -apple-system,system-ui,sans-serif;background:#111;color:#eee}a{color:#111;background:#eee;padding:12px 26px;border-radius:999px;text-decoration:none;font-weight:600}</style></head><body><div>Signed Out</div><a href="/">Sign In</a></body></html>` 200
 	}
 	# Home-screen icon files: the phone fetches these without the sign-in cookie, so they are public
-	@public path /icon-180.png /icon-192.png /icon-512.png /manifest.webmanifest
+	@public path /icon-180.png /icon-192.png /icon-512.png /manifest.webmanifest /doorbell-ding.mp3
 	handle @public {
 		reverse_proxy vh-app:80
 	}

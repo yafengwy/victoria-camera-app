@@ -20,7 +20,7 @@ if [ ! -s "$D/furbo-auth.conf" ]; then
   if [ -n "$K" ]; then echo "proxy_set_header Authorization \"Bearer $K\";" > "$D/furbo-auth.conf"; else echo '# no Furbo bridge key yet' > "$D/furbo-auth.conf"; fi
 fi
 git -C "$G" fetch -q --depth 1 origin main && git -C "$G" reset -q --hard origin/main || exit 0
-for f in index.html version.txt icon-180.png icon-192.png icon-512.png manifest.webmanifest duo.html; do
+for f in index.html version.txt icon-180.png icon-192.png icon-512.png manifest.webmanifest duo.html doorbell-ding.mp3; do
   [ -s "$G/$f" ] && ! cmp -s "$G/$f" "$D/app/$f" && cp "$G/$f" "$D/app/$f"
 done
 # 4 MB of random bytes for Settings → Speed Test (6.7.6): how fast the line from here to the phone is

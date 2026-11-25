@@ -915,3 +915,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 - Her Playback Log (7.6.1): no "stats failed", so stats were read fine. The page was open only a few seconds at a time (reloads, page hidden/shown) and Pic needed two 15 s checks in a row while visible, so it never got there.
 - First check after opening counts at once (Frigate fps is already an average); later, two checks in a row (no flashing on a dip). Check again whenever the page becomes visible.
 - No known last-picture time (dead before the app ever saw it send): end of its newest recording in the last 7 days (`/api/<cam>/recordings`, one request only then).
+
+## 2026-11-25 Doorbell ding for Google Home
+- `doorbell-ding.mp3` (2.6 s ding-dong, made here) is copied by update-app.sh into the app folder and is public in Caddy (`@public`), so Google Cast speakers can fetch it without a login. Used by HA automation "Doorbell Press Google Home" (scratch outputs): ding on the 4 Google speakers/displays, then `camera.play_stream camera.doorbell` on the 3 Nest Hubs for 60 s, then turn them off. TV Chromecast and Cast groups are left out.
