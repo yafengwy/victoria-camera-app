@@ -890,3 +890,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 7.5.5 (2026-11-24) Reolink doorbell: Outside group, own 4:3 shape
 - Her: the doorbell showed under a separate "Cameras" group and stretched to 16:9. groupOf: doorbell → Outside when it is in no Frigate camera group (ORDER keeps it first). trueAr: doorbell returns its own ar (4:3), so tiles letterbox (dark sides) instead of stretching.
 - Seen in her log (to fix next): doorbell recordings 404 (no parts), ffmpeg.doorbell.audio_record "Error opening input files: Option not found", live / clipwait rtsp://frigate:8554/doorbell fail (exit 8); detect (sub) works 5 fps.
+
+## 7.5.7 — Reolink doorbell shown whole (letterbox)
+- Her ask: never stretch or crop the 4:3 doorbell; dark sides are fine.
+- `db43` class on the doorbell's home tile, camera view (.fvid), alert media (.evmedia) and Review tile (.rvcam): `object-fit:contain` on a black background. Full screen (.fvw) was already contain.

@@ -102,6 +102,9 @@ img.rf{opacity:0}
 .fbside .chead .chlive{height:20px;padding:0 7px;font-size:10px;border-radius:10px}
 .cam.door .frame img,.cam.door .frame video,.fvid.door img,.fvid.door video{object-fit:fill!important}
 .wt.door img,.wt.door video{object-fit:fill!important}
+/* 7.5.5 her: the Reolink doorbell (4:3) is shown whole in a home tile - never stretched or cut; the sides stay dark */
+.fvid.db43,.evmedia.db43,.rvcam.db43{background:#000}.fvid.db43 img,.fvid.db43 video,.evmedia.db43 img,.evmedia.db43 video,.rvcam.db43 img,.rvcam.db43 > video.rvv{object-fit:contain!important}
+.cam.db43 .frame{background:#000}.cam.db43 .frame img,.cam.db43 .frame video{object-fit:contain!important;width:100%!important;height:100%!important;inset:0!important;left:0!important;top:0!important;transform:none!important}
 /* every picture and video drawn at the camera's real shape (--R), cut to its box (cover) or fitted inside (vcon) */
 .vfit{container-type:size!important}
 .vfit > img,.vfit video{position:absolute!important;inset:auto!important;max-width:none!important;max-height:none!important;object-fit:fill!important;
@@ -5281,7 +5284,7 @@ function camCard(c, fr, span2) {
   const t = camT(c.id), f = Data.frame(c, t), off = !Ctl.on(c.id);
   const tall = isTall(c), slim = S.layout === 'list' && c.id !== S.expanded;   /* list: no name bar — name bottom left, sound next to Live */
   const snz = Snz.has(c.id) ? '<span class="snzb">' + I.snooze + (Snz.st.mode === 'c' ? 'Clear' : Snz.left()) + '</span>' : '';
-  return '<article class="cam' + (c.id === 'nest_doorbell' ? ' door' : '') + (c.id === 'front_door' ? ' fdoor' : '') + (c.id === S.expanded ? ' on' : '') + (off ? ' off' : '') + (tall ? ' tall' : '') + (span2 ? ' span2' : '') + (slim ? ' slim' : '') + '" id="cam-' + c.id + '"' + (tall || fr ? ' style="' + (tall ? '--ar:' + c.ar.toFixed(4) + ';' : '') + (fr ? '--fr:' + fr.toFixed(4) : '') + '"' : '') + '>' +
+  return '<article class="cam' + (c.id === 'nest_doorbell' ? ' door' : '') + (c.id === 'doorbell' ? ' db43' : '') + (c.id === 'front_door' ? ' fdoor' : '') + (c.id === S.expanded ? ' on' : '') + (off ? ' off' : '') + (tall ? ' tall' : '') + (span2 ? ' span2' : '') + (slim ? ' slim' : '') + '" id="cam-' + c.id + '"' + (tall || fr ? ' style="' + (tall ? '--ar:' + c.ar.toFixed(4) + ';' : '') + (fr ? '--fr:' + fr.toFixed(4) : '') + '"' : '') + '>' +
     (slim ? '' : '<div class="chead"><button class="cname" data-act="tap" data-id="' + c.id + '">' + esc(c.name) + '</button>' + snz +
     /* 4.8.8 her rule: in List too, the opened camera's buttons sit at the right end of the playback row under it (the
        row had empty room), not over the picture's top right */
@@ -6054,7 +6057,7 @@ function viewEvents() {
         (Data.source === 'frigate' ? '<button class="ic" aria-label="Delete" data-act="evdelask" data-v="' + esc(sk) + '">' + I.trash + '</button>' : '') +
         (Data.source === 'frigate' ? EvSnd.btn() : '') +   /* 5.4.8 her order: Fix · Review · Download · Delete · Mute · Play */
         '</span><button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(sk) + '">' + (S.evPlay === sk && !evPaused(sk) ? I.pause : I.playO) + '</button></div>' +
-        '<div class="evmedia' + (sel.cam === 'nest_doorbell' ? ' door' : '') + ctlOn('ev~' + sk) + '" id="evm-' + esc(sk) + '" data-act="evtap" data-v="' + esc(sk) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(sel, sp)) + ' At ' + hms(sp.t) + ' Full Screen">' + evMedia(sel, sk) + '</div><div class="evbarh" id="evb-' + esc(sk) + '">' + evBar(sel, sk) + '</div></article>';
+        '<div class="evmedia' + (sel.cam === 'nest_doorbell' ? ' door' : '') + (sel.cam === 'doorbell' ? ' db43' : '') + ctlOn('ev~' + sk) + '" id="evm-' + esc(sk) + '" data-act="evtap" data-v="' + esc(sk) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(sel, sp)) + ' At ' + hms(sp.t) + ' Full Screen">' + evMedia(sel, sk) + '</div><div class="evbarh" id="evb-' + esc(sk) + '">' + evBar(sel, sk) + '</div></article>';
     } else h += '<div class="empty">No alerts on this day with the current filters.</div>';
     h += '</div><div class="evlist">';
   } else h += '<div class="evwrap"><div class="evlist">';
@@ -6083,7 +6086,7 @@ function viewEvents() {
         (Data.source === 'frigate' ? EvSnd.btn() : '') +   /* 5.4.8 her order: Fix · Review · Download · Delete · Mute · Play */
         '</span><button class="ic" aria-label="Play" data-act="evplay" data-v="' + esc(k) + '">' + (S.evPlay === k && !evPaused(k) ? I.pause : I.playO) + '</button>' +
 '</div>' +
-        '<div class="evmedia' + (e.cam === 'nest_doorbell' ? ' door' : '') + ctlOn('ev~' + k) + '" id="evm-' + esc(k) + '" data-act="evtap" data-v="' + esc(k) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(e, p)) + ' At ' + hms(p.t) + ' Full Screen">' + evMedia(e, k) + '</div><div class="evbarh" id="evb-' + esc(k) + '">' + evBar(e, k) + '</div></article>';
+        '<div class="evmedia' + (e.cam === 'nest_doorbell' ? ' door' : '') + (e.cam === 'doorbell' ? ' db43' : '') + ctlOn('ev~' + k) + '" id="evm-' + esc(k) + '" data-act="evtap" data-v="' + esc(k) + '" role="button" aria-label="Double Tap To Open ' + esc(lab(e, p)) + ' At ' + hms(p.t) + ' Full Screen">' + evMedia(e, k) + '</div><div class="evbarh" id="evb-' + esc(k) + '">' + evBar(e, k) + '</div></article>';
     });
   });
   Scrub.rows = scrubRows;
@@ -6519,7 +6522,7 @@ function viewFocus() {
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
     '</div><div class="pillk fnmbr' + rcnA(c.id) + '>' + esc(c.name) + '</div>';   /* top row: back, the picture's time, buttons; the camera name sits in the picture's bottom-left corner (Loading shows bottom-right), the object tag just above it */
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '" style="--vr:' + (isTall(c) ? c.ar : Math.min(trueAr(c), 1.7778)).toFixed(4) + '">' +
-    '<div class="fvid vfit' + (c.id === 'nest_doorbell' ? ' door' : '') + (isTall(c) ? ' tall' : '') + '" style="--R:' + trueAr(c).toFixed(4) + (isTall(c) ? ';--ar:' + c.ar.toFixed(4) : trueAr(c) >= 1.2 && trueAr(c) < 1.7 ? ';aspect-ratio:' + trueAr(c).toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.quick(c.id, t != null, 'fquick') + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tags ? ' multi' : f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
+    '<div class="fvid vfit' + (c.id === 'nest_doorbell' ? ' door' : '') + (c.id === 'doorbell' ? ' db43' : '') + (isTall(c) ? ' tall' : '') + '" style="--R:' + trueAr(c).toFixed(4) + (isTall(c) ? ';--ar:' + c.ar.toFixed(4) : trueAr(c) >= 1.2 && trueAr(c) < 1.7 ? ';aspect-ratio:' + trueAr(c).toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.quick(c.id, t != null, 'fquick') + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tags ? ' multi' : f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fseek" id="fseek" hidden></div>' +
     '<div class="fctl" id="fctl">' + (S.fclip && S.fclip.cam === c.id ?
       '<button class="dk" data-act="fclipx" aria-label="Cancel Download">' + I.x + '</button><div class="fclipt"><b>Start</b> ' + (S.fclip.a ? hms(S.fclip.a) : '—') + '<br><b>End</b> ' + (S.fclip.b ? hms(S.fclip.b) : '—') + '</div>' +
@@ -7555,7 +7558,7 @@ function viewReview() {
   cams.forEach(c => {
     const f = Data.frame(c, t);
     const e = rvAt(c, t);
-    h += '<div class="rvcam' + (e ? (e.interesting ? ' hot' : ' uhot') : '') + '" id="rv-' + c.id + '" data-act="rvopen" data-id="' + c.id + '"><img data-ld="1"' + (Data.source !== 'frigate' || t == null || RecMap.has(c.id, t) === true ? ' src="' + f.img + '"' : '') + ' alt=""><div class="nm">' + esc(c.name) + '</div><div class="tm" data-act="rvsync" data-id="' + c.id + '" role="button" aria-label="Show All Cameras At This Time" hidden></div><div class="tag rvtagfx' + (e && !e.interesting ? ' un' : '') + '" id="rvtag-' + c.id + '" data-act="rvtagfix" data-id="' + c.id + '" role="button" aria-label="Fix This Alert"' + (e ? '' : ' hidden') + '>' + (e ? objIcon(ico(e)) + '<span>' + esc(lab(e)) + '</span>' : '') + '</div></div>';
+    h += '<div class="rvcam' + (c.id === 'doorbell' ? ' db43' : '') + (e ? (e.interesting ? ' hot' : ' uhot') : '') + '" id="rv-' + c.id + '" data-act="rvopen" data-id="' + c.id + '"><img data-ld="1"' + (Data.source !== 'frigate' || t == null || RecMap.has(c.id, t) === true ? ' src="' + f.img + '"' : '') + ' alt=""><div class="nm">' + esc(c.name) + '</div><div class="tm" data-act="rvsync" data-id="' + c.id + '" role="button" aria-label="Show All Cameras At This Time" hidden></div><div class="tag rvtagfx' + (e && !e.interesting ? ' un' : '') + '" id="rvtag-' + c.id + '" data-act="rvtagfix" data-id="' + c.id + '" role="button" aria-label="Fix This Alert"' + (e ? '' : ' hidden') + '>' + (e ? objIcon(ico(e)) + '<span>' + esc(lab(e)) + '</span>' : '') + '</div></div>';
   });
   rvEnd = end;
   RVV = rvVert();
