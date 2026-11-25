@@ -2591,7 +2591,8 @@ const Pic = {
         const n = this.no(id) ? (this.live(id) ? 'L' : 'N') : ''; if (n !== (this.shown[id] || '')) { this.shown[id] = n; Dbg.log(n ? (n === 'L' ? 'not recording' : 'no picture') : 'picture back', id); if (S.view === 'home' && !S.focus) paintCam(id); }
       }
       store.set('picLast', this.last);
-    } catch (e) {}
+      if (this.err) { Dbg.log('stats back'); this.err = 0; }
+    } catch (e) { if (!this.err) Dbg.log('stats failed', String(e && e.message || e)); this.err = 1; }   /* 7.5.11: say in the Playback Log when Frigate's stats cannot be read (then Not Connected cannot work) */
   }
 };
 Frigate.pollStats = async function () {

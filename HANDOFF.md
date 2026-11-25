@@ -907,3 +907,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 - Her ask: an unplugged camera must show it is disconnected right away, and the top-left time must be the last time it sent a picture (the unplugged Doorbell said Connecting for 30 min with the time running).
 - Cause (her stats output): camera_fps 0.0 but Frigate's watchdog keeps restarting the doorbell's ffmpeg; the old rule (fps < 1 for 60 s, reset on any good poll) never reached 60 s. latest.webp still answers 200 with the old picture, so the card's time kept running.
 - Pic: two stats polls in a row with fps < 1 → `off[id]` = last good poll time (`last`, saved as `homecams.picLast`); two good polls in a row → back. Pill: Not Connected (Not Recording when the app's own live video still plays). `shownT` returns `Pic.lastAt(id)` while Not Connected. All screens, all cameras.
+
+## 7.6.1 — Playback Log says when Frigate stats cannot be read
+- 7.5.10 Not Connected works in tests (stats fps 0 → pill after 2 polls) but her Mac still showed Connecting while Frigate stats really were camera_fps 0 for 40 s. Pic.poll swallowed errors silently; it now logs "stats failed <reason>" once (and "stats back") in the Playback Log, to find the cause before changing anything else.
