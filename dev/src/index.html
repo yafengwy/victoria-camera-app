@@ -8116,6 +8116,20 @@ document.addEventListener('touchend', e => {
   }
   TapDbl = { id, at: t, skip: TapDbl.skip };
 }, { capture: true, passive: false });
+/* 7.6.11 her: double-tapping the round Live under an opened camera did nothing on her iPhone. Same cause as 4.9.3: the
+   first tap makes that camera live and redraws the page, so the iPhone drops the second tap's click (its button had
+   just been replaced). The double tap on Live is now caught when the finger lifts, like the cards' double tap. */
+let LiveDbl = { at: 0 };
+document.addEventListener('touchend', e => {
+  if (e.changedTouches.length !== 1 || e.touches.length) return;
+  const el = e.target.closest && e.target.closest('[data-act="live1"]'); if (!el) return;
+  const t = tapTime(e);
+  if (LiveDbl.at && t - LiveDbl.at < 450) {
+    e.preventDefault(); LiveDbl = { at: 0 }; ACT.live1.last = 0; Dbg.log('double tap live', el.dataset.id);
+    syncAll(null); if (S.view === 'home') allLive1(); else toast('All cameras are live'); render(); return;
+  }
+  LiveDbl = { at: t };
+}, { capture: true, passive: false });
 function tapTime(ev) { const n = performance.now(), ts = ev && ev.timeStamp; return ts > 0 && ts <= n + 50 && n - ts < 2000 ? ts : n; }
 const ACT = {
   /* 4.9.10 Cats → 认猫 / 如厕记录 */

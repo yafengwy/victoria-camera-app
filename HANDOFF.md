@@ -940,3 +940,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 - Foldable upright (inside rules = all foldables): with the alert list open, `rvFoldFit` starts the list under the third camera row (was the second).
 - Foldable Review Boxes button gets `bxbtn2`, so it is yellow when on like on Alerts.
 - Review bottom row: −5s / +5s around Pause on the Duo / foldable screens (cover, upright, sideways) only; normal phones unchanged.
+
+## 7.7.1 — Double tap on the round Live works on the iPhone
+- Her report: double-tapping the round Live under an opened camera did not make every camera live. Same cause as 4.9.3: the first tap's `live1` re-renders the page and the iPhone drops the second click. A capture `touchend` listener now catches the second tap on `[data-act="live1"]` within 450 ms (preventDefault, then the double-tap action: every camera live for 1 minute on home). Mouse double clicks still use the click path.
