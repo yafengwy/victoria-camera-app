@@ -934,3 +934,9 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.6.7 — Duo cover Review strip: Boxes last
 - Her ask: the object boxes button goes to the bottom, under Date.
+
+## 7.6.10 — Duo Review: time beside the object tag (cover), three rows over the list (upright), yellow Boxes, ±5s
+- Cover (her pick A): the Review tile time sat top-right under the iOS pill / button strip; the tag and time now share `.rvtl` (display:contents elsewhere, so other screens are unchanged) and on the cover form one capsule at the top left ("Person · 13:45:18", or the time alone).
+- Foldable upright (inside rules = all foldables): with the alert list open, `rvFoldFit` starts the list under the third camera row (was the second).
+- Foldable Review Boxes button gets `bxbtn2`, so it is yellow when on like on Alerts.
+- Review bottom row: −5s / +5s around Pause on the Duo / foldable screens (cover, upright, sideways) only; normal phones unchanged.

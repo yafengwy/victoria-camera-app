@@ -615,6 +615,20 @@ img.rf{opacity:0}
 .rvcam .nm{position:absolute;top:6px;left:6px;padding:3px 8px;border-radius:999px;background:rgba(18,22,24,.7);color:#fff;font-size:11px;font-weight:700}
 .rvcam .tm{position:absolute;top:5px;right:5px;padding:2px 6px;border-radius:999px;background:rgba(18,22,24,.6);color:#fff;font-size:10px;font-weight:500;font-variant-numeric:tabular-nums;pointer-events:none}
 .rvcam .tm[hidden]{display:none}
+/* 7.6.9 her: Review's bottom row has −5s / +5s next to −10s / +10s on the Duo / foldable screens (cover, inside upright
+   and sideways); normal phones keep the row as it was */
+.rvctl .r5{display:none}
+:root:is([data-cover],[data-coverweb],[data-foldup],[data-foldside]) .rvctl .r5{display:revert}
+/* 7.6.8: the object tag and the time share a wrapper; it is invisible to layout everywhere (each keeps its own corner)
+   except on the Duo cover, where the time sits right after the tag at the top left as one capsule (her pick A: the
+   top-right time was under the iOS pill and the button strip) */
+.rvtl{display:contents}
+:root:is([data-cover],[data-coverweb]) .rvcam .rvtl{display:flex;align-items:stretch;position:absolute;top:5px;left:5px;right:auto;z-index:3;max-width:calc(100% - 10px)}
+:root:is([data-cover],[data-coverweb]) .rvcam .rvtl > .tag,:root:is([data-cover],[data-coverweb]) .rvcam .rvtl > .tm{position:static!important;top:auto!important;left:auto!important;right:auto!important;margin:0!important;display:flex;align-items:center}
+:root:is([data-cover],[data-coverweb]) .rvcam .rvtl > .tag:not([hidden]){border-top-right-radius:0!important;border-bottom-right-radius:0!important}
+:root:is([data-cover],[data-coverweb]) .rvcam .rvtl > .tag:not([hidden]) + .tm{border-top-left-radius:0!important;border-bottom-left-radius:0!important}
+:root:is([data-cover],[data-coverweb]) .rvcam .rvtl > .tag[hidden]{display:none!important}
+:root:is([data-cover],[data-coverweb]) .rvcam .rvtl > .tm[hidden]{display:none!important}
 .rvcams.c3 .rvcam .tm,.rvcams.c4 .rvcam .tm,.rvcams.c5 .rvcam .tm{font-size:9px;padding:1px 5px}
 .rvcams.c1 .rvcam .tm,.rvcams.big3 .rvcam.feat .tm,.rvcams.top24 .rvcam.feat .tm{font-size:12px;padding:3px 8px;top:6px;right:6px}
 .rvcam.hot{outline:3px solid var(--hot);outline-offset:-3px}
@@ -3120,7 +3134,7 @@ const Dbg = {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 7.6.7 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 7.6.10 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -5042,12 +5056,13 @@ const Scrub = {
 Scrub.init();
 /* 6.8.9: iPhone Duo cover screen — Review with the alert list: two whole rows of cameras on top, the list takes exactly
    the rest; the glass pill sits just above the timeline (--dockh) */
-/* 7.4.5 her: foldable upright Review with the list open - the list starts right under the second row of cameras */
+/* 7.4.5 her: foldable upright Review with the list open - the list starts right under the second row of cameras (7.6.8: third row) */
 function rvFoldFit() {
   const r = document.documentElement; if (S.view !== 'review' || !S.rv.list || !r.hasAttribute('data-foldup')) { if (r.style.getPropertyValue('--rvfl')) r.style.removeProperty('--rvfl'); return; }
   const cs = [...document.querySelectorAll('.rvcams .rvcam')], dock = document.querySelector('.rvdock.l'), lst = dock && dock.querySelector('.rvlist'); if (cs.length < 3 || !dock || !lst) return;
   const sy = window.scrollY, tops = [...new Set(cs.map(c => Math.round(c.getBoundingClientRect().top + sy)))].sort((a, b) => a - b); if (tops.length < 2) return;
-  const row2 = cs.find(c => Math.round(c.getBoundingClientRect().top + sy) === tops[1]), b2 = row2.getBoundingClientRect().bottom + sy - sy;
+  /* 7.6.8 her: upright, three rows of cameras show above the list (two left too many list rows) */
+  const row2 = cs.find(c => Math.round(c.getBoundingClientRect().top + sy) === tops[Math.min(2, tops.length - 1)]), b2 = row2.getBoundingClientRect().bottom + sy - sy;
   const extra = dock.getBoundingClientRect().height - lst.getBoundingClientRect().height, h = Math.max(160, Math.round(innerHeight - (row2.getBoundingClientRect().bottom + 4) - extra));
   if (r.style.getPropertyValue('--rvfl') !== h + 'px') r.style.setProperty('--rvfl', h + 'px');
 }
@@ -7594,7 +7609,7 @@ function viewReview() {
     '<button class="chip sm rvib" data-act="rvreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
     (COVER ? '<button class="ic" data-act="rvcolsopen" aria-pressed="' + !!S.rv.colsOpen + '" aria-label="Layout">' + I.grid4 + '</button>'   /* 5.5.3 her rule: icons only in the cover strip */
       : '<button class="chip sm" data-act="rvcolsopen" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvLay() === 'big' ? 'Big' : rvLay() === 'top' ? 'Top' : rvCols()) + '</button>') +
-    (FOLDIN && Data.source === 'frigate' ? '<button class="ic" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
+    (FOLDIN && Data.source === 'frigate' ? '<button class="ic bxbtn2" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
     '<button class="ic' + (S.rv.list ? ' on' : '') + '" data-act="rvlist" aria-pressed="' + !!S.rv.list + '" aria-label="' + (S.rv.list ? 'Show Timeline' : 'Show Alert List') + '">' + (S.rv.list ? I.tline : I.bellO) + '</button>' +
     dtOver('<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button>', 'rv') +
     (COVER && Data.source === 'frigate' ? '<button class="ic" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + '</div>' +
@@ -7607,7 +7622,7 @@ function viewReview() {
   cams.forEach(c => {
     const f = Data.frame(c, t);
     const e = rvAt(c, t);
-    h += '<div class="rvcam' + (c.id === 'doorbell' ? ' db43' : '') + (e ? (e.interesting ? ' hot' : ' uhot') : '') + '" id="rv-' + c.id + '" data-act="rvopen" data-id="' + c.id + '"><img data-ld="1"' + (Data.source !== 'frigate' || t == null || RecMap.has(c.id, t) === true ? ' src="' + f.img + '"' : '') + ' alt=""><div class="nm">' + esc(c.name) + '</div><div class="tm" data-act="rvsync" data-id="' + c.id + '" role="button" aria-label="Show All Cameras At This Time" hidden></div><div class="tag rvtagfx' + (e && !e.interesting ? ' un' : '') + '" id="rvtag-' + c.id + '" data-act="rvtagfix" data-id="' + c.id + '" role="button" aria-label="Fix This Alert"' + (e ? '' : ' hidden') + '>' + (e ? objIcon(ico(e)) + '<span>' + esc(lab(e)) + '</span>' : '') + '</div></div>';
+    h += '<div class="rvcam' + (c.id === 'doorbell' ? ' db43' : '') + (e ? (e.interesting ? ' hot' : ' uhot') : '') + '" id="rv-' + c.id + '" data-act="rvopen" data-id="' + c.id + '"><img data-ld="1"' + (Data.source !== 'frigate' || t == null || RecMap.has(c.id, t) === true ? ' src="' + f.img + '"' : '') + ' alt=""><div class="nm">' + esc(c.name) + '</div><div class="rvtl"><div class="tag rvtagfx' + (e && !e.interesting ? ' un' : '') + '" id="rvtag-' + c.id + '" data-act="rvtagfix" data-id="' + c.id + '" role="button" aria-label="Fix This Alert"' + (e ? '' : ' hidden') + '>' + (e ? objIcon(ico(e)) + '<span>' + esc(lab(e)) + '</span>' : '') + '</div><div class="tm" data-act="rvsync" data-id="' + c.id + '" role="button" aria-label="Show All Cameras At This Time" hidden></div></div></div>';
   });
   rvEnd = end;
   RVV = rvVert();
@@ -7619,7 +7634,9 @@ function viewReview() {
   if (S.rv.list) h += '</div>';
   else h += '</div><div class="sp"></div></div><div class="hline"></div><div class="hbub" id="rvbub">' + (t == null ? 'Live' : hms(t)) + '</div><div class="hzoom" id="rvzoom" hidden></div></div>';
   h += '<div class="rvctl"><button data-act="rvstep" data-v="-10" aria-label="Back 10 Seconds">' + I.back10 + '</button>' +
+    '<button class="r5" data-act="rvstep" data-v="-5" aria-label="Back 5 Seconds"><span style="font-size:13px">−5s</span></button>' +
     '<button class="pp" data-act="playpause" aria-label="' + (S.playing ? 'Pause' : 'Play') + '">' + (S.playing ? I.pause : I.play) + '</button>' +
+    '<button class="r5" data-act="rvstep" data-v="5" aria-label="Forward 5 Seconds"><span style="font-size:13px">+5s</span></button>' +
     '<button data-act="rvstep" data-v="10" aria-label="Forward 10 Seconds">' + I.fwd10 + '</button>' +
     '<button data-act="rvspeed" aria-label="Playback Speed">' + S.speed + 'x</button>' +
     '<button data-act="rvlive" aria-label="Go Live">Live</button>' +
@@ -7962,7 +7979,7 @@ function modalSettings() {
     row('Mute Notifications', '<button class="btn" data-act="snzopen">' + (SNZ_WHO.some(x => Snz.on(x[0])) ? SNZ_WHO.filter(x => Snz.on(x[0])).map(x => x[1] + ' ' + Snz.left(x[0])).join(' · ') : 'Open') + '</button>') +   /* 6.9.4 per person, 30 Min to 8 Hours */
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     /* 6.10.10 her: Duo Preview row removed (she has the Duo now); duo.html stays for testing */
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 7.6.7 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 7.6.10 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -8257,7 +8274,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 7.6.7');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 7.6.10');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -8274,7 +8291,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 7.6.7\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 7.6.10\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -9713,7 +9730,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '7.6.7';
+    const BUILD = '7.6.10';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on
