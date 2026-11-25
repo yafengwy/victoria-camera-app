@@ -1826,6 +1826,17 @@ video::-webkit-media-controls{display:none!important}   /* not display:none: iPh
   box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -1px 0 rgba(255,255,255,.12),0 4px 14px rgba(0,0,0,.18)!important}
 :root:root[data-cover][data-cover][data-view="home"] .rail{right:10px!important;bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 18px)!important}
 :root:root[data-cover][data-cover] .rvtop .rvbar{right:10px!important;bottom:calc(var(--dockh,125px) + 12px)!important}
+/* 7.6.5 her (Duo cover, Review): the strip started under the iOS pill (Back and Cameras hidden); it now starts just below
+   the pill, and its buttons come in the Alerts strip's order (Back, Reset, Cameras, Objects, Boxes), with the ones only
+   Review has (Layout, Alert List, Date) below them */
+:root:root[data-cover][data-cover] .rvtop .rvbar{top:246px!important;bottom:auto!important}
+:root:root[data-cover][data-cover] .rvtop .rvbar > [data-act="rvreset"]{order:1!important}
+:root:root[data-cover][data-cover] .rvtop .rvbar > [data-act="rvpick"]{order:2!important}
+:root:root[data-cover][data-cover] .rvtop .rvbar > [data-act="rvfopen"]{order:3!important}
+:root:root[data-cover][data-cover] .rvtop .rvbar > [data-act="boxes"]{order:4!important}
+:root:root[data-cover][data-cover] .rvtop .rvbar > [data-act="rvcolsopen"]{order:5!important}
+:root:root[data-cover][data-cover] .rvtop .rvbar > [data-act="rvlist"]{order:6!important}
+:root:root[data-cover][data-cover] .rvtop .rvbar > .dtwrap,:root:root[data-cover][data-cover] .rvtop .rvbar > [data-act="date"]{order:7!important}
 :root:root[data-cover][data-cover] .evtop .evbar{right:36px!important;bottom:calc(max(24px,env(safe-area-inset-bottom,0px)) + 18px)!important}
 :root:root[data-cover][data-cover][data-view="home"] .rail > div[style*="flex:1"]{display:none}
 :root:root[data-cover][data-cover] .rvtop .rvbar > *,:root:root[data-cover][data-cover] .evtop .evbar > *{margin:0!important}

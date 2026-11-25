@@ -924,3 +924,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.6.4 — An alert's carrier icon is always on its bar
 - Her Doorbell "Amazon At 12:26:29": the bar under the alert showed two person icons (no car tracked; partLogo only gives the company to a car, or to the object whose label equals the alert's). mkIcons now: when an alert has `logo` and none of its objects resolves to a carrier, the (unnamed) object closest to the alert's time shows the carrier icon. Applies to the alert bar and the camera-view bar (both use mkIcons).
+
+## 7.6.5 — Duo cover Review strip: below the iOS pill, same order as Alerts
+- Her screenshot: on the cover Review page the right strip started under the iOS pill (Back and Cameras hidden), and its order differed from the Alerts strip.
+- Cover only: `.rvtop .rvbar{top:246px;bottom:auto}`; order Back, Reset, Cameras, Objects (rvfopen), Boxes — as Alerts — then the Review-only Layout, Alert List, Date.
