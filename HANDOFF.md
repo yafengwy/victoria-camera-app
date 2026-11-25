@@ -902,3 +902,8 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 7.5.9 — Duo cover: only the first two cameras' panel moves Sound/Live left
 - Her correction: 7.5.8 moved Sound/Live left on every opened camera; only the top two (Doorbell, Front Door, under the iOS pill) should.
 - After render, `#panel` gets `top2` when the opened camera is one of the first two `article.cam`; the cover rule is now `#panel.top2 .pg.gr{transform:translateX(-57px)}`.
+
+## 7.5.10 — Not Connected (was No Picture), time stays on the last picture
+- Her ask: an unplugged camera must show it is disconnected right away, and the top-left time must be the last time it sent a picture (the unplugged Doorbell said Connecting for 30 min with the time running).
+- Cause (her stats output): camera_fps 0.0 but Frigate's watchdog keeps restarting the doorbell's ffmpeg; the old rule (fps < 1 for 60 s, reset on any good poll) never reached 60 s. latest.webp still answers 200 with the old picture, so the card's time kept running.
+- Pic: two stats polls in a row with fps < 1 → `off[id]` = last good poll time (`last`, saved as `homecams.picLast`); two good polls in a row → back. Pill: Not Connected (Not Recording when the app's own live video still plays). `shownT` returns `Pic.lastAt(id)` while Not Connected. All screens, all cameras.

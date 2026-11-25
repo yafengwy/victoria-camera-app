@@ -2565,25 +2565,32 @@ const Motion = {
     s.onclose = ev => { clearTimeout(to); this.up = false; this.err = (this.err === 'Timeout' ? 'Timeout ' : '') + 'Code ' + ev.code + (ev.reason ? ' ' + ev.reason : ''); setTimeout(() => this.ensure(), 2000); };
   }
 };
-/* No Picture: a camera that is on but has given Frigate no frames for over a minute shows a red "No Picture" pill
+/* Not Connected (was No Picture): a camera that is on but gives Frigate no frames shows a red "Not Connected" pill
    instead of "Still" (a dead camera used to look like a quiet one). Frigate's stats are asked for every 15 s. */
 const Pic = {
-  z: {}, shown: {},
-  no(id) { return Data.source === 'frigate' && Ctl.on(id) && !!this.z[id] && now() - this.z[id] > 60000; },
+  z: {}, shown: {}, bad: {}, ok: {}, off: {}, last: store.get('picLast', {}),
+  /* 7.5.10 her: a camera that stops sending shows Not Connected after two stats checks in a row with no frames (~15–30 s),
+     and comes back only after two checks in a row with frames (Frigate's restarts of a dead camera's ffmpeg made the
+     old 60 s count start over, so the unplugged Doorbell said Connecting for half an hour) */
+  no(id) { return Data.source === 'frigate' && Ctl.on(id) && !!this.off[id]; },
+  /* the time the camera last sent frames (kept across reloads); the card's time stays on it while Not Connected */
+  lastAt(id) { return this.off[id] || null; },
   /* the app's own live video can still play (it comes straight from the camera's stream) while Frigate gets nothing it
      can use (the Doorbell sends only scraps of video): then the pill says Not Recording instead of No Picture */
   live(id) { const e = Live.els[Live.cardSrc(id)] || Live.els[id], v = e && e.video; return !!(v && e.isConnected && !e.suspended && !v.paused && v.readyState >= 2); },
-  pill(id) { return '<span class="dot nopic"></span>' + (this.live(id) ? 'Not Recording' : 'No Picture'); },
+  pill(id) { return '<span class="dot nopic"></span>' + (this.live(id) ? 'Not Recording' : 'Not Connected'); },
   async poll() {
     if (Data.source !== 'frigate' || document.hidden) return;
     try {
       const d = await Frigate.get('/api/stats'), t = now();
       for (const id in (d.cameras || {})) {
         Snap.fresh[id] = (d.cameras[id].process_fps || 0) >= 1;   /* 3.9.9: Frigate is reading it now, so its picture is current */
-        if ((d.cameras[id].camera_fps || 0) < 1) { if (!this.z[id]) this.z[id] = t; } else delete this.z[id];
+        if ((d.cameras[id].camera_fps || 0) < 1) { this.ok[id] = 0; this.bad[id] = (this.bad[id] || 0) + 1; if (this.bad[id] >= 2 && !this.off[id]) this.off[id] = this.last[id] || t; }
+        else { this.bad[id] = 0; this.ok[id] = (this.ok[id] || 0) + 1; this.last[id] = t; if (this.ok[id] >= 2) delete this.off[id]; }
         /* repaint only a camera whose pill changes (compared with what was last shown) */
         const n = this.no(id) ? (this.live(id) ? 'L' : 'N') : ''; if (n !== (this.shown[id] || '')) { this.shown[id] = n; Dbg.log(n ? (n === 'L' ? 'not recording' : 'no picture') : 'picture back', id); if (S.view === 'home' && !S.focus) paintCam(id); }
       }
+      store.set('picLast', this.last);
     } catch (e) {}
   }
 };
@@ -5303,6 +5310,7 @@ function camCard(c, fr, span2) {
 const fmtDT = t => { const d = new Date(t); return d.getFullYear() + '/' + pad(d.getMonth() + 1) + '/' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); };
 function shownT(id, src) {
   const t = camT(id); if (t != null) return t;
+  if (Pic.no(id) && Pic.lastAt(id)) return Pic.lastAt(id);   /* 7.5.10 her: Not Connected - the time stays on the last picture it sent */
   /* the camera shows Still (nothing moving): the time stays on the moment it went still, like the Still badge counts from */
   const mo = Data.motion(id), forced = S.forced[id] && S.forced[id] > now();
   const ph = S.view === 'home', pe = ph && Live.els[src];
