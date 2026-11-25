@@ -894,3 +894,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 7.5.7 — Reolink doorbell shown whole (letterbox)
 - Her ask: never stretch or crop the 4:3 doorbell; dark sides are fine.
 - `db43` class on the doorbell's home tile, camera view (.fvid), alert media (.evmedia) and Review tile (.rvcam): `object-fit:contain` on a black background. Full screen (.fvw) was already contain.
+
+## 7.5.8 — Duo cover: Sound and Live clear the iOS pill
+- Her ask: on the cover, the home panel's Sound and Live sat under the iOS pill on the right; move them left so their right edge meets the pill's left edge.
+- `:root:is([data-cover],[data-coverweb]) #panel .pg.gr{transform:translateX(-57px)}`. Live right edge 446 → 389 (pill starts ≈ 391 of 466). Normal phones unchanged.
