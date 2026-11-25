@@ -918,3 +918,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 2026-11-25 Doorbell ding for Google Home
 - `doorbell-ding.mp3` (2.6 s ding-dong, made here) is copied by update-app.sh into the app folder and is public in Caddy (`@public`), so Google Cast speakers can fetch it without a login. Used by HA automation "Doorbell Press Google Home" (scratch outputs): ding on the 4 Google speakers/displays, then `camera.play_stream camera.doorbell` on the 3 Nest Hubs for 60 s, then turn them off. TV Chromecast and Cast groups are left out.
+
+## 7.6.3 — Doorbell alert video: black sides
+- Her screenshot: the playing Doorbell alert (4:3, contain) showed the alert picture behind it at the sides. The video element now has a black background (`.evmedia.db43 video.evv`, and the same for Review and the camera view); other cameras unchanged.

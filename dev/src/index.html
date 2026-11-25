@@ -103,7 +103,9 @@ img.rf{opacity:0}
 .cam.door .frame img,.cam.door .frame video,.fvid.door img,.fvid.door video{object-fit:fill!important}
 .wt.door img,.wt.door video{object-fit:fill!important}
 /* 7.5.5 her: the Reolink doorbell (4:3) is shown whole in a home tile - never stretched or cut; the sides stay dark */
-.fvid.db43,.evmedia.db43,.rvcam.db43{background:#000}.fvid.db43 img,.fvid.db43 video,.evmedia.db43 img,.evmedia.db43 video,.rvcam.db43 img,.rvcam.db43 > video.rvv{object-fit:contain!important}
+.fvid.db43,.evmedia.db43,.rvcam.db43{background:#000}
+/* 7.6.3 her: the alert video of the Doorbell sits on its picture; the video's own sides are now black, so the picture behind no longer shows at the sides */
+.evmedia.db43 video.evv,.rvcam.db43 > video.rvv,.fvid.db43 video{background:#000!important}.fvid.db43 img,.fvid.db43 video,.evmedia.db43 img,.evmedia.db43 video,.rvcam.db43 img,.rvcam.db43 > video.rvv{object-fit:contain!important}
 .cam.db43 .frame{background:#000}.cam.db43 .frame img,.cam.db43 .frame video{object-fit:contain!important;width:100%!important;height:100%!important;inset:0!important;left:0!important;top:0!important;transform:none!important}
 /* every picture and video drawn at the camera's real shape (--R), cut to its box (cover) or fitted inside (vcon) */
 .vfit{container-type:size!important}
