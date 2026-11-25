@@ -1995,8 +1995,8 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 :root:is([data-cover],[data-coverweb]) .focus .fsteps{gap:7px}
 :root:is([data-cover],[data-coverweb]) .focus .fstep{height:38px!important;min-width:46px!important;padding:0 9px!important;font-size:13px!important;border-radius:19px}
 :root:is([data-cover],[data-coverweb]) .focus .fstep.fpp{width:40px!important;min-width:40px!important}:root:is([data-cover],[data-coverweb]) .focus .fstep.fpp svg{width:17px;height:17px}
-/* 7.5.8 her (Duo cover only): Sound and Live in the home panel sat under the iOS pill on the right; their right edge now meets the pill's left edge */
-:root:is([data-cover],[data-coverweb]) #panel .pg.gr{transform:translateX(-57px)}
+/* 7.5.8 her (Duo cover only; 7.5.9 only the panel of the first two cameras): Sound and Live in the home panel sat under the iOS pill on the right; their right edge now meets the pill's left edge */
+:root:is([data-cover],[data-coverweb]) #panel.top2 .pg.gr{transform:translateX(-57px)}
 :root:is([data-cover],[data-coverweb]) .focus .fsteps .livepill{height:38px!important;padding:0 14px!important;font-size:13px!important}
 /* 7.3.4 her: cover home - the first row (OUTSIDE) 20% taller, where the pull to refresh starts */
 :root:root[data-cover][data-cover][data-view="home"] .main .group:first-child .ghead{min-height:41px;box-sizing:border-box}
@@ -5109,6 +5109,7 @@ function render0() {
   }
   requestAnimationFrame(rvHint);
   objQRestore(); popPlace(); sizeTall();
+  { const pn = document.getElementById('panel'); if (pn) { const top = [...document.querySelectorAll('article.cam')].slice(0, 2).map(x => x.id.slice(4)); pn.classList.toggle('top2', top.includes(S.expanded)); } }   /* 7.5.9: the panel under the first row (Duo cover: under the iOS pill) */
   /* log the real picture size of upright cameras (Nest sends different shapes at times) */
   Data.cams.filter(isTall).forEach(c => { const card = document.getElementById('cam-' + c.id); if (!card) return; card.querySelectorAll('video,img').forEach(m => { if (m._szlog) return; m._szlog = 1;
     const log = () => { const w = m.videoWidth || m.naturalWidth, h = m.videoHeight || m.naturalHeight; const k = w + 'x' + h; if (w && m._sz !== k) { m._sz = k; Dbg.log('picture size', c.id, m.tagName.toLowerCase(), k); } };

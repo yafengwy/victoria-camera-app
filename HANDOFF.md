@@ -898,3 +898,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 7.5.8 — Duo cover: Sound and Live clear the iOS pill
 - Her ask: on the cover, the home panel's Sound and Live sat under the iOS pill on the right; move them left so their right edge meets the pill's left edge.
 - `:root:is([data-cover],[data-coverweb]) #panel .pg.gr{transform:translateX(-57px)}`. Live right edge 446 → 389 (pill starts ≈ 391 of 466). Normal phones unchanged.
+
+## 7.5.9 — Duo cover: only the first two cameras' panel moves Sound/Live left
+- Her correction: 7.5.8 moved Sound/Live left on every opened camera; only the top two (Doorbell, Front Door, under the iOS pill) should.
+- After render, `#panel` gets `top2` when the opened camera is one of the first two `article.cam`; the cover rule is now `#panel.top2 .pg.gr{transform:translateX(-57px)}`.
