@@ -910,3 +910,8 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.6.1 — Playback Log says when Frigate stats cannot be read
 - 7.5.10 Not Connected works in tests (stats fps 0 → pill after 2 polls) but her Mac still showed Connecting while Frigate stats really were camera_fps 0 for 40 s. Pic.poll swallowed errors silently; it now logs "stats failed <reason>" once (and "stats back") in the Playback Log, to find the cause before changing anything else.
+
+## 7.6.2 — Not Connected shows at once
+- Her Playback Log (7.6.1): no "stats failed", so stats were read fine. The page was open only a few seconds at a time (reloads, page hidden/shown) and Pic needed two 15 s checks in a row while visible, so it never got there.
+- First check after opening counts at once (Frigate fps is already an average); later, two checks in a row (no flashing on a dip). Check again whenever the page becomes visible.
+- No known last-picture time (dead before the app ever saw it send): end of its newest recording in the last 7 days (`/api/<cam>/recordings`, one request only then).
