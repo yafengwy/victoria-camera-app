@@ -931,3 +931,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.6.6 — Duo cover Review strip not squeezed in list view
 - Her screenshot (Review with the alert list open): 7.6.5's `top:246px` plus the list view's `bottom:var(--rvpillb)` squeezed the strip so its icons overlapped. In list view too the strip is `top:246px;bottom:auto` (8 buttons × 30 px, 250–490).
+
+## 7.6.7 — Duo cover Review strip: Boxes last
+- Her ask: the object boxes button goes to the bottom, under Date.
