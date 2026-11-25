@@ -5903,7 +5903,15 @@ function partLogo(e, l, sub) {
 }
 function mkIcons(xs, a, b, W, act, attr, e) {
   let last = -99, h = '';
-  xs.forEach(x => { const nm = x.sub && !/^unknown$/i.test(x.sub) && !OBJ_SETS.some(a => a.includes(String(x.sub).toLowerCase())) ? x.sub : '', named = nm && !isLogo(nm), lg = named ? '' : (nm && isLogo(nm) ? nm : partLogo(x._e || e, x.l, '')), logo = !!lg;   /* 6.3.2: "Car" (Mark As Car) is not a name: her bar showed "CarCar" as text */
+  /* 7.6.4 her Doorbell "Amazon At 12:26:29": the alert said Amazon but its bar showed two people (no car was tracked,
+     and the person label didn't match the alert's), so the company icon was on no object. When an alert has a carrier
+     and none of its objects shows it, the object closest to the alert's time shows it */
+  const nmOf = x => x.sub && !/^unknown$/i.test(x.sub) && !OBJ_SETS.some(a => a.includes(String(x.sub).toLowerCase())) ? x.sub : '';
+  const lgOf = x => { const nm = nmOf(x); return nm && !isLogo(nm) ? '' : (nm && isLogo(nm) ? nm : partLogo(x._e || e, x.l, '')); };
+  const giveLg = new Map();
+  [...new Set(xs.map(x => x._e || e))].forEach(ev => { if (!ev || !ev.logo) return; const mine = xs.filter(x => (x._e || e) === ev);
+    if (mine.some(x => lgOf(x))) return; let best = null; mine.forEach(x => { const nm = nmOf(x); if (nm && !isLogo(nm)) return; if (!best || Math.abs(x.t - ev.t) < Math.abs(best.t - ev.t)) best = x; }); if (best) giveLg.set(best, ev.logo); });
+  xs.forEach(x => { const nm = nmOf(x), named = nm && !isLogo(nm), lg = named ? '' : (giveLg.get(x) || lgOf(x)), logo = !!lg;   /* 6.3.2: "Car" (Mark As Car) is not a name: her bar showed "CarCar" as text */
     let px = Math.max(0, Math.min(1, (x.t - a) / Math.max(1, b - a))) * W; if (px < last + 22) px = last + 22; last = px;
     h += '<button class="evmk' + (named ? ' nm' : '') + (detHot(x._e || e, x) ? ' hot' : '') + '" data-act="' + act + '"' + attr + ' data-t="' + x.t + '" data-n="' + esc(named ? niceName(nm) : objName(logo ? lg : x.l)) + '" style="left:' + Math.min(W - 8, px).toFixed(0) + 'px" title="' + esc((named ? niceName(nm) + ' · ' : '') + objName(logo ? lg : x.l) + ' · ' + hms(x.t)) + '" aria-label="Play From ' + esc(objName(logo ? lg : x.l)) + ' At ' + hms(x.t) + '">' + (named ? esc(shortName(niceName(nm))) : objIcon(logo ? lg : x.l)) + '</button>'; });
   return h;

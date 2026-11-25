@@ -921,3 +921,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.6.3 — Doorbell alert video: black sides
 - Her screenshot: the playing Doorbell alert (4:3, contain) showed the alert picture behind it at the sides. The video element now has a black background (`.evmedia.db43 video.evv`, and the same for Review and the camera view); other cameras unchanged.
+
+## 7.6.4 — An alert's carrier icon is always on its bar
+- Her Doorbell "Amazon At 12:26:29": the bar under the alert showed two person icons (no car tracked; partLogo only gives the company to a car, or to the object whose label equals the alert's). mkIcons now: when an alert has `logo` and none of its objects resolves to a carrier, the (unnamed) object closest to the alert's time shows the carrier icon. Applies to the alert bar and the camera-view bar (both use mkIcons).
