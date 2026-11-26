@@ -976,3 +976,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.8.1
 - Camera view, foldable upright: cards and opened box 340 wide (narrower if the room is smaller), centred in the room right of the icon lanes (7.7.10 stretched them to the right edge, too long). Opened box rows: three a row, RH 70, picture 64.
+
+## 7.8.2
+- Camera view, foldable upright: only the cards are 340 wide and centred; the opened box is back to 7.7.10 (122 px to the right edge, three pictures a row, RH 80, picture 74).

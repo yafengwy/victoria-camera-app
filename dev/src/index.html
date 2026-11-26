@@ -2020,10 +2020,11 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 /* 7.2.8 her choice "A" (any foldable opened upright): the opened group's box reaches left over the empty space, two big pictures a row */
 /* 7.7.10 her: foldable upright - the cards and the opened box start just right of the icons (were far right), and the
    opened box has three pictures a row */
-:root[data-foldup]:not([data-cover]) .focus .fev,:root[data-foldup]:not([data-cover]) .focus .fsub{--cw:min(340px, calc(100% - 130px));width:var(--cw)!important;right:auto!important;left:calc(122px + (100% - 130px - var(--cw)) / 2)!important}   /* 7.7.11 her: not that long - 340 wide, in the middle of the room right of the icons */
+:root[data-foldup]:not([data-cover]) .focus .fsub{left:122px!important;width:auto!important;right:8px!important}   /* 7.8.2 her: the opened box stays wide (bigger pictures) */
+:root[data-foldup]:not([data-cover]) .focus .fev{--cw:min(340px, calc(100% - 130px));width:var(--cw)!important;right:auto!important;left:calc(122px + (100% - 130px - var(--cw)) / 2)!important}   /* 7.7.11 her: not that long - 340 wide, in the middle of the room right of the icons */
 :root[data-foldup]:not([data-cover]) .focus .fsubin{display:grid;grid-template-columns:1fr 1fr 1fr;column-gap:4px;align-content:start}
-:root[data-foldup]:not([data-cover]) .focus .fsr{height:70px!important}
-:root[data-foldup]:not([data-cover]) .focus .fsr img{height:64px!important}
+:root[data-foldup]:not([data-cover]) .focus .fsr{height:80px!important}
+:root[data-foldup]:not([data-cover]) .focus .fsr img{height:74px!important}
 /* 7.7.8 her "B" (Duo cover only): opened alert, two big pictures a row; the time on the picture's bottom-left, the icon
    and the name under the picture */
 :root:is([data-cover],[data-coverweb]) .focus .fsubin{display:grid;grid-template-columns:1fr 1fr;column-gap:4px;align-content:start}
@@ -6614,7 +6615,7 @@ function viewFocus() {
     if (og && S.fmode !== 'B') {
       /* 6.1.3 her rule: the rows box shows at most 5 rows and scrolls on its own (a drag inside it moves only the rows,
          never the timeline); a drag outside it, or with it folded, moves the timeline as before */
-      const CV = document.documentElement.matches('[data-cover],[data-coverweb]'), CB = fWide() ? 22 : 32, FU = document.documentElement.hasAttribute('data-foldup'), FC = FU ? 3 : CV ? 2 : 1, RH = CV ? 114 : FU ? 70 : document.documentElement.hasAttribute('data-foldside') ? 102 : fWide() ? 62 : 40, k = keyOf(og);   /* 7.2.6 her "A": Duo sideways, one big picture per row */   /* 6.4.5: bigger rows (pictures) on a computer */
+      const CV = document.documentElement.matches('[data-cover],[data-coverweb]'), CB = fWide() ? 22 : 32, FU = document.documentElement.hasAttribute('data-foldup'), FC = FU ? 3 : CV ? 2 : 1, RH = CV ? 114 : FU ? 80 : document.documentElement.hasAttribute('data-foldside') ? 102 : fWide() ? 62 : 40, k = keyOf(og);   /* 7.2.6 her "A": Duo sideways, one big picture per row */   /* 6.4.5: bigger rows (pictures) on a computer */
       const list = og.items.map(e => { const p = pick(e, S.filt); return { e, p, t: p.t }; }).sort((x, z) => z.t - x.t);
       const NR = Math.ceil(list.length / FC), boxH = Math.min(NR, CV ? 2 : FU ? 3 : 5) * RH + 8;   /* 7.7.8 her "B": Duo cover, two bigger pictures a row, 2 rows show */   /* 7.2.8 her "A": opened upright, two pictures a row, 3 rows show */
       if (S.focus.foldKey !== k) { S.focus.foldKey = k; S.focus.subTop = 0; }
