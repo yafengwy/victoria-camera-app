@@ -5723,7 +5723,11 @@ const Arrive = {
        of its detections is a person with the Amazon label), so the alert hid under Person. Every real object a
        detection has is counted for the filters. */
     { const have = new Set((e.objs || []).map(o => String(o).toLowerCase())), add = [...new Set(xs.filter(x => !x.fp && x.l && !isAttr(x.l) && !have.has(x.l)).map(x => x.l))];
-      if (add.length) { e.objs = (e.objs || []).concat(add.map(l => l.replace(/^\w/, m => m.toUpperCase()))); Dbg.log('alert objects added', e.cam, hms(e.t), add.join(',')); this.grew = 1; }
+      if (add.length) { e.objs = (e.objs || []).concat(add.map(l => l.replace(/^\w/, m => m.toUpperCase())));
+        /* 7.7.6: every refresh rebuilds the alerts from Frigate, so the same objects were added again each time,
+           logged again and the Alerts page redrawn again. Still added each time, but logged and redrawn only once */
+        const k = add.join(','); this.addedK = this.addedK || {};
+        if (this.addedK[e.id] !== k) { this.addedK[e.id] = k; Dbg.log('alert objects added', e.cam, hms(e.t), k); this.grew = 1; } }
       /* 5.7.7: Frigate listed only the logo (objects: amazon), so the alert was titled and filtered as "Amazon" even
          after Mark As Car; once its real objects are known, the label is the real object */
       if (isLogo(e.label) && (e.objs || []).length) e.label = e.objs.slice().sort((x, y) => objRank(x) - objRank(y))[0]; }

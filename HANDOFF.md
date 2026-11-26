@@ -955,3 +955,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.7.5 — Review list follows "Review" from an alert, every playing alert framed
 - Her report: from an alert, Review played six cameras but the list below did not move or frame them. paintReview matched list items by data-t (the picked object time, not the alert start), so most playing alerts lost their orange frame; it now matches by data-e (alert id). evreview calls rvListCur(): the list scrolls to the first framed (playing) alert.
+
+## 7.7.6
+- Ev.fix: objects Frigate left out of an alert are still added on every refresh, but "alert objects added" is logged and the Alerts page redrawn only the first time per alert (addedK), not on every refresh.
