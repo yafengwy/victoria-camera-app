@@ -1010,3 +1010,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.9.2
 - Camera view: Objects (Alert Settings) button shows in timeline mode too, not only in list mode (the timeline uses the same passes() filter).
+
+## 7.9.3
+- Duo / foldable screens, camera view top row: icon buttons have no round grey backing (28 wide); Boxes on stays yellow, List on shows #B9CCFF. Row moved a little right: cover right 72 (was 80), foldable upright right 102 (was 110).

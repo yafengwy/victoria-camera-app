@@ -2079,7 +2079,7 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
    picture at most 340 high (fitted, black sides), Download / Alert List in the top row, Today on the timeline's rail,
    the alert bar's room 38 instead of 64 (fixed, no jumping) */
 :root:root[data-foldup]:not([data-cover]) .focus>.fvid{margin-top:0!important;overflow:visible!important}
-:root:root[data-foldup]:not([data-cover]) .focus>.fvid>.fov{top:min(6px, calc(23px - var(--sbar,0px)));right:110px}   /* 7.8.4 her "A": the row up in the dark status-bar strip, the right group just left of iOS's badge */
+:root:root[data-foldup]:not([data-cover]) .focus>.fvid>.fov{top:min(6px, calc(23px - var(--sbar,0px)));right:102px}   /* 7.8.4 her "A": the row up in the dark status-bar strip, the right group just left of iOS's badge */
 :root:root[data-foldup]:not([data-cover]) .focus>.fvid>.fov .dk,:root:root[data-foldup]:not([data-cover]) .focus>.fvid>.fov .pillk{background:rgba(0,0,0,.6)}
 :root:root[data-foldup]:not([data-cover]) .focus>.fvid>.fov .dk.bxbtn[aria-pressed="true"]{background:#FFD400;color:#111}
 :root:root[data-foldup]:not([data-cover]) .focus>.fvid>.fov .fcv{display:contents}
@@ -2096,7 +2096,12 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 :root:root[data-foldup]:not([data-cover]) .fseek .evmk svg{width:14px!important;height:14px!important}:root:root[data-foldup]:not([data-cover]) .fseek .evmk{height:16px!important}
 :root:root[data-foldup]:not([data-cover]) .fseek .evbt{position:absolute;left:12px;right:12px;top:calc(100% - 8px);margin:0!important;height:32px;align-items:center;pointer-events:none;z-index:2;font-size:11px}
 /* 7.3.9 her: Duo cover camera view - the top-right buttons (Fix, Who?, Alerts, Big, Sound) sit just left of iOS's badge */
-:root:root[data-cover][data-cover] .focus .fov{right:80px!important}
+:root:root[data-cover][data-cover] .focus .fov{right:72px!important}   /* 7.9.3 her: a little further right (was 80) */
+/* 7.9.3 her (Duo / foldable screens): camera view top icons without the round grey backing (more room); Boxes on stays yellow,
+   an "on" button shows in the accent colour */
+:root:is([data-cover],[data-coverweb],[data-foldup],[data-foldside],[data-badge],[data-duoup]) .focus .fov .dk:not(.bxbtn[aria-pressed="true"]){background:none!important;width:28px!important;min-width:28px}
+:root:is([data-cover],[data-coverweb],[data-foldup],[data-foldside],[data-badge],[data-duoup]) .focus .fov .dk + .dk{margin-left:-2px}
+:root:is([data-cover],[data-coverweb],[data-foldup],[data-foldside],[data-badge],[data-duoup]) .focus .fov .dk.on{color:#B9CCFF}
 /* 7.3.10 her (every phone, every screen): while a group is opened, a small × sits on the blue line where it crosses the
    grey rail; a tap folds the box back to the normal timeline */
 .fline .flinex{position:absolute;top:-11px;width:22px;height:22px;border-radius:11px;background:var(--dark-accent);color:#0f1114;display:flex;align-items:center;justify-content:center;pointer-events:auto;padding:0;z-index:3}
