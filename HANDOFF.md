@@ -1016,3 +1016,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.9.4
 - Playback Log header: "Player hls.js / built-in (hls.js showed nothing: all cameras) · built-in for <cams> (picture size changed)" — shows Playback._nat / _natFall / natCam without needing the earlier log line.
+
+## 7.9.5
+- Her rule (every object picker): All Carriers takes Package along - objGroup('carriers') adds / removes Package with the carriers (Alerts, Review, camera view, every filter using objChips); the Frigate+ pictures picker (pppick g:carriers) does the same. Package can still be ticked on its own.

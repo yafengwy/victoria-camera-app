@@ -2248,7 +2248,8 @@ function objTier(o) { const l = String(o).toLowerCase(), k = objSet(o); return k
 /* tapping a group: from "everything" it picks just that group; otherwise it adds the group, or takes it away when all of it is on */
 function objGroup(f, key) {
   const g = OBJ_GROUPS.find(x => x[0] === key); if (!g) return;
-  const list = OBJS(), mine = list.filter(g[2]); if (!mine.length) return;
+  /* 7.9.5 her rule (every page): All Carriers takes Package along (on together, off together) */
+  const list = OBJS(), pk = list.find(o => String(o).toLowerCase() === 'package'), mine = list.filter(g[2]).concat(key === 'carriers' && pk ? [pk] : []); if (!mine.length) return;
   const all = list.every(o => objOn(f, o));
   if (all) { f.objs = {}; list.forEach(o => { f.objs[o] = mine.includes(o); }); return; }
   const full = mine.every(o => objOn(f, o));
@@ -3205,7 +3206,7 @@ const Dbg = {
       h += 'Player ' + (P._nat == null ? 'not chosen yet' : P._nat ? 'built-in' + (P._natFall ? ' (hls.js showed nothing: all cameras)' : '') : 'hls.js') +
         (nc.length ? ' · built-in for ' + nc.join(', ') + ' (picture size changed)' : '') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
-    return 'Version 7.9.4 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
+    return 'Version 7.9.5 · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }
 };
 /* Freeze watch: a tick every 250 ms; when one arrives more than 1 s late (screen on the whole time) the app was frozen,
@@ -8105,7 +8106,7 @@ function modalSettings() {
     row('Mute Notifications', '<button class="btn" data-act="snzopen">' + (SNZ_WHO.some(x => Snz.on(x[0])) ? SNZ_WHO.filter(x => Snz.on(x[0])).map(x => x[1] + ' ' + Snz.left(x[0])).join(' · ') : 'Open') + '</button>') +   /* 6.9.4 per person, 30 Min to 8 Hours */
     row('Cover Screen', seg('cover', S.cover, [['auto', 'Auto'], ['on', 'On'], ['off', 'Off']])) +
     /* 6.10.10 her: Duo Preview row removed (she has the Duo now); duo.html stays for testing */
-    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 7.9.4 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
+    '<details class="dbgx" ontoggle="S.dbgOpen=this.open"' + (S.dbgOpen ? ' open' : '') + '><summary>Version 7.9.5 · ' + (Data.source !== 'frigate' ? 'Demo' : Motion.up ? 'Connected' : 'Connecting…') + '</summary>' +
     /* 4.6.9: the three logs, one row each, just a Copy button (they are only copied, never read here); the screen and
        connection details moved into the copied Playback Log */
     '<div class="logrows">' +
@@ -8414,7 +8415,7 @@ const ACT = {
   /* Mini PC Log: written every minute on the mini PC (memory, disk, containers, Frigate, GPU, cameras without frames,
      decode errors / crashes / discarded recordings per camera, 30 hours of hourly history, automatic restarts) */
   copyhealth() {
-    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 7.9.4');
+    const p = fetch('health.txt?t=' + Date.now(), { credentials: 'include' }).then(r => r.ok ? r.text() : 'Mini PC Log Not Available').catch(() => 'Mini PC Log Not Available').then(t => t.trim() + '\nApp Version 7.9.5');
     const done = () => toast('Mini PC Log Copied'), fail = () => toast('Could Not Copy Mini PC Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
     if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
@@ -8431,7 +8432,7 @@ const ACT = {
         const ms = Date.parse(m[1] + 'T' + m[2] + 'Z'); if (!(ms >= since)) return null;
         return new Date(ms).toTimeString().slice(0, 8) + ' ' + m[3].replace(/^\[[^\]]*\]\s*/, '').replace(/\s{2,}/g, ' ');
       }).filter(Boolean);
-      return 'Frigate Log · Last 2 Hrs · Version 7.9.4\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
+      return 'Frigate Log · Last 2 Hrs · Version 7.9.5\n' + (out.length ? out.slice(-80).join('\n') : 'Nothing In The Last 2 Hrs');
     });
     const done = () => toast('Frigate Log Copied'), fail = () => toast('Could Not Copy Frigate Log');
     /* Safari only allows copying during the tap itself, so the text is handed over as a promise */
@@ -8723,7 +8724,8 @@ const ACT = {
   /* a list opens; closing it (tap its name again or Done) reads Frigate again only if something changed */
   ppdd(d) { const was = S.ppOpen; if (was === d.v) { S.ppOpen = null; if (S.ppDirty) { S.ppDirty = false; PPlus.save(); PPlus.load(); return; } render(); return; }
     S.ppOpen = d.v; if (was && S.ppDirty) { S.ppDirty = false; PPlus.save(); PPlus.load(); return; } render(); },
-  pppick(d) { const sl = PPlus.sel(), k = d.k, v = d.v; if (v === '') sl[k] = []; else { const i = sl[k].indexOf(v); if (i < 0) sl[k].push(v); else sl[k].splice(i, 1); } S.ppDirty = true; render(); },
+  pppick(d) { const sl = PPlus.sel(), k = d.k, v = d.v; if (v === '') sl[k] = []; else { const i = sl[k].indexOf(v); if (i < 0) sl[k].push(v); else sl[k].splice(i, 1);
+    /* 7.9.5: All Carriers takes Package along */ const pk = OBJS().find(o => String(o).toLowerCase() === 'package'); if (k === 'objs' && v === 'g:carriers' && pk) { const j = sl[k].indexOf(pk); if (i < 0 && j < 0) sl[k].push(pk); else if (i >= 0 && j >= 0) sl[k].splice(j, 1); } } S.ppDirty = true; render(); },
   /* 5.8.7 her design: one word, Select — boxed = all picked; tap = none picked; tap again = all */
   fjumpal(d) {
     const id = S.focus && S.focus.cam; if (!id) return; const cur = camT(id) == null ? now() : camT(id), dir = +d.v;
@@ -9880,7 +9882,7 @@ window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer
   }
   openLink(); window.addEventListener('hashchange', openLink);
   if (HOSTED) {
-    const BUILD = '7.9.4';
+    const BUILD = '7.9.5';
     const checkVer = () => fetch('version.txt?t=' + Date.now(), { cache: 'no-store', credentials: 'same-origin' })
       .then(r => r.ok ? r.text() : '').then(v => { v = (v || '').trim(); if (v && v !== BUILD) newVer = v; }).catch(() => {});
     /* a new version is noted while the app is in use and loaded only when the app is opened again (or at once on

@@ -2248,7 +2248,8 @@ function objTier(o) { const l = String(o).toLowerCase(), k = objSet(o); return k
 /* tapping a group: from "everything" it picks just that group; otherwise it adds the group, or takes it away when all of it is on */
 function objGroup(f, key) {
   const g = OBJ_GROUPS.find(x => x[0] === key); if (!g) return;
-  const list = OBJS(), mine = list.filter(g[2]); if (!mine.length) return;
+  /* 7.9.5 her rule (every page): All Carriers takes Package along (on together, off together) */
+  const list = OBJS(), pk = list.find(o => String(o).toLowerCase() === 'package'), mine = list.filter(g[2]).concat(key === 'carriers' && pk ? [pk] : []); if (!mine.length) return;
   const all = list.every(o => objOn(f, o));
   if (all) { f.objs = {}; list.forEach(o => { f.objs[o] = mine.includes(o); }); return; }
   const full = mine.every(o => objOn(f, o));
@@ -8723,7 +8724,8 @@ const ACT = {
   /* a list opens; closing it (tap its name again or Done) reads Frigate again only if something changed */
   ppdd(d) { const was = S.ppOpen; if (was === d.v) { S.ppOpen = null; if (S.ppDirty) { S.ppDirty = false; PPlus.save(); PPlus.load(); return; } render(); return; }
     S.ppOpen = d.v; if (was && S.ppDirty) { S.ppDirty = false; PPlus.save(); PPlus.load(); return; } render(); },
-  pppick(d) { const sl = PPlus.sel(), k = d.k, v = d.v; if (v === '') sl[k] = []; else { const i = sl[k].indexOf(v); if (i < 0) sl[k].push(v); else sl[k].splice(i, 1); } S.ppDirty = true; render(); },
+  pppick(d) { const sl = PPlus.sel(), k = d.k, v = d.v; if (v === '') sl[k] = []; else { const i = sl[k].indexOf(v); if (i < 0) sl[k].push(v); else sl[k].splice(i, 1);
+    /* 7.9.5: All Carriers takes Package along */ const pk = OBJS().find(o => String(o).toLowerCase() === 'package'); if (k === 'objs' && v === 'g:carriers' && pk) { const j = sl[k].indexOf(pk); if (i < 0 && j < 0) sl[k].push(pk); else if (i >= 0 && j >= 0) sl[k].splice(j, 1); } } S.ppDirty = true; render(); },
   /* 5.8.7 her design: one word, Select — boxed = all picked; tap = none picked; tap again = all */
   fjumpal(d) {
     const id = S.focus && S.focus.cam; if (!id) return; const cur = camT(id) == null ? now() : camT(id), dir = +d.v;
