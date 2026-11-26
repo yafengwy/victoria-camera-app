@@ -1028,3 +1028,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.9.8
 - Alerts, foldable sideways: Reset back where 7.9.6 had it (title margin 16); instead the whole top area moves down 12 px (.evtop padding-top 12), so the row sits at ~19-49 px from the top.
+
+## 7.9.9
+- Alerts, foldable sideways: the 12 px moved from .evtop padding (showed a strip of --card above the bar) into .evbar.one (height 56, padding-top 12), so the top strip is the bar's own colour. Positions unchanged.
