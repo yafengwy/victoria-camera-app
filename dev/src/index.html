@@ -7846,7 +7846,7 @@ function paintReview() {
   const b = document.getElementById('rvbub'); if (b) b.textContent = ht !== undefined ? hms(ht) : t == null ? 'Live' : hms(t);
   rvLayout(ht !== undefined ? ht : t);
   rvHint();
-  if (S.rv.list && t != null) document.querySelectorAll('#rvlist .rvli').forEach(n => { const e0 = +n.dataset.t, ev = Data.events.find(x => x.t === e0 && x.cam === n.dataset.id); n.classList.toggle('cur', !!ev && t >= ev.t - 3000 && t <= (ev.end || ev.t) + 3000); });
+  if (S.rv.list && t != null) document.querySelectorAll('#rvlist .rvli').forEach(n => { const ev = Data.events.find(x => x.id === n.dataset.e);   /* 7.7.5: by the alert's id — data-t is its picked object's time, not the alert's start, so most playing alerts lost their orange frame on the first repaint */ n.classList.toggle('cur', !!ev && t >= ev.t - 3000 && t <= (ev.end || ev.t) + 3000); });
 }
 /* Frigate kept no video at this moment. If an alert is here (e.g. Garage1 dropped the recording), show the alert's own
    picture marked "No Recording" instead of the grey "Nothing Moved Here Then", which would be wrong */
@@ -7930,6 +7930,15 @@ document.addEventListener('pointerdown', e => { const el = e.target.closest && e
 ['pointerup', 'pointercancel'].forEach(n => document.addEventListener(n, () => RvRing.off(), { passive: true, capture: true }));
 document.addEventListener('scroll', () => RvRing.off(), { passive: true, capture: true });
 document.addEventListener('pointermove', e => { if (RvRing.el && Math.hypot(e.clientX - parseFloat(RvRing.el.style.left), e.clientY - parseFloat(RvRing.el.style.top)) > 10) RvRing.off(); }, { passive: true });
+/* 7.7.5: scroll the Review list to the first alert framed as playing now (the newest of them, the list is newest
+   first, so the others follow under it); none framed yet = the alert nearest t */
+function rvListCur(t) {
+  requestAnimationFrame(() => requestAnimationFrame(() => { const l = document.getElementById('rvlist'); if (!l) return;
+    const c = l.querySelector('.rvli.cur'); if (!c) { rvListAt(t); return; }
+    const h = c.previousElementSibling && c.previousElementSibling.classList.contains('rvl-h') ? c.previousElementSibling : c;
+    l.scrollTop = Math.max(0, h.getBoundingClientRect().top - l.getBoundingClientRect().top + l.scrollTop - 4);
+    Dbg.log('review list to playing', l.querySelectorAll('.rvli.cur').length, 'alerts'); }));
+}
 function rvListAt(t) {
   const go = () => { const l = document.getElementById('rvlist'); if (!l) return;
     if (t == null) { l.scrollTop = 0; return; }
@@ -8670,6 +8679,7 @@ const ACT = {
     S.rv.t = at; S.playing = true; S.rv.feat = e.cam; S.rv.autoFeat = null; S.rv.lp = { id: e.cam, a: Math.min(p.t, e.t) - 3000, b: (e.end || p.t) + 8000 };
     Dbg.log('alert to review', e.cam, hms(p.t));
     S.view = 'review'; S.modal = null; S.more = false; S.evPop = null; render(); window.scrollTo(0, 0);
+    rvListCur(p.t);   /* 7.7.5 her: the list below jumps to the alerts playing now (all of them framed orange) */
   },
   evsel(d) {
     if (S.evSel === d.v) return;

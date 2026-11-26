@@ -952,3 +952,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.7.4 — Duo cover camera view: alert list in two columns
 - Her ask: on the cover, the camera view alert list is two columns, slightly smaller text (13 / 11 px, 64x44 pictures), and an alert's object list wraps instead of being cut off. Day headers span both columns. Cover only.
+
+## 7.7.5 — Review list follows "Review" from an alert, every playing alert framed
+- Her report: from an alert, Review played six cameras but the list below did not move or frame them. paintReview matched list items by data-t (the picked object time, not the alert start), so most playing alerts lost their orange frame; it now matches by data-e (alert id). evreview calls rvListCur(): the list scrolls to the first framed (playing) alert.
