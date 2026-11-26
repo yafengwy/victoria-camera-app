@@ -1031,3 +1031,8 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.9.9
 - Alerts, foldable sideways: the 12 px moved from .evtop padding (showed a strip of --card above the bar) into .evbar.one (height 56, padding-top 12), so the top strip is the bar's own colour. Positions unchanged.
+
+## 7.9.10
+- 如厕记录, her design (2026-11-26), nothing new on the mini PC (all in /ctl/litter marks, no video made):
+  - 💩 button on a visit: marks every part "poop|<end>" (alerts: Frigate+ "not a cat" when ticked, default on). A poop visit stays on 全部 (also motion marked poop), label "💩 便便" (brown), never joins other alerts by itself, not counted as a cat; day line gets "💩 ×N". Tapping 💩 again offers to take the mark off.
+  - 剪: two handles under the bar (CutDrag; the video pauses and follows the handle), "这段是" a cat name or 💩 便便, 保存这段 → mark id mo-cut-<camera>-<start s> = "cut|<end s>|<name or poop>". Several pieces can be cut from one visit (the next one starts where the last ended). Litter.cuts() builds them; on 全部 they stand in for any visit / motion they overlap (that one is hidden there, still whole on 猫砂盆 / Closet). A cut tile shows ✂︎; its page offers 这段是 (rename) and the bin, which only removes the mark (never deletes recordings, also in the pick-bar delete); cut pieces can't be merged.
