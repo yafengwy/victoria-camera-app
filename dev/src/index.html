@@ -2073,8 +2073,8 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 /* 7.7.9 her "B" (every foldable, inside screen upright): the top row sits over the picture's top (picture moves up), the
    picture at most 340 high (fitted, black sides), Download / Alert List in the top row, Today on the timeline's rail,
    the alert bar's room 38 instead of 64 (fixed, no jumping) */
-:root:root[data-foldup]:not([data-cover]) .focus>.fvid{margin-top:0!important;overflow:hidden!important}
-:root:root[data-foldup]:not([data-cover]) .focus>.fvid>.fov{top:6px}
+:root:root[data-foldup]:not([data-cover]) .focus>.fvid{margin-top:0!important;overflow:visible!important}
+:root:root[data-foldup]:not([data-cover]) .focus>.fvid>.fov{top:min(6px, calc(23px - var(--sbar,0px)));right:110px}   /* 7.8.4 her "A": the row up in the dark status-bar strip, the right group just left of iOS's badge */
 :root:root[data-foldup]:not([data-cover]) .focus>.fvid>.fov .dk,:root:root[data-foldup]:not([data-cover]) .focus>.fvid>.fov .pillk{background:rgba(0,0,0,.6)}
 :root:root[data-foldup]:not([data-cover]) .focus>.fvid>.fov .dk.bxbtn[aria-pressed="true"]{background:#FFD400;color:#111}
 :root:root[data-foldup]:not([data-cover]) .focus>.fvid>.fov .fcv{display:contents}

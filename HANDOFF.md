@@ -982,3 +982,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.8.3
 - Camera view (all screens): an opened alert folds back by itself when her own scroll puts the blue line more than 12 px above its card or below its pictures box (#fsc scroll handler, user scrolls only; playback never closes it). Log: "opened alert folded, line left it".
+
+## 7.8.4
+- Camera view, foldable upright, her "A": the top row sits up in the dark status-bar strip (top: min(6px, 23px - --sbar)), the right group ends 110 px from the right edge (left of iOS's badge); the picture no longer has buttons over it. fvid overflow visible again so the row can sit above it.
