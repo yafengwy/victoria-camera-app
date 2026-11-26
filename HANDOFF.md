@@ -994,3 +994,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.8.7
 - Diagnostics only (her 23:45 log: Review big video loaded 10 times, never "playing"): RVid logs "review video play refused <name> <message>" when play() is rejected, and 4 s after a load that has not played "review video not playing" with readyState, networkState, paused, buffered, currentTime, in page, parent id, review playing, native/hls.js.
+
+## 7.8.8
+- Review top row, foldable sideways (rvBarOne, FS): Back, date, Reset, Cameras, Objects on the left; Boxes, Date, Big, List together at the far right (.rvend.fs, padding-right 48 to clear iOS's badge).

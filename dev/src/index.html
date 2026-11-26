@@ -579,6 +579,7 @@ img.rf{opacity:0}
 .rvend.v .ic{width:36px;min-width:36px}
 .rvend.v .chip{padding:0 9px;margin:0}
 .rvtop.one .rvsp{flex:1}
+.rvend.fs{flex:none;justify-content:flex-end;gap:6px;padding-right:48px}   /* 7.8.8: clear of iOS's badge at the top right */
 .rvtop.one .rvbar .chip{flex-shrink:0}
 .rvwrap{display:flex;align-items:flex-start}
 .rvcams{flex:1;min-width:0;padding:10px 8px 120px 10px;display:grid;grid-template-columns:repeat(var(--cols),minmax(0,1fr));gap:8px;align-content:start}
@@ -7204,6 +7205,17 @@ function rvOneRow() { return window.innerWidth >= 900; }
 function rvBarOne(st) {
   const sel = S.rv.sel, camLab = st === 'all' ? 'All Cameras' : st !== 'custom' ? st + ' Only' : sel.length + (sel.length === 1 ? ' Camera' : ' Cameras');
   const dd = on => (on ? I.up : I.down).replace(/22/g, '14');
+  /* 7.8.8 her: foldable sideways - Boxes, Date, Big, List together at the far right (left of iOS's badge) */
+  const FS = !COVER && document.documentElement.hasAttribute('data-foldside');
+  const bx = Data.source === 'frigate' ? '<button class="chip sm bxchip" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '';
+  const dt = dtOver('<button class="ic" data-act="date" data-v="rv" aria-label="Pick Date">' + I.cal + '</button>', 'rv');
+  const ls = '<button class="ic' + (S.rv.list ? ' on' : '') + '" data-act="rvlist" aria-pressed="' + !!S.rv.list + '" aria-label="' + (S.rv.list ? 'Show Timeline' : 'Show Alert List') + '">' + (S.rv.list ? I.tline : I.bellO) + '</button>';
+  const lay = '<button class="chip sm" data-act="rvcolsopen" aria-label="Layout">' + I.grid4.replace(/22/g, '15') + (rvLay() === 'big' ? 'Big' : rvCols()) + '</button>';
+  if (FS) return '<div class="rvtop one" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle' + (S.rv.t != null ? ' rvdate' : '') + '">' + rvTitle() + '</div>' +
+    '<button class="chip sm rvib" data-act="rvreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
+    '<button class="chip sm rvf" data-act="rvpick" aria-pressed="' + (st !== 'all' || S.rv.pick) + '" aria-label="Cameras"><span>' + esc(camLab) + '</span>' + dd(S.rv.pick) + '</button>' +
+    '<button class="chip sm rvf" data-act="rvfopen" aria-pressed="' + (S.rv.fopen || !rvFDefault()) + '" aria-label="Alert Types On Timeline"><span>' + esc(rvFSummary()) + '</span>' + dd(S.rv.fopen) + '</button>' +
+    '<span class="rvsp"></span><span class="rvend fs">' + bx + dt + lay + ls + '</span></div>';
   return '<div class="rvtop one" id="rvtop"><div class="rvbar"><button class="ic" data-act="go" data-v="home" aria-label="Back">' + I.back + '</button><div class="rvtitle' + (S.rv.t != null ? ' rvdate' : '') + '">' + rvTitle() + '</div>' +
     '<button class="chip sm rvib" data-act="rvreset" aria-label="Reset Filters" title="Reset Filters">' + I.reset + '</button>' +
     '<button class="chip sm rvf" data-act="rvpick" aria-pressed="' + (st !== 'all' || S.rv.pick) + '" aria-label="Cameras"><span>' + esc(camLab) + '</span>' + dd(S.rv.pick) + '</button>' +
