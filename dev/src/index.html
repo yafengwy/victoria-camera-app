@@ -7264,7 +7264,7 @@ function rvLay() { return S.rv.lay !== 'grid' && rvCams().length > 3 ? 'big' : '
 /* Big, by screen: wide (side timeline) — the big picture on the left, 2×2, with 2–3 small ones per row beside it
    (4–5 columns by width); phones and upright tablets — the big picture across the top, small ones below
    (2 per row on a phone, 3 on a tablet) */
-function rvBigCols() { return rvVert() ? (window.innerWidth >= 1300 ? 5 : 4) : 3; }
+function rvBigCols() { return rvVert() && !(!COVER && document.documentElement.hasAttribute('data-foldside')) ? (window.innerWidth >= 1300 ? 5 : 4) : 3; }   /* 7.8.9 her "A": foldable sideways, three a row (bigger pictures) */
 /* 7.8.6: foldable inside screen upright (not the Duo cover) */
 function rvSideBig() { const r = document.documentElement; return !COVER && r.hasAttribute('data-foldup') && !r.hasAttribute('data-cover'); }
 function rvBig() { return rvLay() === 'big'; }

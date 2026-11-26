@@ -997,3 +997,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.8.8
 - Review top row, foldable sideways (rvBarOne, FS): Back, date, Reset, Cameras, Objects on the left; Boxes, Date, Big, List together at the far right (.rvend.fs, padding-right 48 to clear iOS's badge).
+
+## 7.8.9
+- Review Big, foldable sideways, her "A": rvBigCols() = 3 there (was 4 with the list beside): big camera 2/3 wide, two beside it, rows of three; about 8 cameras on the first screen.
