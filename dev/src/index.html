@@ -2067,6 +2067,26 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 :root:is([data-cover],[data-coverweb]) .focus>.fctl.fnorm>:not(.dtwrap){display:none!important}
 :root:is([data-cover],[data-coverweb]) .focus>.fctl.fnorm>.dtwrap{position:absolute;left:25px;top:4px}
 :root:is([data-cover],[data-coverweb]) .focus:has(>.fseek:not([hidden]))>.fctl.fnorm>.dtwrap{top:28px}   /* below the alert bar's start / end times */
+/* 7.7.9 her "B" (every foldable, inside screen upright): the top row sits over the picture's top (picture moves up), the
+   picture at most 340 high (fitted, black sides), Download / Alert List in the top row, Today on the timeline's rail,
+   the alert bar's room 38 instead of 64 (fixed, no jumping) */
+:root:root[data-foldup]:not([data-cover]) .focus>.fvid{margin-top:0!important;overflow:hidden!important}
+:root:root[data-foldup]:not([data-cover]) .focus>.fvid>.fov{top:6px}
+:root:root[data-foldup]:not([data-cover]) .focus>.fvid>.fov .dk,:root:root[data-foldup]:not([data-cover]) .focus>.fvid>.fov .pillk{background:rgba(0,0,0,.6)}
+:root:root[data-foldup]:not([data-cover]) .focus>.fvid>.fov .dk.bxbtn[aria-pressed="true"]{background:#FFD400;color:#111}
+:root:root[data-foldup]:not([data-cover]) .focus>.fvid>.fov .fcv{display:contents}
+:root:root[data-foldup]:not([data-cover]) .focus>.fvid.vfit:not(.tall){max-height:340px;background:#000}
+:root:root[data-foldup]:not([data-cover]) .focus>.fvid.vfit:not(.tall) > img,:root:root[data-foldup]:not([data-cover]) .focus>.fvid.vfit:not(.tall) video{width:min(100cqw, 100cqh * var(--R,1.7778))!important;height:min(100cqh, 100cqw / var(--R,1.7778))!important;
+  left:calc((100cqw - min(100cqw, 100cqh * var(--R,1.7778))) / 2)!important;top:calc((100cqh - min(100cqh, 100cqw / var(--R,1.7778))) / 2)!important}
+:root:root[data-foldup]:not([data-cover]) .focus>.fctl.fnorm{position:relative;height:0!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;overflow:visible;align-items:flex-start;z-index:6}
+:root:root[data-foldup]:not([data-cover]) .focus>.fctl.fnorm>:not(.dtwrap){display:none!important}
+:root:root[data-foldup]:not([data-cover]) .focus>.fctl.fnorm>.dtwrap{position:absolute;left:25px;top:4px}
+:root:root[data-foldup]:not([data-cover]) .focus:has(>.fseek:not([hidden]))>.fctl.fnorm>.dtwrap{top:28px}
+:root:root[data-foldup]:not([data-cover]) .focus .fday{height:28px!important;padding:0 10px!important;font-size:12px!important;gap:5px!important}:root:root[data-foldup]:not([data-cover]) .focus .fday svg{width:15px;height:15px}
+:root:root[data-foldup]:not([data-cover]) .focus>.fseek{height:38px!important;min-height:0!important;padding-top:0!important;overflow:visible;position:relative}
+:root:root[data-foldup]:not([data-cover]) .focus>.fseek .evseek{height:22px!important;min-height:0!important}:root:root[data-foldup]:not([data-cover]) .focus>.fseek .evmks{height:16px!important;min-height:0!important}
+:root:root[data-foldup]:not([data-cover]) .fseek .evmk svg{width:14px!important;height:14px!important}:root:root[data-foldup]:not([data-cover]) .fseek .evmk{height:16px!important}
+:root:root[data-foldup]:not([data-cover]) .fseek .evbt{position:absolute;left:12px;right:12px;top:calc(100% - 8px);margin:0!important;height:32px;align-items:center;pointer-events:none;z-index:2;font-size:11px}
 /* 7.3.9 her: Duo cover camera view - the top-right buttons (Fix, Who?, Alerts, Big, Sound) sit just left of iOS's badge */
 :root:root[data-cover][data-cover] .focus .fov{right:80px!important}
 /* 7.3.10 her (every phone, every screen): while a group is opened, a small × sits on the blue line where it crosses the
@@ -4937,6 +4957,9 @@ function fullButtons() {
 }
 /* 5.3.10 (her choice): on the wide camera view the −10s … +10s bar sits in the middle of the space under the picture */
 function placeSteps() {
+  /* 7.7.9: Today sits centred on the timeline's grey rail (Duo cover / foldable upright) */
+  { const dw = document.querySelector('.focus>.fctl.fnorm>.dtwrap'), fr = document.querySelector('.focus .frail');
+    if (dw && fr && getComputedStyle(dw).position === 'absolute') { const x = Math.max(2, Math.round(fr.getBoundingClientRect().left + 3 - dw.offsetWidth / 2 - dw.parentNode.getBoundingClientRect().left)); if (dw.style.left !== x + 'px') dw.style.left = x + 'px'; } }
   const f = document.querySelector('.focus>.fsteps'), v = document.querySelector('.focus>.fvid');
   if (!f || !v) return;
   const wide = getComputedStyle(document.querySelector('.focus')).display === 'grid';

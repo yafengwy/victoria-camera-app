@@ -965,3 +965,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.7.8
 - Duo cover camera view, her "B" (time variant): an opened alert's rows are two big pictures a row (RH 114, 2 rows show, scrolls inside); the time sits on the picture's bottom-left, the icon and name under the picture. Only cover / coverweb; foldup / foldside / phones unchanged.
+
+## 7.7.9
+- Every foldable, inside screen upright (data-foldup, not cover), her "B": camera view top row over the picture's top (picture no longer pushed down 44), picture at most 340 high (fitted, black sides; tall cameras excluded), Download / Alert List in the top row (.fcv), Today on the timeline (.fctl.fnorm collapsed), alert bar room 38 (was 64; still fixed, no jumping), Today pill 28 high.
+- placeSteps() now centres Today on the timeline's rail (.frail) wherever it sits absolutely (cover too).
