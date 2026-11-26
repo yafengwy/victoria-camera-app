@@ -8413,7 +8413,8 @@ const ACT = {
     toast((v === '=car' ? 'Marked As Car' : v[0] === '-' ? 'Marked Not ' + objName(v.slice(1)) : 'Saved As ' + (isLogo(v) ? coName(v) : v)) + (r.sent ? ' · Sent To Frigate+' : '') + (r.taught ? ' · Car Model Learning' : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
   },
   fixis(d) { S.fixIs = S.fixIs === d.v ? '' : d.v; render(); },
-  fixpick(d) { S.fixIs = ''; const i = document.getElementById('conew'); if (i) S.coNew = i.value; S.fixPick = S.fixPick === d.v ? '' : d.v; render(); if (S.fixPick === '+') { const n = document.getElementById('conew'); if (n) n.focus(); } },
+  fixpick(d) { if (d.v === '^plus') { const e = evE(S.fixK); if (e) return plusOnly(S.fixK, e); }   /* 7.7.3 her: the chip itself opens the frame picker (no Save first) */
+    S.fixIs = ''; const i = document.getElementById('conew'); if (i) S.coNew = i.value; S.fixPick = S.fixPick === d.v ? '' : d.v; render(); if (S.fixPick === '+') { const n = document.getElementById('conew'); if (n) n.focus(); } },
   fixteach() { S.fixTeach = S.fixTeach === false; render(); },
   fixplus() { S.fixPlus = S.fixPlus === false; render(); },
   async fixsave() {
@@ -8431,7 +8432,8 @@ const ACT = {
     if (pickv === '0') e.who = String(e.who || '').split(' · ').filter(x => x && !CatFix.names.includes(x) && !['胖胖', '团团'].includes(x)).join(' · ');
     toast((isv ? 'Marked As ' + objName(isv) + (kept ? '' : ' · On This Phone Only') : pickv === '0' ? 'Marked Not Ours' : pickv[0] !== '-' ? 'Saved As ' + niceName(pickv) : pickv === '-animal' ? 'Marked Not Animal' : 'Marked Not ' + objName(pickv.slice(1))) + (r.sent ? ' · Sent To Frigate+' : '') + (r.taught ? ' · Train Model To Learn' : teachv && r.miss && !r.sent ? ' · No Saved Picture For The Cats Model' : '') + (r.nc && r.nc.length && !r.taught ? ' · The Cats Model Skips ' + r.nc.map(objName).join(', ') : '') + (r.ok ? '' : ' · Frigate Did Not Take All Of It'));
   },
-  whopick(d) { const i = document.getElementById('whonew'); if (i) S.whoNew = i.value; S.whoName = S.whoName === d.v ? '' : d.v;
+  whopick(d) { if (d.v === '^plus') { const e = Data.events.find(x => x.id === S.whoId); if (e) return plusOnly(S.whoId, e); }   /* 7.7.3 */
+    const i = document.getElementById('whonew'); if (i) S.whoNew = i.value; S.whoName = S.whoName === d.v ? '' : d.v;
     if (S.whoName === '+' && S.whoTeach !== false) S.whoTeach = true;   /* a new person is meant to be learned */
     render(); if (S.whoName === '+') { const n = document.getElementById('whonew'); if (n) n.focus(); } },
   whoteach() { S.whoTeach = !S.whoTeach; render(); },
