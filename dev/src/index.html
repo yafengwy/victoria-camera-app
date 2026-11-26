@@ -6662,7 +6662,7 @@ function viewFocus() {
   const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk ftm" id="ftm">' + dtHdr(shownT(c.id, c.id)) + '</div>' + (isDuoScreen() ? '' : qualBtn()) + '<div style="flex:1"></div><span id="ffix" class="ffixw">' + focusFix(c.id) + '</span>' +
     /* 7.9.2 her order (every screen): Fix / Who?, Objects, Boxes, List / Timeline, All Cameras At This Time, Download, Sound.
        Objects, List and Download sit up here only on the Duo / foldable screens (.fcv); other phones keep them in the row under the picture */
-    (S.flist ? '<span class="fcv"><button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button></span>' : '') +
+    '<span class="fcv"><button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button></span>' +   /* 7.9.2 her: Objects in timeline mode too (the timeline follows the same settings) */
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') +
     '<span class="fcv"><button class="dk' + (S.flist ? ' on' : '') + '" data-act="flist" aria-label="' + (S.flist ? 'Show Timeline' : 'Show Alert List') + '">' + (S.flist ? I.tline : I.bellO) + '</button></span>' +
     (frig ? '<button class="dk" data-act="focusreview" data-id="' + c.id + '" aria-label="All Cameras At This Time">' + I.review + '</button>' : '') +
@@ -6680,7 +6680,7 @@ function viewFocus() {
       '<button class="dk fbk' + (S.fclip.a ? ' set' : '') + '" data-act="fclipmark" data-v="a" aria-label="Set Start Here">[</button><button class="dk fbk' + (S.fclip.b ? ' set' : '') + '" data-act="fclipmark" data-v="b" aria-label="Set End Here">]</button>' +
       '<button class="dk solid" data-act="fclipdl" aria-label="Download"' + (S.fclip.a && S.fclip.b ? '' : ' style="opacity:.45"') + '>' + I.dl + '</button></div>' :
     dtOver('<button class="fday" data-act="fdate">' + I.cal + (S.flist ? 'Today' : dayLabel(shownT(c.id, c.id))) + '</button>', 'focus') + '<div style="flex:1"></div>' +
-    (S.flist ? '<button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button>' : '') +
+    '<button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button>' +
     '<button class="dk' + (S.flist ? ' on' : '') + '" data-act="flist" aria-label="' + (S.flist ? 'Show Timeline' : 'Show Alert List') + '">' + (S.flist ? I.tline : I.bellO) + '</button>' +
     (Data.source === 'frigate' ? '<button class="dk" data-act="fclip" aria-label="Download Video">' + I.dl + '</button>' : '') + '</div>') +
     '<div class="fscroll"><div class="pullhint"></div>' + body + '</div>' +

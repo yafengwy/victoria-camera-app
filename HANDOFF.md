@@ -1007,3 +1007,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.9.1
 - Camera view top row order (her choice, every screen): Fix / Who?, Objects (list mode), Boxes, List / Timeline, All Cameras At This Time, Download, Sound. Objects / List / Download are .fcv (top row only on Duo / foldable screens); other phones keep them in the row under the picture, now in the same order (Objects, List, Download).
+
+## 7.9.2
+- Camera view: Objects (Alert Settings) button shows in timeline mode too, not only in list mode (the timeline uses the same passes() filter).
