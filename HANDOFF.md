@@ -1022,3 +1022,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.9.6
 - Alerts top row, foldable sideways: padding-left 30 (was 16), "Alerts" 20 px (was 17) with 16 px after it, Reset at least 42 wide - she often missed Reset, and the title sat right at the edge.
+
+## 7.9.7
+- Alerts top row, foldable sideways: Reset still missed at ~110-150 px from the left (Cameras / Objects at the same height work, so likely a dead touch spot of the screen there); "Alerts" now has 84 px after it, Reset sits at ~180-222 px.
