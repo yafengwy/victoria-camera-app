@@ -7795,8 +7795,12 @@ const RVid = {
       if (!segs.length) { this.loading = false; Dbg.log('review video none here', id, hms(t)); return; }
       const v = this.el(); v.style.opacity = '0'; this.mount(); v.playbackRate = S.speed || 1;
       const vt = Playback.vtime({ win: this.win }, t) || 0, url = Roam.url(Frigate.base() + '/vod/' + id + '/start/' + a + '/end/' + b + '/index.m3u8');
-      if (Playback.native(id)) { v.src = url; v.currentTime = vt; v.play().catch(() => {}); }
-      else { const H = await Playback.hls(); if (seq !== this.seq) return; this.h = new H({ startPosition: vt, testBandwidth: false, maxBufferLength: 8, maxMaxBufferLength: 20, backBufferLength: 10 }); hlsLog(this.h, H, 'review video ' + id); this.h.loadSource(url); this.h.attachMedia(v); v.play().catch(() => {}); }
+      /* 7.8.7: her log showed loads but never "playing": say why play was refused, and where the video sits after 4 s */
+      const pl = () => v.play().catch(e => { if (seq === this.seq) Dbg.log('review video play refused', id, (e && e.name) || '', String(e && e.message || '').slice(0, 80)); });
+      if (Playback.native(id)) { v.src = url; v.currentTime = vt; pl(); }
+      else { const H = await Playback.hls(); if (seq !== this.seq) return; this.h = new H({ startPosition: vt, testBandwidth: false, maxBufferLength: 8, maxMaxBufferLength: 20, backBufferLength: 10 }); hlsLog(this.h, H, 'review video ' + id); this.h.loadSource(url); this.h.attachMedia(v); pl(); }
+      setTimeout(() => { if (seq !== this.seq || this.ok) return; const bf = v.buffered, br = bf.length ? bf.start(0).toFixed(1) + '-' + bf.end(bf.length - 1).toFixed(1) : 'none';
+        Dbg.log('review video not playing', id, 'ready ' + v.readyState, 'net ' + v.networkState, 'paused ' + v.paused, 'buffered ' + br, 'at ' + v.currentTime.toFixed(1), 'in page ' + v.isConnected, 'shown ' + (v.parentNode && v.parentNode.id || '-'), 'review playing ' + (S.playing ? 'yes' : 'no'), Playback.native(id) ? 'native' : 'hls.js'); }, 4000);
     } catch (e) { if (seq === this.seq) Dbg.log('review video load error', id, String(e && e.message || e)); }
     if (seq === this.seq) this.loading = false;
   },

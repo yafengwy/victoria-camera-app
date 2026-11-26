@@ -991,3 +991,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.8.6
 - Review Big, foldable upright (rvSideBig: data-foldup, not cover), her "B": no longer "narrow" - the big camera spans 2 of 3 columns and 2 rows, two small ones beside it, then rows of three. rvFoldFit keeps the list under the row of three below the big one (6 cameras show).
+
+## 7.8.7
+- Diagnostics only (her 23:45 log: Review big video loaded 10 times, never "playing"): RVid logs "review video play refused <name> <message>" when play() is rejected, and 4 s after a load that has not played "review video not playing" with readyState, networkState, paused, buffered, currentTime, in page, parent id, review playing, native/hls.js.
