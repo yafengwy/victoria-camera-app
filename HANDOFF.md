@@ -943,3 +943,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.7.1 — Double tap on the round Live works on the iPhone
 - Her report: double-tapping the round Live under an opened camera did not make every camera live. Same cause as 4.9.3: the first tap's `live1` re-renders the page and the iPhone drops the second click. A capture `touchend` listener now catches the second tap on `[data-act="live1"]` within 450 ms (preventDefault, then the double-tap action: every camera live for 1 minute on home). Mouse double clicks still use the click path.
+
+## 7.7.2 — Every "Send To Frigate+" picks a frame first
+- Her rule: Send To Frigate+ in Who Is This? and in Fix opens the same frame picker as 猫砂盆 / Motion fix (−1 s, −0.3, +0.3, +1 s), starting at the object's moment (evP t); Send posts that recording frame (`/api/<cam>/plus/<t>`, mofixgo) and she draws the box on the Frigate+ site. The old one-tap snapshot send is kept as `plusOnlySnap` (unused).

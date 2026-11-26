@@ -3589,7 +3589,14 @@ async function sendPlus(d) {
 }
 /* 5.8.3 her request: Fix → Send To Frigate+ sends this alert's picture to Frigate+ as Frigate saw it, changing no label
    here or in Frigate (so she no longer screenshots alerts for Frigate+). One picture per tap (4.10.8 rule). */
-async function plusOnly(k, e) {
+/* 7.7.2 her rule: every "Send To Frigate+" (Who Is This?, Fix) opens the frame picker like 猫砂盆 / Motion fix
+   (−1 s, −0.3, +0.3, +1 s), starting at this object's moment; the frame picked goes to Frigate+ and she draws the box
+   there. The old one-tap send of Frigate's own snapshot (plusOnlySnap) is kept below but no longer used. */
+function plusOnly(k, e) {
+  const p = evP(k, S.filt), t = (p && p.t) || e.t;
+  S.fixBusy = false; S.moFix = { k, cam: e.cam, t: Math.round(t), off: 0 }; Dbg.log('frigate+ frame pick', e.cam, hms(t)); S.modal = 'mofix'; render();
+}
+async function plusOnlySnap(k, e) {
   const p = evP(k, S.filt), d = (p && p.d) || (e.dets || [])[0]; People.sent = People.sent || {};
   if (!d) { toast('No Picture To Send'); return; }
   S.fixBusy = true; render(); let msg;
