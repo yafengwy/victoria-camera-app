@@ -973,3 +973,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 7.7.10
 - Review, foldable upright (FUP): the camera / object chip row is gone; Cameras and Objects are icons right of Reset (Back, Reset, Cameras, Objects, Big, Boxes, List, Date). rvFoldFit: in Big the list starts under the big camera and the first small row (other layouts: under the third row as before).
 - Camera view, foldable upright: cards and the opened box start at 122 px (just right of the icon lanes) and reach the right edge; the opened box has three pictures a row (RH 80, picture 74, 3 rows show).
+
+## 7.8.1
+- Camera view, foldable upright: cards and opened box 340 wide (narrower if the room is smaller), centred in the room right of the icon lanes (7.7.10 stretched them to the right edge, too long). Opened box rows: three a row, RH 70, picture 64.
