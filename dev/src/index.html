@@ -7940,9 +7940,11 @@ function rvHint() {
   const f = out[0], lab = f.e ? objName(f.e.label) : '';
   n.dataset.id = f.c.id; n.classList.toggle('un', !f.hot);
   n.innerHTML = (f.down ? '↓ ' : '↑ ') + esc(f.c.name) + (lab ? ' · ' + esc(lab) : '') + (out.length > 1 ? ' · +' + (out.length - 1) : '');
-  n.style.bottom = (dr && !dock.classList.contains('v') ? innerHeight - dr.top + 42 : 16) + 'px';
   n.style.left = dr && dock.classList.contains('v') ? 'calc((100% - ' + dr.width + 'px) / 2)' : '50%';
   n.hidden = false;
+  /* 7.8.5 her (Duo / foldable screens): the pill covered the middle camera; it now sits in the dark top band of the list
+     (the "Today" row), in the middle */
+  n.style.bottom = (dr && !dock.classList.contains('v') ? (isDuoScreen() ? innerHeight - dr.top - 4 - n.offsetHeight : innerHeight - dr.top + 42) : 16) + 'px';
 }
 let rvScrollT = 0;
 window.addEventListener('scroll', () => { if (S.view === 'review') { clearTimeout(rvScrollT); rvScrollT = setTimeout(() => { if (S.view === 'review') paintReview(); }, 180); } }, { passive: true });
