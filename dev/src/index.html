@@ -3200,6 +3200,10 @@ const Dbg = {
   text() {
     let h = '';
     try { const d = detectCover(); h += 'Screen ' + d.w + ' × ' + d.h + ' · Safe T' + d.sa.t + ' R' + d.sa.r + ' B' + d.sa.b + ' L' + d.sa.l + ' · Duo ' + (d.auto ? 'Yes' : 'No') + '\n'; } catch (e) {}
+    /* 7.9.4: which player plays recordings, and why it changed (her 11-26 00:10 log: doorbell on the built-in player) */
+    try { const P = Playback, nc = Object.keys(P.natCam).filter(k => k !== 'nest_doorbell');
+      h += 'Player ' + (P._nat == null ? 'not chosen yet' : P._nat ? 'built-in' + (P._natFall ? ' (hls.js showed nothing: all cameras)' : '') : 'hls.js') +
+        (nc.length ? ' · built-in for ' + nc.join(', ') + ' (picture size changed)' : '') + '\n'; } catch (e) {}
     if (Data.source === 'frigate') h += 'Motion Feed ' + (Motion.up ? 'Connected' : 'Not Connected') + ' · Messages ' + Motion.n + ' · Route ' + Diag.route + ' · Tries ' + (Motion.tries || 0) + (Motion.err ? ' · Last Close ' + Motion.err : '') + (Diag.srv ? '\nCheck: ' + Diag.srv : '') + (Diag.log ? '\nServer: ' + Diag.log : '') + '\n';
     return 'Version __VER__ · ' + navigator.userAgent + '\n' + h + this.a.join('\n');
   }

@@ -1013,3 +1013,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.9.3
 - Duo / foldable screens, camera view top row: icon buttons have no round grey backing (28 wide); Boxes on stays yellow, List on shows #B9CCFF. Row moved a little right: cover right 72 (was 80), foldable upright right 102 (was 110).
+
+## 7.9.4
+- Playback Log header: "Player hls.js / built-in (hls.js showed nothing: all cameras) · built-in for <cams> (picture size changed)" — shows Playback._nat / _natFall / natCam without needing the earlier log line.
