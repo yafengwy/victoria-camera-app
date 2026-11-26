@@ -979,3 +979,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.8.2
 - Camera view, foldable upright: only the cards are 340 wide and centred; the opened box is back to 7.7.10 (122 px to the right edge, three pictures a row, RH 80, picture 74).
+
+## 7.8.3
+- Camera view (all screens): an opened alert folds back by itself when her own scroll puts the blue line more than 12 px above its card or below its pictures box (#fsc scroll handler, user scrolls only; playback never closes it). Log: "opened alert folded, line left it".

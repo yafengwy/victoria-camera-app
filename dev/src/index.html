@@ -9597,6 +9597,11 @@ function wire() {
       if (!user()) { fPaintLine(); return; }
       if (Date.now() - (S.focus.liveAt || 0) < 1500 && sc.scrollTop - fPad() > 4) { fPaintLine(); return; }   /* 4.3.3: the page settling right after Live */
       sc._scrolled = Date.now();
+      /* 7.8.3 her request: an opened alert folds back by itself once she scrolls the blue line out of it (above its card or
+         below its pictures). Only her own scrolling does this; playback moving the list never closes it */
+      { const op = sc.querySelector('.fev.open'), sub = sc.querySelector('.fsub'), ln = document.getElementById('fpline');
+        if (S.focus.og && op && sub && ln) { const lr = ln.getBoundingClientRect(), my = lr.top + lr.height / 2;
+          if (my < op.getBoundingClientRect().top - 12 || my > sub.getBoundingClientRect().bottom + 12) { S.focus.og = null; S.focus.ogk = null; Dbg.log('opened alert folded, line left it'); render(); fPaintLine(); return; } } }
       const ly = S.focus.lineY == null ? FTOP : S.focus.lineY, y = Math.max(0, sc.scrollTop) - fPad() + ly;
       /* 4.6.4: the list's top is Live. Pulled to the top (or bounced past it) = Live, so the bounce can't carry the
          time back into the past ("jumped down a bit" and stayed short of now) */
