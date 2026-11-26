@@ -988,3 +988,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.8.5
 - Review hint pill ("↓ Front Door · Person"): on Duo / foldable screens (isDuoScreen) it sits 4 px inside the list's top band (the "Today" row), centred, instead of 42 px above the list over the cameras. Other phones unchanged.
+
+## 7.8.6
+- Review Big, foldable upright (rvSideBig: data-foldup, not cover), her "B": no longer "narrow" - the big camera spans 2 of 3 columns and 2 rows, two small ones beside it, then rows of three. rvFoldFit keeps the list under the row of three below the big one (6 cameras show).

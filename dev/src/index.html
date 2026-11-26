@@ -5131,7 +5131,7 @@ function rvFoldFit() {
   const cs = [...document.querySelectorAll('.rvcams .rvcam')], dock = document.querySelector('.rvdock.l'), lst = dock && dock.querySelector('.rvlist'); if (cs.length < 3 || !dock || !lst) return;
   const sy = window.scrollY, tops = [...new Set(cs.map(c => Math.round(c.getBoundingClientRect().top + sy)))].sort((a, b) => a - b); if (tops.length < 2) return;
   /* 7.6.8 her: upright, three rows of cameras show above the list (two left too many list rows) */
-  const row2 = cs.find(c => Math.round(c.getBoundingClientRect().top + sy) === tops[Math.min(rvLay() === 'big' ? 1 : 2, tops.length - 1)])   /* 7.7.10 her: Big = the big one and one row of small ones */, b2 = row2.getBoundingClientRect().bottom + sy - sy;
+  const row2 = cs.find(c => Math.round(c.getBoundingClientRect().top + sy) === tops[Math.min(rvLay() === 'big' && !rvSideBig() ? 1 : 2, tops.length - 1)])   /* 7.7.10 her: Big = the big one and one row of small ones */, b2 = row2.getBoundingClientRect().bottom + sy - sy;
   const extra = dock.getBoundingClientRect().height - lst.getBoundingClientRect().height, h = Math.max(160, Math.round(innerHeight - (row2.getBoundingClientRect().bottom + 4) - extra));
   if (r.style.getPropertyValue('--rvfl') !== h + 'px') r.style.setProperty('--rvfl', h + 'px');
 }
@@ -7253,6 +7253,8 @@ function rvLay() { return S.rv.lay !== 'grid' && rvCams().length > 3 ? 'big' : '
    (4–5 columns by width); phones and upright tablets — the big picture across the top, small ones below
    (2 per row on a phone, 3 on a tablet) */
 function rvBigCols() { return rvVert() ? (window.innerWidth >= 1300 ? 5 : 4) : 3; }
+/* 7.8.6: foldable inside screen upright (not the Duo cover) */
+function rvSideBig() { const r = document.documentElement; return !COVER && r.hasAttribute('data-foldup') && !r.hasAttribute('data-cover'); }
 function rvBig() { return rvLay() === 'big'; }
 const RV_LAYS = { big: 'Big', top: 'Alerts On Top', grid: 'Grid' };
 /* Big layout: the camera with an alert at the line gets the big picture (2/3 wide), the next two sit beside it,
@@ -7316,7 +7318,7 @@ function rvLayout(t) {
   if (!S.rv.feat || !cams.some(c => c.id === S.rv.feat)) S.rv.feat = cams[0] && cams[0].id;
   const side = hits.map(x => x.c.id).filter(id => id !== S.rv.feat);
   /* narrow phone: the big picture takes the full width, everything else 2 per row */
-  const wide = rvVert(), narrow = !wide; box.classList.toggle('narrow', narrow); box.style.setProperty('--cols', wide ? rvBigCols() : box.clientWidth < 520 ? 2 : 3);
+  const wide = rvVert(), narrow = !wide && !rvSideBig();   /* 7.8.6 her "B": foldable upright - big one 2/3 wide, two small ones beside it */ box.classList.toggle('narrow', narrow); box.style.setProperty('--cols', wide ? rvBigCols() : box.clientWidth < 520 ? 2 : 3);
   /* fixed row height (one 16:9 tile) so the big picture is exactly 2 tiles high: left to itself, Safari on the iPad
      sized the rows from the picture inside and stretched the big tile far down the screen */
   box.classList.toggle('fixh', !narrow);
