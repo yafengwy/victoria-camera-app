@@ -1019,3 +1019,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.9.5
 - Her rule (every object picker): All Carriers takes Package along - objGroup('carriers') adds / removes Package with the carriers (Alerts, Review, camera view, every filter using objChips); the Frigate+ pictures picker (pppick g:carriers) does the same. Package can still be ticked on its own.
+
+## 7.9.6
+- Alerts top row, foldable sideways: padding-left 30 (was 16), "Alerts" 20 px (was 17) with 16 px after it, Reset at least 42 wide - she often missed Reset, and the title sat right at the edge.

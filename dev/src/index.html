@@ -577,6 +577,11 @@ img.rf{opacity:0}
 .evbar.one .evn{font-size:13px;font-weight:600;color:var(--sub);margin-right:10px;white-space:nowrap}
 .evbar.one .chip{flex-shrink:0;font-size:13px}
 .evbar.one .chip.rvf{max-width:240px}
+/* 7.9.6 her (foldable sideways): "Alerts" sat right at the edge and Reset was hard to hit - the row starts further in,
+   the title a little bigger, Reset a wider target */
+:root[data-foldside]:not([data-cover]) .evbar.one{padding-left:30px}
+:root[data-foldside]:not([data-cover]) .evbar.one .evttl{font-size:20px;margin-right:16px}
+:root[data-foldside]:not([data-cover]) .evbar.one .rvib{min-width:42px;margin-right:4px}
 /* side timeline: the two buttons sit centered right above it */
 .rvend.v{width:104px;margin-right:-8px;justify-content:center;gap:2px;flex:none}
 .rvend.v.l{width:270px}
