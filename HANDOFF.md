@@ -949,3 +949,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.7.3 — Tapping Send To Frigate+ opens the frame picker at once
 - Her report: after 7.7.2 the picker only came after Save. whopick / fixpick with ^plus now open the picker straight away (Fix, Company Fix and Who Is This?).
+
+## 7.7.4 — Duo cover camera view: alert list in two columns
+- Her ask: on the cover, the camera view alert list is two columns, slightly smaller text (13 / 11 px, 64x44 pictures), and an alert's object list wraps instead of being cut off. Day headers span both columns. Cover only.

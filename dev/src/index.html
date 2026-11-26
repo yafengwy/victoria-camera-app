@@ -548,6 +548,15 @@ img.rf{opacity:0}
 .fitem b{display:block;font-size:16px;font-weight:600}
 .fitem small{display:block;font-size:13px;color:var(--dark-sub);margin-top:2px;font-variant-numeric:tabular-nums}
 .fitem.cur{box-shadow:inset 0 0 0 2px #B9CCFF}
+/* 7.7.4 her (Duo cover only): the camera view's alert list is two columns, a little smaller text, and an alert's whole
+   object list wraps instead of being cut off */
+:root:is([data-cover],[data-coverweb]) .focus .flist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:6px}
+:root:is([data-cover],[data-coverweb]) .focus .flist > :not(.fitem){grid-column:1/-1}
+:root:is([data-cover],[data-coverweb]) .focus .fitem{gap:7px;padding:5px;border-radius:12px;min-width:0}
+:root:is([data-cover],[data-coverweb]) .focus .fitem img{width:64px;height:44px;border-radius:8px}
+:root:is([data-cover],[data-coverweb]) .focus .fitem > div,:root:is([data-cover],[data-coverweb]) .focus .fitem > span{min-width:0}
+:root:is([data-cover],[data-coverweb]) .focus .fitem b{font-size:13px;line-height:1.2;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere}
+:root:is([data-cover],[data-coverweb]) .focus .fitem small{font-size:11px;white-space:normal}
 .dk.on{background:#B9CCFF;color:#13223F}
 
 /* ---- v2: review all cameras ---- */
