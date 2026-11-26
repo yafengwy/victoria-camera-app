@@ -2047,6 +2047,18 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 /* 7.3.8 her "A" (Duo cover only, app and notification browser): the camera view's cards start just right of the icons
    and reach the right edge (no empty middle) */
 :root:is([data-cover],[data-coverweb]) .focus .fev,:root:is([data-cover],[data-coverweb]) .focus .fsub{left:122px!important;width:auto!important;right:8px!important}
+/* 7.7.7 her "C" (Duo cover only): the picture at most 300 high (black at the sides), Download and the Alert List button
+   in the top row, Today on top of the timeline centred on its grey line; the empty icon row is gone */
+.fcv{display:none}
+:root:is([data-cover],[data-coverweb]) .focus>.fvid>.fov .fcv{display:contents}
+:root:is([data-cover],[data-coverweb]) .focus>.fvid:not(.tall){max-height:300px;background:#000}
+:root:is([data-cover],[data-coverweb]) .focus>.fvid.vfit:not(.tall){overflow:hidden}
+:root:is([data-cover],[data-coverweb]) .focus>.fvid.vfit:not(.tall) > img,:root:is([data-cover],[data-coverweb]) .focus>.fvid.vfit:not(.tall) video{width:min(100cqw, 100cqh * var(--R,1.7778))!important;height:min(100cqh, 100cqw / var(--R,1.7778))!important;
+  left:calc((100cqw - min(100cqw, 100cqh * var(--R,1.7778))) / 2)!important;top:calc((100cqh - min(100cqh, 100cqw / var(--R,1.7778))) / 2)!important}
+:root:is([data-cover],[data-coverweb]) .focus>.fctl.fnorm{height:0!important;min-height:0!important;margin:0!important;padding:0!important;border:0!important;overflow:visible;align-items:flex-start;z-index:6}
+:root:is([data-cover],[data-coverweb]) .focus>.fctl.fnorm>:not(.dtwrap){display:none!important}
+:root:is([data-cover],[data-coverweb]) .focus>.fctl.fnorm>.dtwrap{position:absolute;left:25px;top:4px}
+:root:is([data-cover],[data-coverweb]) .focus:has(>.fseek:not([hidden]))>.fctl.fnorm>.dtwrap{top:28px}   /* below the alert bar's start / end times */
 /* 7.3.9 her: Duo cover camera view - the top-right buttons (Fix, Who?, Alerts, Big, Sound) sit just left of iOS's badge */
 :root:root[data-cover][data-cover] .focus .fov{right:80px!important}
 /* 7.3.10 her (every phone, every screen): while a group is opened, a small × sits on the blue line where it crosses the
@@ -2796,12 +2808,17 @@ const Live = {
   /* 3.8.5: on phones every home card (opened one and list too) uses the light stream; 4K main streams froze the iPhone 5-9 s when a card opened. Full view stays HD.
      grid cards are small: use the camera's light "_sub" stream (fast to start, cheap to decode); list cards,
      the opened card, full view and full screen use the HD stream */
-  cardSrc(id) { return (PHONE_LIVE() || S.layout === 'grid' && S.expanded !== id) && Frigate.streams && Frigate.streams[id + '_sub'] ? id + '_sub' : id; },
+  /* 7.7.7 her choice: the doorbell's Clear stream (2560x1920) froze the phone 6-7 s when its live started, so live
+     uses its Fluent stream everywhere; HD in the camera view's Low / HD button switches to Clear for that visit.
+     Recording and Frigate's detection are not changed */
+  LIGHT: { doorbell: 1 },
+  light(id) { id = this.cam(id); return !!(this.LIGHT[id] && !(S.focus && S.focus.cam === id && S.focus.hd) && Frigate.streams && Frigate.streams[id + '_sub']); },
+  cardSrc(id) { return (PHONE_LIVE() || this.light(id) || S.layout === 'grid' && S.expanded !== id) && Frigate.streams && Frigate.streams[id + '_sub'] ? id + '_sub' : id; },
   /* 4.2.4: camera view / full screen: the light stream sits under the HD one and starts first (it connects in ~1-2 s);
      the HD video covers it as soon as it has a picture, and the light one is then closed */
-  quick(id, hide, hid) { return !Roam.low() && Frigate.streams && Frigate.streams[id + '_sub'] ? this.holder(id + '_sub', hide, hid) : ''; },
+  quick(id, hide, hid) { return !Roam.low() && !this.light(id) && Frigate.streams && Frigate.streams[id + '_sub'] ? this.holder(id + '_sub', hide, hid) : ''; },
   hdUp(id) { const e = this.els[id]; return !!(e && e.okSince && now() - e.okSince > 1200); },
-  holder(src, hide, id) { if (Roam.low() && !/_sub$/.test(src) && Frigate.streams && Frigate.streams[src + '_sub']) src = src + '_sub';   /* 6.6.3 low data: the light stream */
+  holder(src, hide, id) { if ((Roam.low() || this.light(src)) && !/_sub$/.test(src) && Frigate.streams && Frigate.streams[src + '_sub']) src = src + '_sub';   /* 6.6.3 low data: the light stream */
     return Data.source === 'frigate' && Ctl.on(this.cam(src)) ? '<div class="lvh"' + (id ? ' id="' + id + '"' : '') + ' data-live="' + esc(src) + '"' + (hide ? ' hidden' : '') + '></div>' : ''; },
   el(src) {
     let e = this.els[src];
@@ -4595,7 +4612,7 @@ const Roam = {
      under the HD one (as when the camera opens) */
   swapLive() {
     const c = S.focus && S.focus.cam; if (!c || !Frigate.streams || !Frigate.streams[c + '_sub']) return;
-    const low = this.low(), want = low ? c + '_sub' : c;
+    const low = this.low() || Live.light(c), want = low ? c + '_sub' : c;
     [['fulllive', 'fullquick'], ['flive', 'fquick']].forEach(([L, Q]) => {
       const h = document.getElementById(L); if (!h) return;
       if (h.dataset.live !== want) { const o = Live.els[h.dataset.live]; if (o && o.parentNode === h) o.remove(); h.dataset.live = want; Dbg.log('live stream switched', want); }
@@ -4609,9 +4626,11 @@ const Roam = {
 };
 /* the Low / HD button on the camera view and full screen (only while Roaming is on and the phone is off Wi-Fi) */
 function qualBtn() {
-  if (!Roam.active()) return '';
-  return '<span class="qwrap"><button class="dk qbtn" data-act="qmenu" aria-label="Video Quality">' + (Roam.hd ? 'HD' : 'Low') + ' ▾</button>' +
-    (S.qOpen ? '<span class="qmenu"><button data-act="qset" data-v="low" aria-pressed="' + !Roam.hd + '">Low</button><button data-act="qset" data-v="hd" aria-pressed="' + Roam.hd + '">HD</button></span>' : '') + '</span>';
+  const fc = S.focus && S.focus.cam, lt = !!(fc && Live.LIGHT[fc] && Frigate.streams && Frigate.streams[fc + '_sub']);   /* 7.7.7: the doorbell too */
+  if (!Roam.active() && !lt) return '';
+  const hd = lt ? !Live.light(fc) && !Roam.low() : Roam.hd;
+  return '<span class="qwrap"><button class="dk qbtn" data-act="qmenu" aria-label="Video Quality">' + (hd ? 'HD' : 'Low') + ' ▾</button>' +
+    (S.qOpen ? '<span class="qmenu"><button data-act="qset" data-v="low" aria-pressed="' + !hd + '">Low</button><button data-act="qset" data-v="hd" aria-pressed="' + hd + '">HD</button></span>' : '') + '</span>';
 }
 const HA = {
   names: { normal: 'Normal', home: 'At Home', sleep: 'Sleep' },
@@ -5228,7 +5247,7 @@ function viewWatch() {
   const canBig = !land && !S.wbig && n >= 4, big = canBig && S.wlay === 'big';
   if (big) { const m = ids.includes(S.wmain) ? S.wmain : ids[0]; ids = [m, ...ids.filter(x => x !== m)]; }
   const [c, r] = !land ? [1, n] : n <= 1 ? [1, 1] : n === 2 ? [2, 1] : n <= 4 ? [2, 2] : n <= 6 ? [3, 2] : [3, 3];
-  const src = id => n <= 2 || S.wbig || (big && id === ids[0]) || !(Frigate.streams && Frigate.streams[id + '_sub']) ? id : id + '_sub';
+  const src = id => (n <= 2 || S.wbig || (big && id === ids[0]) || !(Frigate.streams && Frigate.streams[id + '_sub'])) && !Live.light(id) ? id : id + '_sub';
   const tile = id => {
     const cam = Data.cam(id), f = Data.frame(cam, null), sr = src(id);
     return '<div class="wt vfit vcon' + (id === 'nest_doorbell' ? ' door' : '') + '" id="wt-' + id + '" data-src="' + esc(sr) + '"' + ' style="--war:' + trueAr(cam).toFixed(4) + ';--R:' + trueAr(cam).toFixed(4) + '"><img id="img-' + id + '" src="' + f.img + '" alt="' + esc(cam.name) + '">' + Live.holder(sr, false) +
@@ -6601,6 +6620,10 @@ function viewFocus() {
   }
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
   const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk ftm" id="ftm">' + dtHdr(shownT(c.id, c.id)) + '</div>' + qualBtn() + '<div style="flex:1"></div><span id="ffix" class="ffixw">' + focusFix(c.id) + '</span>' +
+    /* 7.7.7 her "C" (Duo cover only): Download and the Alert List / Timeline button sit up here; Today sits on the timeline */
+    '<span class="fcv">' + (frig ? '<button class="dk" data-act="fclip" aria-label="Download Video">' + I.dl + '</button>' : '') +
+    (S.flist ? '<button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button>' : '') +
+    '<button class="dk' + (S.flist ? ' on' : '') + '" data-act="flist" aria-label="' + (S.flist ? 'Show Timeline' : 'Show Alert List') + '">' + (S.flist ? I.tline : I.bellO) + '</button></span>' +
     /* 5.1.11 (her choice, phone and computer): Review at the moment shown, in place of Turn Camera Off (that stays on Home) */
     (frig ? '<button class="dk" data-act="focusreview" data-id="' + c.id + '" aria-label="All Cameras At This Time">' + I.review + '</button>' : '') +
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
@@ -6608,7 +6631,7 @@ function viewFocus() {
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '" style="--vr:' + (isTall(c) ? c.ar : Math.min(trueAr(c), 1.7778)).toFixed(4) + '">' +
     '<div class="fvid vfit' + (c.id === 'nest_doorbell' ? ' door' : '') + (c.id === 'doorbell' ? ' db43' : '') + (isTall(c) ? ' tall' : '') + '" style="--R:' + trueAr(c).toFixed(4) + (isTall(c) ? ';--ar:' + c.ar.toFixed(4) : trueAr(c) >= 1.2 && trueAr(c) < 1.7 ? ';aspect-ratio:' + trueAr(c).toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.quick(c.id, t != null, 'fquick') + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tags ? ' multi' : f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fseek" id="fseek" hidden></div>' +
-    '<div class="fctl" id="fctl">' + (S.fclip && S.fclip.cam === c.id ?
+    '<div class="fctl' + (S.fclip && S.fclip.cam === c.id ? '' : ' fnorm') + '" id="fctl">' + (S.fclip && S.fclip.cam === c.id ?
       '<button class="dk" data-act="fclipx" aria-label="Cancel Download">' + I.x + '</button><div class="fclipt"><b>Start</b> ' + (S.fclip.a ? hms(S.fclip.a) : '—') + '<br><b>End</b> ' + (S.fclip.b ? hms(S.fclip.b) : '—') + '</div>' +
       (S.fclip.al ? '<button class="dk fclipal' + (S.fclip.a === S.fclip.al.a && S.fclip.b === S.fclip.al.b ? ' set' : '') + '" data-act="fclipal" aria-label="Whole Alert">Alert</button>' : '') +
       '<button class="dk fbk' + (S.fclip.a ? ' set' : '') + '" data-act="fclipmark" data-v="a" aria-label="Set Start Here">[</button><button class="dk fbk' + (S.fclip.b ? ' set' : '') + '" data-act="fclipmark" data-v="b" aria-label="Set End Here">]</button>' +
@@ -9095,7 +9118,9 @@ const ACT = {
     S.moFix = null; S.modal = null; toast(ok ? 'Sent To Frigate+ · Draw The Box On The Frigate+ Site' : 'Not Sent To Frigate+ · Try Again'); render(); },
   roamwho(d) { const back = S.modal === 'roamwho'; Roam.setWho(d.v); if (back) { S.modal = null; if (S.roamAfter != null) { const v = S.roamAfter; S.roamAfter = null; Roam.set(v); } } render(); },
   qmenu() { S.qOpen = !S.qOpen; if (S.full) fullUi(); else render(); },
-  qset(d) { S.qOpen = false; const hd = d.v === 'hd'; if (hd !== Roam.hd) { Roam.hd = hd; Dbg.log('quality picked', hd ? 'HD' : 'Low'); Roam.apply(); } else if (S.full) fullUi(); else render(); },
+  qset(d) { S.qOpen = false; const hd = d.v === 'hd';
+    if (S.focus && Live.LIGHT[S.focus.cam] && !!S.focus.hd !== hd) { S.focus.hd = hd; Dbg.log('doorbell live', hd ? 'Clear' : 'Fluent'); if (!Roam.active() || hd === Roam.hd) { Roam.swapLive(); if (S.full) fullUi(); else render(); return; } }
+    if (Roam.active() && hd !== Roam.hd) { Roam.hd = hd; Dbg.log('quality picked', hd ? 'HD' : 'Low'); Roam.apply(); } else if (S.full) fullUi(); else render(); },
   fmode(d) { S.fmode = d.v === 'B' ? 'B' : 'C'; store.set('fmode', S.fmode); if (S.focus) { S.focus.og = null; S.focus.ogk = null; } render(); },
   fstripgo(d, e) { const st = e && e.target.closest('.fstrip') && e.target.closest('.fstrip').querySelector('.fsrow'); if (st) st.scrollBy({ left: (+d.v) * Math.max(80, st.clientWidth * 0.8), behavior: 'smooth' }); },
   fjump(d) {   /* tap a card or rail icon: go to that alert (1 s before it starts) */

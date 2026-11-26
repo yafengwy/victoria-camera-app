@@ -958,3 +958,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.7.6
 - Ev.fix: objects Frigate left out of an alert are still added on every refresh, but "alert objects added" is logged and the Alerts page redrawn only the first time per alert (addedK), not on every refresh.
+
+## 7.7.7
+- Doorbell live uses its Fluent stream (doorbell_sub) everywhere (camera view, full screen, cards, multi-camera window): `Live.LIGHT`, `Live.light(id)`. The Low / HD button (qualBtn) now also shows on the doorbell's camera view; HD = Clear for that visit (`S.focus.hd`), reset when the view is opened again. Recording, recordings playback and Frigate detection unchanged. Reason: her log showed 5.8 s / 6.7 s page freezes when the 2560x1920 stream started.
+- Duo cover camera view, her "C": picture at most 300 high (fitted, black sides; tall cameras excluded); Download and Alert List / Timeline (+ Alert Settings in list mode) moved into the top row (`.fcv`, hidden elsewhere); the icon row (`.fctl.fnorm`) has no height, its Today button sits at the top of the timeline centred on the grey rail (moves 24 px lower while the alert bar shows). Clip-download mode keeps the old row. The 38 px alert bar space under the picture is kept (7.3.7, no jumping).
