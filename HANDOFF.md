@@ -969,3 +969,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 7.7.9
 - Every foldable, inside screen upright (data-foldup, not cover), her "B": camera view top row over the picture's top (picture no longer pushed down 44), picture at most 340 high (fitted, black sides; tall cameras excluded), Download / Alert List in the top row (.fcv), Today on the timeline (.fctl.fnorm collapsed), alert bar room 38 (was 64; still fixed, no jumping), Today pill 28 high.
 - placeSteps() now centres Today on the timeline's rail (.frail) wherever it sits absolutely (cover too).
+
+## 7.7.10
+- Review, foldable upright (FUP): the camera / object chip row is gone; Cameras and Objects are icons right of Reset (Back, Reset, Cameras, Objects, Big, Boxes, List, Date). rvFoldFit: in Big the list starts under the big camera and the first small row (other layouts: under the third row as before).
+- Camera view, foldable upright: cards and the opened box start at 122 px (just right of the icon lanes) and reach the right edge; the opened box has three pictures a row (RH 80, picture 74, 3 rows show).
