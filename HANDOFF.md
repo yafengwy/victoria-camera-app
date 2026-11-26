@@ -1004,3 +1004,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 ## 7.8.10
 - Camera view alert list (every screen): rows get .hot / .un (partRows hot, else evInt); hot icon orange (var(--hot)), un icon grey #8A939C.
 - Duo screens (isDuoScreen): Low / HD (qualBtn) moved from the top row to the picture's bottom right (.fqb, menu opens upward); the Loading pill moves up above it when both show. Other phones keep it in the top row.
+
+## 7.9.1
+- Camera view top row order (her choice, every screen): Fix / Who?, Objects (list mode), Boxes, List / Timeline, All Cameras At This Time, Download, Sound. Objects / List / Download are .fcv (top row only on Duo / foldable screens); other phones keep them in the row under the picture, now in the same order (Objects, List, Download).
