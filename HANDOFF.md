@@ -1025,3 +1025,6 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.9.7
 - Alerts top row, foldable sideways: Reset still missed at ~110-150 px from the left (Cameras / Objects at the same height work, so likely a dead touch spot of the screen there); "Alerts" now has 84 px after it, Reset sits at ~180-222 px.
+
+## 7.9.8
+- Alerts, foldable sideways: Reset back where 7.9.6 had it (title margin 16); instead the whole top area moves down 12 px (.evtop padding-top 12), so the row sits at ~19-49 px from the top.
