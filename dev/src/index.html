@@ -2022,6 +2022,14 @@ body::before{content:"";position:fixed;left:0;right:0;top:0;height:var(--sbar,0p
 :root[data-foldup]:not([data-cover]) .focus .fsubin{display:grid;grid-template-columns:1fr 1fr;column-gap:4px;align-content:start}
 :root[data-foldup]:not([data-cover]) .focus .fsr{height:104px!important}
 :root[data-foldup]:not([data-cover]) .focus .fsr img{height:98px!important}
+/* 7.7.8 her "B" (Duo cover only): opened alert, two big pictures a row; the time on the picture's bottom-left, the icon
+   and the name under the picture */
+:root:is([data-cover],[data-coverweb]) .focus .fsubin{display:grid;grid-template-columns:1fr 1fr;column-gap:4px;align-content:start}
+:root:is([data-cover],[data-coverweb]) .focus .fsr{position:relative;display:flex;flex-wrap:wrap;align-items:center;align-content:flex-start;gap:0 5px;height:114px!important;padding:3px 3px 0!important;box-sizing:border-box}
+:root:is([data-cover],[data-coverweb]) .focus .fsr img{order:0;flex:0 0 100%;width:100%!important;height:84px!important;border-radius:9px;display:block}
+:root:is([data-cover],[data-coverweb]) .focus .fsr b{position:absolute;left:8px;top:65px;width:auto!important;font-size:12px!important;background:rgba(0,0,0,.6);border-radius:7px;padding:2px 6px;z-index:1}
+:root:is([data-cover],[data-coverweb]) .focus .fsr .lico{order:1;margin:5px 0 0 2px}
+:root:is([data-cover],[data-coverweb]) .focus .fsr span{order:2;flex:1;margin-top:5px;font-size:12px}
 /* 7.2.10 her: a box whose pictures all show is not a scroller at all, so a finger dragging in it moves the timeline */
 .fsubin.fit{overflow:hidden;touch-action:auto;overscroll-behavior:auto}
 :root:root[data-coverweb][data-coverweb] .focus>.fseek{min-height:38px;position:relative}
@@ -6581,13 +6589,13 @@ function viewFocus() {
     if (og && S.fmode !== 'B') {
       /* 6.1.3 her rule: the rows box shows at most 5 rows and scrolls on its own (a drag inside it moves only the rows,
          never the timeline); a drag outside it, or with it folded, moves the timeline as before */
-      const CB = fWide() ? 22 : 32, FU = document.documentElement.hasAttribute('data-foldup'), FC = FU ? 2 : 1, RH = FU ? 104 : document.documentElement.hasAttribute('data-foldside') ? 102 : fWide() ? 62 : 40, k = keyOf(og);   /* 7.2.6 her "A": Duo sideways, one big picture per row */   /* 6.4.5: bigger rows (pictures) on a computer */
+      const CV = document.documentElement.matches('[data-cover],[data-coverweb]'), CB = fWide() ? 22 : 32, FU = document.documentElement.hasAttribute('data-foldup'), FC = FU || CV ? 2 : 1, RH = CV ? 114 : FU ? 104 : document.documentElement.hasAttribute('data-foldside') ? 102 : fWide() ? 62 : 40, k = keyOf(og);   /* 7.2.6 her "A": Duo sideways, one big picture per row */   /* 6.4.5: bigger rows (pictures) on a computer */
       const list = og.items.map(e => { const p = pick(e, S.filt); return { e, p, t: p.t }; }).sort((x, z) => z.t - x.t);
-      const NR = Math.ceil(list.length / FC), boxH = Math.min(NR, FU ? 3 : 5) * RH + 8;   /* 7.2.8 her "A": opened upright, two pictures a row, 3 rows show */
+      const NR = Math.ceil(list.length / FC), boxH = Math.min(NR, CV ? 2 : FU ? 3 : 5) * RH + 8;   /* 7.7.8 her "B": Duo cover, two bigger pictures a row, 2 rows show */   /* 7.2.8 her "A": opened upright, two pictures a row, 3 rows show */
       if (S.focus.foldKey !== k) { S.focus.foldKey = k; S.focus.subTop = 0; }
       S.focus.subTop = Math.max(0, Math.min(S.focus.subTop || 0, NR * RH + 8 - boxH));
       S.focus.fold = { top: og.y + CB, ids: list.map(r => r.e.id), ts: list.map(r => r.t), te: list.map(r => Math.max(r.t, r.e.end || now())), boxH, end, RH, C: FC };
-      fFoldMap(); fold = { g: og, list, top: og.y + CB, boxH, fit: NR <= (FU ? 3 : 5) };
+      fFoldMap(); fold = { g: og, list, top: og.y + CB, boxH, fit: NR <= (CV ? 2 : FU ? 3 : 5) };
     }
     const height = FTOP + span / MIN * FPXf() + 400 + (S.focus.fmap ? S.focus.fmap[S.focus.fmap.length - 1][1] : 0);
     let rows = '';
