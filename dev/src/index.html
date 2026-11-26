@@ -279,6 +279,9 @@ img.rf{opacity:0}
 .fov .dk.ffix,.fuitop .dk.ffix{width:auto;padding:0 12px;font-size:13px;font-weight:700}
 .fuitop .ffixw{display:flex;gap:8px}
 .qwrap{position:relative;display:inline-flex}
+.fqb{position:absolute;right:4px;bottom:4px;z-index:4}.fqb .qbtn{height:30px;padding:0 10px;border-radius:15px;background:rgba(0,0,0,.6);color:#fff;font-size:12px;font-weight:700;width:auto}
+.fqb .qmenu{top:auto;bottom:calc(100% + 6px);left:auto;right:0}
+.fvid:has(> .fqb .qwrap)::after{bottom:42px!important}
 .fov .dk.qbtn,.fuitop .dk.qbtn{width:auto;padding:0 10px;font-size:12px;font-weight:800;white-space:nowrap}
 .qmenu{position:absolute;top:calc(100% + 6px);left:0;display:flex;flex-direction:column;min-width:96px;padding:4px;border-radius:12px;background:#1C2027;box-shadow:0 8px 24px rgba(0,0,0,.45);z-index:20}
 .qmenu button{padding:10px 12px;border-radius:8px;color:#fff;font-size:14px;font-weight:700;text-align:left}
@@ -548,6 +551,7 @@ img.rf{opacity:0}
 .fitem b{display:block;font-size:16px;font-weight:600}
 .fitem small{display:block;font-size:13px;color:var(--dark-sub);margin-top:2px;font-variant-numeric:tabular-nums}
 .fitem.cur{box-shadow:inset 0 0 0 2px #B9CCFF}
+.fitem.hot .lico{color:var(--hot)}.fitem.hot .lico svg{fill:currentColor;fill-opacity:.4}.fitem.un .lico{color:#8A939C}
 /* 7.7.4 her (Duo cover only): the camera view's alert list is two columns, a little smaller text, and an alert's whole
    object list wraps instead of being cut off */
 :root:is([data-cover],[data-coverweb]) .focus .flist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:6px}
@@ -6574,7 +6578,8 @@ function fListRows(evs, t) {
   rows.forEach(r => {
     const d = dayStart(r.t);
     if (d !== lastDay) { h += '<div class="fday-h" data-day="' + d + '">' + dayWord(d) + '</div>'; lastDay = d; }
-    h += '<button class="fitem' + (r === curR ? ' cur' : '') + '" data-act="fpick" data-t="' + r.t + '" data-eid="' + esc(r.e.id) + '"><img src="' + r.img + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(r.icon) + '</i>' + esc(r.name) + '</b><small>' + hm(r.t) + (r.dur ? ' · ' + r.dur : '') + '</small></span></button>';
+    /* 7.9.1 her (every screen): with Interesting and Uninteresting both shown, an interesting alert's icon is orange, an uninteresting one grey */
+    h += '<button class="fitem' + (r === curR ? ' cur' : '') + ((r.hot != null ? r.hot : evInt(r.e)) ? ' hot' : ' un') + '" data-act="fpick" data-t="' + r.t + '" data-eid="' + esc(r.e.id) + '"><img src="' + r.img + '" alt="" loading="lazy"><span><b><i class="lico">' + objIcon(r.icon) + '</i>' + esc(r.name) + '</b><small>' + hm(r.t) + (r.dur ? ' · ' + r.dur : '') + '</small></span></button>';
   });
   return h;
 }
@@ -6654,7 +6659,7 @@ function viewFocus() {
     body = '<div class="fsc" id="fsc"><div class="fin" style="position:relative;height:' + height + 'px;margin-top:' + fPad() + 'px"><div class="frail">' + railState(c.id, end, span) + '</div>' + fclipMarks(c.id) + rows + '</div></div><div class="fline" id="fpline" style="top:' + (S.focus.lineY || FTOP) + 'px">' + (S.focus.og ? '<button class="flinex" data-act="fstripx" aria-label="Close The Opened Alerts">' + I.x + '</button>' : '') + '</div>';
   }
   const cs = Ctl.get(c.id), frig = Data.source === 'frigate';
-  const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk ftm" id="ftm">' + dtHdr(shownT(c.id, c.id)) + '</div>' + qualBtn() + '<div style="flex:1"></div><span id="ffix" class="ffixw">' + focusFix(c.id) + '</span>' +
+  const top = '<div class="fov"><button class="dk" data-act="unfocus" aria-label="Back">' + I.back + '</button><div class="pillk ftm" id="ftm">' + dtHdr(shownT(c.id, c.id)) + '</div>' + (isDuoScreen() ? '' : qualBtn()) + '<div style="flex:1"></div><span id="ffix" class="ffixw">' + focusFix(c.id) + '</span>' +
     /* 7.7.7 her "C" (Duo cover only): Download and the Alert List / Timeline button sit up here; Today sits on the timeline */
     '<span class="fcv">' + (frig ? '<button class="dk" data-act="fclip" aria-label="Download Video">' + I.dl + '</button>' : '') +
     (S.flist ? '<button class="dk" data-act="modal" data-v="filter" aria-label="Alert Settings">' + I.filter + '</button>' : '') +
@@ -6662,7 +6667,9 @@ function viewFocus() {
     /* 5.1.11 (her choice, phone and computer): Review at the moment shown, in place of Turn Camera Off (that stays on Home) */
     (frig ? '<button class="dk" data-act="focusreview" data-id="' + c.id + '" aria-label="All Cameras At This Time">' + I.review + '</button>' : '') +
     (frig ? '<button class="dk bxbtn" data-act="boxes" aria-pressed="' + Box.on + '" aria-label="Show Object Boxes">' + I.boxes + '</button>' : '') + Snd.btn('dk') +
-    '</div><div class="pillk fnmbr' + rcnA(c.id) + '>' + esc(c.name) + '</div>';   /* top row: back, the picture's time, buttons; the camera name sits in the picture's bottom-left corner (Loading shows bottom-right), the object tag just above it */
+    '</div><div class="pillk fnmbr' + rcnA(c.id) + '>' + esc(c.name) + '</div>' +
+    /* 7.9.1 her (Duo screens): Low / HD sits at the picture's bottom right, across from the camera's name, so the top row is not so crowded */
+    (isDuoScreen() ? '<span class="fqb">' + qualBtn() + '</span>' : '');   /* top row: back, the picture's time, buttons; the camera name sits in the picture's bottom-left corner (Loading shows bottom-right), the object tag just above it */
   let h = '<div class="focus" role="dialog" aria-label="' + esc(c.name) + '" style="--vr:' + (isTall(c) ? c.ar : Math.min(trueAr(c), 1.7778)).toFixed(4) + '">' +
     '<div class="fvid vfit' + (c.id === 'nest_doorbell' ? ' door' : '') + (c.id === 'doorbell' ? ' db43' : '') + (isTall(c) ? ' tall' : '') + '" style="--R:' + trueAr(c).toFixed(4) + (isTall(c) ? ';--ar:' + c.ar.toFixed(4) : trueAr(c) >= 1.2 && trueAr(c) < 1.7 ? ';aspect-ratio:' + trueAr(c).toFixed(4) : '') + '"><img id="fimg" src="' + f.img + '" alt="' + esc(c.name) + '">' + Live.quick(c.id, t != null, 'fquick') + Live.holder(c.id, t != null, 'flive') + Playback.holder(c.id) + (cs.enabled ? '' : '<div class="offv" id="foff"' + (t != null ? ' hidden' : '') + '>' + I.power + '<b>Camera Off</b><button class="btn solid" data-act="camset" data-id="' + c.id + '" data-k="enabled" data-v="1">Turn On</button></div>') + top + '<div class="tag' + (f.tags ? ' multi' : f.tag && !f.hot ? ' un' : '') + '" id="ftag"' + (f.tag ? '' : ' hidden') + '>' + (f.tag ? tagInner(f) : '') + '</div></div>' +
     '<div class="fseek" id="fseek" hidden></div>' +

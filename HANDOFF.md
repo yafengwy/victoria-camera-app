@@ -1000,3 +1000,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.8.9
 - Review Big, foldable sideways, her "A": rvBigCols() = 3 there (was 4 with the list beside): big camera 2/3 wide, two beside it, rows of three; about 8 cameras on the first screen.
+
+## 7.8.10
+- Camera view alert list (every screen): rows get .hot / .un (partRows hot, else evInt); hot icon orange (var(--hot)), un icon grey #8A939C.
+- Duo screens (isDuoScreen): Low / HD (qualBtn) moved from the top row to the picture's bottom right (.fqb, menu opens upward); the Loading pill moves up above it when both show. Other phones keep it in the top row.
