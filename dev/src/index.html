@@ -4565,7 +4565,8 @@ function modalLitter() {
       '<div class="ltmrow"><div class="ltmeta"><b>' + (g.ps.length > 1 ? hm(g.t) + ' – ' + hm(g.end) : hms(g.t)) + '</b><span>' + Litter.camName(g.cam) + (g.ps.some(p => p.spot) ? ' · Poop Spot' : '') + (g.cut ? ' · ✂︎ 剪出来的一段' : g.poop ? ' · 💩 便便' : g.motion ? (g.mark ? ' · Motion · 标成 ' + objName(g.mark) : ' · Motion') : '') + (g.out ? ' · 已从全部移出' : '') + ' · ' + Litter.dayName(g.t) + (g.ps.length > 1 ? ' · ' + g.ps.length + ' 段' : '') + ' · ' + Litter.dur(g) + '</span></div>' +
       (g.cut ? '' : (g.motion ? '<button class="ltact fx" data-act="ltfixopen" aria-pressed="' + !!(S.ltFix && S.ltFix.id === g.id) + '">Fix</button>' : '<button class="ltact" data-act="ltnotopen" aria-pressed="' + (S.ltNotOpen === g.id) + '">不是猫</button>') +
         /* 7.9.10: 💩 便便 (the box turning, kept on 全部 to check the droppings) and 剪 */
-        '<button class="ltact pp" data-act="ltpoopopen" aria-pressed="' + (g.poop || S.ltPoopOpen === g.id) + '">💩</button>' +
+        /* 7.9.11 her: 剪 → 💩 便便 does the same, so the 💩 button only stays on a visit already marked (to take it off) */
+        (g.poop ? '<button class="ltact pp" data-act="ltpoopopen" aria-pressed="true">💩</button>' : '') +
         '<button class="ltact fx" data-act="ltcutopen" aria-pressed="' + !!C + '">剪</button>') +
       '<button class="ic ltdelb" data-act="ltdeloneask" aria-label="删除" aria-pressed="' + (S.ltDelOne === g.id) + '">' + I.trash + '</button></div>' +
       (S.ltPoopOpen === g.id ? '<div class="ltnot ltpoop"><div class="ltnott">' + (g.poop ? '不再标成 💩 便便？' : '💩 便便 · 留在「全部」里，不算进猫的次数') + '</div>' +
