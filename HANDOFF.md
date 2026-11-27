@@ -1039,3 +1039,7 @@ Icon count numbers tucked onto the icon top-right corner (top -7 / right -6, als
 
 ## 7.10.1
 - 如厕记录: the 💩 button beside 剪 is gone (her: same as 剪 → 💩 便便 over the whole visit); it only shows on a visit already marked poop, to take the mark off.
+
+## 7.10.2
+- 如厕记录: the first page is called 记录 (was 全部; every 「全部」 text too).
+- On 猫砂盆 / Closet a visit she cut keeps its whole length but shows ✂︎ (top right) and what it was cut into ("💩 便便", "胖胖", or "胖胖 · 💩") as its label; its page says "✂︎ 剪成了 …". Litter.cutWho(g), pieces read once per change of her marks.
