@@ -8473,7 +8473,7 @@ const ACT = {
     Litter.busy = true; render();
     try { await Litter.post('split', g.ps.map(p => p.id)); S.ltSel = null; toast('已拆开 · ' + g.ps.length + ' 条'); }
     catch (x) { toast('拆开没成功 · ' + (x && x.message)); }
-    Litter.busy = false; render();
+    Litter.busy = false; render(); if (!S.ltSel) bigBack();
   },
   /* 是谁: every part gets that name (Frigate sub label) and teaches the Cats model one picture, exactly as Fix does */
   async ltname(d) {
@@ -8500,7 +8500,7 @@ const ACT = {
     if (plus) for (const p of g.ps) { if (p.motion) continue; const k = 'lt~' + p.id; EVK[k] = { e: p }; try { const r = await CatFix.save(k, '-animal', false, true); if (!r.ok) ok = false; } catch (x) { ok = false; } }
     if (rmv) { try { await Litter.post('remove', g.ps.map(p => p.id)); } catch (x) { ok = false; } }
     Litter.busy = false; S.ltSel = null; Dbg.log('litter not a visit', g.ps.length + ' parts', plus ? 'frigate+' : '', rmv ? 'removed' : '', ok ? 'ok' : 'not all taken');
-    toast((plus ? '已发给 Frigate+' : '') + (plus && rmv ? ' · ' : '') + (rmv ? '已从如厕记录删掉' : '') + (ok ? '' : ' · 有一部分没成功')); render();
+    toast((plus ? '已发给 Frigate+' : '') + (plus && rmv ? ' · ' : '') + (rmv ? '已从如厕记录删掉' : '') + (ok ? '' : ' · 有一部分没成功')); render(); bigBack();   /* 7.10.3 her: back where she was in the list, not the top */
   },
   go(d) { S.view = d.v; S.modal = null; S.more = false; S.evPop = null; render(); window.scrollTo(0, 0); },
   /* 6.7.6: ping = 3 tiny requests (version.txt), speed = one 4 MB file (speed.bin, made by the mini PC); goes to the log */
